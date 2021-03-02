@@ -14,3 +14,7 @@ boot:
 	jmp boot
 
 
+end:
+	.space (1<<9)-2-(end-boot)
+	.byte 0x55
+	.byte 0xAA
