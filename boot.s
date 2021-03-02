@@ -4,9 +4,10 @@
 
 .globl boot
 .globl write
+.globl read
 
 .code16
-
+.section .boot
 boot:
 	cli
 
@@ -22,7 +23,6 @@ loop:
 
 	hlt
 
-
 # Write an ASCII char to the screen, assumes the char is inside al
 write:
 	mov $0x0E, %ah  # service code 14
@@ -34,8 +34,4 @@ read:
 	xor %ax, %ax # service 0
 	int $0x16    # keyboard service
 	ret 
-	
-end:
-	.space 512-2-(end-boot)
-	.byte 0x55
-	.byte 0xAA
+
