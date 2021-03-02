@@ -5,6 +5,8 @@ extern void c_write(int);
 extern int c_read();
 
 int main(void) {
-  c_write('H');
+  while(TRUE) {
+    c_write(c_read());
+  }
   return 0;
 }

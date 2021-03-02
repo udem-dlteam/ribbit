@@ -21,7 +21,7 @@ boot:
 	hlt
 
 c_write:
-	mov 2(%esp), %al
+	mov 4(%esp), %al
 # Write an ASCII char to the screen, assumes the char is inside al
 write:
 	mov $0x0E, %ah  # service code 14
