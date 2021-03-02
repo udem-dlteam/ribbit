@@ -9,18 +9,31 @@
 
 boot:
 	cli
-	mov $'S, %al   
+
+	mov $'>, %al
 	call write
+
+loop:
+	call read
+	call write
+
+	jmp loop
+
 
 	hlt
 
 
-# Write a char to the screen, assumes the char is inside
-# AH
+# Write an ASCII char to the screen, assumes the char is inside al
 write:
-	mov $0x0E, %ah
-	int $0x10	
+	mov $0x0E, %ah  # service code 14
+	int $0x10	    # print service
 	ret
+
+# Read a keystroke, returns %ax = (scan code . ascii char)
+read:
+	xor %ax, %ax # service 0
+	int $0x16    # keyboard service
+	ret 
 	
 end:
 	.space 512-2-(end-boot)
