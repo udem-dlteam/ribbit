@@ -3,7 +3,14 @@ SECTIONS {
   . = 0x7C00;
   .text : {
     *(.boot)
-    . = 0x1FE;
+    *(.text)
+    *(.data)
+  }
+
+  /* Bootable disk flag */
+  . = 0x7DFE;
+  .end : {
+    . = .;
     SHORT(0xAA55);
   }
 }
