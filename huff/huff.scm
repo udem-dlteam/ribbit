@@ -46,6 +46,18 @@
 
   (fold madd 0 line-stats))
 
+(define (huff-encode with-size)
+
+ (define (encode idx-&-line)
+  (let* ((idx (car idx-&-line))
+         (line (cdr idx-&-line)))
+    (match line
+           ((,instr ,count ,cost)
+            ;; TODO: compute the encoding
+            (list instr count cost )))))
+
+ (map encode (enumerate with-size)))
+
 (define (main)
   (define bins (make-table))
 
@@ -53,6 +65,8 @@
 
   (let* ((counted (table->list bins))
          (sorted (list-sort (pair-sort > cdr) counted))
-         (with-size (compute-size sorted)))
+         (with-size (compute-size sorted))
+         (encoded (huff-encode with-size)))
+    (pretty-print encoded)
     (compute-cost with-size)))
 
