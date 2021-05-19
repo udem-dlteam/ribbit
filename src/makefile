@@ -1,12 +1,22 @@
-# Sector Scheme
+# Sector Scheme Makefile
 
+UNAME = $(shell uname)
+
+ifeq ($(UNAME), Darwin)
 LD=/usr/local/Cellar/x86_64-elf-binutils/2.36.1/bin/x86_64-elf-ld
 GCC=/usr/local/Cellar/x86_64-elf-gcc/11.1.0/bin/x86_64-elf-gcc
 AS=/usr/local/Cellar/x86_64-elf-binutils/2.36.1/bin/x86_64-elf-as
+else
+LD=ld
+GCC=gcc
+AS=as
+endif
 
 CFLAGS += -g -Os -fno-stack-protector -Wall -fomit-frame-pointer -ffreestanding -nostdlib -nostdinc -fno-pie -m16
 AS_FLAGS += --32
 LDFLAGS +=
+
+
 
 build: bin_files
 
