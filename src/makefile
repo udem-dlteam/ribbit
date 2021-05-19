@@ -24,7 +24,7 @@ boot.bin: boot.o vm.o
 	$(LD) $(LDFLAGS) boot.o vm.o -o boot.bin -T link.ld --omagic -m elf_i386 --entry=boot --oformat binary
 
 boot.o: boot.s
-	$AS $(AS_FLAGS) -o $*.o -s $*.s
+	$(AS) $(AS_FLAGS) -o $*.o -s $*.s
 
 vm.o: vm.c
-	gcc $(CFLAGS) -c $*.c -o $*.o
+	$(GCC) $(CFLAGS) -c $*.c -o $*.o
