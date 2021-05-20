@@ -1,4 +1,8 @@
 # Sector Scheme Makefile
+#
+# On MacOS, the makefile builds using gcc installed
+# by brew.
+
 
 UNAME = $(shell uname)
 
@@ -15,8 +19,6 @@ endif
 CFLAGS += -g -Os -fno-stack-protector -Wall -fomit-frame-pointer -ffreestanding -nostdlib -nostdinc -fno-pie -m16
 AS_FLAGS += --32
 LDFLAGS +=
-
-
 
 build: bin_files
 
