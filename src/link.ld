@@ -13,4 +13,9 @@ SECTIONS {
     . = .;
     SHORT(0xAA55);
   }
+  . = 0x7E00;
+  .flag : {
+      . = .;
+      SHORT(0xCCDD);
+  }
 }
