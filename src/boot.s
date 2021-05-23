@@ -1,4 +1,9 @@
 # Sector Scheme
+	.flag : {
+	.     = .
+	SHORT(0xCCDD)
+	}
+
 # Boot routine + setup
 # AT&T syntax
 

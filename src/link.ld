@@ -3,8 +3,8 @@ SECTIONS {
   . = 0x7C00;
   .text : {
     *(.boot)
-    *(.text)
-    *(.data)
+    *(EXCLUDE_FILE(*mem.o).text* )
+    *(EXCLUDE_FILE(*mem.o).data* )
   }
 
   /* Bootable disk flag */
@@ -13,9 +13,9 @@ SECTIONS {
     . = .;
     SHORT(0xAA55);
   }
-  . = 0x7E00;
-  .flag : {
-      . = .;
-      SHORT(0xCCDD);
+  . = 0x7E02;
+  second_sector : {
+    . = .;
+    mem.o (.text)
   }
 }
