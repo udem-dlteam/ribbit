@@ -35,7 +35,7 @@ bin_files: boot.bin
 
 boot.bin: boot.o vm.o decode.o mem.o
 	$(LD) $(LDFLAGS) boot.o vm.o decode.o -o boot.bin.elf -T link.ld --omagic -m elf_i386 --entry=boot
-	objcopy -x --remove-section .note --remove-section .comment --remove-section .note.gnu.property boot.bin.elf
+	objcopy -x --remove-section .note --remove-section .comment boot.bin.elf
 	objcopy -SO binary boot.bin.elf boot.bin
 
 boot.o: boot.s
