@@ -1,17 +1,20 @@
 /* Memory management using a Cheney-style stop-and-copy GC */
 
-#include <stdio.h>
 
 #include "mem.h"
 
 #ifdef PC
 
 #define mem_base 0
+#include "utils.h"
+#include "types.h"
 
 #else
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
+
 ptrdiff_t mem_base;
 
 #endif
@@ -108,7 +111,6 @@ obj new_clump(obj field0, obj field1, obj field2) {
 #ifndef PC
 
 /* test the GC... keeping one out of 8 objects allocated */
-
 int main() {
 
   obj tmp;
