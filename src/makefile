@@ -16,7 +16,7 @@ AS=as
 endif
 
 GCC_DEFS += -DPC
-CFLAGS += -g -Os -fno-stack-protector -Wall -fomit-frame-pointer -ffreestanding -nostdlib -nostdinc -fno-pie -m16 -fno-asynchronous-unwind-tables
+CFLAGS += -Os -fno-stack-protector -Wall -fomit-frame-pointer -ffreestanding -nostdlib -nostdinc -fno-pie -m16 -fno-asynchronous-unwind-tables
 AS_FLAGS += --32
 LDFLAGS += --strip-all --discard-all -no-pie -static
 
