@@ -23,16 +23,17 @@ obj stack;       /* stack of the VM */
 obj alloc;       /* heap allocation pointer */
 obj alloc_limit; /* allocation limit pointer */
 
+#ifndef PC
 void init_heap() {
 
-#ifndef PC
   mem_base = (ptrdiff_t)malloc(heap_start+2*max_nb_objs*sizeof(struct clump));
-#endif
 
   stack = nil;
   alloc = heap_top;
   alloc_limit = alloc - max_nb_objs*sizeof(struct clump);
+
 }
+#endif
 
 #define alloc_clump() (alloc -= sizeof(struct clump))
 
@@ -46,9 +47,9 @@ obj update(obj o) {
       alloc_clump();
       set_header(o, alloc);
       set_header(alloc, nil); /* null forwarding pointer */
-      set_field(0, alloc, get_field(0, o));
-      set_field(1, alloc, get_field(1, o));
-      set_field(2, alloc, get_field(2, o));
+      for(int i = 0; i < 3; ++i) {
+        set_field(i, alloc, get_field(i, o));
+      }
       copy = alloc;
     }
    return copy;
@@ -74,19 +75,17 @@ obj gc() {
 
   while (scan != alloc) {
     scan -= sizeof(struct clump);
-    set_field(0, scan, update(get_field(0, scan)));
-    set_field(1, scan, update(get_field(1, scan)));
-    set_field(2, scan, update(get_field(2, scan)));
+    for(int i = 0; i < 3; ++i) {
+      set_field(i, scan, update(get_field(i, scan)));
+    }
   }
 
+#ifndef PC
   if (alloc == alloc_limit) {
-#ifdef PC
-    halt();
-#else
     printf("heap overflow!\n");
     exit(1);
-#endif
   }
+#endif
 
   return latest;
 }
@@ -130,8 +129,6 @@ int main() {
       printf("\n");
     }
   }
-
-  return 0;
 }
 
 #endif

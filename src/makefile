@@ -3,7 +3,6 @@
 # On MacOS, the makefile builds using gcc installed
 # by brew.
 
-
 UNAME = $(shell uname)
 
 ifeq ($(UNAME), Darwin)
@@ -17,9 +16,9 @@ AS=as
 endif
 
 GCC_DEFS += -DPC
-CFLAGS += -g -Os -fno-stack-protector -Wall -fomit-frame-pointer -ffreestanding -nostdlib -nostdinc -fno-pie -m16
+CFLAGS += -g -Os -fno-stack-protector -Wall -fomit-frame-pointer -ffreestanding -nostdlib -nostdinc -fno-pie -m16 -fno-asynchronous-unwind-tables
 AS_FLAGS += --32
-LDFLAGS +=
+LDFLAGS += --strip-all --discard-all -no-pie -static
 
 build: bin_files
 
@@ -35,7 +34,9 @@ clean:
 bin_files: boot.bin
 
 boot.bin: boot.o vm.o decode.o mem.o
-	$(LD) $(LDFLAGS) boot.o vm.o decode.o -o boot.bin -T link.ld --omagic -m elf_i386 --entry=boot --oformat binary
+	$(LD) $(LDFLAGS) boot.o vm.o decode.o -o boot.bin.elf -T link.ld --omagic -m elf_i386 --entry=boot
+	objcopy -x --remove-section .note --remove-section .comment --remove-section .note.gnu.property boot.bin.elf
+	objcopy -SO binary boot.bin.elf boot.bin
 
 boot.o: boot.s
 	$(AS) $(AS_FLAGS) -o $*.o -s $*.s
