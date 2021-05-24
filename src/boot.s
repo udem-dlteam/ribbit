@@ -23,9 +23,10 @@ boot:
 	pushw $4
 	pushw $DECODE_TEST
 	call  decode
-	xorw  %bp, %bp
-	popw  %ax
-	popw  %ax
+
+	xorw %bp, %bp
+	popw %ax
+	popw %ax
 
 load_second_sector:
 	mov $DAP, %si
@@ -61,10 +62,12 @@ read:
 # Function stack:
 # --------------------------------
 # len
-# -------------------------------- bp + 4
+# -------------------------------- bp + 6
 # addr
-# -------------------------------- bp + 2
+# -------------------------------- bp + 4
 # ret addr
+# -------------------------------- bp + 2
+# old bp
 # -------------------------------- bp
 # decoded lo
 # -------------------------------- bp - 2
@@ -73,20 +76,21 @@ read:
 # multiple
 # -------------------------------- sp ⇔ bp - 6
 decode:
-	movw %sp, %bp
-	xor  %cx, %cx
-	movb $1, %dh
-	addw $(-6), %sp # decoded (u32) + multiple (u16)
+	pushw %bp
+	movw  %sp, %bp
+	xor   %cx, %cx
+	movb  $1, %dh
+	addw  $(-6), %sp # decoded (u32) + multiple (u16)
 
 decode_remaining:
-	movw 4(%bp), %bx
+	movw 6(%bp), %bx
 	cmpw %bx, %cx # while bt_c < len
 	jge  decode_end
 	decode_not_over: # do ... while
 	xorl %eax, %eax
 	movb %dh, %dl
 	shl  $2, %dl # dl = shift_factor
-	movw 2(%bp), %bx # address of the buffer in bx
+	movw 4(%bp), %bx # address of the buffer in bx
 	addw %cx, %bx
 	movb (%bx), %al # al = buff[cx]
 
@@ -128,6 +132,7 @@ movw %ax, -6(%bp)
 
 decode_end:
 	addw $6, %sp
+	popw %bp
 	ret
 
 DAP:
