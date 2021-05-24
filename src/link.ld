@@ -1,21 +1,20 @@
 ENTRY(boot)
 SECTIONS {
   . = 0x7C00;
-  .text : {
+  .first_sector : {
     *(.boot)
-    *(.text)
-    *(.data)
+    *(EXCLUDE_FILE(*mem.o).text* )
+    *(EXCLUDE_FILE(*mem.o).data* )
   }
 
-  /* Bootable disk flag */
   . = 0x7DFE;
-  .end : {
+  .boot_flag : {
     . = .;
     SHORT(0xAA55);
   }
   . = 0x7E00;
-  .flag : {
-      . = .;
-      SHORT(0xCCDD);
+  second_sector : {
+    . = .;
+    mem.o (.text)
   }
 }

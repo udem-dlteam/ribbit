@@ -1,6 +1,5 @@
 /* Memory management using a Cheney-style stop-and-copy GC */
 
-#include <stdio.h>
 
 #include "mem.h"
 
@@ -10,6 +9,7 @@
 
 #else
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
 ptrdiff_t mem_base;  /* emulate memory using a malloc'ed block */
@@ -23,6 +23,7 @@ obj *scan;        /* scan pointer */
 obj latest;       /* latest allocated object */
 obj stack;        /* stack of the VM */
 
+#ifndef PC
 void init_heap() {
 
 #ifndef PC
@@ -33,6 +34,7 @@ void init_heap() {
   alloc_limit = heap_mid;
   stack = nil;
 }
+#endif
 
 void update() {
   obj o = *scan;
@@ -97,13 +99,10 @@ void gc() {
     */
   }
 
+#ifndef PC
   if (alloc == alloc_limit) {
-#ifdef PC
-    halt();
-#else
     printf("heap overflow!\n");
     exit(1);
-#endif
   }
 }
 
@@ -134,7 +133,6 @@ obj pop_clump() {
 #ifndef PC
 
 /* test the GC... keeping one out of 8 objects allocated */
-
 int main() {
 
   obj tmp;
@@ -162,8 +160,6 @@ int main() {
       printf("\n");
     }
   }
-
-  return 0;
 }
 
 #endif
