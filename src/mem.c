@@ -6,74 +6,95 @@
 
 #ifdef PC
 
-#define mem_base 0
+#define mem_base 0  /* use real addresses */
 
 #else
 
 #include <stdlib.h>
 #include <stddef.h>
-ptrdiff_t mem_base;
+ptrdiff_t mem_base;  /* emulate memory using a malloc'ed block */
 
 #endif
 
-obj stack;       /* stack of the VM */
-obj alloc;       /* heap allocation pointer */
-obj alloc_limit; /* allocation limit pointer */
+obj *alloc;       /* heap allocation pointer, moves up */
+obj *alloc_limit; /* allocation limit pointer */
+obj *scan;        /* scan pointer */
+
+obj latest;       /* latest allocated object */
+obj stack;        /* stack of the VM */
 
 void init_heap() {
 
 #ifndef PC
-  mem_base = (ptrdiff_t)malloc(heap_start+2*max_nb_objs*sizeof(struct clump));
+  mem_base = (ptrdiff_t)malloc(heap_start+2*max_nb_objs*sizeof(clump));
 #endif
 
+  alloc = heap_bot;
+  alloc_limit = heap_mid;
   stack = nil;
-  alloc = heap_top;
-  alloc_limit = alloc - max_nb_objs*sizeof(struct clump);
 }
 
-#define alloc_clump() (alloc -= sizeof(struct clump))
-
-obj update(obj o) {
-  if (!mem_allocated(o)) {
-    return o;
-  } else {
-    obj copy = get_header(o);
+void update() {
+  obj o = *scan;
+  if (mem_allocated(o)) {
+    obj *ptr = ptr_from_obj(o);
+    obj copy = *ptr;
     if (copy == nil) {
       /* object not yet copied, so make a copy */
-      alloc_clump();
-      set_header(o, alloc);
-      set_header(alloc, nil); /* null forwarding pointer */
-      set_field(0, alloc, get_field(0, o));
-      set_field(1, alloc, get_field(1, o));
-      set_field(2, alloc, get_field(2, o));
-      copy = alloc;
+      copy = ptr_to_obj(alloc);
+      *ptr++ = copy; /* store forwarding pointer */
+      *alloc++ = nil;  /* allocate copy with null forwarding pointer */
+      *alloc++ = *ptr++; /* copy 3 fields of o */
+      *alloc++ = *ptr++;
+      *alloc++ = *ptr++;
+      /*
+        in assembly, if ptr is in SI and alloc is in DI, the copy could
+        be done with 3 bytes of code:
+        A5   MOVSW
+        A5   MOVSW
+        A5   MOVSW
+      */
     }
-   return copy;
+    *scan = copy;
   }
+  scan++;
 }
 
-obj gc() {
+void gc() {
 
-  /* alloc pointer is the latest object allocated (which is live) */
+  obj *start = (alloc_limit == heap_mid) ? heap_mid : heap_bot;
+  /*
+    in assembly, if the heap size is a power of 2, this could be done
+    by flipping a single bit in alloc_limit (1 XOR instruction)
+  */
 
-  obj latest = alloc;
-  obj scan = (alloc_limit == heap_bot) ? heap_top : heap_mid;
-
-  alloc = scan;
-  alloc_limit = alloc - max_nb_objs*sizeof(struct clump);
+  alloc_limit = start + max_nb_objs*CLUMP_NB_FIELDS;
+  alloc = start;
 
   /* update roots */
 
-  stack = update(stack);   /* copy stack */
-  latest = update(latest); /* copy latest object allocated */
+  scan = &stack;
+  update();  /* copy stack */
 
   /* copy reachable objects */
 
+  scan = start;
+
   while (scan != alloc) {
-    scan -= sizeof(struct clump);
-    set_field(0, scan, update(get_field(0, scan)));
-    set_field(1, scan, update(get_field(1, scan)));
-    set_field(2, scan, update(get_field(2, scan)));
+    scan++; /* skip field 0 which is the header */
+    update(); /* update fields 1, 2, 3 */
+    update();
+    update();
+    /*
+      in assembly, if scan is in register BX and update increments BX
+      on every call, the body of the loop could be done
+      with 11 bytes of code:
+           INC  BX
+           INC  BX
+           CALL update
+           CALL update
+           CALL update
+    */
   }
 
   if (alloc == alloc_limit) {
@@ -84,25 +105,30 @@ obj gc() {
     exit(1);
 #endif
   }
-
-  return latest;
 }
 
-obj new_clump(obj field0, obj field1, obj field2) {
+void push_clump() {
 
-  /* allocate and initialize object */
+  /* allocate and initialize object and add it to stack */
 
-  alloc_clump();
-  set_header(alloc, nil); /* null forwarding pointer */
-  set_field(0, alloc, field0);
-  set_field(1, alloc, field1);
-  set_field(2, alloc, field2);
+  *alloc++ = nil; /* null forwarding pointer */
+  *alloc++ = stack;
+  *alloc++ = stack;
+  *alloc++ = stack;
 
-  /* check that free space remains available */
+  stack = ptr_to_obj(alloc-CLUMP_NB_FIELDS);
 
-  if (alloc != alloc_limit) return alloc;
+  /* start a garbage collection if free space exhausted */
 
-  return gc();
+  if (alloc == alloc_limit) {
+    gc(); /* will move objects including the stack */
+  }
+}
+
+obj pop_clump() {
+  obj o = stack;
+  stack = ptr_from_obj(stack)[CLUMP_NB_FIELDS-1];
+  return o;
 }
 
 #ifndef PC
@@ -116,14 +142,22 @@ int main() {
 
   init_heap();
 
-  for (i=0; i<14000; i++) {
-    tmp = new_clump(fixnum(i), nil, stack);
-    if ((i & 7) == 7) stack = tmp;
-    if (i % 100 == 0) { /* every 100 iters, print the stack */
+  for (i=1; i<1001; i++) {
+
+    push_clump();
+
+    if ((i & 7) == 7) {
+      set_field(1, stack, fixnum(i));
+      set_field(2, stack, nil);
+    } else {
+      pop_clump();
+    }
+
+    if (i % 50 == 0) { /* every 100 iters, print the stack */
       obj probe = stack;
       while (probe != nil) {
-        printf("%d ",fixnum_to_int(get_field(0, probe)));
-        probe = get_field(2, probe);
+        printf("%d ",fixnum_to_int(get_field(1, probe)));
+        probe = get_field(3, probe);
       }
       printf("\n");
     }
