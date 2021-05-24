@@ -5,6 +5,7 @@
 
 #ifdef PC
 
+#include "types.h"
 #define mem_base 0  /* use real addresses */
 
 #else
@@ -104,6 +105,7 @@ void gc() {
     printf("heap overflow!\n");
     exit(1);
   }
+#endif
 }
 
 void push_clump() {

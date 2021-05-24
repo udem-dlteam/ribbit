@@ -8,5 +8,6 @@ typedef unsigned long long u64;
 
 typedef unsigned char byte;
 typedef u32 size_t;
+typedef int ptrdiff_t;
 
 #endif
