@@ -25,20 +25,18 @@ void decode(byte* buff, size_t len) {
     u32 decoded = 0;
     byte multiple = 0;
 
-    while (bt_c < len) {
-        u32 decoded = 0;
-        byte multiple = 0;
-
-        do {
-          byte half_byte = (buff[bt_c] >> (TIMES_FOUR(half_c))) & 0xF;
-          decoded |= half_byte << TIMES_FOUR(multiple);
-          multiple++;
-          if ((--half_c)) {
-            bt_c++;
-            half_c = 1;
-          }
-        } while (decoded == MAX_OF_MULTIPLE(multiple));
-    }
+    do {
+      byte shift_factor = half_c << 2;
+      byte t = buff[bt_c] >> shift_factor; // x >> (n << 2)
+      byte half_byte = t & 0xF;
+      byte mshift = multiple << 2;
+      decoded |= half_byte << mshift;
+      multiple++;
+      if ((--half_c)) {
+        bt_c++;
+        half_c = 1;
+      }
+    } while (decoded == MAX_OF_MULTIPLE(multiple));
 
     // dispatch(decoded)
   }
