@@ -22,8 +22,10 @@ boot:
 
 	pushw $4
 	pushw $DECODE_TEST
-
-	call decode
+	call  decode
+	xorw  %bp, %bp
+	popw  %ax
+	popw  %ax
 
 load_second_sector:
 	mov $DAP, %si
@@ -125,7 +127,7 @@ movw %ax, -6(%bp)
 	jmp decode_remaining
 
 decode_end:
-	addw $(-6), %sp
+	addw $6, %sp
 	ret
 
 DAP:
