@@ -2,9 +2,11 @@
 # Boot routine + setup
 # AT&T syntax
 
-STACK_TOP = 0x7C00             # location of stack top
+	NIL = 0
+	STACK_TOP = 0x7C00             # location of stack top
 
-.code16
+	.code16
+	jmp boot
 
 .globl boot
 .globl c_write
@@ -12,8 +14,24 @@ STACK_TOP = 0x7C00             # location of stack top
 
 .extern main
 
+alloc_p:
+	.word 0
+
+allocl_p:
+	.word 0
+
+scan_p:
+	.word 0
+
+latest:
+	.word 0
+
+stack:
+	.word 0
+
 boot:
 	cli
+	std
 
 	xorw %cx, %cx
 	movw %cx, %ds
@@ -134,6 +152,98 @@ decode_end:
 	addw $6, %sp
 	popw %bp
 	ret
+
+# update assumes scan_p is inside of bx
+# it will update scan but never store in
+# back into bx
+update:
+	pusha
+	;    movw scan_p, %bx
+	test $1, %bx
+	jpo  update_done # TODO: ptr_from_obj with bx into si
+	movw (%si), %cx # copy = *ptr (copy into cx)
+
+	test %cx, %cx
+	jnz  update_not_nil
+
+	update_nil: # TODO copy (cx) = ptr_to_obj(alloc_p)
+	movw alloc_p, %di
+
+	movw %cx, (%si) # *ptr++ = copy
+	incw %si
+	incw %si
+
+	movw $(NIL), (%di) # *alloc++ = nil
+	incw %di
+	incw %di
+
+	movsw # *alloc++ = *ptr++
+	movsw # *alloc++ = *ptr++
+	movsw # *alloc++ = *ptr++
+
+	movw %di, alloc_p # actually update alloc_p
+
+update_not_nil:
+	movw %cx, (%bx) # *scan = copy
+
+update_done:
+	incw %bx
+	incw %bx
+	;    movw %bx, scan_p
+	popa
+	ret
+
+gc:
+# TODO start, alloc limit, & stack
+pusha
+
+movw scan_p, %bx
+
+# movw &stack, %bx # scan = &stack
+call update # update()
+
+# movw start, %bx # scan = start
+
+gc_while_not_eq:
+	movw alloc_p, %ax
+	test %ax, %bx # scan == alloc
+	je   gc_done # scan == alloc ⇒ done
+
+	inc %bx # scan++
+	inc %bx
+
+	call update
+	call update
+	call update
+
+	jmp gc_while_not_eq
+
+gc_done:
+	movw %bx, scan_p
+	popa
+	ret
+
+push_clump:
+	pusha
+	movw stack, %ax
+	movw alloc_p, %bx
+	movw $(NIL), (%bx)
+	movw %ax, 2(%bx)
+	movw %ax, 4(%bx)
+	movw %ax, 6(%bx)
+	addw $8, %bx
+	movw %bx, alloc_p # TODO: ptr_to_obj
+
+	movw allocl_p, %ax
+	cmpw %ax, %bx
+	jne  push_clump_done
+	call gc
+
+push_clump_done:
+	popa
+	ret
+
+pop_clump:
 
 DAP:
 	.byte 0x10 # 16 bytes (1)
