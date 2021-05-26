@@ -20,10 +20,9 @@ obj *alloc;       /* heap allocation pointer, moves up */
 obj *alloc_limit; /* allocation limit pointer */
 obj *scan;        /* scan pointer */
 
-obj latest;       /* latest allocated object */
+obj broken_heart; /* latest allocated object used as marker */
 obj stack;        /* stack of the VM */
 
-#ifndef PC
 void init_heap() {
 
 #ifndef PC
@@ -34,21 +33,23 @@ void init_heap() {
   alloc_limit = heap_mid;
   stack = nil;
 }
-#endif
 
-void update() {
+void copy() {
   obj o = *scan;
   if (mem_allocated(o)) {
     obj *ptr = ptr_from_obj(o);
-    obj copy = *ptr;
-    if (copy == nil) {
+    obj field0 = *ptr;
+    obj copy;
+    if (field0 == broken_heart) {
+      copy = ptr[1]; /* get forwarding pointer */
+    } else {
       /* object not yet copied, so make a copy */
       copy = ptr_to_obj(alloc);
-      *ptr++ = copy; /* store forwarding pointer */
-      *alloc++ = nil;  /* allocate copy with null forwarding pointer */
-      *alloc++ = *ptr++; /* copy 3 fields of o */
+      *ptr++ = broken_heart; /* mark object as copied */
+      *alloc++ = field0; /* copy 3 fields of o */
       *alloc++ = *ptr++;
-      *alloc++ = *ptr++;
+      *alloc++ = *ptr;
+      ptr[-1] = copy;
       /*
         in assembly, if ptr is in SI and alloc is in DI, the copy could
         be done with 3 bytes of code:
@@ -65,37 +66,28 @@ void update() {
 void gc() {
 
   obj *start = (alloc_limit == heap_mid) ? heap_mid : heap_bot;
-  /*
-    in assembly, if the heap size is a power of 2, this could be done
-    by flipping a single bit in alloc_limit (1 XOR instruction)
-  */
 
   alloc_limit = start + max_nb_objs*CLUMP_NB_FIELDS;
   alloc = start;
 
-  /* update roots */
+  broken_heart = stack; /* use newest object as broken_heart marker */
+
+  /* copy roots */
 
   scan = &stack;
-  update();  /* copy stack */
+  copy();  /* copy stack */
 
   /* copy reachable objects */
 
   scan = start;
 
   while (scan != alloc) {
-    scan++; /* skip field 0 which is the header */
-    update(); /* update fields 1, 2, 3 */
-    update();
-    update();
+    copy();
     /*
-      in assembly, if scan is in register BX and update increments BX
+      in assembly, if scan is in register BX and copy increments BX
       on every call, the body of the loop could be done
-      with 11 bytes of code:
-           INC  BX
-           INC  BX
-           CALL update
-           CALL update
-           CALL update
+      with 3 bytes of code:
+           CALL copy
     */
   }
 
@@ -104,13 +96,13 @@ void gc() {
     printf("heap overflow!\n");
     exit(1);
   }
+#endif
 }
 
 void push_clump() {
 
   /* allocate and initialize object and add it to stack */
 
-  *alloc++ = nil; /* null forwarding pointer */
   *alloc++ = stack;
   *alloc++ = stack;
   *alloc++ = stack;
@@ -145,17 +137,18 @@ int main() {
     push_clump();
 
     if ((i & 7) == 7) {
-      set_field(1, stack, fixnum(i));
-      set_field(2, stack, nil);
+      set_field(0, stack, fixnum(i));
+      set_field(1, stack, nil);
     } else {
       pop_clump();
     }
 
     if (i % 50 == 0) { /* every 100 iters, print the stack */
       obj probe = stack;
+      set_field(1, stack, stack); /* create a cycle... just for testing */
       while (probe != nil) {
-        printf("%d ",fixnum_to_int(get_field(1, probe)));
-        probe = get_field(3, probe);
+        printf("%d ",fixnum_to_int(get_field(0, probe)));
+        probe = get_field(2, probe);
       }
       printf("\n");
     }
