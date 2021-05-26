@@ -5,6 +5,7 @@
 
 #ifdef PC
 
+#include "types.h"
 #define mem_base 0  /* use real addresses */
 
 #else

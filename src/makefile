@@ -16,7 +16,7 @@ AS=as
 endif
 
 GCC_DEFS += -DPC
-CFLAGS += -Os -fno-stack-protector -Wall -fomit-frame-pointer -ffreestanding -nostdlib -nostdinc -fno-pie -m16 -fno-asynchronous-unwind-tables
+CFLAGS += -g -Os -fno-stack-protector -Wall -fomit-frame-pointer -ffreestanding -nostdlib -nostdinc -fno-pie -m16 -fno-asynchronous-unwind-tables
 AS_FLAGS += --32
 LDFLAGS += --strip-all --discard-all -no-pie -static
 
@@ -28,15 +28,21 @@ run: bin_files
 debug: bin_files
 	qemu-system-i386 -s -S -hda boot.bin
 
+attach:
+	gdb boot.bin.elf \
+		-ex 'target remote localhost:1234' \
+        -ex 'set architecture i386' \
+        -ex 'continue'
+
 clean:
 	rm -rf *.bin *.o
 
 bin_files: boot.bin
 
-boot.bin: boot.o vm.o decode.o mem.o
-	$(LD) $(LDFLAGS) boot.o vm.o decode.o -o boot.bin.elf -T link.ld --omagic -m elf_i386 --entry=boot
-	objcopy -x --remove-section .note --remove-section .comment boot.bin.elf
-	objcopy -SO binary boot.bin.elf boot.bin
+boot.bin: boot.o vm.o mem.o
+	$(LD) $(LDFLAGS) boot.o vm.o -o boot.bin.elf -T link.ld --omagic -m elf_i386 --entry=boot
+	objcopy -x --remove-section .note --remove-section .comment boot.bin.elf boot.bin.elf.stripped
+	objcopy -SO binary boot.bin.elf.stripped boot.bin
 
 boot.o: boot.s
 	$(AS) $(AS_FLAGS) -o $*.o -s $*.s
@@ -45,9 +51,6 @@ vm.o: vm.c
 	$(GCC) $(GCC_DEFS) $(CFLAGS) -c $*.c -o $*.o
 
 mem.o: mem.c
-	$(GCC) $(GCC_DEFS) $(CFLAGS) -c $*.c -o $*.o
-
-decode.o: decode.c
 	$(GCC) $(GCC_DEFS) $(CFLAGS) -c $*.c -o $*.o
 
 utils.o: utils.c
