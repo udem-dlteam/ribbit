@@ -13,6 +13,7 @@ else
 LD=ld
 GCC=gcc
 AS=as
+NASM=nasm
 endif
 
 GCC_DEFS += -DPC
@@ -40,7 +41,7 @@ clean:
 bin_files: boot.bin
 
 boot.bin: boot.o vm.o mem.o
-	$(LD) $(LDFLAGS) boot.o vm.o -o boot.bin.elf -T link.ld --omagic -m elf_i386 --entry=boot
+	$(LD) $(LDFLAGS) boot.o mem.o vm.o -o boot.bin.elf -T link.ld --omagic -m elf_i386 --entry=boot
 	objcopy -x --remove-section .note --remove-section .comment boot.bin.elf boot.bin.elf.stripped
 	objcopy -SO binary boot.bin.elf.stripped boot.bin
 
@@ -50,8 +51,8 @@ boot.o: boot.s
 vm.o: vm.c
 	$(GCC) $(GCC_DEFS) $(CFLAGS) -c $*.c -o $*.o
 
-mem.o: mem.c
-	$(GCC) $(GCC_DEFS) $(CFLAGS) -c $*.c -o $*.o
+mem.o: mem.asm
+	$(NASM) $*.asm -f elf32 -o $*.o
 
 utils.o: utils.c
 	$(GCC) $(GCC_DEFS) $(CFLAGS) -c $*.c -o $*.o

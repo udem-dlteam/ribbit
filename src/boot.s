@@ -38,14 +38,6 @@ boot:
 	movw %cx, %ss
 	movw $(STACK_TOP), %sp
 
-	pushw $4
-	pushw $DECODE_TEST
-	call  decode
-
-	xorw %bp, %bp
-	popw %ax
-	popw %ax
-
 load_second_sector:
 	mov $DAP, %si
 	mov $0x42, %ah

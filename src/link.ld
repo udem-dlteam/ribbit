@@ -3,8 +3,8 @@ SECTIONS {
   . = 0x7C00;
   .first_sector : {
     *(.boot)
-    *(EXCLUDE_FILE(*mem.o).text* )
-    *(EXCLUDE_FILE(*mem.o).data* )
+    *(.text* )
+    *(.data* )
   }
 
   . = 0x7DFE;
@@ -15,6 +15,5 @@ SECTIONS {
   . = 0x7E00;
   second_sector : {
     . = .;
-    mem.o (.text)
   }
 }

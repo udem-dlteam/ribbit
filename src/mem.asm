@@ -1,7 +1,5 @@
 bits 16
 
-org 0x7c00
-
 clump_size    equ 3
 max_nb_clumps equ 10
 heap_bot  equ 0x8000
