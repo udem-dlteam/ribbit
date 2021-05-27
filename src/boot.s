@@ -9,6 +9,7 @@
 	jmp boot
 
 .globl boot
+.globl write
 .globl c_read
 
 .extern main

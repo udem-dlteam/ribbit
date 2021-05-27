@@ -1,7 +1,7 @@
 #include "io.h"
 #include "types.h"
 
-void print_i(int num) {
+void print_i(word num) {
   char buff[10];
   int i = 0;
 

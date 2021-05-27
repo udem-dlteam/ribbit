@@ -8,9 +8,11 @@
 
 extern int c_read();
 
+extern void gc_test();
+
 int main(void) {
 
-  test_gc();
+  gc_test();
 
   return 0;
 }

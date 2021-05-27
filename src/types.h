@@ -1,9 +1,6 @@
 #ifndef __TYPES_H
 #define __TYPES_H
 
-#define NIL 0
-#define nil NIL
-
 typedef unsigned short word;
 typedef word obj; /* an object reference */
 
