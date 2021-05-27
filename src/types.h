@@ -1,6 +1,12 @@
 #ifndef __TYPES_H
 #define __TYPES_H
 
+#define NIL 0
+#define nil NIL
+
+typedef unsigned short word;
+typedef word obj; /* an object reference */
+
 typedef unsigned char u8;
 typedef unsigned short u16;
 typedef unsigned int u32;

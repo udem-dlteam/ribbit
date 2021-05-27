@@ -36,12 +36,12 @@ attach:
         -ex 'continue'
 
 clean:
-	rm -rf *.bin *.o
+	rm -rf *.bin *.o *.elf *.elf.stripped
 
 bin_files: boot.bin
 
-boot.bin: boot.o vm.o mem.o
-	$(LD) $(LDFLAGS) boot.o mem.o vm.o -o boot.bin.elf -T link.ld --omagic -m elf_i386 --entry=boot
+boot.bin: boot.o vm.o mem.o test.o stdlib.o
+	$(LD) $(LDFLAGS) boot.o mem.o vm.o test.o stdlib.o -o boot.bin.elf -T link.ld --omagic -m elf_i386 --entry=boot
 	objcopy -x --remove-section .note --remove-section .comment boot.bin.elf boot.bin.elf.stripped
 	objcopy -SO binary boot.bin.elf.stripped boot.bin
 
@@ -55,4 +55,10 @@ mem.o: mem.asm
 	$(NASM) $*.asm -f elf32 -o $*.o
 
 utils.o: utils.c
+	$(GCC) $(GCC_DEFS) $(CFLAGS) -c $*.c -o $*.o
+
+test.o: test.c
+	$(GCC) $(GCC_DEFS) $(CFLAGS) -c $*.c -o $*.o
+
+stdlib.o: stdlib.c
 	$(GCC) $(GCC_DEFS) $(CFLAGS) -c $*.c -o $*.o

@@ -1,7 +1,7 @@
 #ifndef __MEM_H
 #define __MEM_H
-typedef unsigned short word;
-typedef word obj; /* an object reference */
+
+#include "types.h"
 
 /*
  * The basic data structure is a clump, which contains CLUMP_NB_FIELDS
@@ -24,10 +24,10 @@ typedef struct clump {
 
 #define nil fixnum(0)
 
-#define mem_allocated(o) (((o) & 1) == 0)
+#define mem_allocated(o) (((o)&1) == 0)
 
-#define ptr_to_obj(ptr) ((ptrdiff_t)(ptr) - mem_base)
-#define ptr_from_obj(o) ((obj*)((o) + mem_base))
+#define ptr_to_obj(ptr) ((ptrdiff_t)(ptr)-mem_base)
+#define ptr_from_obj(o) ((obj *)((o) + mem_base))
 #define clump_from_obj(o) ((clump*)(mem_allocated_base(o))
 
 #define get_field(i, o) ptr_from_obj(o)[i]

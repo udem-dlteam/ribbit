@@ -6,6 +6,12 @@ heap_bot  equ 0x8000
 heap_mid  equ heap_bot+(clump_size*max_nb_clumps*2)
 heap_top  equ heap_mid+(clump_size*max_nb_clumps*2)
 
+	GLOBAL init_heap
+  GLOBAL push_clump
+	GLOBAL gc
+	GLOBAL alloc_set
+	GLOBAL update
+
 init_heap:
 	;;  "alloc" variable is assigned to register di
 	;;  "stack" variable is assigned to register si
