@@ -164,6 +164,9 @@ gc_print_while:
 	call print_i
 	add  sp, 2
 
+	mov  al, ' '
+	call write
+
 	mov bp, [bp + 2]
 	jmp gc_print_while
 
