@@ -23,6 +23,16 @@ init_heap:
 	mov si, 1;; stack = nil
 	ret
 
+pop_clump:
+	;;  "alloc" variable is assigned to register di
+	;;  "stack" variable is assigned to register si
+	mov ax, si
+	add bx, si
+	mov si, [bx + (clump_size - 1)]
+	mov bx, bx_base
+
+	ret
+
 push_clump:
 	;;   "alloc" variable is assigned to register di
 	;;   "stack" variable is assigned to register si
