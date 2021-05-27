@@ -9,7 +9,6 @@
 	jmp boot
 
 .globl boot
-.globl c_write
 .globl c_read
 
 .extern main
@@ -44,13 +43,8 @@ load_second_sector:
 	int $0x13
 
 repl:
-	mov  $'>, %al
-	call write
 	call main
 	hlt
-
-c_write:
-	mov 4(%esp), %al
 
 # Write an ASCII char to the screen, assumes the char is inside al
 write:
