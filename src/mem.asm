@@ -161,7 +161,7 @@ gc_print_while:
 	cmp bp, 1
 	je  gc_print_while_end
 
-	mov ax, [bp]; get_field(, probe)
+	mov ax, [bp]; get_field(0, probe)
 	shr ax, 1
 
 	push ax
@@ -172,7 +172,7 @@ gc_print_while:
 	mov  al, ' '
 	call write
 
-	mov bp, [bp + 2]
+	mov bp, [bp + 4]; get_field(2, probe)
 	jmp gc_print_while
 
 gc_print_while_end:
