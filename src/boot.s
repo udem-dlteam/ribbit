@@ -31,8 +31,6 @@ stack:
 
 boot:
 	cli
-	std
-
 	xorw %cx, %cx
 	movw %cx, %ds
 	movw %cx, %ss
