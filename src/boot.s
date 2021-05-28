@@ -49,8 +49,10 @@ repl:
 
 # Write an ASCII char to the screen, assumes the char is inside al
 write:
-	mov $0x0E, %ah  # service code 14
-	int $0x10     # print service
+	pushw %bx
+	mov   $0x0E, %ah  # service code 14
+	int   $0x10     # print service
+	popw  %bx
 	ret
 
 c_read:

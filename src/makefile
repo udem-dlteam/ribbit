@@ -32,7 +32,8 @@ debug: bin_files
 attach:
 	gdb boot.bin.elf \
 		-ex 'target remote localhost:1234' \
-        -ex 'set architecture i386' \
+        -ex 'set architecture i8086' \
+				-ex 'layout asm' \
         -ex 'continue'
 
 clean:

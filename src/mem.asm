@@ -117,7 +117,9 @@ gc_test_for:
 	cmp cx, 1001
 	je  gc_test_end
 
+	push cx
 	call push_clump
+	pop  cx
 
 	mov bx, cx
 	and bx, 7
@@ -125,15 +127,18 @@ gc_test_for:
 	mov bx, bx_base
 	jne gc_pop
 
-	mov cx, ax
+	;;  put cx into ax and covn
+	mov ax, cx
 	shl ax, 1
 	inc ax
 	mov word [si], ax; set_field(0, stack, fixnum(i))
-	mov word [si + 2], 0; set_field(1, stack, nil)
+	mov word [si + 2], 1; set_field(1, stack, nil)
 	jmp gc_after_pop
 
 gc_pop:
+	push cx
 	call pop_clump
+	pop  cx
 
 gc_after_pop:
 
@@ -153,8 +158,8 @@ gc_after_pop:
 	mov [si + 2], si; set_field(1, stack, stack)
 
 gc_print_while:
-	test bp, bp
-	jz   gc_print_while_end
+	cmp bp, 1
+	je  gc_print_while_end
 
 	mov ax, [bp]; get_field(, probe)
 	shr ax, 1
