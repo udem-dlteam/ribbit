@@ -8,7 +8,6 @@ heap_top  equ heap_mid+(clump_size*max_nb_clumps*2)
 
 	EXTERN print_i
 	EXTERN write
-	GLOBAL gc_test
 
 init_heap:
 	;;  "alloc" variable is assigned to register di
@@ -24,6 +23,7 @@ init_heap:
 pop_clump:
 	;;   "alloc" variable is assigned to register di
 	;;   "stack" variable is assigned to register si
+	;;   'old stack' ends up in bp
 	xchg bp, si
 	mov  si, [bp + 2 * (clump_size - 1)]
 	ret
@@ -42,9 +42,8 @@ push_clump:
 
 gc:
 	pusha ;; save "stack" variable (and other registers)
-
-	;;  "broken_heart" variable is assigned to register cx
-	mov cx, si;; use the newly allocated clump as "broken heart"
+	;;    "broken_heart" variable is assigned to register cx
+	mov   cx, si;; use the newly allocated clump as "broken heart"
 
 	;;  "scan" variable is assigned to register si
 	mov si, sp;; point "scan" to "stack" variable
@@ -105,92 +104,6 @@ update:
 	mov [si-2], dx
 
 return:
-	ret
-
-gc_test:
-	mov  bp, sp
-	call init_heap
-	mov  cx, 1; i = 1
-	;    i < 1001
-
-gc_test_for:
-	cmp cx, 1001
-	je  gc_test_end
-
-	push cx
-	call push_clump
-	pop  cx
-
-	mov bx, cx
-	and bx, 7
-	cmp bx, 7
-	mov bx, bx_base
-	jne gc_pop
-
-	;;  put cx into ax and covn
-	mov ax, cx
-	shl ax, 1
-	inc ax
-	mov word [si], ax; set_field(0, stack, fixnum(i))
-	mov word [si + 2], 1; set_field(1, stack, nil)
-	jmp gc_after_pop
-
-gc_pop:
-	push cx
-	call pop_clump
-	pop  cx
-
-gc_after_pop:
-
-	pusha
-	xor  dx, dx
-	mov  ax, cx
-	mov  cx, 50
-	div  cx
-	test dx, dx
-	popa
-	jnz  gc_next_iter
-	mov  al, '>'
-	call write
-
-	;;  stack print
-	mov bp, si; probe = bp
-	mov [si + 2], si; set_field(1, stack, stack)
-
-gc_print_while:
-	cmp bp, 1
-	je  gc_print_while_end
-
-	mov ax, [bp]; get_field(0, probe)
-	shr ax, 1
-
-	push ax
-	push 0
-	call print_i
-	add  sp, 2
-
-	mov  al, ' '
-	call write
-
-	mov bp, [bp + 4]; get_field(2, probe)
-	jmp gc_print_while
-
-gc_print_while_end:
-	;;   print("\n")
-	mov  al, `\r`
-	call write
-
-	mov  al, `\n`
-	call write
-
-gc_next_iter:
-	;   ++i
-	inc cx
-	jmp gc_test_for
-
-gc_test_end:
-	mov  al, '>'
-	call write
 	ret
 
 bx_base: ;; bx will point here at all times
