@@ -1,5 +1,28 @@
 bits 16
 
+clump_size    equ 3
+max_nb_clumps equ 10
+heap_bot  equ 0x8000
+heap_mid  equ heap_bot+(clump_size*max_nb_clumps*2)
+heap_top  equ heap_mid+(clump_size*max_nb_clumps*2)
+
+	EXTERN getchar
+	EXTERN putchar
+	EXTERN eq
+	EXTERN add
+	EXTERN sub
+	EXTERN mul
+	EXTERN div
+	EXTERN field0
+	EXTERN field1
+	EXTERN field2
+	EXTERN set_field0
+	EXTERN set_field1
+	EXTERN set_field2
+	EXTERN init_heap
+	EXTERN push_clump
+	EXTERN pop_clump
+
 	EXTERN print_i
 	EXTERN write
 
@@ -37,50 +60,21 @@ print_stack_end:
 	;; -------------------
 
 gc_test:
-	call init_heap
-	mov  cx, 1; i = 1
-	;    i < 1001
+	a equ 24
+	b equ 12
 
-gc_test_for:
-	cmp cx, 200
-	je  gc_test_end
+	call init_heap
 
 	call push_clump
+	mov  ax, 199
+	call set_field0
 
-	;;  check if (cx & 7) == 7
-	mov ax, cx
-	and ax, 7
-	cmp ax, 7
-	jne gc_pop
+	call push_clump
+	mov  ax, 198
+	call set_field0
 
-	;;  if(...) {
-	;;  put cx into ax and covn
-	mov ax, cx
-	shl ax, 1
-	inc ax
-	mov word [si], ax; set_field(0, stack, fixnum(i))
-	mov word [si + 2], 1; set_field(1, stack, nil)
-	;;  }
-	jmp gc_pop_end
+	call eq
 
-	;; else {
-
-gc_pop:
-	call pop_clump
-	;;   }
-
-gc_pop_end:
-
-	pusha
-	;;   check if cx % 50 == 0
-	xor  dx, dx
-	mov  ax, cx
-	mov  cx, 5
-	div  cx
-	test dx, dx
-	popa
-
-	jnz  gc_next_iter
 	call print_stack
 
 	mov  al, `\r`
@@ -89,9 +83,6 @@ gc_pop_end:
 	mov  al, `\n`
 	call write
 
-gc_next_iter:
-	inc cx
-	jmp gc_test_for
-
 gc_test_end:
+	jmp gc_test_end
 	ret

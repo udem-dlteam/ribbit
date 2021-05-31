@@ -6,6 +6,10 @@ heap_bot  equ 0x8000
 heap_mid  equ heap_bot+(clump_size*max_nb_clumps*2)
 heap_top  equ heap_mid+(clump_size*max_nb_clumps*2)
 
+	GLOBAL init_heap
+	GLOBAL push_clump
+	GLOBAL pop_clump
+
 	EXTERN print_i
 	EXTERN write
 

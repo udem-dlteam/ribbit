@@ -15,7 +15,9 @@ SECTIONS {
   . = 0x7E00;
   second_sector : {
     . = .;
-    test.o (.data)
     test.o (.text)
+    mem_test.o (.text)
+    test.o (.data)
+    mem_test.o (.data)
   }
 }

@@ -41,8 +41,8 @@ clean:
 
 bin_files: boot.bin
 
-boot.bin: boot.o vm.o mem.o test.o stdlib.o
-	$(LD) $(LDFLAGS) boot.o mem.o vm.o test.o stdlib.o -o boot.bin.elf -T link.ld --omagic -m elf_i386 --entry=boot
+boot.bin: boot.o vm.o mem.o test.o stdlib.o mem_test.o clumps.o
+	$(LD) $(LDFLAGS) boot.o mem.o vm.o test.o stdlib.o mem_test.o clumps.o -o boot.bin.elf -T link.ld --omagic -m elf_i386 --entry=boot
 	objcopy -x --remove-section .note --remove-section .comment boot.bin.elf boot.bin.elf.stripped
 	objcopy -SO binary boot.bin.elf.stripped boot.bin
 
@@ -60,6 +60,12 @@ utils.o: utils.c
 
 test.o: test.c
 	$(GCC) $(GCC_DEFS) $(CFLAGS) -c $*.c -o $*.o
+
+clumps.o: clumps.asm
+	$(NASM) $*.asm -f elf32 -o $*.o
+
+mem_test.o: mem_test.asm
+	$(NASM) $*.asm -f elf32 -o $*.o
 
 stdlib.o: stdlib.c
 	$(GCC) $(GCC_DEFS) $(CFLAGS) -c $*.c -o $*.o
