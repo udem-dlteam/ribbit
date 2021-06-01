@@ -82,29 +82,40 @@ eq_e:
 	call sf0_of_tos
 	ret
 
-	;; (clump x y z)
-	;; make a clump (utiliser x comme clump)
-	;; x = field0, y = field1, z=field3
-	;; smashes ax, cx
+field0_set:
+	xor cx, cx
+	jmp fieldX_set
 
-	;; (field0 clump)
-	;; field0 of clump in clump
+field1_set:
+	mov cx, 2
+	jmp fieldX_set
 
-field2:
-	mov bp, [si + 2 * (CLUMP_NB_FIELDS - 3)]
-	mov cx, [bp + 2 * (CLUMP_NB_FIELDS - 1)]
-	jmp field_done
+field2_set:
+	mov cx, 4
 
-field1:
-	mov bp, [si + 2 * (CLUMP_NB_FIELDS - 3)]
-	mov cx, [bp + 2 * (CLUMP_NB_FIELDS - 2)]
-	jmp field_done
+fieldX_set:
+	call gf0_of_tos
+	call pop_clump;; remove top
+	mov  bp, [si + 2 * (CLUMP_NB_FIELDS - 3)];; get addr. of top cell
+	add  bp, cx;; add offset
+	mov  [bp], ax;; write at clump
+	ret
 
 field0:
-	mov bp, [si + 2 * (CLUMP_NB_FIELDS - 3)]
-	mov cx, [bp + 2 * (CLUMP_NB_FIELDS - 3)]
+	xor cx, cx
+	jmp fieldX
 
-field_done:
+field1:
+	mov cx, 2
+	jmp fieldX
+
+field2:
+	mov cx, 4
+
+fieldX:
+	mov  bp, [si + 2 * (CLUMP_NB_FIELDS - 3)]
+	add  bp, cx
+	mov  cx, [bp]
 	call push_clump
 	mov  [si + 2 * (CLUMP_NB_FIELDS - 3)], cx
 	ret
