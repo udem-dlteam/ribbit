@@ -8,21 +8,17 @@ heap_top  equ heap_mid+(clump_size*max_nb_clumps*2)
 
 	EXTERN getchar
 	EXTERN putchar
+	EXTERN lt
 	EXTERN eq
 	EXTERN add
 	EXTERN sub
 	EXTERN mul
 	EXTERN div
-	EXTERN field0
-	EXTERN field1
-	EXTERN field2
-	EXTERN set_field0
-	EXTERN set_field1
-	EXTERN set_field2
 	EXTERN init_heap
 	EXTERN push_clump
 	EXTERN pop_clump
-
+	EXTERN sf0_of_tos
+	EXTERN gf0_of_tos
 	EXTERN print_i
 	EXTERN write
 
@@ -65,15 +61,17 @@ gc_test:
 
 	call init_heap
 
+	;;   y
 	call push_clump
-	mov  ax, 199
-	call set_field0
+	mov  ax, 200
+	call sf0_of_tos
 
+	;;   x
 	call push_clump
-	mov  ax, 198
-	call set_field0
+	mov  ax, 200
+	call sf0_of_tos
 
-	call eq
+	call lt
 
 	call print_stack
 

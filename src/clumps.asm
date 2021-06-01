@@ -13,13 +13,10 @@ CLUMP_NB_FIELDS equ 3
 	GLOBAL sub
 	GLOBAL mul
 	GLOBAL div
-	GLOBAL field0
-	GLOBAL field1
-	GLOBAL field2
-	GLOBAL set_field0
-	GLOBAL set_field1
-	GLOBAL set_field2
 	GLOBAL eq
+	GLOBAL lt
+	GLOBAL sf0_of_tos
+	GLOBAL gf0_of_tos
 
 add:
 	lodsw
@@ -64,32 +61,67 @@ first:
 	ret
 
 lt:
-	mov al, 0x8
-
-eq:
-	;    add  al, 0x75
-	;    mov  byte  [jmp_i + 1], al
+	mov  al, 0x8
 	mov  ax, [si + 0*(CLUMP_NB_FIELDS - 1)]
 	call pop_clump
 	cmp  ax, [si + 0*(CLUMP_NB_FIELDS - 1)]
 	mov  ax, 1
-	;;   TODO
-	jmp_i: jge  eq_e
+	jge  eq_e
+	or   al, 2
+	jmp  eq_e
+
+eq:
+	mov  ax, [si + 0*(CLUMP_NB_FIELDS - 1)]
+	call pop_clump
+	cmp  ax, [si + 0*(CLUMP_NB_FIELDS - 1)]
+	mov  ax, 1
+	jne  eq_e
 	or   al, 2
 
 eq_e:
-	call set_field0
+	call sf0_of_tos
 	ret
 
-	; lahf
-	; and  word 16384
-	; shr  ax, 14
-	; inc  ax
-	; mov  [si + 0*(CLUMP_NB_FIELDS - 1)], ax
-	; ret
+	;; (clump x y z)
+	;; make a clump (utiliser x comme clump)
+	;; x = field0, y = field1, z=field3
+	;; smashes ax, cx
+
+	;; (field0 clump)
+	;; field0 of clump in clump
+
+field2:
+	mov bp, [si + 2 * (CLUMP_NB_FIELDS - 3)]
+	mov cx, [bp + 2 * (CLUMP_NB_FIELDS - 1)]
+	jmp field_done
+
+field1:
+	mov bp, [si + 2 * (CLUMP_NB_FIELDS - 3)]
+	mov cx, [bp + 2 * (CLUMP_NB_FIELDS - 2)]
+	jmp field_done
+
+field0:
+	mov bp, [si + 2 * (CLUMP_NB_FIELDS - 3)]
+	mov cx, [bp + 2 * (CLUMP_NB_FIELDS - 3)]
+
+field_done:
+	call push_clump
+	mov  [si + 2 * (CLUMP_NB_FIELDS - 3)], cx
+	ret
+
+clump:
+	mov  ax, [si + 2 * (CLUMP_NB_FIELDS - 1)];; ax has z
+	call pop_clump
+
+	mov  cx, [si + 2 * (CLUMP_NB_FIELDS - 2)];; cx has y
+	call pop_clump
+	;;   last clump is on stack, w. x already there
+	mov  [si + 2 * (CLUMP_NB_FIELDS - 1)], ax
+	mov  [si + 2 * (CLUMP_NB_FIELDS - 2)], cx
+	ret
 
 putchar:
-	call field0
+	call gf0_of_tos
 	shr  ax, 1
 	call write
 	ret
@@ -103,29 +135,11 @@ getchar:
 	;;   fallthrough intentional so we can reuse
 	;;   set_field0
 
-set_field0:
+sf0_of_tos:
 	mov [si + 0 * (CLUMP_NB_FIELDS - 1)], ax
 	;;  fallthrough intentional so we can reuse
 	;;  the ret
 
-field0:
+gf0_of_tos:
 	mov ax, [si + 0 * (CLUMP_NB_FIELDS - 1)]
-	ret
-
-set_field1:
-	mov [si + 1 * (CLUMP_NB_FIELDS - 1)], ax
-	;;  fallthrough intentional so we can reuse
-	;;  the ret
-
-field1:
-	mov ax, [si + 1 * (CLUMP_NB_FIELDS - 1)]
-	ret
-
-set_field2:
-	mov [si + 2 * (CLUMP_NB_FIELDS - 1)], ax
-	;;  fallthrough intentional so we can reuse
-	;;  the ret
-
-field2:
-	mov ax, [si + 2 * (CLUMP_NB_FIELDS - 1)]
 	ret
