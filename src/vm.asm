@@ -2,12 +2,19 @@ bits 16
 
 	EXTERN push_clump
 
+jump:
+	mov dx, 1
+	jmp call_start
+
 	;; Pseudo impl. of function call, not primitives
 	;; assumes the following:
 	;; ax contains the address of g in the env
 	;; bp contains the current clump (the program counter)
 
 call:
+	xor dx, dx
+
+call_start:
 	pusha
 
 	;;   ax contains the address of the callee's clump
@@ -41,13 +48,28 @@ call_search_done:
 	mov si, [bx + 6];; si contains the first stack obj (bx + 6 = si)
 
 	call push_clump;; allocate the continuation clump
-	mov  [si], bp;; point to the environment
 
-	mov bp, [bx + 18];; load the addr. of g (bx + 18 = ax)
-	mov [si + 2 * 1], bp
+	;;   if call
+	test dx, dx
+	jnz  call_is_jump
+	mov  [si], bp;; point to the environment
 
 	mov bp, [bx + 8];; load the return value (bx + 8) = bp
 	mov [si + 2 * 2], bp;; point to the return value
+	jmp rewire_cont
+	;; end call
+	;; else (jump)
+
+call_is_jump:
+	;; set the env, code to the value that were previously
+	;; there
+
+	;; end jump
+
+rewire_cont:
+
+	mov bp, [bx + 18];; load the addr. of g (bx + 18 = ax)
+	mov [si + 2 * 1], bp
 
 	pop  bx
 	xchg bp, si;; bp = new clump addr
