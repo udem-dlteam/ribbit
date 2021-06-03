@@ -41,8 +41,8 @@ clean:
 
 bin_files: boot.bin
 
-boot.bin: boot.o mem.o stdlib.o mem_test.o clumps.o dispatcher.o
-	$(LD) $(LDFLAGS) boot.o mem.o stdlib.o mem_test.o clumps.o dispatcher.o -o boot.bin.elf -T link.ld --omagic -m elf_i386 --entry=boot
+boot.bin: boot.o mem.o vm.o stdlib.o mem_test.o clumps.o dispatcher.o
+	$(LD) $(LDFLAGS) boot.o mem.o vm.o stdlib.o mem_test.o clumps.o dispatcher.o -o boot.bin.elf -T link.ld --omagic -m elf_i386 --entry=boot
 	objcopy -x --remove-section .note --remove-section .comment boot.bin.elf boot.bin.elf.stripped
 	objcopy -SO binary boot.bin.elf.stripped boot.bin
 
@@ -62,6 +62,9 @@ dispatcher.o: dispatcher.asm
 	$(NASM) $*.asm -f elf32 -o $*.o
 
 mem_test.o: mem_test.asm
+	$(NASM) $*.asm -f elf32 -o $*.o
+
+vm.o: vm.asm
 	$(NASM) $*.asm -f elf32 -o $*.o
 
 stdlib.o: stdlib.c
