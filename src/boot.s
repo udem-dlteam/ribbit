@@ -12,7 +12,8 @@
 .globl write
 .globl read
 
-.extern main
+.extern gc_test
+.extern dispatch
 
 boot:
 	cli
@@ -27,7 +28,8 @@ load_second_sector:
 	int $0x13
 
 repl:
-	call main
+	mov  $5, %cx
+	call dispatch
 	hlt
 
 write:
@@ -36,11 +38,13 @@ write:
 	int   $0x10     # print service
 	popw  %bx
 	ret
+nop
 
 read:
 	xor %ax, %ax # service 0
 	int $0x16    # keyboard service
 	ret
+nop
 
 DAP:
 	.byte 0x10 # 16 bytes (1)

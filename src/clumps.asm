@@ -24,6 +24,7 @@ add:
 	dec ax
 	add [si], ax
 	ret
+nop
 
 sub:
 	lodsw
@@ -31,6 +32,7 @@ sub:
 	dec ax
 	sub [si], ax
 	ret
+nop
 
 mul:
 	lodsw
@@ -41,6 +43,7 @@ mul:
 	inc  ax
 	mov  [si], ax
 	ret
+nop
 
 div:
 	lodsw
@@ -55,10 +58,12 @@ div:
 	inc  ax
 	mov  [si], ax
 	ret
+nop
 
 first:
 	call pop_clump
 	ret
+nop
 
 lt:
 	mov  al, 0x8
@@ -81,6 +86,7 @@ eq:
 eq_e:
 	call sf0_of_tos
 	ret
+nop
 
 field0_set:
 	xor cx, cx
@@ -100,6 +106,7 @@ fieldX_set:
 	add  bp, cx;; add offset
 	mov  [bp], ax;; write at clump
 	ret
+nop
 
 field0:
 	xor cx, cx
@@ -119,6 +126,7 @@ fieldX:
 	call push_clump
 	mov  [si + 2 * (CLUMP_NB_FIELDS - 3)], cx
 	ret
+nop
 
 clump:
 	mov  ax, [si + 2 * (CLUMP_NB_FIELDS - 1)];; ax has z
@@ -130,12 +138,14 @@ clump:
 	mov  [si + 2 * (CLUMP_NB_FIELDS - 1)], ax
 	mov  [si + 2 * (CLUMP_NB_FIELDS - 2)], cx
 	ret
+nop
 
 putchar:
 	call gf0_of_tos
 	shr  ax, 1
 	call write
 	ret
+nop
 
 getchar:
 	call push_clump
@@ -154,3 +164,4 @@ sf0_of_tos:
 gf0_of_tos:
 	mov ax, [si + 0 * (CLUMP_NB_FIELDS - 1)]
 	ret
+nop

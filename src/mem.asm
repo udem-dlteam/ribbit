@@ -23,6 +23,7 @@ init_heap:
 	mov [bx+(alloc_limit-bx_base)], ax
 	mov si, 1;; stack = nil
 	ret
+nop
 
 pop_clump:
 	;;   "alloc" variable is assigned to register di
@@ -31,6 +32,7 @@ pop_clump:
 	xchg bp, si
 	mov  si, [bp + 2 * (clump_size - 1)]
 	ret
+nop
 
 push_clump:
 	;;   "alloc" variable is assigned to register di
@@ -78,6 +80,7 @@ copy_loop:
 
 	popa ;; restore "stack" variable (and other registers)
 	ret
+nop
 
 copy:
 	;;   "scan" variable is assigned to register si
@@ -109,6 +112,7 @@ update:
 
 return:
 	ret
+nop
 
 bx_base: ;; bx will point here at all times
 alloc_limit: dw 0

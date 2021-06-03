@@ -41,16 +41,13 @@ clean:
 
 bin_files: boot.bin
 
-boot.bin: boot.o vm.o mem.o test.o stdlib.o mem_test.o clumps.o
-	$(LD) $(LDFLAGS) boot.o mem.o vm.o test.o stdlib.o mem_test.o clumps.o -o boot.bin.elf -T link.ld --omagic -m elf_i386 --entry=boot
+boot.bin: boot.o mem.o stdlib.o mem_test.o clumps.o dispatcher.o
+	$(LD) $(LDFLAGS) boot.o mem.o stdlib.o mem_test.o clumps.o dispatcher.o -o boot.bin.elf -T link.ld --omagic -m elf_i386 --entry=boot
 	objcopy -x --remove-section .note --remove-section .comment boot.bin.elf boot.bin.elf.stripped
 	objcopy -SO binary boot.bin.elf.stripped boot.bin
 
 boot.o: boot.s
 	$(AS) $(AS_FLAGS) -o $*.o -s $*.s
-
-vm.o: vm.c
-	$(GCC) $(GCC_DEFS) $(CFLAGS) -c $*.c -o $*.o
 
 mem.o: mem.asm
 	$(NASM) $*.asm -f elf32 -o $*.o
@@ -58,10 +55,10 @@ mem.o: mem.asm
 utils.o: utils.c
 	$(GCC) $(GCC_DEFS) $(CFLAGS) -c $*.c -o $*.o
 
-test.o: test.c
-	$(GCC) $(GCC_DEFS) $(CFLAGS) -c $*.c -o $*.o
-
 clumps.o: clumps.asm
+	$(NASM) $*.asm -f elf32 -o $*.o
+
+dispatcher.o: dispatcher.asm
 	$(NASM) $*.asm -f elf32 -o $*.o
 
 mem_test.o: mem_test.asm
