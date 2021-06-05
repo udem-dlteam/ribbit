@@ -46,7 +46,8 @@ env_found:
 
 jump:
 	pusha
-	mov dx, 1
+	xor dx, dx;; smaller than mov dx, 1
+	inc dx
 	jmp do_call
 
 call:
@@ -72,12 +73,12 @@ do_call:
 	;; bp contains the current clump (the program counter)
 
 	;;   ax contains the address of the callee's clump
-	xchg bp, ax
-	mov  bp, [bp];; bp contains the value of the first cell of the callee's clump
-	test bp, 1;; test parity
+	xchg di, ax
+	mov  di, [di];; bp contains the value of the first cell of the callee's clump
+	test byte di, 1;; test parity
 	jpo  call_prim;; if that value is odd, it's a primitive function
-	mov  cx, [bp];; otherwise, it's a clump address. cx contains the number of params
-	mov  ax, [bp + 2 * 1];; ax contains the new PC
+	mov  cx, [di];; otherwise, it's a clump address. cx contains the number of params
+	mov  ax, [di + 2 * 1];; ax contains the new PC
 
 	mov di, sp
 	mov [di + 14], ax;; store the new PC into the old ax
@@ -104,7 +105,9 @@ do_call:
 
 	mov  bp, sp
 	mov  si, [bp + 6];; si points to the TOS
+	mov  di, [bp + 4];; di points to the alloc var
 	call push_clump;; allocate the continuation clump
+	mov  [bp + 4], di
 
 	; Modify the current clump to be eq. to the previous' env clump
 
@@ -121,11 +124,11 @@ do_call:
 
 	mov bp, sp;; bp can be used to read the stack
 	mov si, [bp + 6];; si points to the old TOS
-	add di, -6;; di points to the new clump
+	add di, -6;; di points to the new clump again
 
 	;;   if call
-	test dx, 1
-	jpo  call_env_ok
+	test dx, dx
+	jnz  call_env_ok
 
 	;;  When doing a call as opposed to a load, we need to change env + code
 	mov ax, [bp];; ax contains the address of the environment's first clump
@@ -164,17 +167,18 @@ call_after_relink:
 	jmp call_done
 
 call_prim:
-	call bp
-	test dx, dx;; is the current function call or jump?
-	jz   call_done
-	;;   it's a jump
-	push si
-	call env
-	;;   si contains the current continuation's clump
-	mov  ax, [si + 2 * 0];; ax contains the new stack
-	mov  bp, [si + 2 * 1];; bp is the new PC
-	pop  si
-	mov  [si + 2 * 1], ax;; set the front of the stack to be the result of the primitive call
+	call   di
+	test   dx, dx;; is the current function call or jump?
+	jz     call_done
+	;;     it's a jump
+	push   si
+	call   env
+	;;     si contains the current continuation's clump
+	loadsw ;; mov  ax, [si + 2 * 0];; ax contains the new stack
+	mov    bp, [si];; bp is the new PC (si was moved to the next field by loadsw)
+	pop    si
+	mov    [si + 2 * 1], ax;; set the front of the stack to be the result of the primitive call
 
 call_done:
-	ret 16;; clean stack, do not restore because we changed stuff around
+	pop di;; restore di. Since at top of machine stack, we can use pop
+	ret 14;; clean the rest of the stack
