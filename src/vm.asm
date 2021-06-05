@@ -2,22 +2,23 @@ bits 16
 
 	EXTERN push_clump
 
-	;; skip n clumps, starting at bp
+	;; skip n clumps, starting at di
 	;; goes forward n clump where n is in cx
-	;; bp will be the nth clump
+	;; di will be the nth clump
 	;; si will be the nth-1 clump
 	;; smashes cx, bp, si (changed iff cx != 0)
 
 skip_1:
-	mov cx, 1
+	xor cx, cx
+	inc cx
 
 skip_n:
 skip_n_loop:
 	test cx, cx;; while cx != 0
 	jz   skip_end
 	dec  cx
-	mov  si, bp;; previous is now current
-	mov  bp, [bp + 2 * 1];; move forward
+	mov  si, di;; previous is now current
+	mov  di, [di + 2 * 1];; move forward
 	jmp  skip_n_loop
 
 skip_end:
@@ -27,15 +28,15 @@ skip_end:
 
 env:
 	;; si is back
-	;; bp is front
+	;; di is front
 	;; when [di + 2 * 2] == 1, si is the current env. clump
 	;; address is returned in si
 	;; smashes si, bp
 
-	mov bp, si
+	mov di, si
 
 env_loop:
-	cmp word [bp + 2 * 2], 1
+	cmp word [di + 2 * 2], 1
 	je  env_found
 
 	call skip_1
@@ -45,13 +46,11 @@ env_found:
 	ret
 
 jump:
-	pusha
 	xor dx, dx;; smaller than mov dx, 1
 	inc dx
 	jmp do_call
 
 call:
-	pusha
 	xor dx, dx
 
 	;; call / jump to a function
@@ -60,6 +59,7 @@ call:
 	;; si is the top of the stack
 
 do_call:
+	pusha
 	;; STACK AT THIS POINT
 	;; 1 AX       sp + 14
 	;; 2 CX       sp + 12
@@ -73,24 +73,29 @@ do_call:
 	;; bp contains the current clump (the program counter)
 
 	;;   ax contains the address of the callee's clump
-	xchg di, ax
-	mov  di, [di];; bp contains the value of the first cell of the callee's clump
-	test byte di, 1;; test parity
+	xchg bp, ax
+	mov  bp, [bp];; bp contains the value of the first cell of the callee's clump
+	test bp, 1;; test parity
 	jpo  call_prim;; if that value is odd, it's a primitive function
-	mov  cx, [di];; otherwise, it's a clump address. cx contains the number of params
-	mov  ax, [di + 2 * 1];; ax contains the new PC
 
-	mov di, sp
-	mov [di + 14], ax;; store the new PC into the old ax
+	xchg si, bp
 
-	xchg bp, si;; bp = address of the first clump of the environment
+	lodsw; mov  cx, [bp];; otherwise, it's a clump address. cx contains the number of params
+	xchg   cx, ax;; cx contains the number of params
+
+	lodsw; mov  ax, [bp + 2 * 1];; ax contains the new PC
+
+	mov bp, sp
+	mov [bp + 14], ax;; store the new PC into the old ax
+
+	xchg di, si;; di = address of the first clump of the environment
 	xor  si, si;; si = address of the last clump of the arguments (null at first)
 
 	;;   cx is set to the number of args to pop off
 	call skip_n
 
 	push si
-	push bp
+	push di
 	;;   STACK AT THIS POINT
 	;;   01 AX       sp + 18
 	;;   02 CX       sp + 16
@@ -101,28 +106,29 @@ do_call:
 	;;   07 SI       sp + 6
 	;;   08 DI       sp + 4
 	;;   09 si       sp + 2    (addr. of last arg clump / null)
-	;;   10 bp       sp        (addr. of first clump of env)
+	;;   10 di       sp        (addr. of first clump of env)
 
-	mov  bp, sp
 	mov  si, [bp + 6];; si points to the TOS
-	mov  di, [bp + 4];; di points to the alloc var
+	mov  di, [bp + 4];; di points to alloc
 	call push_clump;; allocate the continuation clump
 	mov  [bp + 4], di
 
 	; Modify the current clump to be eq. to the previous' env clump
 
-	mov  di, si;; di contains the addr. of the new clump
+	push si
 	call env;; si contains the addr. of the environment's clump
-	movsw
-	movsw
-	movsw
-	;;   new clump is now a copy of the previous environment:
-	;;   previous env == (env, ??, code)
-	;;   this is correct for a jump but for a call we need to
-	;;   update things. We also copied the cdr, we need to fix
-	;;   it back (at label call_env_ok)
+	pop  di
 
-	mov bp, sp;; bp can be used to read the stack
+	movsw
+	movsw
+	movsw
+	;; new clump is now a copy of the previous environment:
+	;; previous env == (env, ??, code)
+	;; this is correct for a jump but for a call we need to
+	;; update things. We also copied the cdr, we need to fix
+	;; it back (at label call_env_ok)
+
+	;   mov bp, sp;; bp can be used to read the stack
 	mov si, [bp + 6];; si points to the old TOS
 	add di, -6;; di points to the new clump again
 
@@ -167,18 +173,22 @@ call_after_relink:
 	jmp call_done
 
 call_prim:
-	call   di
-	test   dx, dx;; is the current function call or jump?
-	jz     call_done
-	;;     it's a jump
-	push   si
-	call   env
-	;;     si contains the current continuation's clump
-	loadsw ;; mov  ax, [si + 2 * 0];; ax contains the new stack
-	mov    bp, [si];; bp is the new PC (si was moved to the next field by loadsw)
-	pop    si
-	mov    [si + 2 * 1], ax;; set the front of the stack to be the result of the primitive call
+	call bp;; call the primitive. Result is now at TOS.
+
+	mov bp, sp
+	mov [bp], di
+
+	test  dx, dx;; is the current function call or jump?
+	jz    call_done
+	;;    it's a tail-call primitive, rewind the stack
+	push  si
+	call  env
+	;;    si contains the current continuation's clump
+	lodsw ;; mov  ax, [si + 2 * 0];; ax contains the new stack
+	mov   bp, [si];; bp is the new PC (si was moved to the next field by loadsw)
+	pop   si
+	mov   [si + 2 * 1], ax;; set the front of the stack to be the result of the primitive call
 
 call_done:
 	pop di;; restore di. Since at top of machine stack, we can use pop
-	ret 14;; clean the rest of the stack
+	ret 14
