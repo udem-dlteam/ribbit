@@ -9,17 +9,26 @@ ifeq ($(UNAME), Darwin)
 LD=/usr/local/Cellar/x86_64-elf-binutils/2.36.1/bin/x86_64-elf-ld
 GCC=/usr/local/Cellar/x86_64-elf-gcc/11.1.0/bin/x86_64-elf-gcc
 AS=/usr/local/Cellar/x86_64-elf-binutils/2.36.1/bin/x86_64-elf-as
+OBJC=/usr/local/Cellar/x86_64-elf-binutils/2.36.1/bin/x86_64-elf-objcopy
+NASM=nasm
 else
 LD=ld
 GCC=gcc
 AS=as
+OBJC=objcopy
 NASM=nasm
 endif
+
 
 GCC_DEFS += -DPC
 CFLAGS += -g -Os -fno-stack-protector -Wall -fomit-frame-pointer -ffreestanding -nostdlib -nostdinc -fno-pie -m16 -fno-asynchronous-unwind-tables
 AS_FLAGS += --32
-LDFLAGS += --strip-all --discard-all -no-pie -static
+LDFLAGS += --strip-all --discard-all -static
+
+ifeq ($(UNAME), Darwin)
+else
+LDFLAGS += -no-pie
+endif
 
 build: bin_files
 
@@ -43,8 +52,8 @@ bin_files: boot.bin
 
 boot.bin: boot.o mem.o vm.o stdlib.o mem_test.o clumps.o dispatcher.o
 	$(LD) $(LDFLAGS) boot.o mem.o vm.o stdlib.o mem_test.o clumps.o dispatcher.o -o boot.bin.elf -T link.ld --omagic -m elf_i386 --entry=boot
-	objcopy -x --remove-section .note --remove-section .comment boot.bin.elf boot.bin.elf.stripped
-	objcopy -SO binary boot.bin.elf.stripped boot.bin
+	$(OBJC) -x --remove-section .note --remove-section .comment boot.bin.elf boot.bin.elf.stripped
+	$(OBJC) -SO binary boot.bin.elf.stripped boot.bin
 
 boot.o: boot.s
 	$(AS) $(AS_FLAGS) -o $*.o -s $*.s
