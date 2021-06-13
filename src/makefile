@@ -50,31 +50,8 @@ clean:
 
 bin_files: boot.bin
 
-boot.bin: boot.o mem.o vm.o stdlib.o mem_test.o clumps.o dispatcher.o
-	$(LD) $(LDFLAGS) boot.o mem.o vm.o stdlib.o mem_test.o clumps.o dispatcher.o -o boot.bin.elf -T link.ld --omagic -m elf_i386 --entry=boot
-	$(OBJC) -x --remove-section .note --remove-section .comment boot.bin.elf boot.bin.elf.stripped
-	$(OBJC) -SO binary boot.bin.elf.stripped boot.bin
-
-boot.o: boot.s
-	$(AS) $(AS_FLAGS) -o $*.o -s $*.s
-
-mem.o: mem.asm
-	$(NASM) $*.asm -f elf32 -o $*.o
-
-utils.o: utils.c
-	$(GCC) $(GCC_DEFS) $(CFLAGS) -c $*.c -o $*.o
-
-clumps.o: clumps.asm
-	$(NASM) $*.asm -f elf32 -o $*.o
-
-dispatcher.o: dispatcher.asm
-	$(NASM) $*.asm -f elf32 -o $*.o
-
-mem_test.o: mem_test.asm
-	$(NASM) $*.asm -f elf32 -o $*.o
-
-vm.o: vm.asm
-	$(NASM) $*.asm -f elf32 -o $*.o
+boot.bin: boot.asm
+	$(NASM) -f bin boot.asm -o boot.bin
 
 stdlib.o: stdlib.c
 	$(GCC) $(GCC_DEFS) $(CFLAGS) -c $*.c -o $*.o
