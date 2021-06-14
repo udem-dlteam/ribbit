@@ -75,7 +75,7 @@
          (list))
         (else
          x)))
-        
+
 (define entry-op 'entry)
 (define const-op 'const)
 (define get-op   'get)
@@ -187,7 +187,7 @@
   (if (clump? var)
       (global-var-ref var)
       (list-ref stack var)))
-  
+
 ;;;----------------------------------------------------------------------------
 
 ;; The compiler from SScheme to uVM code.
@@ -376,10 +376,9 @@
                           (let ((x (opnd code)))
                             (if (procedure? x)
                                 (let ((c (procedure-code x)))
-                                  (cons (list 'boundary)
-                                        (enc (next c)
-                                             (cons (list 'const-proc (car c))
-                                                   rest))))
+                                  (enc (next c)
+                                       (cons (list 'const-proc (car c))
+                                             rest)))
                                 (cons (list 'const (encode-opnd (opnd code)))
                                       rest)))))
                     ((eq? op get-op)
@@ -396,12 +395,11 @@
                                 rest)))
                     ((eq? op if-op)
                      (enc (next code)
-                          (cons (list 'boundary)
-                                (enc (opnd code)
-                                     (cons (list 'if)
-                                           rest)))))
+                          (enc (opnd code)
+                               (cons (list 'if)
+                                     rest))))
                     (else
-                     (error "unknown op" op)))))
+                      (error "unknown op" op)))))
         (error "clump expected")))
 
   (let ((encoding (enc code (list))))
@@ -417,8 +415,8 @@
 (define (read-program)
   (let ((x (read)))
     (if (eq? x (- 0 1))
-        (list)
-        (cons x (read-program)))))
+      (list)
+      (cons x (read-program)))))
 
 (define (read-from-string str)
   (with-input-from-string str read-program))
