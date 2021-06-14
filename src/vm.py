@@ -82,8 +82,7 @@ def pop_clump():
 
 
 def field_x(x):
-    clump = stack[CAR_I]
-    return clump[x]
+    return stack[CAR_I][x]
 
 
 def field_0():
@@ -99,8 +98,7 @@ def field_2():
 
 
 def field_x_set(x, v):
-    clump = stack[CAR_I]
-    clump[x] = v
+    stack[CAR_I][x] = v
 
 
 def field_0_set(v):
@@ -297,7 +295,7 @@ def test_jump_prim():
 
     __print_stack()  # expecting 3, 2, 0, 0 where the last clump is 1-tagged
 
-    freezed = stack  # save the current stack
+    frozen = stack  # save the current stack
 
     push_clump()  # push a function clump for BP
 
@@ -308,7 +306,7 @@ def test_jump_prim():
     stack[0] = prim_clump
 
     proc_clump = stack
-    stack = freezed
+    stack = frozen
 
     jump(proc_clump)
     print("--After jump--")
