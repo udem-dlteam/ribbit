@@ -1,7 +1,11 @@
 # uVM implementation in Python
 # Clumps are implemented as 3-element list so we can mutate them
 from sys import stdin
-from operator import add as math_add, mul as math_mul, ifloordiv as math_div, sub as math_sub, lt as math_lt, \
+from operator import add as math_add, \
+    mul as math_mul, \
+    ifloordiv as math_div, \
+    sub as math_sub, \
+    lt as math_lt, \
     eq as math_eq
 from functools import reduce
 
