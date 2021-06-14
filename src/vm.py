@@ -1,11 +1,15 @@
 # uVM implementation in Python
 # Clumps are implemented as 3-element list so we can mutate them
 from sys import stdin
-from operator import add as math_add, mul as math_mul, ifloordiv as math_div, sub as math_sub
+from operator import add as math_add, mul as math_mul, ifloordiv as math_div, sub as math_sub, lt as math_lt, \
+    eq as math_eq
 from functools import reduce
 
 
 def to_fixnum(x):
+    if isinstance(x, bool):
+        x = 1 if x else 0
+
     return (x << 1) | 1
 
 
@@ -132,39 +136,38 @@ def __pop(n):
     return result
 
 
-def lt():
-    [left, right] = __pop(2)
-    stack[CAR_I] = to_fixnum(1 if left < right else 0)
-
-
-def eq():
-    [left, right] = __pop(2)
-    stack[CAR_I] = to_fixnum(1 if left == right else 0)
-
-
 def clump():
     new_clump = __pop(3)
     stack[CAR_I] = new_clump
 
 
-def binop(op):
+def __binop(op):
+    global stack
     stack[CAR_I] = to_fixnum(reduce(op, map(from_fixnum, __pop(2))))
 
 
+def lt():
+    __binop(math_lt)
+
+
+def eq():
+    __binop(math_eq)
+
+
 def add():
-    binop(math_add)
+    __binop(math_add)
 
 
 def sub():
-    binop(math_sub)
+    __binop(math_sub)
 
 
 def mul():
-    binop(math_mul)
+    __binop(math_mul)
 
 
 def div():
-    binop(math_div)
+    __binop(math_div)
 
 
 def putchar():
