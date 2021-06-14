@@ -4,11 +4,6 @@ from sys import stdin
 from operator import add as math_add, mul as math_mul, ifloordiv as math_div, sub as math_sub
 from functools import reduce
 
-CAR_I = 0
-CDR_I = 1
-TYPE_I = 2
-CLUMP_SIZE = 3
-
 
 def to_fixnum(x):
     return (x << 1) | 1
@@ -18,8 +13,26 @@ def from_fixnum(x):
     return x >> 1
 
 
-nil = to_fixnum(0)
-stack = [nil] * CLUMP_SIZE
+TAG_PAIR = to_fixnum(0)
+TAG_PROC = to_fixnum(1)
+TAG_STR = to_fixnum(2)
+TAG_SYM = to_fixnum(3)
+TAG_TRUE = to_fixnum(4)
+TAG_FALSE = to_fixnum(5)
+TAG_NUL = to_fixnum(6)
+
+NIL = to_fixnum(0)
+
+CAR_I = 0
+CDR_I = 1
+TAG_I = 2
+CLUMP_SIZE = 3
+
+# Top of the stack
+stack = NIL
+
+# Program Counter
+pc = stack
 
 
 def __obj_to_str(obj):
@@ -34,19 +47,36 @@ def __obj_to_str(obj):
 def __print_stack():
     global stack
     explorer = stack
-    while explorer != nil:
+    while explorer != NIL:
         print(f"-->({__obj_to_str(explorer[0])}, {__obj_to_str(explorer[1])}, {__obj_to_str(explorer[2])})")
         explorer = explorer[CDR_I]
 
 
+def __push_and_set(x):
+    push_clump()
+    stack[CAR_I] = to_fixnum(x)
+
+
 def push_clump():
+    """
+    Push a new clump on top of the stack
+    The CDR field will be the previous stack
+    The TAG field will be 0
+    :return:
+    """
     global stack
-    new_clump = [nil] * CLUMP_SIZE
+    new_clump = [NIL] * CLUMP_SIZE
     new_clump[CDR_I] = stack
+    new_clump[TAG_I] = TAG_PAIR
+
     stack = new_clump
 
 
 def pop_clump():
+    """
+    Remove the clump currently on top of the stack
+    :return:
+    """
     global stack
     stack = stack[CDR_I]
 
@@ -152,23 +182,142 @@ def getchar():
     stack[CAR_I] = c
 
 
-def vm():
-    pass
+def __env():
+    """
+    Get the clump of the environment
+    :return:
+    """
+    slow_scout = None
+    scout = stack
+
+    # slow_scout    ... scout
+    # (?, ->, ?) ... (?, ->, 1)
+    while scout[TAG_I] != TAG_PROC:
+        slow_scout = scout
+        scout = scout[CDR_I]
+
+    assert slow_scout is not None, "There must be an env. clump"
+    return slow_scout
+
+
+def __skip_n(n):
+    """
+    Skip n clumps
+    :param n:
+    :return:
+    """
+
+    scout = stack
+    while n != 0:
+        scout = scout[CDR_I]
+        n -= 1
+
+    return scout
+
+
+def call(proc_clump):
+    return __call_or_jump(True, proc_clump)
+
+
+def jump(proc_clump):
+    return __call_or_jump(False, proc_clump)
+
+
+# map an integer to a primitive operation
+int_to_prim = [
+    add,
+    sub,
+    mul,
+    div,
+    call,
+    jump
+]
+
+
+def __call_or_jump(is_call: bool, proc_clump):
+    """
+    Call a procedure
+    Assumes:
+    :return:
+    """
+    global stack, pc
+
+    proc_code = proc_clump[CAR_I]
+    args = proc_code[CAR_I]
+    code = proc_code[CDR_I]
+
+    is_primitive = isinstance(code, int)  # if the procedure is a primitive, we can exec. it
+
+    [curr_env, _, curr_code] = __env()
+    old_env = __skip_n(args)
+
+    if is_call:
+        if is_primitive:
+            primitive_code = from_fixnum(code)
+            prim = int_to_prim[primitive_code]
+            prim()
+        else:
+            push_clump()
+
+            stack[CAR_I] = old_env
+            stack[CDR_I] = proc_clump
+            stack[TAG_I] = pc
+
+            pc = code
+    else:  # is a jump
+        if is_primitive:
+
+            primitive_code = from_fixnum(code)
+            prim = int_to_prim[primitive_code]
+            prim()
+
+            stack[CDR_I] = curr_env
+            pc = curr_code
+        else:
+            push_clump()
+
+            stack[CAR_I] = curr_env
+            stack[CDR_I] = proc_clump
+            stack[TAG_I] = curr_code
+
+            pc = code
+
+
+def test_jump_prim():
+    # we want to jump to add, to add 5,6
+    # nothing in env
+    global stack, pc
+    push_clump()
+    stack[TAG_I] = TAG_PROC
+
+    push_clump()
+
+    __push_and_set(5)
+    __push_and_set(6)
+
+    __print_stack()  # expecting 3, 2, 0, 0 where the last clump is 1-tagged
+
+    freezed = stack  # save the current stack
+
+    push_clump()  # push a function clump for BP
+
+    add_idx = int_to_prim.index(add)
+
+    # cheat to rewrite the stack correctly
+    prim_clump = [2, to_fixnum(add_idx), 0]
+    stack[0] = prim_clump
+
+    proc_clump = stack
+    stack = freezed
+
+    jump(proc_clump)
+    print("--After jump--")
+
+    __print_stack()  # expecting to see 11 on TOS with 0,0 following
 
 
 def main():
-    push_clump()
-    stack[CAR_I] = to_fixnum(5)
-    push_clump()
-
-    stack[CAR_I] = to_fixnum(5)
-    __print_stack()
-
-    print()
-    print()
-
-    add()
-    __print_stack()
+    test_jump_prim()
 
 
 if __name__ == '__main__':
