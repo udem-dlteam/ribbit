@@ -85,36 +85,38 @@ def pop_clump():
     stack = stack[CDR_I]
 
 
-def field_x(x):
+def __field_x(x):
+    global stack
     return stack[CAR_I][x]
 
 
 def field_0():
-    return field_x(0)
+    return __field_x(0)
 
 
 def field_1():
-    return field_x(1)
+    return __field_x(1)
 
 
 def field_2():
-    return field_x(2)
+    return __field_x(2)
 
 
-def field_x_set(x, v):
+def __field_x_set(x, v):
+    global stack
     stack[CAR_I][x] = v
 
 
 def field_0_set(v):
-    field_x_set(0, v)
+    __field_x_set(0, v)
 
 
 def field_1_set(v):
-    field_x_set(1, v)
+    __field_x_set(1, v)
 
 
 def field_2_set(v):
-    field_x_set(2, v)
+    __field_x_set(2, v)
 
 
 def __pop(n):
@@ -230,6 +232,19 @@ int_to_prim = [
     sub,
     mul,
     div,
+    lt,
+    eq,
+    clump,
+    push_clump,
+    pop_clump,
+    putchar,
+    getchar,
+    field_0,
+    field_1,
+    field_2,
+    field_0_set,
+    field_1_set,
+    field_2_set,
     call,
     jump
 ]
