@@ -36,10 +36,7 @@
 (define (global-var-set! sym x) (field1-set! sym x))
 
 (define false (clump 0 0 4))
-(define (false? o) (eq? o false))
-
 (define true (clump 0 0 5))
-(define (true? o) (eq? o true))
 
 (define null (clump 0 0 6))
 (define (null? o) (eq? o null))
