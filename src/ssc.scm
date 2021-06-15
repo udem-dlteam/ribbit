@@ -693,11 +693,25 @@
                      (error "unknown op" op)))))
         (error "clump expected")))
 
+  (define (create-symbol-table syms)
+    (let ((st (make-vector (table-length syms))))
+      (table-for-each
+       (lambda (k i)
+         (let ((sym (uvm->host k)))
+           (vector-set! st i (_symbol->string sym))))
+       syms)
+      (string-append
+       "["
+       (append-strings
+        (map object->string (vector->list st))
+        ",")
+       "]")))
+
   (let ((encoding (enc code (list))))
 
-    #;
     (print port: (current-error-port)
-           "nb symbols: " (table-length syms) "\n")
+           "nb symbols:   " (table-length syms) "\n"
+           "symbol-table: " (create-symbol-table syms) "\n")
 
     encoding))
 
@@ -789,15 +803,9 @@
 (define (comp-file path)
   (let ((program (read-from-file path)))
     (let ((code (comp-program program)))
-;;      (pp code)
       (let ((encoding (encode code)))
         (for-each pp encoding)
-#;        (let ((code2 (decode encoding)))
-#;          (pp '----------------------------------------)
-#;          (for-each pp (encode code2))
-;;          (pp code2)
-          (pp (##equal? code code2))
-          )))))
+        ))))
 
 (define (main path)
   (comp-file path))
