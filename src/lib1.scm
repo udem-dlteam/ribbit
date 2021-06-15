@@ -2,6 +2,40 @@
 
 ;;(include "uvm-compat.scm")
 
+(export
+
+ identity
+ arg1
+ arg2
+ close
+ cons
+ clump?
+ field0
+ field1
+ field2
+ field0-set!
+ field1-set!
+ field2-set!
+ eq?
+ <
+ +
+ -
+ *
+ quotient
+ getchar
+ putchar
+
+ false
+ true
+ null
+
+ quote
+ set!
+ if
+ lambda
+
+)
+
 ;;;----------------------------------------------------------------------------
 
 ;; Implementation of Small-Scheme types using the uVM operations.
@@ -19,6 +53,7 @@
 (define (caddr pair) (cadr (cdr pair)))
 (define (cadddr pair) (caddr (cdr pair)))
 (define (length x) (if (pair? x) (+ 1 (length (cdr x))) 0))
+(define (not x) (eq? x '#f))
 
 (define (procedure? o) (instance? o 1))
 (define (make-procedure code env) (clump code env 1))
@@ -36,10 +71,10 @@
 (define (global-var-set! sym x) (field1-set! sym x))
 
 (define false (clump 0 0 4))
-(define true (clump 0 0 5))
+(define true  (clump 0 0 5))
+(define null  (clump 0 0 6))
 
-(define null (clump 0 0 6))
-(define (null? o) (eq? o null))
+(define (null? o) (eq? o '()))
 
 (define (= x y) (eq? x y))
 
@@ -70,75 +105,38 @@
 (define (string->symbol-aux str syms)
   (if (clump? syms)
       (let ((sym (field0 syms)))
-        (let ((name (field0 sym)))
-          (if (equal? name str)
-              sym
-              (string->symbol-aux str (field1 syms)))))
+        (if (equal? (field0 sym) str)
+            sym
+            (string->symbol-aux str (field1 syms))))
       (let ((sym (string->uninterned-symbol str)))
         (set! symbol-table (clump sym symbol-table 0))
         sym)))
 
 (define (equal? x y)
-  (if (clump? x)
-      (and (clump? y)
+  (or (eq? x y)
+      (and (clump? x)
+           (clump? y)
            (equal? (field0 x) (field0 y))
            (equal? (field1 x) (field1 y))
-           (equal? (field2 x) (field2 y)))
-      (eq? x y)))
-
-(define $identity    'identity)
-(define $arg1        'arg1)
-(define $arg2        'arg2)
-(define $close       'close)
-(define $cons        'cons)
-(define $clump?      'clump?)
-(define $field0      'field0)
-(define $field1      'field1)
-(define $field2      'field2)
-(define $field0-set! 'field0-set!)
-(define $field1-set! 'field1-set!)
-(define $field2-set! 'field2-set!)
-(define $eq?         'eq?)
-(define $<           '<)
-(define $+           '+)
-(define $-           '-)
-(define $*           '*)
-(define $quotient    'quotient)
-(define $getchar     'getchar)
-(define $putchar     'putchar)
-
-(define $false       'false)
-(define $true        'true)
-
-(define $quote       'quote)
-(define $set!        'set!)
-(define $if          'if)
-(define $lambda      'lambda)
-(define $let         'let)
-(define $begin       'begin)
-(define $define      'define)
-(define $and         'and)
-(define $or          'or)
-(define $cond        'cond)
-(define $else        'else)
+           (equal? (field2 x) (field2 y)))))
 
 ;;;----------------------------------------------------------------------------
 
 ;; Character I/O (characters are represented with integers).
 
-(define empty (- 0 2))
-(define buf (clump empty 0 0))
+(define empty (- 0 2)) ;; can't have negative numbers in source code
+(define buffer (clump empty 0 0))
 
 (define (read-char)
-  (let ((c (field0 buf)))
+  (let ((c (field0 buffer)))
     (if (= c empty)
         (getchar)
-        (begin (field0-set! buf empty) c))))
+        (begin (field0-set! buffer empty) c))))
 
 (define (peek-char)
-  (let ((c (field0 buf)))
+  (let ((c (field0 buffer)))
     (if (= c empty)
-        (let ((c (getchar))) (field0-set! buf c) c)
+        (let ((c (getchar))) (field0-set! buffer c) c)
         c)))
 
 ;;;----------------------------------------------------------------------------
@@ -157,15 +155,13 @@
            (let ((c (peek-char)))
              (cond ((= c 102) ;; #\f
                     (read-char) ;; skip "f"
-                    false)
-                   ((= c 116) ;; #\t
+                    '#f)
+                   (else ;; assume it is #\t
                     (read-char) ;; skip "t"
-                    true)
-                   (else
-                    (halt))))) ;; TODO: error?
+                    '#t))))
           ((= c 39) ;; #\'
            (read-char) ;; skip "'"
-           (cons $quote (cons (read) null)))
+           (cons 'quote (cons (read) '())))
           (else
            (read-char) ;; skip first char
            (let ((s (list->string (cons c (read-symbol)))))
@@ -179,17 +175,16 @@
     (if (= c 41) ;; #\)
         (begin
           (read-char) ;; skip ")"
-          null)
+          '())
         (let ((first (read)))
-          (let ((rest (read-list)))
-            (cons first rest))))))
+          (cons first (read-list))))))
 
 (define (read-symbol)
   (let ((c (peek-char)))
     (if (or (= c 40) ;; #\(
             (= c 41) ;; #\)
             (< c 33)) ;; whitespace or eof?
-        null
+        '()
         (begin
           (read-char)
           (cons c (read-symbol))))))
@@ -219,15 +214,12 @@
 ;; The write procedure.
 
 (define (write o)
-  (cond ((eq? o false)
-         (putchar 35)   ;; #\#
-         (putchar 102)) ;; #\f
-        ((eq? o true)
-         (putchar 35)   ;; #\#
-         (putchar 116)) ;; #\t
-        ((eq? o null)
-         (putchar 40)  ;; #\(
-         (putchar 41)) ;; #\)
+  (cond ((not o)
+         (putchar2 35 102)) ;; #f
+        ((eq? o '#t)
+         (putchar2 35 116)) ;; #t
+        ((null? o)
+         (putchar2 40 41)) ;; ()
         ((pair? o)
          (putchar 40)  ;; #\(
          (write (car o))
@@ -247,18 +239,15 @@
             (begin
               (write (car lst))
               (write-list (cdr lst)))
-            (begin ;; probably overkill to implement dotted pairs
-              (putchar 46) ;; #\.
-              (putchar 32) ;; #\space
-              (write lst))))
-      false))
+            '#f)) ;; writing dotted pairs is not supported
+      '#f))
 
 (define (write-chars lst)
   (if (pair? lst)
       (begin
         (putchar (car lst))
         (write-chars (cdr lst)))
-      false))
+      '#f))
 
 (define (write-number n)
   ;; only supports nonnegative integers
@@ -273,76 +262,83 @@
 (define (newline)
   (putchar 10))
 
+(define (putchar2 c1 c2)
+  (putchar c1)
+  (putchar c2))
+
 ;;;----------------------------------------------------------------------------
 
 ;; Compiler from Small-Scheme to uVM code.
 
-;;(define const-op $const)
-;;(define proc-op  $proc)
-;;(define get-op   $get)
-;;(define set-op   $set)
-;;(define if-op    $if)
-;;(define jump-op  $jump)
-;;(define call-op  $call)
 (define const-op 0)
-(define proc-op  1)
-(define get-op   2)
-(define set-op   3)
-(define if-op    4)
-(define jump-op  5)
-(define call-op  6)
+(define get-op   1)
+(define set-op   2)
+(define if-op    3)
+(define jump-op  4)
+(define call-op  5)
 
-(define (comp expr cte cont)
+(define (comp cte expr cont)
+
   (cond ((symbol? expr)
          (clump get-op (lookup expr cte 0) cont))
+
         ((pair? expr)
          (let ((first (car expr)))
-           (cond ((eq? first $quote)
+
+           (cond ((eq? first 'quote)
                   (clump const-op (cadr expr) cont))
-                 ((eq? first $set!)
-                  (comp (caddr expr)
-                        cte
-                        (clump set-op (lookup (cadr expr) cte 1) cont)))
-                 ((eq? first $if)
-                  (let ((cont-false (comp (cadddr expr) cte cont)))
-                    (let ((cont-true (comp (caddr expr) cte cont)))
-                      (let ((cont-test (clump if-op cont-true cont-false)))
-                        (comp (cadr expr) cte cont-test)))))
-                 ((eq? first $lambda)
+
+                 ((eq? first 'set!)
+                  (comp cte
+                        (caddr expr)
+                        (clump set-op
+                               (lookup (cadr expr) cte 1)
+                               (clump const-op 0 cont))))
+
+                 ((eq? first 'if)
+                  (comp cte
+                        (cadr expr)
+                        (clump if-op
+                               (comp cte (caddr expr) cont)
+                               (comp cte (cadddr expr) cont))))
+
+                 ((eq? first 'lambda)
                   (let ((params (cadr expr)))
                     (clump const-op
                            (make-procedure
                             (clump (length params)
                                    0
-                                   (comp-begin (cddr expr)
-                                               (extend params cte)
-                                               tail))
-                            null)
+                                   (comp (extend params cte)
+                                         (caddr expr)
+                                         tail))
+                            '())
                            (if (null? cte)
                                cont
-                               (comp-call $close cont)))))
+                               (gen-call 'close cont)))))
+
                  (else
-                  (comp-list (cdr expr)
-                             cte
-                             (lambda (cte)
-                               (comp-call (lookup (car expr) cte 0) cont)))))))
+                  (comp-list cte
+                             (cdr expr)
+                             (cons (car expr) cont))))))
+
         (else
          ;; self-evaluating
          (clump const-op expr cont))))
 
-(define (comp-call v cont)
+(define (gen-call v cont)
   (if (eq? cont tail)
       (clump jump-op v 0)
       (clump call-op v cont)))
 
-(define (comp-list exprs cte k)
+(define (comp-list cte exprs var-cont)
   (if (pair? exprs)
-      (comp (car exprs)
-            cte
-            (comp-list (cdr exprs)
-                       (cons false cte)
-                       k))
-      (k cte)))
+      (comp cte
+            (car exprs)
+            (comp-list (cons '#f cte)
+                       (cdr exprs)
+                       var-cont))
+      (gen-call (lookup (car var-cont) cte 0)
+                (cdr var-cont))))
 
 (define (lookup var cte i)
   (if (pair? cte)
@@ -356,22 +352,21 @@
       (cons (car vars) (extend (cdr vars) cte))
       cte))
 
-(define tail (clump jump-op $identity null))
+(define tail (clump jump-op 'identity 0))
 
 (define (compile expr) ;; converts an s-expression to a procedure
-  (make-procedure (clump 0 0 (comp expr null tail)) null))
+  (make-procedure (clump 0 0 (comp '() expr tail)) '()))
 
 (define (eval expr)
   (set! code (compile expr))
   (code))
 
 (define (repl)
-  (putchar 62) ;; #\>
-  (putchar 32) ;; space
+  (putchar2 62 32) ;; #\> and space
   (write (eval (read)))
   (newline)
   (repl))
 
-;;(repl)
+(if (eq? 0 0) 0 (repl))
 
 ;;;----------------------------------------------------------------------------

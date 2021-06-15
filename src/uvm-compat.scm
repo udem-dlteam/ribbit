@@ -23,7 +23,14 @@
 (define _char->integer  char->integer)
 (define _integer->char  integer->char)
 
+(define _pair?          pair?)
 (define _cons           cons)
+(define _car            car)
+(define _cdr            cdr)
+(define _set-car!       set-car!)
+(define _set-cdr!       set-cdr!)
+(define _cadr           cadr)
+(define _caddr          caddr)
 (define _map            map)
 (define _symbol->string symbol->string)
 (define _string->list   string->list)
@@ -59,19 +66,8 @@
                  (begin ,@(cdr clause))
                  (cond ,@(cdr clauses)))))))
 
-;;;----------------------------------------------------------------------------
-
-(define null (list))
-
-(define $const 'const)
-(define $proc  'proc)
-(define $get   'get)
-(define $set   'set)
-(define $if    'if)
-(define $jump  'jump)
-(define $call  'call)
-
-;;;----------------------------------------------------------------------------
+(define-macro (export . rest)
+  `(begin))
 
 (define-macro (quote x)
   (cond ((symbol? x) `(string->symbol ',(symbol->string x)))
@@ -79,7 +75,10 @@
                                            'null
                                            (reverse (string->list x)))))
         ((char? x)   (char->integer x))
-        (else        x)))
+        ((eq? x #f)  `false)
+        ((eq? x #t)  `true)
+        ((eq? x '()) `null)
+        (else        `(##quote ,x))))
 
 ;;;----------------------------------------------------------------------------
 
