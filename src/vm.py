@@ -1,5 +1,7 @@
 # uVM implementation in Python
 # Clumps are implemented as 3-element list so we can mutate them
+# This file should read as a big class without the nesting; state
+# is global.
 from sys import stdin
 from operator import add as math_add, \
     mul as math_mul, \
@@ -91,36 +93,40 @@ def pop_clump():
 
 def __field_x(x):
     global stack
-    return stack[CAR_I][x]
+    field = stack[CAR_I][x]
+    push_clump()
+    stack[0] = field
 
 
 def field_0():
-    return __field_x(0)
+    __field_x(0)
 
 
 def field_1():
-    return __field_x(1)
+    __field_x(1)
 
 
 def field_2():
-    return __field_x(2)
+    __field_x(2)
 
 
-def __field_x_set(x, v):
+def __field_x_set(x):
     global stack
+    v = stack[CAR_I]
+    pop_clump()
     stack[CAR_I][x] = v
 
 
-def field_0_set(v):
-    __field_x_set(0, v)
+def field_0_set():
+    __field_x_set(0)
 
 
-def field_1_set(v):
-    __field_x_set(1, v)
+def field_1_set():
+    __field_x_set(1)
 
 
-def field_2_set(v):
-    __field_x_set(2, v)
+def field_2_set():
+    __field_x_set(2)
 
 
 def __pop(n):
@@ -143,8 +149,7 @@ def __pop(n):
 
 
 def clump():
-    new_clump = __pop(3)
-    stack[CAR_I] = new_clump
+    stack = __pop(CLUMP_SIZE)
 
 
 def __binop(op):
@@ -152,29 +157,12 @@ def __binop(op):
     stack[CAR_I] = to_fixnum(reduce(op, map(from_fixnum, __pop(2))))
 
 
-def lt():
-    __binop(math_lt)
-
-
-def eq():
-    __binop(math_eq)
-
-
-def add():
-    __binop(math_add)
-
-
-def sub():
-    __binop(math_sub)
-
-
-def mul():
-    __binop(math_mul)
-
-
-def div():
-    __binop(math_div)
-
+def lt(): __binop(math_lt)
+def eq(): __binop(math_eq)
+def add(): __binop(math_add)
+def sub(): __binop(math_sub)
+def mul(): __binop(math_mul)
+def div(): __binop(math_div)
 
 def putchar():
     char = from_fixnum(stack[CAR_I])
