@@ -53,317 +53,7 @@ function _obj_to_str(obj) {
     }
 }
 
-
-function _print_stack() {
-    let scout = stack
-
-    while (NIL !== scout) {
-        console.log('(' + scout.map(_obj_to_str).join(",") + ')');
-        scout = scout[CDR_I]
-    }
-}
-
-function push_clump() {
-    stack = [NIL, stack, TAG_PAIR]
-}
-
-function _push_and_set(x) {
-    push_clump()
-    stack[CAR_I] = to_fixnum(x)
-}
-
-function pop_clump() {
-    stack = stack[CDR_I]
-}
-
-function _field(x) {
-    let field = stack[CAR_I][x]
-    push_clump()
-    stack[CAR_I] = field
-}
-
-function field0() {
-    _field(0)
-}
-
-function field1() {
-    _field(1)
-}
-
-function field2() {
-    _field(2)
-}
-
-function _field_set(x) {
-    let val = stack[CAR_I]
-    pop_clump()
-    stack[CAR_I][x] = val
-}
-
-function field0_set() {
-    _field_set(0)
-}
-
-function field1_set() {
-    _field_set(1)
-}
-
-function field2_set() {
-    _field_set(2)
-}
-
-function _skip(n) {
-    let scout = stack
-
-    while (n-- >= 0) {
-        scout = scout[CDR_I]
-    }
-
-    return scout
-}
-
-function _pop(n) {
-    if (n < 1) {
-        throw new Error("Cannot pop less than a single element")
-    }
-
-    let result = []
-
-    while (n !== 1) {
-        result.push(stack[CAR_I])
-        pop_clump()
-        n--
-    }
-
-    result.push(stack[CAR_I])
-
-    return result
-}
-
-function clump() {
-    stack = _pop(CLUMP_SIZE)
-}
-
-function _binop(op) {
-    const args = _pop(2);
-    const rValued = args.map(from_fixnum);
-    const result = rValued.reduce(op);
-
-    stack[CAR_I] = to_fixnum(result);
-}
-
-function _log_bin_op(op) {
-    _binop(op)
-    if (stack[CAR_I] === to_fixnum(1)) {
-        stack[CAR_I] = TRUE;
-    } else {
-        stack[CAR_I] = FALSE;
-    }
-}
-
-const lt = () => _log_bin_op((x, y) => x < y);
-const eq = () => _log_bin_op((x, y) => x === y)
-const add = () => _binop((x, y) => x + y)
-const sub = () => _binop((x, y) => x - y)
-const mul = () => _binop((x, y) => x * y)
-const div = () => _binop((x, y) => x / y)
-
-function putchar() {
-    let char = String.fromCharCode(from_fixnum(stack[CAR_I]))
-    process.stdout.write(char)
-}
-
-function getchar() {
-    let char = process.stdin.read(1)
-    push_clump()
-    stack[CAR_I] = to_fixnum(char.charCodeAt(0))
-}
-
-function _env() {
-    let slow = null
-    let scout = stack
-
-    while (scout[TAG_I] !== TAG_PROC) {
-        slow = scout
-        scout = scout[CDR_I]
-    }
-
-    return slow
-}
-
-const call = (proc_clump) => _call_or_jump(true, proc_clump)
-const jump = (proc_clump) => _call_or_jump(false, proc_clump)
-
-// (vector 'identity
-// 'arg1
-// 'arg2
-// 'close
-// 'cons
-// 'clump?
-// 'field0
-// 'field1
-// 'field2
-// 'field0-set!
-// 'field1-set!
-// 'field2-set!
-// 'eq?
-// '<
-// '+
-// '-
-// '*
-// 'quotient
-// 'getchar
-// 'putchar))
-
-function id() {
-
-}
-
-function arg1() {
-
-}
-
-function arg2() {
-
-}
-
-function close() {
-
-}
-
-function cons() {
-
-}
-
-function is_clump() {
-
-}
-
-// table symbole = list symbole en clump, champ 3 = 0
-// chaque "car" clump symbole (tag 3)
-//     champ 1 = str nom
-//     champ 2 = val du sym (procedure, champ code = index)
-//     champ 3 = 1
-// symbol = clump (avec champ 3 = 3)
-
-const primitives = [
-    id,
-    arg1,
-    arg2,
-    close,
-    cons,
-    is_clump,
-    field0,
-    field1,
-    field2,
-    field0_set,
-    field1_set,
-    field2_set,
-    eq,
-    lt,
-    add,
-    sub,
-    mul,
-    div,
-    getchar,
-    putchar,
-]
-
-
-function _call_or_jump(call_n_jump, proc_clump) {
-    const proc_code = proc_clump[CAR_I]
-    const [args, code,] = proc_code
-
-    const is_primitive = typeof (code) === 'number';
-
-    const old_env = _skip(args)
-
-    if (call_n_jump) {
-        if (is_primitive) {
-            let prim_code = from_fixnum(code)
-            let prim = primitives[prim_code]
-            prim()
-        } else {
-            push_clump()
-            stack = [old_env, proc_clump, pc]
-            pc = code
-        }
-    } else {
-        const [curr_env, , curr_code] = _env()
-        if (is_primitive) {
-            let prim_code = from_fixnum(code)
-            let prim = primitives[prim_code]
-            prim()
-
-            stack[CDR_I] = curr_env
-            pc = curr_code
-        } else {
-            push_clump()
-            stack = [curr_env, proc_clump, curr_code]
-            pc = code
-        }
-    }
-}
-
-function alloc_str(str) {
-    return str.split("").reverse().reduce((old, chr) => {
-        return [chr.charCodeAt(0), old, TAG_STR]
-    }, NULL);
-}
-
-function _read_vm_str(vm_str) {
-    let str = ""
-
-    while (NULL !== vm_str) {
-        str += String.fromCharCode(vm_str[CAR_I])
-        vm_str = vm_str[CDR_I]
-    }
-
-    return str
-}
-
-function build_sym_table(code) {
-    const symbol_table = {}
-    const lines = code.split(os.EOL)
-    const marker = "symbol-table: ";
-
-    function parse_symbol_array(array_line) {
-        const symbols_array = JSON.parse(array_line.substr(marker.length))
-        const nb_symbols = symbols_array.length;
-
-        let next = NULL;
-        for (let j = nb_symbols - 1; j > -1; j--) {
-            const name = symbols_array[j];
-            let proc;
-
-            if (j <= primitives.length) {
-                proc = [to_fixnum(j), 0, TAG_PROC]
-            } else {
-                proc = [j, 0, 0]
-            }
-
-            const symbol = [alloc_str(name), proc, TAG_SYM]
-            const entry = [symbol, next, TAG_PAIR]
-
-            next = entry
-        }
-
-        // affect the global symbol table variable
-        st = next
-    }
-
-    lines.every(line => {
-        if (line.startsWith(marker)) {
-            parse_symbol_array(line);
-            return false
-        }
-        return true;
-    });
-
-    return symbol_table
-}
-
-function parse_sexpr(bytecode) {
+function _parse_sexp(bytecode) {
     let scan = 1;
     let stack = []
     let word = ""
@@ -400,29 +90,18 @@ function parse_sexpr(bytecode) {
         }
     }
 
-    return JSON.stringify(elements)
+    push_word()
+
+    return elements
 }
 
-function parse_code(code) {
-    const lines = code.split(os.EOL).slice(2)
+function _dump_stack() {
+    let scout = stack
 
-    console.dir(lines.map(parse_sexpr))
-}
-
-function init_prims() {
-}
-
-
-function build_clump_codes() {
-
-}
-
-function init_stack() {
-
-}
-
-function run() {
-
+    while (NIL !== scout) {
+        console.log('(' + scout.map(_obj_to_str).join(",") + ')');
+        scout = scout[CDR_I]
+    }
 }
 
 function _dump_symbol_table() {
@@ -446,11 +125,315 @@ function _dump_symbol_table() {
     }
 }
 
-function vm(code) {
-    build_sym_table(code)
-    _dump_symbol_table()
+function _env() {
+    let slow = null
+    let scout = stack
+
+    while (scout[TAG_I] !== TAG_PROC) {
+        slow = scout
+        scout = scout[CDR_I]
+    }
+
+    return slow
 }
 
+function _call_or_jump(call_n_jump, proc_clump) {
+    const proc_code = proc_clump[CAR_I]
+    const [args, code,] = proc_code
+
+    const is_primitive = typeof (code) === 'number';
+
+    const old_env = _skip(args)
+
+    if (call_n_jump) {
+        if (is_primitive) {
+            let prim_code = from_fixnum(code)
+            let prim = PRIMITIVES[prim_code]
+            prim()
+        } else {
+            push_clump()
+            stack = [old_env, proc_clump, pc]
+            pc = code
+        }
+    } else {
+        const [curr_env, , curr_code] = _env()
+        if (is_primitive) {
+            let prim_code = from_fixnum(code)
+            let prim = PRIMITIVES[prim_code]
+            prim()
+
+            stack[CDR_I] = curr_env
+            pc = curr_code
+        } else {
+            push_clump()
+            stack = [curr_env, proc_clump, curr_code]
+            pc = code
+        }
+    }
+}
+
+function _alloc_str(str) {
+    return str.split("").reverse().reduce((old, chr) => {
+        return [chr.charCodeAt(0), old, TAG_STR]
+    }, NULL);
+}
+
+function _read_vm_str(vm_str) {
+    let str = ""
+
+    while (NULL !== vm_str) {
+        str += String.fromCharCode(vm_str[CAR_I])
+        vm_str = vm_str[CDR_I]
+    }
+
+    return str
+}
+
+function _field(x) {
+    let field = stack[CAR_I][x]
+    push_clump()
+    stack[CAR_I] = field
+}
+
+function _field_set(x) {
+    let val = stack[CAR_I]
+    pop_clump()
+    stack[CAR_I][x] = val
+}
+
+function _argX(x) {
+    const arg = _pop(2)[x]
+    stack[CAR_I] = arg
+}
+
+function _skip(n) {
+    let scout = stack
+
+    while (n-- >= 0) {
+        scout = scout[CDR_I]
+    }
+
+    return scout
+}
+
+/**
+ * Pop n-1 clump out of the stack and return the
+ * first 'n' 'car'
+ * @param n number of 'car' to get,
+ * @returns {*[]}
+ */
+function _pop(n) {
+    if (n < 1) {
+        throw new Error("Cannot pop less than a single element")
+    }
+
+    let result = []
+
+    while (n !== 1) {
+        result.push(stack[CAR_I])
+        pop_clump()
+        n--
+    }
+
+    result.push(stack[CAR_I])
+
+    return result
+}
+
+
+function _binop(op) {
+    const args = _pop(2);
+    const rValued = args.map(from_fixnum);
+    const result = rValued.reduce(op);
+
+    stack[CAR_I] = to_fixnum(result);
+}
+
+function _log_bin_op(op) {
+    _binop(op)
+    if (stack[CAR_I] === to_fixnum(1)) {
+        stack[CAR_I] = TRUE;
+    } else {
+        stack[CAR_I] = FALSE;
+    }
+}
+
+function push_clump(x = NIL) {
+    stack = [x, stack, TAG_PAIR]
+}
+
+
+function pop_clump() {
+    stack = stack[CDR_I]
+}
+
+
+const field0 = () => _field(0)
+const field1 = () => _field(1)
+const field2 = () => _field(2)
+const field0_set = () => _field_set(0)
+const field1_set = () => _field_set(1)
+const field2_set = () => _field_set(2)
+const lt = () => _log_bin_op((x, y) => x < y);
+const eq = () => _log_bin_op((x, y) => x === y)
+const add = () => _binop((x, y) => x + y)
+const sub = () => _binop((x, y) => x - y)
+const mul = () => _binop((x, y) => x * y)
+const div = () => _binop((x, y) => x / y)
+const call = (proc_clump) => _call_or_jump(true, proc_clump)
+const jump = (proc_clump) => _call_or_jump(false, proc_clump)
+const arg1 = () => _argX(1)
+const arg2 = () => _argX(0)
+const id = () => {
+}
+
+function putchar() {
+    let char = String.fromCharCode(from_fixnum(stack[CAR_I]))
+    process.stdout.write(char)
+}
+
+function getchar() {
+    let char = process.stdin.read(1)
+    push_clump()
+    stack[CAR_I] = to_fixnum(char.charCodeAt(0))
+}
+
+
+function close() {
+
+}
+
+function cons() {
+    const [cdr, car] = _pop(2)
+    stack[CAR_I] = [car, cdr, 0]
+}
+
+function is_clump() {
+    const is_it = typeof (stack[CAR_I]) === 'object'
+    push_clump()
+    stack[CAR_I] = is_it ? TRUE : FALSE
+}
+
+const PRIMITIVES = [
+    id,
+    arg1,
+    arg2,
+    close,
+    cons,
+    is_clump,
+    field0,
+    field1,
+    field2,
+    field0_set,
+    field1_set,
+    field2_set,
+    eq,
+    lt,
+    add,
+    sub,
+    mul,
+    div,
+    getchar,
+    putchar
+]
+
+
+function build_sym_table(code) {
+    const symbol_table = {}
+    const lines = code.split(os.EOL)
+    const marker = "symbol-table: ";
+
+    function parse_symbol_array(array_line) {
+        const symbols_array = JSON.parse(array_line.substr(marker.length))
+        const nb_symbols = symbols_array.length;
+
+        let next = NULL;
+        for (let j = nb_symbols - 1; j > -1; j--) {
+            const name = symbols_array[j];
+            let proc;
+
+            if (j <= PRIMITIVES.length) {
+                proc = [to_fixnum(j), 0, TAG_PROC]
+            } else {
+                proc = [j, 0, 0]
+            }
+
+            const symbol = [_alloc_str(name), proc, TAG_SYM]
+            const entry = [symbol, next, TAG_PAIR]
+
+            next = entry
+        }
+
+        // affect the global symbol table variable
+        st = next
+    }
+
+    lines.every(line => {
+        if (line.startsWith(marker)) {
+            parse_symbol_array(line);
+            return false
+        }
+        return true;
+    });
+
+    return symbol_table
+}
+
+
+function parse_code(code) {
+    const lines = code.split(os.EOL).slice(1)
+    return (lines.map(_parse_sexp))
+}
+
+function run(clumps) {
+
+    for (let i = clumps.length - 1; i > -1; i--) {
+        const instr = clumps[i]
+        const op = instr[0]
+        const args = instr.slice(1)
+
+        switch (op) {
+
+            case "const-proc": {
+                break
+            }
+
+            case "get": {
+                break
+            }
+
+            case "call": {
+                break
+            }
+
+            case "if" : {
+                break
+            }
+
+            case "jump" : {
+                break
+            }
+
+            case "set" : {
+                break
+            }
+
+            case "const" : {
+                break
+            }
+
+            default: {
+                throw new Error("Unsupported operation: " + op)
+            }
+        }
+    }
+}
+
+function vm(code) {
+    build_sym_table(code)
+    const clumps = parse_code(code)
+    run(clumps)
+}
 
 const main = async () => {
     fs.readFile("./lib1.o", "utf-8", (err, data) => {
@@ -462,6 +445,7 @@ const main = async () => {
     });
 }
 
+// noinspection JSIgnoredPromiseFromCall
 main()
 
 
