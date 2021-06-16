@@ -154,10 +154,9 @@ function _call_or_jump(call_n_jump, proc_clump) {
             const [args, code_ptr,] = proc_clump[CAR_I]
 
             const last_arg = _skip(args - 1)
-            const old_env = _skip(args)
 
             push_clump()
-            stack = [old_env, proc_clump, pc]
+            stack = [last_arg[CDR_I], proc_clump, pc]
 
             // Relink the arguments
             last_arg[CDR_I] = stack
@@ -262,7 +261,7 @@ function _pop(n) {
 
 
 function _binop(op) {
-    const [y, x] = _pop(2).reverse();
+    const [y, x] = _pop(2);
     const args = [x, y];
     const rValued = args.map(_from_fixnum);
     const result = rValued.reduce(op);
@@ -443,7 +442,7 @@ function run() {
 
             case "const-proc": {
                 const arg_count = parseInt(args)
-                const proc_val = [arg_count, pc[CDR_I], TAG_PAIR]
+                const proc_val = [arg_count, pc, TAG_PAIR]
 
                 const proc = [proc_val, _env(), TAG_PROC]
                 push_clump(proc)
