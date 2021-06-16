@@ -6,7 +6,9 @@ Based-off the python implementation. Clumps are lists.
 const fs = require('fs')
 const os = require('os')
 
-const TODO = () => throw new Error("TODO!")
+const TODO = () => {
+    throw new Error("TODO!");
+}
 
 const _from_fixnum = x => {
     return x >> 1
@@ -27,6 +29,7 @@ const TAG_SYM = _to_fixnum(3)
 const TAG_TRUE = _to_fixnum(4)
 const TAG_FALSE = _to_fixnum(5)
 const TAG_NUL = _to_fixnum(6)
+const TAG_CODE = _to_fixnum(7)
 
 const NIL = _to_fixnum(0)
 
@@ -138,19 +141,15 @@ function _env() {
 }
 
 function _call_or_jump(call_n_jump, proc_clump) {
-    const proc_code = proc_clump[CAR_I]
-    const [args, code,] = proc_code
-
-    const is_primitive = typeof (code) === 'number';
-
-    const old_env = _skip(args)
-
+    const [sym_no, code_ptr, val_tag] = proc_clump
+    const is_primitive = typeof (code_ptr) === 'number';
     if (call_n_jump) {
         if (is_primitive) {
-            let prim_code = _from_fixnum(code)
-            let prim = PRIMITIVES[prim_code]
+            let prim = PRIMITIVES[sym_no]
             prim()
         } else {
+            const [args, code,] = code_ptr
+            const old_env = _skip(args)
             push_clump()
             stack = [old_env, proc_clump, pc]
             pc = code
@@ -158,13 +157,13 @@ function _call_or_jump(call_n_jump, proc_clump) {
     } else {
         const [curr_env, , curr_code] = _env()
         if (is_primitive) {
-            let prim_code = _from_fixnum(code)
-            let prim = PRIMITIVES[prim_code]
+            let prim = PRIMITIVES[sym_no]
             prim()
 
             stack[CDR_I] = curr_env
             pc = curr_code
         } else {
+            const [, code,] = code_ptr
             push_clump()
             stack = [curr_env, proc_clump, curr_code]
             pc = code
@@ -303,8 +302,7 @@ function cons() {
 
 function is_clump() {
     const is_it = typeof (stack[CAR_I]) === 'object'
-    push_clump()
-    stack[CAR_I] = is_it ? TRUE : FALSE
+    push_clump(is_it ? TRUE : FALSE)
 }
 
 const PRIMITIVES = [
@@ -345,11 +343,7 @@ function build_sym_table(code) {
             const name = symbols_array[j];
             let proc;
 
-            if (j <= PRIMITIVES.length) {
-                proc = [_to_fixnum(j), 0, TAG_PROC]
-            } else {
-                proc = [j, 0, 0]
-            }
+            proc = [j, 0, j <= PRIMITIVES.length ? TAG_PROC : 0]
 
             const symbol = [_alloc_str(name), proc, TAG_SYM]
             const entry = [symbol, next, TAG_PAIR]
@@ -372,21 +366,14 @@ function build_sym_table(code) {
     return symbol_table
 }
 
-
-function parse_code(code) {
-    const lines = code.split(os.EOL).slice(1)
-    return (lines.map(_parse_sexp))
-}
-
 function _find_sym(x) {
-    const num = _to_fixnum(x)
     let scout = st
 
     while (scout !== NULL) {
         const sym = scout[CAR_I]
         const pr = sym[CDR_I]
         const sym_num = pr[CAR_I]
-        if (sym_num === num) {
+        if (sym_num === x) {
             return sym
         }
 
@@ -396,13 +383,32 @@ function _find_sym(x) {
     return scout[CAR_I]
 }
 
+function find_last_jump(pc) {
+    let jump_c = 1;
 
-function run(clumps) {
-
-    for (let i = clumps.length - 1; i > -1; i--) {
-        const instr = clumps[i]
+    do {
+        pc = pc[CDR_I]
+        const instr = pc[CAR_I]
         const op = instr[0]
-        const args = instr.slice(1)
+
+        if (op === "jump") {
+            jump_c--
+        } else if (op === "if") {
+            jump_c++
+        } else if (op === "const-proc") {
+            jump_c++
+        }
+    } while (jump_c > 0);
+
+    return pc;
+}
+
+function run() {
+
+    while (pc !== NULL) {
+        const instr = pc[CAR_I]
+        const op = instr[0]
+        const args = instr[1]
 
         function call_or_jump(call_n_jump) {
             const go_to_what = args[0]
@@ -411,7 +417,7 @@ function run(clumps) {
                 throw new Error(`Don't know how to call a: ${go_to_what}`)
             }
 
-            const which_symbol = args[1]
+            const which_symbol = parseInt(args[1])
             const sym = _find_sym(which_symbol)
 
             _call_or_jump(call_n_jump, sym[CDR_I])
@@ -420,7 +426,12 @@ function run(clumps) {
         switch (op) {
 
             case "const-proc": {
-                TODO()
+                const arg_count = parseInt(args)
+                const proc_val = [arg_count, pc[CDR_I], TAG_PAIR]
+                push_clump(proc_val)
+
+                pc = find_last_jump(pc)
+
                 break
             }
 
@@ -433,12 +444,12 @@ function run(clumps) {
                 const get_what = args[0]
 
                 if (get_what === "sym") {
-                    const sym_no = args[1]
+                    const sym_no = parseInt(args[1])
                     const sym = _find_sym(sym_no)
                     const sym_val = sym[CDR_I]
                     push_clump(sym_val)
                 } else if (get_what === "int") {
-                    const depth = args[1]
+                    const depth = parseInt(args[1])
                     const clump = _skip(depth)
                     push_clump(clump[CAR_I])
                 } else {
@@ -465,7 +476,7 @@ function run(clumps) {
                     throw new Error(`I dont know how to set a '${set_what}'`)
                 }
 
-                const sym_no = args[1]
+                const sym_no = parseInt(args[1])
                 const sym = _find_sym(sym_no)
                 sym[CDR_I] = pop_clump()
                 break
@@ -475,11 +486,11 @@ function run(clumps) {
                 const const_what = args[0]
 
                 if (const_what === "sym") {
-                    const what_sym = args[1]
+                    const what_sym = parseInt(args[1])
                     const sym = _find_sym(what_sym)
                     push_clump(sym)
                 } else if (const_what === "int") {
-                    const val = args[1]
+                    const val = parseInt(args[1])
                     push_clump(val)
                 } else {
                     TODO()
@@ -492,16 +503,28 @@ function run(clumps) {
                 throw new Error("Unsupported operation: " + op)
             }
         }
+
+        pc = pc[CDR_I]
     }
+}
+
+function build_pc_clumps(code) {
+    // first line is the last executed instruction
+    // so the instructions are reversed already
+    const lines = code.split(os.EOL).slice(1)
+    pc = lines
+        .map(_parse_sexp)
+        .reduce((acc, s_exp) => [s_exp, acc, TAG_CODE], NULL);
 }
 
 function vm(code) {
     build_sym_table(code)
+    build_pc_clumps(code)
 
     // const sym = _find_sym(5);
     // console.log("Found symbol " + _read_vm_str(sym[0]))
     // const clumps = parse_code(code)
-    // run(clumps)
+    run()
 }
 
 const main = async () => {
