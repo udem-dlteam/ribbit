@@ -141,30 +141,42 @@ function _env() {
 }
 
 function _call_or_jump(call_n_jump, proc_clump) {
-    const [sym_no, code_ptr, val_tag] = proc_clump
-    const is_primitive = typeof (code_ptr) === 'number';
+    const [, , val_tag] = proc_clump
+
+    const is_primitive = (val_tag === TAG_PAIR)
+
     if (call_n_jump) {
         if (is_primitive) {
+            const sym_no = proc_clump[CAR_I]
             let prim = PRIMITIVES[sym_no]
             prim()
         } else {
-            // TODO: not ok
-            const [args, code,] = code_ptr
+            const [args, code_ptr,] = proc_clump[CAR_I]
+
+            const last_arg = _skip(args - 1)
             const old_env = _skip(args)
+
             push_clump()
             stack = [old_env, proc_clump, pc]
+
+            // Relink the arguments
+            last_arg[CDR_I] = stack
+
+            // Properly set the stack
+            stack = last_arg
             pc = code_ptr
         }
     } else {
         const [curr_env, , curr_code] = _env()
         if (is_primitive) {
+            const sym_no = proc_clump[CAR_I]
             let prim = PRIMITIVES[sym_no]
             prim()
 
             stack[CDR_I] = curr_env
             pc = curr_code
         } else {
-            const [args, ,] = code_ptr
+            const [args, code_ptr,] = proc_clump[CAR_I]
 
             const last_arg = _skip(args - 1)
             push_clump()
@@ -296,8 +308,6 @@ const add = () => _binop((x, y) => x + y)
 const sub = () => _binop((x, y) => x - y)
 const mul = () => _binop((x, y) => x * y)
 const div = () => _binop((x, y) => x / y)
-const call = (proc_clump) => _call_or_jump(true, proc_clump)
-const jump = (proc_clump) => _call_or_jump(false, proc_clump)
 const arg1 = () => _argX(1)
 const arg2 = () => _argX(0)
 const putchar = () => process.stdout.write(String.fromCharCode(_from_fixnum(stack[CAR_I])))
@@ -352,8 +362,7 @@ function build_sym_table(code) {
             const name = symbols_array[j];
             let proc;
 
-            proc = [j, 0, j <= PRIMITIVES.length ? TAG_PROC : 0]
-
+            proc = [j, 0, TAG_PAIR]
             const symbol = [_alloc_str(name), proc, TAG_SYM]
             const entry = [symbol, next, TAG_PAIR]
 
@@ -378,18 +387,11 @@ function build_sym_table(code) {
 function _find_sym(x) {
     let scout = st
 
-    while (scout !== NULL) {
-        const sym = scout[CAR_I]
-        const pr = sym[CDR_I]
-        const sym_num = pr[CAR_I]
-        if (sym_num === x) {
-            return sym
-        }
-
+    for (let i = 0; i < x; ++i) {
         scout = scout[CDR_I]
     }
 
-    throw new Error("No symbol found for index " + x)
+    return scout[CAR_I]
 }
 
 function find_last_jump(pc) {
@@ -405,7 +407,7 @@ function find_last_jump(pc) {
         } else if (op === "if") {
             jump_c++
         } else if (op === "const-proc") {
-            jump_c++
+            jump_c--
         }
     } while (jump_c > 0);
 
@@ -418,6 +420,11 @@ function run() {
         const instr = pc[CAR_I]
         const op = instr[0]
         const args = instr[1]
+
+        // console.log("Executing " + instr)
+        // _dump_stack()
+        // console.log()
+        // console.log()
 
         function call_or_jump(call_n_jump) {
             const go_to_what = args[0]
@@ -437,7 +444,9 @@ function run() {
             case "const-proc": {
                 const arg_count = parseInt(args)
                 const proc_val = [arg_count, pc[CDR_I], TAG_PAIR]
-                push_clump(proc_val)
+
+                const proc = [proc_val, _env(), TAG_PROC]
+                push_clump(proc)
 
                 pc = find_last_jump(pc)
 
@@ -445,7 +454,13 @@ function run() {
             }
 
             case "if" : {
-                TODO()
+                const truth = (pop_clump() !== FALSE)
+
+                if (!truth) {
+                    // search the jump that ends the true branch
+                    pc = find_last_jump(pc)
+                } // else : pc = pc + 1
+
                 break
             }
 
@@ -487,8 +502,12 @@ function run() {
 
                 const sym_no = parseInt(args[1])
                 const sym = _find_sym(sym_no)
-                const sym_val = sym[CDR_I]
-                sym_val[CDR_I] = pop_clump()
+
+                const sym_name = _read_vm_str(sym[CAR_I])
+
+                console.log("SET " + sym_name)
+
+                sym[CDR_I] = pop_clump()
                 break
             }
 
