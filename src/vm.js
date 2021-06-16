@@ -156,38 +156,52 @@ function _call_or_jump(call_n_jump, proc_clump) {
             const old_stack = stack
             const last_arg = _skip(args - 1)
 
+            let env;
+
+            if (args > 0) {
+                env = last_arg[CDR_I]
+            } else {
+                env = old_stack
+            }
+
             push_clump()
-            stack = [last_arg[CDR_I], proc_clump, pc]
+            stack = [env, proc_clump, pc]
 
-            // Relink the arguments
-            last_arg[CDR_I] = stack
+            if (args > 0) {
+                // Relink the arguments
+                last_arg[CDR_I] = stack
+                // Properly set the stack
+                stack = old_stack
+            }
 
-            // Properly set the stack
-            stack = old_stack
             pc = code_ptr
         }
     } else {
-        const [curr_env, , curr_code] = _env()
+        const [curr_env, , curr_ra] = _env()
         if (is_primitive) {
             const sym_no = proc_clump[CAR_I]
             let prim = PRIMITIVES[sym_no]
             prim()
 
             stack[CDR_I] = curr_env
-            pc = curr_code
+            pc = curr_ra
         } else {
-            const [args, code_ptr,] = proc_clump[CAR_I]
+            const [args, code_ptr,] = proc_clump
 
             const old_stack = stack
             const last_arg = _skip(args - 1)
+
+
             push_clump()
-            stack = [curr_env, proc_clump, curr_code]
+            stack = [curr_env, proc_clump, curr_ra]
 
-            // Relink the last argument
-            last_arg[CDR_I] = stack
+            if (args > 0) {
+                // Relink the last argument
+                last_arg[CDR_I] = stack
+                // Reset the env
+                stack = old_stack
+            }
 
-            // Reset the env
-            stack = old_stack
             pc = code_ptr
         }
     }
