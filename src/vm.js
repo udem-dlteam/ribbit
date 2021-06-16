@@ -148,11 +148,12 @@ function _call_or_jump(call_n_jump, proc_clump) {
             let prim = PRIMITIVES[sym_no]
             prim()
         } else {
+            // TODO: not ok
             const [args, code,] = code_ptr
             const old_env = _skip(args)
             push_clump()
             stack = [old_env, proc_clump, pc]
-            pc = code
+            pc = code_ptr
         }
     } else {
         const [curr_env, , curr_code] = _env()
@@ -163,10 +164,18 @@ function _call_or_jump(call_n_jump, proc_clump) {
             stack[CDR_I] = curr_env
             pc = curr_code
         } else {
-            const [, code,] = code_ptr
+            const [args, ,] = code_ptr
+
+            const last_arg = _skip(args - 1)
             push_clump()
             stack = [curr_env, proc_clump, curr_code]
-            pc = code
+
+            // Relink the last argument
+            last_arg[CDR_I] = stack
+
+            // Reset the env
+            stack = last_arg
+            pc = code_ptr
         }
     }
 }
@@ -208,7 +217,7 @@ function _argX(x) {
 function _skip(n) {
     let scout = stack
 
-    while (n-- >= 0) {
+    while (--n >= 0) {
         scout = scout[CDR_I]
     }
 
@@ -380,7 +389,7 @@ function _find_sym(x) {
         scout = scout[CDR_I]
     }
 
-    return scout[CAR_I]
+    throw new Error("No symbol found for index " + x)
 }
 
 function find_last_jump(pc) {
@@ -478,7 +487,8 @@ function run() {
 
                 const sym_no = parseInt(args[1])
                 const sym = _find_sym(sym_no)
-                sym[CDR_I] = pop_clump()
+                const sym_val = sym[CDR_I]
+                sym_val[CDR_I] = pop_clump()
                 break
             }
 
@@ -490,7 +500,7 @@ function run() {
                     const sym = _find_sym(what_sym)
                     push_clump(sym)
                 } else if (const_what === "int") {
-                    const val = parseInt(args[1])
+                    const val = _to_fixnum(parseInt(args[1]))
                     push_clump(val)
                 } else {
                     TODO()
@@ -504,8 +514,14 @@ function run() {
             }
         }
 
-        pc = pc[CDR_I]
+        if (NULL !== pc) {
+            pc = pc[CDR_I]
+        }
     }
+
+    console.debug("Done running")
+    console.debug("Stack looks like:")
+    _dump_stack()
 }
 
 function build_pc_clumps(code) {
@@ -517,9 +533,15 @@ function build_pc_clumps(code) {
         .reduce((acc, s_exp) => [s_exp, acc, TAG_CODE], NULL);
 }
 
+function init_stack() {
+    stack = [pc, NIL, TAG_PROC]
+    stack = [NIL, stack, NULL]
+}
+
 function vm(code) {
     build_sym_table(code)
     build_pc_clumps(code)
+    init_stack()
 
     // const sym = _find_sym(5);
     // console.log("Found symbol " + _read_vm_str(sym[0]))
