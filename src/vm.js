@@ -153,6 +153,7 @@ function _call_or_jump(call_n_jump, proc_clump) {
         } else {
             const [args, code_ptr,] = proc_clump[CAR_I]
 
+            const old_stack = stack
             const last_arg = _skip(args - 1)
 
             push_clump()
@@ -162,7 +163,7 @@ function _call_or_jump(call_n_jump, proc_clump) {
             last_arg[CDR_I] = stack
 
             // Properly set the stack
-            stack = last_arg
+            stack = old_stack
             pc = code_ptr
         }
     } else {
@@ -177,6 +178,7 @@ function _call_or_jump(call_n_jump, proc_clump) {
         } else {
             const [args, code_ptr,] = proc_clump[CAR_I]
 
+            const old_stack = stack
             const last_arg = _skip(args - 1)
             push_clump()
             stack = [curr_env, proc_clump, curr_code]
@@ -185,7 +187,7 @@ function _call_or_jump(call_n_jump, proc_clump) {
             last_arg[CDR_I] = stack
 
             // Reset the env
-            stack = last_arg
+            stack = old_stack
             pc = code_ptr
         }
     }
@@ -309,8 +311,27 @@ const mul = () => _binop((x, y) => x * y)
 const div = () => _binop((x, y) => x / y)
 const arg1 = () => _argX(1)
 const arg2 = () => _argX(0)
-const putchar = () => process.stdout.write(String.fromCharCode(_from_fixnum(stack[CAR_I])))
-const getchar = () => push_clump(_to_fixnum(process.stdin.read(1).charCodeAt(0)))
+
+const putchar = () => {
+    const output = String.fromCharCode(_from_fixnum(stack[CAR_I]))
+    process.stdout.write(output)
+}
+
+let fixed_ipt = "5\n"
+
+const getchar = () => {
+    let ipt = fixed_ipt[0]
+    console.log(ipt)
+    fixed_ipt = fixed_ipt.slice(1)
+    // let ipt = null;
+    //
+    // while (!ipt) {
+    //     ipt = process.stdin.read(1);
+    // }
+    //
+    const val = _to_fixnum(ipt.charCodeAt(0))
+    push_clump(val)
+}
 const close = () => stack[TAG_I] = TAG_PROC
 
 function cons() {
@@ -345,7 +366,6 @@ const PRIMITIVES = [
     getchar,
     putchar
 ]
-
 
 function build_sym_table(code) {
     const symbol_table = {}
@@ -421,7 +441,6 @@ function run() {
         const args = instr[1]
 
         // console.log("Executing " + instr)
-        // _dump_stack()
         // console.log()
         // console.log()
 
@@ -434,6 +453,9 @@ function run() {
 
             const which_symbol = parseInt(args[1])
             const sym = _find_sym(which_symbol)
+
+            const name = _read_vm_str(sym[CAR_I])
+            // console.log(`${call_n_jump ? "Calling" : "Jumping to"} ${name}`)
 
             _call_or_jump(call_n_jump, sym[CDR_I])
         }
@@ -504,8 +526,8 @@ function run() {
 
                 const sym_name = _read_vm_str(sym[CAR_I])
 
-                console.log("SET " + sym_name)
-
+                // console.log("SET " + sym_name)
+                //
                 sym[CDR_I] = pop_clump()
                 break
             }
@@ -557,6 +579,7 @@ function init_stack() {
 }
 
 function vm(code) {
+    process.stdin.setEncoding('utf8');
     build_sym_table(code)
     build_pc_clumps(code)
     init_stack()
