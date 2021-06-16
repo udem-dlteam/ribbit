@@ -1,5 +1,4 @@
 // noinspection UnnecessaryLocalVariableJS
-
 /*
 uVM implementation in Javascript
 Based-off the python implementation. Clumps are lists.
@@ -7,11 +6,13 @@ Based-off the python implementation. Clumps are lists.
 const fs = require('fs')
 const os = require('os')
 
-const from_fixnum = x => {
+const TODO = () => throw new Error("TODO!")
+
+const _from_fixnum = x => {
     return x >> 1
 }
 
-const to_fixnum = x => {
+const _to_fixnum = x => {
     if (typeof (x) === 'boolean') {
         x = x ? 1 : 0
     }
@@ -19,20 +20,19 @@ const to_fixnum = x => {
     return (x << 1) | 1
 }
 
-const TAG_PAIR = to_fixnum(0)
-const TAG_PROC = to_fixnum(1)
-const TAG_STR = to_fixnum(2)
-const TAG_SYM = to_fixnum(3)
-const TAG_TRUE = to_fixnum(4)
-const TAG_FALSE = to_fixnum(5)
-const TAG_NUL = to_fixnum(6)
+const TAG_PAIR = _to_fixnum(0)
+const TAG_PROC = _to_fixnum(1)
+const TAG_STR = _to_fixnum(2)
+const TAG_SYM = _to_fixnum(3)
+const TAG_TRUE = _to_fixnum(4)
+const TAG_FALSE = _to_fixnum(5)
+const TAG_NUL = _to_fixnum(6)
 
-const NIL = to_fixnum(0)
+const NIL = _to_fixnum(0)
 
 const CAR_I = 0
 const CDR_I = 1
 const TAG_I = 2
-const CLUMP_SIZE = 3
 
 const NULL = [0, 0, TAG_NUL]
 const TRUE = [0, 0, TAG_TRUE]
@@ -47,7 +47,7 @@ function _obj_to_str(obj) {
     if (typeof (obj) === 'object') {
         return "CLMP"
     } else if (typeof (obj) === 'number') {
-        return from_fixnum(obj).toString()
+        return _from_fixnum(obj).toString()
     } else {
         return "err"
     }
@@ -115,7 +115,7 @@ function _dump_symbol_table() {
         let title;
         if (proc_or_pair[TAG_I] === TAG_PROC) {
             // TODO: check if int or clump
-            title = "PRIM(" + from_fixnum(proc_or_pair[CAR_I]) + ")"
+            title = "PRIM(" + _from_fixnum(proc_or_pair[CAR_I]) + ")"
         } else {
             title = "UNALLOC"
         }
@@ -147,7 +147,7 @@ function _call_or_jump(call_n_jump, proc_clump) {
 
     if (call_n_jump) {
         if (is_primitive) {
-            let prim_code = from_fixnum(code)
+            let prim_code = _from_fixnum(code)
             let prim = PRIMITIVES[prim_code]
             prim()
         } else {
@@ -158,7 +158,7 @@ function _call_or_jump(call_n_jump, proc_clump) {
     } else {
         const [curr_env, , curr_code] = _env()
         if (is_primitive) {
-            let prim_code = from_fixnum(code)
+            let prim_code = _from_fixnum(code)
             let prim = PRIMITIVES[prim_code]
             prim()
 
@@ -242,16 +242,17 @@ function _pop(n) {
 
 
 function _binop(op) {
-    const args = _pop(2);
-    const rValued = args.map(from_fixnum);
+    const [y, x] = _pop(2).reverse();
+    const args = [x, y];
+    const rValued = args.map(_from_fixnum);
     const result = rValued.reduce(op);
 
-    stack[CAR_I] = to_fixnum(result);
+    stack[CAR_I] = _to_fixnum(result);
 }
 
 function _log_bin_op(op) {
     _binop(op)
-    if (stack[CAR_I] === to_fixnum(1)) {
+    if (stack[CAR_I] === _to_fixnum(1)) {
         stack[CAR_I] = TRUE;
     } else {
         stack[CAR_I] = FALSE;
@@ -262,12 +263,19 @@ function push_clump(x = NIL) {
     stack = [x, stack, TAG_PAIR]
 }
 
-
+/**
+ * Pop the clump on the TOS
+ * @returns {*} the car of the clump
+ */
 function pop_clump() {
+    const value = stack[CAR_I]
     stack = stack[CDR_I]
+    return value
 }
 
 
+const id = () => {
+}
 const field0 = () => _field(0)
 const field1 = () => _field(1)
 const field2 = () => _field(2)
@@ -284,24 +292,9 @@ const call = (proc_clump) => _call_or_jump(true, proc_clump)
 const jump = (proc_clump) => _call_or_jump(false, proc_clump)
 const arg1 = () => _argX(1)
 const arg2 = () => _argX(0)
-const id = () => {
-}
-
-function putchar() {
-    let char = String.fromCharCode(from_fixnum(stack[CAR_I]))
-    process.stdout.write(char)
-}
-
-function getchar() {
-    let char = process.stdin.read(1)
-    push_clump()
-    stack[CAR_I] = to_fixnum(char.charCodeAt(0))
-}
-
-
-function close() {
-
-}
+const putchar = () => process.stdout.write(String.fromCharCode(_from_fixnum(stack[CAR_I])))
+const getchar = () => push_clump(_to_fixnum(process.stdin.read(1).charCodeAt(0)))
+const close = () => stack[TAG_I] = TAG_PROC
 
 function cons() {
     const [cdr, car] = _pop(2)
@@ -353,7 +346,7 @@ function build_sym_table(code) {
             let proc;
 
             if (j <= PRIMITIVES.length) {
-                proc = [to_fixnum(j), 0, TAG_PROC]
+                proc = [_to_fixnum(j), 0, TAG_PROC]
             } else {
                 proc = [j, 0, 0]
             }
@@ -385,6 +378,25 @@ function parse_code(code) {
     return (lines.map(_parse_sexp))
 }
 
+function _find_sym(x) {
+    const num = _to_fixnum(x)
+    let scout = st
+
+    while (scout !== NULL) {
+        const sym = scout[CAR_I]
+        const pr = sym[CDR_I]
+        const sym_num = pr[CAR_I]
+        if (sym_num === num) {
+            return sym
+        }
+
+        scout = scout[CDR_I]
+    }
+
+    return scout[CAR_I]
+}
+
+
 function run(clumps) {
 
     for (let i = clumps.length - 1; i > -1; i--) {
@@ -392,33 +404,87 @@ function run(clumps) {
         const op = instr[0]
         const args = instr.slice(1)
 
+        function call_or_jump(call_n_jump) {
+            const go_to_what = args[0]
+
+            if (go_to_what !== "sym") {
+                throw new Error(`Don't know how to call a: ${go_to_what}`)
+            }
+
+            const which_symbol = args[1]
+            const sym = _find_sym(which_symbol)
+
+            _call_or_jump(call_n_jump, sym[CDR_I])
+        }
+
         switch (op) {
 
             case "const-proc": {
-                break
-            }
-
-            case "get": {
-                break
-            }
-
-            case "call": {
+                TODO()
                 break
             }
 
             case "if" : {
+                TODO()
+                break
+            }
+
+            case "get": {
+                const get_what = args[0]
+
+                if (get_what === "sym") {
+                    const sym_no = args[1]
+                    const sym = _find_sym(sym_no)
+                    const sym_val = sym[CDR_I]
+                    push_clump(sym_val)
+                } else if (get_what === "int") {
+                    const depth = args[1]
+                    const clump = _skip(depth)
+                    push_clump(clump[CAR_I])
+                } else {
+                    TODO()
+                }
+
+                break
+            }
+
+            case "call": {
+                call_or_jump(true);
                 break
             }
 
             case "jump" : {
+                call_or_jump(false);
                 break
             }
 
             case "set" : {
+                const set_what = args[0]
+
+                if (set_what !== "sym") {
+                    throw new Error(`I dont know how to set a '${set_what}'`)
+                }
+
+                const sym_no = args[1]
+                const sym = _find_sym(sym_no)
+                sym[CDR_I] = pop_clump()
                 break
             }
 
             case "const" : {
+                const const_what = args[0]
+
+                if (const_what === "sym") {
+                    const what_sym = args[1]
+                    const sym = _find_sym(what_sym)
+                    push_clump(sym)
+                } else if (const_what === "int") {
+                    const val = args[1]
+                    push_clump(val)
+                } else {
+                    TODO()
+                }
+
                 break
             }
 
@@ -431,8 +497,11 @@ function run(clumps) {
 
 function vm(code) {
     build_sym_table(code)
-    const clumps = parse_code(code)
-    run(clumps)
+
+    // const sym = _find_sym(5);
+    // console.log("Found symbol " + _read_vm_str(sym[0]))
+    // const clumps = parse_code(code)
+    // run(clumps)
 }
 
 const main = async () => {
