@@ -186,7 +186,7 @@ function _call_or_jump(call_n_jump, proc_clump) {
             stack[CDR_I] = curr_env
             pc = curr_ra
         } else {
-            const [args, code_ptr,] = proc_clump
+            const [args, code_ptr,] = proc_clump[CAR_I]
 
             const old_stack = stack
             const last_arg = _skip(args - 1)
