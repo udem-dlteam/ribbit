@@ -281,7 +281,8 @@
                                    0
                                    (comp-begin (ctx-cte-set
                                                 ctx
-                                                (extend params (ctx-cte ctx)))
+                                                (extend (reverse params)
+                                                        (ctx-cte ctx)))
                                                (cddr expr)
                                                tail))
                             '())
@@ -314,6 +315,14 @@
         (else
          ;; self-evaluating
          (clump const-op expr cont))))
+
+(define (reverse lst)
+  (reverse-aux lst '()))
+
+(define (reverse-aux lst result)
+  (if (pair? lst)
+      (reverse-aux (cdr lst) (cons (car lst) result))
+      result))
 
 (define (gen-call v cont)
   (if (eq? cont tail)
@@ -366,7 +375,7 @@
   (if (pair? exprs)
       (let ((first (car exprs)))
         (if (and (pair? first) (eq? (car first) 'export))
-            (comp-program* (cdr exprs) (cdr first))
+            (comp-program* (cdr exprs) (exports->alist (cdr first)))
             (comp-program* exprs '())))
       (comp-program* exprs '())))
 
@@ -378,6 +387,15 @@
       (comp (make-ctx '() live exports)
             expansion
             tail))))
+
+(define (exports->alist exports)
+  (if (pair? exports)
+      (let ((x (car exports)))
+        (cons (if (symbol? x)
+                  (cons x x)
+                  (cons (car x) (cadr x)))
+              (exports->alist (cdr exports))))
+      null))
 
 ;;;----------------------------------------------------------------------------
 
@@ -534,7 +552,7 @@
 
 (define (exports->live exports)
   (if (pair? exports)
-      (cons (cons (car exports) '())
+      (cons (cons (car (car exports)) '())
             (exports->live (cdr exports)))
       '()))
 
@@ -612,7 +630,7 @@
 
                    ((eq? first 'lambda)
                     (let ((params (cadr expr)))
-                      (liveness (caddr expr) (extend params cte) '#f)))
+                      (liveness (caddr expr) (extend (reverse params) cte) '#f)))
 
                    (else
                     (liveness-list expr cte)))))

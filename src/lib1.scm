@@ -308,7 +308,7 @@
                            (make-procedure
                             (clump (length params)
                                    0
-                                   (comp (extend params cte)
+                                   (comp (extend (reverse params) cte)
                                          (caddr expr)
                                          tail))
                             '())
@@ -324,6 +324,14 @@
         (else
          ;; self-evaluating
          (clump const-op expr cont))))
+
+(define (reverse lst)
+  (reverse-aux lst '()))
+
+(define (reverse-aux lst result)
+  (if (pair? lst)
+      (reverse-aux (cdr lst) (cons (car lst) result))
+      result))
 
 (define (gen-call v cont)
   (if (eq? cont tail)
