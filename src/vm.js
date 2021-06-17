@@ -6,21 +6,33 @@ Based-off the python implementation. Clumps are lists.
 const fs = require('fs')
 const os = require('os')
 
+const ENABLE_SCHEME_INTS = false
+
 const TODO = () => {
     throw new Error("TODO!");
 }
 
-const _from_fixnum = x => {
-    return x >> 1
-}
+const _from_fixnum = ENABLE_SCHEME_INTS
+    ? (x => {
+        return x >> 1
+    })
+    : (x => x)
 
-const _to_fixnum = x => {
-    if (typeof (x) === 'boolean') {
-        x = x ? 1 : 0
-    }
+const _to_fixnum = ENABLE_SCHEME_INTS
+    ? (x => {
+        if (typeof (x) === 'boolean') {
+            x = x ? 1 : 0
+        }
 
-    return (x << 1) | 1
-}
+        return (x << 1) | 1
+    })
+    : (x => {
+        if (typeof (x) === 'boolean') {
+            x = x ? 1 : 0
+        }
+
+        return x
+    })
 
 const TAG_PAIR = _to_fixnum(0)
 const TAG_PROC = _to_fixnum(1)
@@ -331,11 +343,10 @@ const putchar = () => {
     process.stdout.write(output)
 }
 
-let fixed_ipt = "(+ 2 2)\r\n"
+let fixed_ipt = "(if)\n"
 
 const getchar = () => {
     let ipt = fixed_ipt[0]
-    process.stdout.write(ipt)
     fixed_ipt = fixed_ipt.slice(1)
     // let ipt = null;
     //
@@ -345,7 +356,10 @@ const getchar = () => {
     //
     if (!ipt) {
         ipt = "";
+    } else {
+        process.stdout.write(ipt)
     }
+
     const val = _to_fixnum(ipt.charCodeAt(0))
     push_clump(val)
 }
@@ -452,128 +466,212 @@ function find_last_jump(pc) {
     return pc;
 }
 
-function run() {
+function exec_if() {
+    const truth = (pop_clump() !== FALSE)
 
-    while (pc !== NULL) {
-        const instr = pc[CAR_I]
-        const op = instr[0]
-        const args = instr[1]
+    if (!truth) {
+        // search the jump that ends the true branch
+        pc = find_last_jump(pc)
+    } // else : pc = pc + 1
+}
 
-        // console.log("Executing " + instr)
-        // console.log()
-        // console.log()
+/**
+ * Exec the instruction at the current PC
+ * Where the instruction is written in emulation mode,
+ * ie the operation is described in a sexp
+ */
+function exec_emulation() {
+    const instr = pc[CAR_I]
+    const op = instr[0]
+    const args = instr[1]
 
-        function call_or_jump(call_n_jump) {
-            const go_to_what = args[0]
+    // console.log("Executing " + instr)
+    // console.log()
+    // console.log()
 
-            if (go_to_what !== "sym") {
-                throw new Error(`Don't know how to call a: ${go_to_what}`)
-            }
+    function call_or_jump(call_n_jump) {
+        const go_to_what = args[0]
 
-            const which_symbol = parseInt(args[1])
-            const sym = _find_sym(which_symbol)
-
-            const name = _read_vm_str(sym[CAR_I])
-            // console.log(`${call_n_jump ? "Calling" : "Jumping to"} ${name}`)
-
-            _call_or_jump(call_n_jump, sym[CDR_I])
+        if (go_to_what !== "sym") {
+            throw new Error(`Don't know how to call a: ${go_to_what}`)
         }
 
-        switch (op) {
+        const which_symbol = parseInt(args[1])
+        const sym = _find_sym(which_symbol)
 
-            case "const-proc": {
-                const arg_count = parseInt(args)
-                const proc_val = [arg_count, TAG_PAIR, pc]
+        const name = _read_vm_str(sym[CAR_I])
+        // console.log(`${call_n_jump ? "Calling" : "Jumping to"} ${name}`)
 
-                const proc = [proc_val, _env(), TAG_PROC]
-                push_clump(proc)
+        _call_or_jump(call_n_jump, sym[CDR_I])
+    }
 
-                pc = find_last_jump(pc)
+    switch (op) {
 
-                break
-            }
+        case "const-proc": {
+            const arg_count = parseInt(args)
+            const proc_val = [arg_count, TAG_PAIR, pc]
 
-            case "if" : {
-                const truth = (pop_clump() !== FALSE)
+            const proc = [proc_val, _env(), TAG_PROC]
+            push_clump(proc)
 
-                if (!truth) {
-                    // search the jump that ends the true branch
-                    pc = find_last_jump(pc)
-                } // else : pc = pc + 1
+            pc = find_last_jump(pc)
 
-                break
-            }
+            break
+        }
 
-            case "get": {
-                const get_what = args[0]
+        case "if" : {
+            exec_if()
+            break
+        }
 
-                if (get_what === "sym") {
-                    const sym_no = parseInt(args[1])
-                    const sym = _find_sym(sym_no)
-                    const sym_val = sym[CDR_I]
-                    push_clump(sym_val)
-                } else if (get_what === "int") {
-                    const depth = parseInt(args[1])
-                    const clump = _skip(depth)
-                    push_clump(clump[CAR_I])
-                } else {
-                    TODO()
-                }
+        case "get": {
+            const get_what = args[0]
 
-                break
-            }
-
-            case "call": {
-                call_or_jump(true);
-                break
-            }
-
-            case "jump" : {
-                call_or_jump(false);
-                break
-            }
-
-            case "set" : {
-                const set_what = args[0]
-
-                if (set_what !== "sym") {
-                    throw new Error(`I dont know how to set a '${set_what}'`)
-                }
-
+            if (get_what === "sym") {
                 const sym_no = parseInt(args[1])
                 const sym = _find_sym(sym_no)
-
-                const sym_name = _read_vm_str(sym[CAR_I])
-
-                console.log("SET " + sym_name)
-                //
-                sym[CDR_I] = pop_clump()
-                break
+                const sym_val = sym[CDR_I]
+                push_clump(sym_val)
+            } else if (get_what === "int") {
+                const depth = parseInt(args[1])
+                const clump = _skip(depth)
+                push_clump(clump[CAR_I])
+            } else {
+                TODO()
             }
 
-            case "const" : {
-                const const_what = args[0]
-
-                if (const_what === "sym") {
-                    const what_sym = parseInt(args[1])
-                    const sym = _find_sym(what_sym)
-                    push_clump(sym)
-                } else if (const_what === "int") {
-                    const val = _to_fixnum(parseInt(args[1]))
-                    push_clump(val)
-                } else {
-                    TODO()
-                }
-
-                break
-            }
-
-            default: {
-                throw new Error("Unsupported operation: " + op)
-            }
+            break
         }
 
-        if (NULL !== pc) {
+        case "call": {
+            call_or_jump(true);
+            break
+        }
+
+        case "jump" : {
+            call_or_jump(false);
+            break
+        }
+
+        case "set" : {
+            const set_what = args[0]
+
+            if (set_what !== "sym") {
+                throw new Error(`I dont know how to set a '${set_what}'`)
+            }
+
+            const sym_no = parseInt(args[1])
+            const sym = _find_sym(sym_no)
+
+            const sym_name = _read_vm_str(sym[CAR_I])
+
+            console.log("SET " + sym_name)
+            //
+            sym[CDR_I] = pop_clump()
+            break
+        }
+
+        case "const" : {
+            const const_what = args[0]
+
+            if (const_what === "sym") {
+                const what_sym = parseInt(args[1])
+                const sym = _find_sym(what_sym)
+                push_clump(sym)
+            } else if (const_what === "int") {
+                const val = _to_fixnum(parseInt(args[1]))
+                push_clump(val)
+            } else {
+                TODO()
+            }
+
+            break
+        }
+
+        default: {
+            throw new Error("Unsupported operation: " + op)
+        }
+    }
+}
+
+const CONST_OP = 0
+const GET_OP = 1
+const SET_OP = 2
+const IF_OP = 3
+const JUMP_OP = 4
+const CALL_OP = 5
+
+function exec() {
+    const instr = _from_fixnum(pc[CAR_I])
+    const operand = pc[CDR_I]
+
+    function call_or_jump(call_n_jump) {
+        const op_tag = operand[TAG_I]
+
+        if (op_tag !== TAG_SYM) {
+            // TODO: resolve tag
+            throw new Error(`Don't know how to call a: ${_from_fixnum(op_tag)}`)
+        }
+
+        const name = _read_vm_str(operand[CAR_I])
+        const which_symbol = _from_fixnum(operand[CDR_I][CAR_I])
+        const sym = _find_sym(which_symbol)
+
+        _call_or_jump(call_n_jump, sym[CDR_I])
+    }
+
+    switch (instr) {
+        case CONST_OP: {
+            TODO()
+            break
+        }
+
+        case GET_OP: {
+            TODO()
+            break
+        }
+
+        case SET_OP: {
+            TODO()
+            break
+        }
+
+        case IF_OP: {
+            exec_if()
+            break
+        }
+
+        case JUMP_OP: {
+            call_or_jump(false)
+            break
+        }
+
+        case CALL_OP: {
+            call_or_jump(true)
+            break
+        }
+    }
+}
+
+/**
+ * Check if we are done running the code
+ * @returns {boolean}
+ */
+function eoc() {
+    return NULL === pc || NIL === pc
+}
+
+function run() {
+    while (!eoc()) {
+        const instr = pc[CAR_I]
+
+        if (typeof (instr) === "number") {
+            exec()
+        } else {
+            exec_emulation()
+        }
+
+        if (!eoc()) {
             pc = pc[TAG_I]
         }
     }
@@ -593,8 +691,7 @@ function build_pc_clumps(code) {
 }
 
 function init_stack() {
-    stack = [pc, NIL, TAG_PROC]
-    stack = [NIL, stack, NULL]
+    stack = [NIL, [pc, NIL, TAG_PROC], NULL]
 }
 
 function vm(code) {
