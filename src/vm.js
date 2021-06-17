@@ -151,7 +151,7 @@ function _call_or_jump(call_n_jump, proc_clump) {
             let prim = PRIMITIVES[sym_no]
             prim()
         } else {
-            const [args, code_ptr,] = proc_clump[CAR_I]
+            const [args, , code_ptr] = proc_clump[CAR_I]
 
             const old_stack = stack
             const last_arg = _skip(args - 1)
@@ -186,7 +186,7 @@ function _call_or_jump(call_n_jump, proc_clump) {
             stack[CDR_I] = curr_env
             pc = curr_ra
         } else {
-            const [args, code_ptr,] = proc_clump[CAR_I]
+            const [args, , code_ptr] = proc_clump[CAR_I]
 
             const old_stack = stack
             const last_arg = _skip(args - 1)
@@ -331,11 +331,11 @@ const putchar = () => {
     process.stdout.write(output)
 }
 
-let fixed_ipt = "5\n"
+let fixed_ipt = "(+ 2 2)\r\n"
 
 const getchar = () => {
     let ipt = fixed_ipt[0]
-    console.log(ipt)
+    process.stdout.write(ipt)
     fixed_ipt = fixed_ipt.slice(1)
     // let ipt = null;
     //
@@ -343,10 +343,15 @@ const getchar = () => {
     //     ipt = process.stdin.read(1);
     // }
     //
+    if (!ipt) {
+        ipt = "";
+    }
     const val = _to_fixnum(ipt.charCodeAt(0))
     push_clump(val)
 }
-const close = () => stack[TAG_I] = TAG_PROC
+const close = () => {
+    stack[TAG_I] = TAG_PROC
+}
 
 function cons() {
     const [cdr, car] = _pop(2)
@@ -431,7 +436,7 @@ function find_last_jump(pc) {
     let jump_c = 1;
 
     do {
-        pc = pc[CDR_I]
+        pc = pc[TAG_I]
         const instr = pc[CAR_I]
         const op = instr[0]
 
@@ -478,7 +483,7 @@ function run() {
 
             case "const-proc": {
                 const arg_count = parseInt(args)
-                const proc_val = [arg_count, pc, TAG_PAIR]
+                const proc_val = [arg_count, TAG_PAIR, pc]
 
                 const proc = [proc_val, _env(), TAG_PROC]
                 push_clump(proc)
@@ -540,7 +545,7 @@ function run() {
 
                 const sym_name = _read_vm_str(sym[CAR_I])
 
-                // console.log("SET " + sym_name)
+                console.log("SET " + sym_name)
                 //
                 sym[CDR_I] = pop_clump()
                 break
@@ -569,7 +574,7 @@ function run() {
         }
 
         if (NULL !== pc) {
-            pc = pc[CDR_I]
+            pc = pc[TAG_I]
         }
     }
 
@@ -581,10 +586,10 @@ function run() {
 function build_pc_clumps(code) {
     // first line is the last executed instruction
     // so the instructions are reversed already
-    const lines = code.split(os.EOL).slice(1)
+    const lines = code.split(os.EOL).slice(1).filter(line => !line.startsWith(";"))
     pc = lines
         .map(_parse_sexp)
-        .reduce((acc, s_exp) => [s_exp, acc, TAG_CODE], NULL);
+        .reduce((acc, s_exp) => [s_exp, TAG_CODE, acc], NULL);
 }
 
 function init_stack() {
