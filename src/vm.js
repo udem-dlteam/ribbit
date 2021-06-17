@@ -48,6 +48,7 @@ const NIL = _to_fixnum(0)
 const CAR_I = 0
 const CDR_I = 1
 const TAG_I = 2
+const NEXT_PC_I = 2
 
 const NULL = [0, 0, TAG_NUL]
 const TRUE = [0, 0, TAG_TRUE]
@@ -152,6 +153,13 @@ function _env() {
     return slow
 }
 
+/**
+ *
+ * @param call_n_jump
+ * @param proc_clump
+ * @returns {boolean} whether the program counter should be moved forward
+ * @private
+ */
 function _call_or_jump(call_n_jump, proc_clump) {
     const [, , val_tag] = proc_clump
 
@@ -217,6 +225,8 @@ function _call_or_jump(call_n_jump, proc_clump) {
             pc = code_ptr
         }
     }
+
+    return is_primitive
 }
 
 function _alloc_str(str) {
@@ -502,14 +512,14 @@ function exec_emulation() {
         const name = _read_vm_str(sym[CAR_I])
         // console.log(`${call_n_jump ? "Calling" : "Jumping to"} ${name}`)
 
-        _call_or_jump(call_n_jump, sym[CDR_I])
+        return _call_or_jump(call_n_jump, sym[CDR_I])
     }
 
     switch (op) {
 
         case "const-proc": {
             const arg_count = parseInt(args)
-            const proc_val = [arg_count, TAG_PAIR, pc]
+            const proc_val = [arg_count, TAG_PAIR, pc[NEXT_PC_I]]
 
             const proc = [proc_val, _env(), TAG_PROC]
             push_clump(proc)
@@ -544,13 +554,11 @@ function exec_emulation() {
         }
 
         case "call": {
-            call_or_jump(true);
-            break
+            return call_or_jump(true);
         }
 
         case "jump" : {
-            call_or_jump(false);
-            break
+            return call_or_jump(false);
         }
 
         case "set" : {
@@ -592,6 +600,8 @@ function exec_emulation() {
             throw new Error("Unsupported operation: " + op)
         }
     }
+
+    return true
 }
 
 const CONST_OP = 0
@@ -617,7 +627,7 @@ function exec() {
         const which_symbol = _from_fixnum(operand[CDR_I][CAR_I])
         const sym = _find_sym(which_symbol)
 
-        _call_or_jump(call_n_jump, sym[CDR_I])
+        return _call_or_jump(call_n_jump, sym[CDR_I])
     }
 
     switch (instr) {
@@ -642,15 +652,15 @@ function exec() {
         }
 
         case JUMP_OP: {
-            call_or_jump(false)
-            break
+            return call_or_jump(false)
         }
 
         case CALL_OP: {
-            call_or_jump(true)
-            break
+            return call_or_jump(true)
         }
     }
+
+    return true
 }
 
 /**
@@ -665,13 +675,14 @@ function run() {
     while (!eoc()) {
         const instr = pc[CAR_I]
 
+        let advance
         if (typeof (instr) === "number") {
-            exec()
+            advance = exec()
         } else {
-            exec_emulation()
+            advance = exec_emulation()
         }
 
-        if (!eoc()) {
+        if (advance && !eoc()) {
             pc = pc[TAG_I]
         }
     }
