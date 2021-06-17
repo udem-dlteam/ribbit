@@ -9,7 +9,7 @@ const os = require('os')
 const ENABLE_SCHEME_INTS = false
 
 const TODO = () => {
-    throw new Error("TODO!");
+    throw new Error("TODO!")
 }
 
 const _from_fixnum = ENABLE_SCHEME_INTS
@@ -20,19 +20,19 @@ const _from_fixnum = ENABLE_SCHEME_INTS
 
 const _to_fixnum = ENABLE_SCHEME_INTS
     ? (x => {
-        if (typeof (x) === 'boolean') {
-            x = x ? 1 : 0
-        }
-
         return (x << 1) | 1
     })
     : (x => {
-        if (typeof (x) === 'boolean') {
-            x = x ? 1 : 0
-        }
-
         return x
     })
+
+
+const CONST_OP = 0
+const GET_OP = 1
+const SET_OP = 2
+const IF_OP = 3
+const JUMP_OP = 4
+const CALL_OP = 5
 
 const TAG_PAIR = _to_fixnum(0)
 const TAG_PROC = _to_fixnum(1)
@@ -259,7 +259,8 @@ function _field_set(x) {
 }
 
 function _argX(x) {
-    const arg = _pop(2)[x]
+    // noinspection UnnecessaryLocalVariableJS
+    const arg = _pop(2).reverse()[x]
     stack[CAR_I] = arg
 }
 
@@ -307,15 +308,6 @@ function _binop(op) {
     stack[CAR_I] = _to_fixnum(result);
 }
 
-function _log_bin_op(op) {
-    _binop(op)
-    if (stack[CAR_I] === _to_fixnum(1)) {
-        stack[CAR_I] = TRUE;
-    } else {
-        stack[CAR_I] = FALSE;
-    }
-}
-
 function push_clump(x = NIL) {
     stack = [x, stack, TAG_PAIR]
 }
@@ -339,21 +331,21 @@ const field2 = () => _field(2)
 const field0_set = () => _field_set(0)
 const field1_set = () => _field_set(1)
 const field2_set = () => _field_set(2)
-const lt = () => _log_bin_op((x, y) => x < y);
-const eq = () => _log_bin_op((x, y) => x === y)
+const lt = () => _binop((x, y) => x < y ? TRUE : FALSE)
+const eq = () => _binop((x, y) => x === y ? TRUE : FALSE)
 const add = () => _binop((x, y) => x + y)
 const sub = () => _binop((x, y) => x - y)
 const mul = () => _binop((x, y) => x * y)
 const div = () => _binop((x, y) => x / y)
-const arg1 = () => _argX(1)
-const arg2 = () => _argX(0)
+const arg1 = () => _argX(0)
+const arg2 = () => _argX(1)
 
 const putchar = () => {
     const output = String.fromCharCode(_from_fixnum(stack[CAR_I]))
     process.stdout.write(output)
 }
 
-let fixed_ipt = "(if)\n"
+let fixed_ipt = "(+ 2 2)\n"
 
 const getchar = () => {
     let ipt = fixed_ipt[0]
@@ -384,7 +376,7 @@ function cons() {
 
 function is_clump() {
     const is_it = typeof (stack[CAR_I]) === 'object'
-    push_clump(is_it ? TRUE : FALSE)
+    stack[CAR_I] = (is_it ? TRUE : FALSE)
 }
 
 const PRIMITIVES = [
@@ -604,13 +596,6 @@ function exec_emulation() {
     return true
 }
 
-const CONST_OP = 0
-const GET_OP = 1
-const SET_OP = 2
-const IF_OP = 3
-const JUMP_OP = 4
-const CALL_OP = 5
-
 function exec() {
     const instr = _from_fixnum(pc[CAR_I])
     const operand = pc[CDR_I]
@@ -632,12 +617,14 @@ function exec() {
 
     switch (instr) {
         case CONST_OP: {
-            TODO()
+            // TODO: not OK
+            push_clump(0)
             break
         }
 
         case GET_OP: {
-            TODO()
+            // TODO: not OK
+            push_clump(_skip(0)[CAR_I])
             break
         }
 
@@ -667,12 +654,12 @@ function exec() {
  * Check if we are done running the code
  * @returns {boolean}
  */
-function eoc() {
+function _eoc() {
     return NULL === pc || NIL === pc
 }
 
 function run() {
-    while (!eoc()) {
+    while (!_eoc()) {
         const instr = pc[CAR_I]
 
         let advance
@@ -682,7 +669,7 @@ function run() {
             advance = exec_emulation()
         }
 
-        if (advance && !eoc()) {
+        if (advance && !_eoc()) {
             pc = pc[TAG_I]
         }
     }
@@ -718,7 +705,7 @@ function vm(code) {
 }
 
 const main = async () => {
-    fs.readFile("./lib1.o", "utf-8", (err, data) => {
+    fs.readFile("./lib2.o", "utf-8", (err, data) => {
         if (err) {
             console.error("Failed to read the source file: " + err)
         } else {
@@ -729,7 +716,3 @@ const main = async () => {
 
 // noinspection JSIgnoredPromiseFromCall
 main()
-
-
-
-
