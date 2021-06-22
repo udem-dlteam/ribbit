@@ -34,8 +34,12 @@
 (define _map            map)
 (define _symbol->string symbol->string)
 (define _string->list   string->list)
+(define _list->string   list->string)
 (define _fold           fold)
 (define _reverse        reverse)
+(define _length         length)
+(define _list-ref       list-ref)
+(define _equal?         equal?)
 
 ;;;----------------------------------------------------------------------------
 

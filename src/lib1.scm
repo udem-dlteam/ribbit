@@ -270,12 +270,12 @@
 
 ;; Compiler from Small-Scheme to uVM code.
 
-(define const-op 0)
-(define get-op   1)
+(define jump-op  0)
+(define call-op  1)
 (define set-op   2)
-(define if-op    3)
-(define jump-op  4)
-(define call-op  5)
+(define get-op   3)
+(define const-op 4)
+(define if-op    5)
 
 (define (comp cte expr cont)
 

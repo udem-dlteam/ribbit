@@ -75,32 +75,12 @@
         (else
          x)))
         
-(define const-op 'const)
-(define get-op   'get)
-(define set-op   'set)
-(define if-op    'if)
-(define jump-op  'jump)
-(define call-op  'call)
-
-;;(define const-op 'const)
-;;(define get-op   'get)
-;;(define set-op   'set)
-;;(define if-op    'if)
-;;(define jump-op  'jump)
-;;(define call-op  'call)
-(define const-op 0)
-(define get-op   1)
-(define set-op   2)
-(define if-op    3)
-(define jump-op  4)
-(define call-op  5)
-
-(define const-op (##quote const))
-(define get-op   (##quote get))
-(define set-op   (##quote set))
-(define if-op    (##quote if))
 (define jump-op  (##quote jump))
 (define call-op  (##quote call))
+(define set-op   (##quote set))
+(define get-op   (##quote get))
+(define const-op (##quote const))
+(define if-op    (##quote if))
 
 (define (oper pc) (field0 pc))
 (define (opnd pc) (field1 pc))
@@ -384,9 +364,13 @@
     (let ((live (liveness-analysis expansion exports)))
 ;;      (pp `(***expansion: ,(uvm->host expansion)))
 ;;      (pp (uvm->host live))
-      (comp (make-ctx '() live exports)
-            expansion
-            tail))))
+      (make-procedure
+       (clump 0 ;; 0 parameters
+              0
+              (comp (make-ctx '() live exports)
+                    expansion
+                    tail))
+       '()))))
 
 (define (exports->alist exports)
   (if (pair? exports)
@@ -654,7 +638,7 @@
 (define-macro (quote x)
   `(##quote ,x))
 
-(define (encode code)
+(define (encode-old code)
 
   (define cons _cons)
 
@@ -733,7 +717,7 @@
 
     encoding))
 
-(define (decode encoding)
+(define (decode-old encoding)
 
   (define eq?   _eq?)
   (define pair? _pair?)
@@ -777,7 +761,9 @@
              ((eq? first 'const-proc)
               (let ((s (pop stack)))
                 (let ((proc
-                       (make-procedure (clump (cadr x) 0 (top stack)) '())))
+                       (make-procedure
+                        (clump (cadr x) 0 (top stack))
+                        null)))
                   (add-instr* const-op proc s))))
 
              ((eq? first 'if)
@@ -806,6 +792,416 @@
 
 ;;;----------------------------------------------------------------------------
 
+(define get-int-short    10) ;; 0 <= N <= 9  are encoded with 1 byte
+(define const-int-short  11) ;; 0 <= N <= 10 are encoded with 1 byte
+(define const-proc-short  4) ;; 0 <= N <= 3  are encoded with 1 byte
+(define jump-sym-short   20) ;; 0 <= N <= 19 are encoded with 1 byte
+
+(define (encode proc)
+
+  (begin
+    (define cons _cons)
+    (define car _car)
+    (define cdr _cdr)
+;;    (define < _<)
+    (define = eq?)
+    (define length _length))
+
+  (let* ((eb               92) ;; encoding base (escape-less strings)
+         (eb/2             (quotient eb 2))
+
+         (call-sym-short   (- (* 2 eb/2)
+                              (+ const-int-short
+                                 (+ const-proc-short
+                                    (+ get-int-short
+                                       (+ jump-sym-short
+                                          17))))))
+
+         (jump-sym-start   0)
+         (jump-int-start   (+ jump-sym-start (+ jump-sym-short 2)))
+         (call-sym-start   (+ jump-int-start 1))
+         (call-int-start   (+ call-sym-start (+ call-sym-short 2)))
+         (set-sym-start    (+ call-int-start 1))
+         (set-int-start    (+ set-sym-start 2))
+         (get-int-start    (+ set-int-start 1))
+         (get-sym-start    (+ get-int-start (+ get-int-short 1)))
+         (const-int-start  (+ get-sym-start 2))
+         (const-sym-start  (+ const-int-start (+ const-int-short 1)))
+         (const-proc-start (+ const-sym-start 2))
+         (if-start         (+ const-proc-start (+ const-proc-short 1)))
+
+         (_ (pp if-start)))
+
+    (define uvm->host identity)
+
+    (define syms (make-table))
+
+    (define (scan-proc proc)
+      (scan (next (procedure-code proc))))
+
+    (define (scan-opnd o pos)
+      (cond ((symbol? o)
+             (let ((descr
+                    (##or (table-ref syms o #f)
+                          (let ((descr (clump 0 0 0)))
+                            (table-set! syms o descr)
+                            descr))))
+               (cond ((eq? pos 0)
+                      (field0-set! descr (+ 1 (field0 descr))))
+                     ((eq? pos 1)
+                      (field1-set! descr (+ 1 (field1 descr))))
+                     (else
+                      (field2-set! descr (+ 1 (field2 descr)))))))
+            ((procedure? o)
+             (scan-proc o))))
+
+    (define (scan code)
+      (if (clump? code)
+
+          (let ((op (oper code)))
+            (if (eq? op jump-op)
+
+                (scan-opnd (opnd code) 0) ;; 0 = jump/call
+
+                (begin
+                  (cond ((eq? op if-op)
+                         (scan (opnd code)))
+                        ((eq? op call-op)
+                         (scan-opnd (opnd code) 0)) ;; 0 = jump/call
+                        ((eq? op get-op)
+                         (scan-opnd (opnd code) 1)) ;; 1 = get
+                        ((eq? op const-op)
+                         (scan-opnd (opnd code) 2))) ;; 2 = const
+                  (scan (next code)))))
+
+          (error "clump expected")))
+
+    (define (encode-sym o)
+      (let ((descr (table-ref syms o)))
+        (field0 descr)))
+
+    (define (encode-long1 code n stream)
+      (cons code (encode-n n stream)))
+
+    (define (encode-long2 code0 n stream)
+      (let ((s (encode-n n stream)))
+        (let ((x (car s)))
+          (if (= x (+ eb/2 1))
+              (cons (+ code0 1) (cdr s))
+              (cons code0 s)))))
+
+    (define (encode-n n stream)
+      (encode-n-aux n stream stream))
+
+    (define (encode-n-aux n stream end)
+      (let ((q (quotient n eb/2)))
+        (let ((r (- n (* q eb/2))))
+          (let ((t (cons (if (eq? stream end) r (+ r eb/2)) stream)))
+            (if (eq? q 0)
+                t
+                (encode-n-aux q t end))))))
+
+    (define (enc-proc proc stream)
+      (let ((code (procedure-code proc)))
+        (let ((nparams (field0 code)))
+          (enc (next code)
+               (if (< nparams
+                      const-proc-short)
+                   (cons (+ const-proc-start
+                            nparams)
+                         stream)
+                   (encode-long1 (+ const-proc-start
+                                    const-proc-short)
+                                 nparams
+                                 stream))))))
+
+    (define (number? x) (##if (integer? x) true false))
+
+    (define (enc code stream)
+      (if (clump? code)
+          (let ((op (oper code)))
+            (if (eq? op jump-op)
+
+                (let ((o (opnd code)))
+                  (cond ((symbol? o)
+                         (let ((x (encode-sym o)))
+                           (if (< x jump-sym-short)
+                               (cons (+ jump-sym-start x)
+                                     stream)
+                               (encode-long2 (+ jump-sym-start
+                                                jump-sym-short)
+                                             x
+                                             stream))))
+                        ((number? o)
+                         (encode-long1 jump-int-start
+                                       o
+                                       stream))
+                        (else
+                         (error "can't encode jump" o))))
+
+                (cond ((eq? op const-op)
+                       (enc (next code)
+                            (let ((o (opnd code)))
+                              (cond ((number? o)
+                                     (if (< o const-int-short)
+                                         (cons (+ const-int-start o)
+                                               stream)
+                                         (encode-long1 (+ const-int-start
+                                                          const-int-short)
+                                                       o
+                                                       stream)))
+                                    ((symbol? o)
+                                     (encode-long2 const-sym-start
+                                                   (encode-sym o)
+                                                   stream))
+                                    ((procedure? o)
+                                     (enc-proc o stream))
+                                    (else
+                                     (error "can't encode const" o))))))
+
+                      ((eq? op get-op)
+                       (enc (next code)
+                            (let ((o (opnd code)))
+                              (cond ((number? o)
+                                     (if (< o get-int-short)
+                                         (cons (+ get-int-start o)
+                                               stream)
+                                         (encode-long1 (+ get-int-start
+                                                          get-int-short)
+                                                       o
+                                                       stream)))
+                                    ((symbol? o)
+                                     (encode-long2 get-sym-start
+                                                   (encode-sym o)
+                                                   stream))
+                                    (else
+                                     (error "can't encode get" o))))))
+
+                      ((eq? op set-op)
+                       (enc (next code)
+                            (let ((o (opnd code)))
+                              (cond ((symbol? o)
+                                     (encode-long2 set-sym-start
+                                                   (encode-sym o)
+                                                   stream))
+                                    ((number? o)
+                                     (encode-long1 set-int-start
+                                                   o
+                                                   stream))
+                                    (else
+                                     (error "can't encode set" o))))))
+
+                      ((eq? op call-op)
+                       (enc (next code)
+                            (let ((o (opnd code)))
+                              (cond ((symbol? o)
+                                     (let ((x (encode-sym o)))
+                                       (if (< x call-sym-short)
+                                           (cons (+ call-sym-start x)
+                                                 stream)
+                                           (encode-long2 (+ call-sym-start
+                                                            call-sym-short)
+                                                         x
+                                                         stream))))
+                                    ((number? o)
+                                     (encode-long1 call-int-start
+                                                   o
+                                                   stream))
+                                    (else
+                                     (error "can't encode call" o))))))
+
+                      ((eq? op if-op)
+                       (enc (next code)
+                            (enc (opnd code)
+                                 (cons if-start
+                                       stream))))
+
+                      (else
+                       (error "unknown op" op)))))
+          (error "clump expected")))
+
+    (scan-proc proc)
+
+    (let ((lst
+           (list-sort
+            (lambda (a b)
+              (let ((descr-a (cdr a))
+                    (descr-b (cdr b)))
+                (##if (eq? (field0 descr-a) (field0 descr-b))
+                    (if (eq? (field1 descr-a) (field1 descr-b))
+                        (> (field2 descr-a) (field2 descr-b))
+                        (> (field1 descr-a) (field1 descr-b)))
+                    (> (field0 descr-a) (field0 descr-b)))))
+            (table->list syms))))
+
+      (for-each
+       (lambda (s i)
+         (let ((descr (table-ref syms (car s))))
+           (field0-set! descr i)))
+       lst
+       (iota (_length lst)))
+
+      (let ((stream (enc-proc proc (list))))
+        (cons stream (map car lst))))))
+
+(define (decode stream-symbols)
+
+  (begin
+    (define cons _cons)
+    (define car _car)
+    (define cdr _cdr)
+;;    (define < _<)
+    (define list-ref _list-ref))
+
+  (let* ((eb               92) ;; encoding base (escape-less strings)
+         (eb/2             (quotient eb 2))
+
+         (call-sym-short   (- (* 2 eb/2)
+                              (+ const-int-short
+                                 (+ const-proc-short
+                                    (+ get-int-short
+                                       (+ jump-sym-short
+                                          17))))))
+
+         (jump-sym-start   0)
+         (jump-int-start   (+ jump-sym-start (+ jump-sym-short 2)))
+         (call-sym-start   (+ jump-int-start 1))
+         (call-int-start   (+ call-sym-start (+ call-sym-short 2)))
+         (set-sym-start    (+ call-int-start 1))
+         (set-int-start    (+ set-sym-start 2))
+         (get-int-start    (+ set-int-start 1))
+         (get-sym-start    (+ get-int-start (+ get-int-short 1)))
+         (const-int-start  (+ get-sym-start 2))
+         (const-sym-start  (+ const-int-start (+ const-int-short 1)))
+         (const-proc-start (+ const-sym-start 2))
+         (if-start         (+ const-proc-start (+ const-proc-short 1)))
+
+         (_ (pp if-start))
+
+         (stream (car stream-symbols))
+         (symbols (cdr stream-symbols)))
+
+    (define stack 0)
+
+    (define (decode-int n stream)
+      (let ((x (car stream)))
+        (let ((y (* n eb/2)))
+          (if (< x eb/2)
+              (cons (+ y x) (cdr stream))
+              (decode-int (+ y (- x eb/2)) (cdr stream))))))
+
+    (define (decode-sym n stream)
+      (let ((int-stream (decode-int n stream)))
+        (cons (sym (car int-stream))
+              (cdr int-stream))))
+
+    (define (sym n)
+      (list-ref symbols n))
+
+    (define (dec stream)
+      (let ((x (car stream)))
+
+        (define (add op opnd)
+          (add* op opnd (cdr stream)))
+
+        (define (add* op opnd stream)
+          (field0-set! stack (clump op opnd (field0 stack)))
+          (dec stream))
+
+        (define (add-const-int n)
+          (if (< n const-int-short)
+              (add const-op n)
+              (let ((int-stream (decode-int 0 (cdr stream))))
+                (add* const-op (car int-stream) (cdr int-stream)))))
+
+        (define (add-const-sym n)
+          (let ((sym-stream (decode-sym n (cdr stream))))
+            (add* const-op (car sym-stream) (cdr sym-stream))))
+
+        (define (add-const-proc n)
+          (if (< n const-proc-short)
+              (add*-const-proc n (cdr stream))
+              (let ((int-stream (decode-int 0 (cdr stream))))
+                (add*-const-proc (car int-stream) (cdr int-stream)))))
+
+        (define (add*-const-proc n stream)
+          (let ((proc (make-procedure
+                       (clump n 0 (field0 stack))
+                       null)))
+            (set! stack (field1 stack))
+            (if (eq? stack 0)
+                proc
+                (add* const-op proc stream))))
+
+        (cond ((< x call-sym-start) ;; jump
+               (set! stack (clump 0 stack 0))
+               (let ((n (- x jump-sym-start)))
+                 (if (< n jump-sym-short)
+                     (add jump-op (sym n))
+                     (let ((n (- n jump-sym-short)))
+                       (if (< n 2)
+                           (let ((sym-stream
+                                  (decode-sym n (cdr stream))))
+                             (add* jump-op (car sym-stream) (cdr sym-stream)))
+                           (let ((int-stream
+                                  (decode-int 0 (cdr stream))))
+                             (add* jump-op (car int-stream) (cdr int-stream))))))))
+
+              ((< x set-sym-start) ;; call
+               (let ((n (- x call-sym-start)))
+                 (if (< n call-sym-short)
+                     (add call-op (sym n))
+                     (let ((n (- n call-sym-short)))
+                       (if (< n 2)
+                           (let ((sym-stream
+                                  (decode-sym n (cdr stream))))
+                             (add* call-op (car sym-stream) (cdr sym-stream)))
+                           (let ((int-stream
+                                  (decode-int 0 (cdr stream))))
+                             (add* call-op (car int-stream) (cdr int-stream))))))))
+
+              ((< x get-int-start) ;; set
+               (let ((n (- x set-sym-start)))
+                 (if (< n 2)
+                     (let ((sym-stream
+                            (decode-sym n (cdr stream))))
+                       (add* set-op (car sym-stream) (cdr sym-stream)))
+                     (let ((int-stream
+                            (decode-int 0 (cdr stream))))
+                       (add* set-op (car int-stream) (cdr int-stream))))))
+
+              ((< x const-int-start) ;; get
+               (let ((n (- x get-int-start)))
+                 (if (< n get-int-short)
+                     (add get-op n)
+                     (let ((n (- n get-int-short)))
+                       (if (< n 1)
+                           (let ((int-stream
+                                  (decode-int 0 (cdr stream))))
+                             (add* get-op (car int-stream) (cdr int-stream)))
+                           (let ((sym-stream
+                                  (decode-sym 0 (cdr stream))))
+                             (add* get-op (car sym-stream) (cdr sym-stream))))))))
+
+              ((< x if-start) ;; const
+               (cond ((< x const-sym-start)
+                      (add-const-int (- x const-int-start)))
+                     ((< x const-proc-start)
+                      (add-const-sym (- x const-sym-start)))
+                     (else
+                      (add-const-proc (- x const-proc-start)))))
+
+              (else
+               (let ((code (field0 stack)))
+                 (set! stack (field1 stack))
+                 (add if-op code))))))
+
+;;    (pp `(stream= ,stream))
+;;    (pp symbols)
+    (dec stream)))
+
+;;;----------------------------------------------------------------------------
+
 (define (read-program)
   (let ((x (read)))
     (if (eq? x (- 0 1))
@@ -820,10 +1216,31 @@
 
 (define (comp-file path)
   (let ((program (read-from-file path)))
-    (let ((code (comp-program program)))
-      (let ((encoding (encode code)))
-        (for-each pp encoding)
-        ))))
+    (let ((proc (comp-program program)))
+      (let ((stream-symbols (encode proc)))
+        (let ((stream (_car stream-symbols)))
+;;          (pp stream)
+          (let ((symbols (_cdr stream-symbols)))
+            (pp (_length stream))
+            (let ((encoded-program
+                   (string-append
+                    (append-strings
+                     (map (lambda (s) (_symbol->string (uvm->host s)))
+                          (_cdr stream-symbols))
+                     ",")
+                    " "
+                    (_list->string
+                     (map (lambda (n)
+                            (let ((c (+ n 35)))
+                              (_integer->char (if (= c 92) 33 c))))
+                          stream)))))
+              (pp encoded-program)
+              (pp (string-length encoded-program))
+              (let ((p (decode stream-symbols)))
+;;                (pp proc)
+;;                (pp p)
+                (pp (_equal? proc p))
+                ))))))))
 
 (define (main path)
   (comp-file path))
