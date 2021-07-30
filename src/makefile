@@ -98,7 +98,7 @@ vm.js.in: generic-vm.js makefile
 	  -e 's|set_global|w|g' \
 	  generic-vm.js > vm.js.in
 
-foo: vm.js.in lib.scm ssc.scm makefile
+lib.scm.min.js: vm.js.in lib.scm ssc.scm makefile
 	gsi ./ssc.scm --target js lib.scm
 	npx google-closure-compiler --language_in=ECMASCRIPT_2020 --language_out=ECMASCRIPT_2020 --js lib.scm.js --js_output_file lib.scm.min.js
 	sed -i -e s"|'use strict';||" lib.scm.min.js
