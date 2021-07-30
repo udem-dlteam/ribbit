@@ -1,5 +1,93 @@
 (export
-identity arg1 cdr primitive car eq? pair? write read-char = cons putchar field0 < field1 comp field2 equal? clump? cadr read-symbol putchar2 peek-char-non-whitespace instance? - caddr lookup + string->list peek-char field0-set! write-chars read extend getchar string->number-aux write-list length null? newline make-procedure write-number gen-call read-list repl comp-list symbol? skip-comment * reverse-aux field1-set! string->symbol-aux eval string->uninterned-symbol string->number gen-assign not code string? assq quotient compile cadddr list->string gen-noop symbol->string list-ref assoc string->symbol cddr empty global-var-ref procedure-env field2-set! buffer set-car! arg2 global-var-set! procedure? reverse procedure-code set-cdr! tail close
+
+
+(arg1 ||)
+(arg2 ||)
+(buffer ||)
+(close ||)
+(code ||)
+(comp ||)
+(comp-list ||)
+(compile ||)
+(empty ||)
+(extend ||)
+(gen-assign ||)
+(gen-call ||)
+(gen-noop ||)
+(getchar ||)
+(global-var-ref ||)
+(global-var-set! ||)
+(identity ||)
+(instance? ||)
+(lookup ||)
+(make-procedure ||)
+(peek-char-non-whitespace ||)
+(primitive ||)
+(procedure-code ||)
+(procedure-env ||)
+(putchar2 ||)
+(read-list ||)
+(read-symbol ||)
+(repl ||)
+(reverse-aux ||)
+(skip-comment ||)
+(string->number-aux ||)
+(string->symbol-aux ||)
+(tail ||)
+(write-chars ||)
+(write-list ||)
+(write-number ||)
+
+(clump? ||)
+(field0 ||)
+(field0-set! ||)
+(field1 ||)
+(field1-set! ||)
+(field2 ||)
+(field2-set! ||)
+
+*
++
+-
+<
+=
+assoc
+assq
+cadddr
+caddr
+cadr
+car
+cddr
+cdr
+cons
+eq?
+equal?
+eval
+length
+list->string
+list-ref
+newline
+not
+null?
+pair?
+peek-char
+procedure?
+putchar
+quotient
+read
+read-char
+reverse
+set-car!
+set-cdr!
+string->list
+string->number
+string->symbol
+string->uninterned-symbol
+string?
+symbol->string
+symbol?
+write
+
 quote set! if lambda
 )
 

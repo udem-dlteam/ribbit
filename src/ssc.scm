@@ -27,7 +27,7 @@
     close))
 
 (define predefined
-  '(false true null symtbl clump))
+  '(symtbl false true null clump))
 
 (define jump-op  (##quote jump))
 (define call-op  (##quote call))
