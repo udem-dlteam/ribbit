@@ -941,8 +941,9 @@
               (with-output-to-file
                   output-path
                 (lambda ()
-                  (println "input = \"" encoded-program input "\""
-                           (if (equal? target "js") ";" ""))
+                  (print "input = ")
+                  (write (string-append encoded-program input))
+                  (print (if (equal? target "js") ";" ""))
                   (print vm-source))))))))))
 
 (define (main . args)
