@@ -332,11 +332,13 @@ void run() {
                         return;
                     }
 
-                    if (is_num(pc->car) && NUM_OF(pc->car) == 0) {
+                    if (0 == instr) {
+                        // jump
                         clump *cont = get_cont();
                         c = TAG_CLUMP(cont);
                         stack->cdr = get_cont()->car;
                     } else {
+                        // call
                         c = TAG_CLUMP(pc);
                     }
                 } else {
