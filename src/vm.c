@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #define DEBUG
 
@@ -132,8 +133,8 @@ void chars2str(obj o) {
     }
 }
 
-void sym2str(obj o) {
-    chars2str(CLUMP_OF(CLUMP_OF(o)->cdr)->car);
+void sym2str(clump *c) {
+    chars2str(CLUMP_OF(c->cdr)->car);
 }
 
 void show_operand(obj o) {
@@ -141,7 +142,7 @@ void show_operand(obj o) {
         printf("int %ld", NUM_OF(o));
     } else {
         printf("sym ");
-        sym2str(o);
+        sym2str(CLUMP_OF(o));
     }
 }
 
@@ -436,7 +437,9 @@ void build_sym_table() {
 
     clump *accum = &NIL;
 
+    int iter = 0;
     while (1) {
+        iter++;
         byte c = get_byte();
 
         if (c == 44) {
@@ -453,6 +456,12 @@ void build_sym_table() {
 
         accum = new_clump(TAG_NUM(c), TAG_CLUMP(accum), TAG_NUM(0));
     }
+
+    clump *inner = new_clump(TAG_CLUMP(accum), TAG_NUM(0), TAG_NUM(2));
+    clump *outer = new_clump(TAG_NUM(0), TAG_CLUMP(inner), TAG_NUM(3));
+    clump *root = new_clump(TAG_CLUMP(outer), TAG_CLUMP(symbol_table), TAG_NUM(0));
+
+    symbol_table = root;
 }
 
 void set_global(clump *c) {
@@ -468,6 +477,7 @@ void decode() {
     int d;
     int op;
 
+    int iter = 0;
     while (1) {
         num x = get_code();
         n = x;
@@ -502,7 +512,9 @@ void decode() {
             }
         }
 
+        assert(n != 0);
         stack->car = TAG_CLUMP(new_clump(TAG_NUM(op), n, stack->car));
+        iter++;
     }
 
     pc = CLUMP_OF(CLUMP_OF(CLUMP_OF(n)->car)->tag);
