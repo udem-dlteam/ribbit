@@ -1,41 +1,41 @@
-/*debug*/ debug = false;
+debug = true; /*debug*/
 
-/*node*/ nodejs = ((function () { return this !== this.window; })());
-/*node*/ if (nodejs) { // in nodejs?
+nodejs = ((function () { return this !== this.window; })()); /*node*/
+if (nodejs) { // in nodejs? /*node*/
 
-/*node*/   // Implement putchar/getchar to the terminal
+  // Implement putchar/getchar to the terminal /*node*/
 
-/*node*/   node_fs = require("fs");
+  node_fs = require("fs"); /*node*/
 
-/*node*/   putchar = (c) => {
-/*node*/     let buffer = Buffer.alloc(1);
-/*node*/     buffer[0] = c;
-/*node*/     node_fs.writeSync(1, buffer, 0, 1);
-/*node*/     return c;
-/*node*/   };
+  putchar = (c) => { /*node*/
+    let buffer = Buffer.alloc(1); /*node*/
+    buffer[0] = c; /*node*/
+    node_fs.writeSync(1, buffer, 0, 1); /*node*/
+    return c; /*node*/
+  }; /*node*/
 
-/*node*/   getchar_sync = () => {
-/*node*/     let buffer = Buffer.alloc(1);
-/*node*/     node_fs.readSync(0, buffer, 0, 1);
-/*node*/     return buffer[0];
-/*node*/   };
+  getchar_sync = () => { /*node*/
+    let buffer = Buffer.alloc(1); /*node*/
+    node_fs.readSync(0, buffer, 0, 1); /*node*/
+    return buffer[0]; /*node*/
+  }; /*node*/
 
-/*node*/   getchar = () => {
-/*node*/     push(pos<input.length ? get_byte() : getchar_sync());
-/*node*/     return true; // indicate that no further waiting is necessary
-/*node*/   };
+  getchar = () => { /*node*/
+    push(pos<input.length ? get_byte() : getchar_sync()); /*node*/
+    return true; // indicate that no further waiting is necessary /*node*/
+  }; /*node*/
 
-/*node*/ /*debug*/   sym2str = (s) => chars2str(s[1][0]);
-/*node*/ /*debug*/   chars2str = (s) => (s===NIL) ? "" : (String.fromCharCode(s[0])+chars2str(s[1]));
-/*node*/ /*debug*/   show_opnd = (o) => is_num(o) ? "int " + o : "sym " + sym2str(o);
-/*node*/ /*debug*/   show_stack = () => {
-/*node*/ /*debug*/     let s = stack;
-/*node*/ /*debug*/     let r = [];
-/*node*/ /*debug*/     while (!s[2]) { r.push(s[0]); s=s[1]; }
-/*node*/ /*debug*/     console.log(require("util").inspect(r, {showHidden: false, depth: 2}));
-/*node*/ /*debug*/   }
+  sym2str = (s) => chars2str(s[1][0]); /*node*/ /*debug*/
+  chars2str = (s) => (s===NIL) ? "" : (String.fromCharCode(s[0])+chars2str(s[1])); /*node*/ /*debug*/
+  show_opnd = (o) => is_num(o) ? "int " + o : "sym " + sym2str(o); /*node*/ /*debug*/
+  show_stack = () => { /*node*/ /*debug*/
+    let s = stack; /*node*/ /*debug*/
+    let r = []; /*node*/ /*debug*/
+    while (!s[2]) { r.push(s[0]); s=s[1]; } /*node*/ /*debug*/
+    console.log(require("util").inspect(r, {showHidden: false, depth: 2})); /*node*/ /*debug*/
+  } /*node*/ /*debug*/
 
-/*node*/ } else { // in web browser
+} else { // in web browser /*node*/
 
   // Implement a simple console as a textarea in the web page
 
@@ -62,7 +62,7 @@
   putchar = (c) => (selstart=txtarea.selectionStart=(txtarea.value += String.fromCharCode(c)).length, c);
 
   getchar = () => pos<input.length && push(get_byte());
-/*node*/ }
+} /*node*/
 
 pos = 0;
 get_byte = () => input[pos++].charCodeAt(0);
@@ -73,7 +73,7 @@ FALSE = [0,0,4]; TRUE = [0,0,5]; NIL = [0,0,6];
 
 boolean = (x) => x ? TRUE : FALSE;
 
-is_clump = (x) => typeof (x) === "object";
+is_num = (x) => typeof x == "number";
 
 stack = 0;
 
@@ -89,8 +89,8 @@ primitives = [
   prim1((x) => x),
   () => { pop(); return true; },
   () => { let x = pop(); pop(); return push(x); },
-  () => { stack[0] = [stack[0][0], stack[1], 1]; return true; },
-  prim1((x) => boolean(is_clump(x))),
+  () => { let x = pop(); return push([x[0],stack,1]); },
+  prim1((x) => boolean(!is_num(x))),
   prim1((x) => x[0]),
   prim1((x) => x[1]),
   prim1((x) => x[2]),
@@ -109,84 +109,18 @@ primitives = [
 
 get_code = () => { let x = get_byte()-35; return x<0 ? 57 : x; };
 get_int = (n) => { let x = get_code(); n *= 46; return x<46 ? n+x : get_int(n+x-46); };
-list_tail = (lst,i) => i==0 ? lst : list_tail(lst[1],i-1);
+list_tail = (lst,i) => i ? list_tail(lst[1],i-1) : lst;
 list_ref = (lst,i) => list_tail(lst,i)[0]
-
-run = () => {
-  while (1) {
-    let o = pc[1];
-    switch (pc[0]) {
-    case -1: // halt
-        return;
-    case 0: // jump
-    case 1: // call
-/*debug*/         if (debug) { console.log((pc[0] === 0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); }
-        o = get_opnd(o);
-        let c = o[0];
-        if (is_num(c)) {
-            if (!primitives[c]()) return;
-            if (pc[0] === 0) {
-                // jump
-                c = get_cont();
-                stack[1] = c[0];
-            } else {
-                // call
-                c = pc;
-            }
-        } else {
-            let c2 = [0,o,0];
-            let s2 = c2;
-            let nargs = c[0];
-            while (nargs--) s2 = [pop(),s2,0];
-            if (pc[0] === 0) {
-                // jump
-                let k = get_cont();
-                c2[0] = k[0];
-                c2[2] = k[2];
-            } else {
-                // call
-                c2[0] = stack;
-                c2[2] = pc[2];
-            }
-            stack = s2;
-        }
-        pc = c[2];
-        break;
-    case 2: // set
-/*debug*/         if (debug) { console.log("--- set " + show_opnd(o)); show_stack(); }
-        (is_num(o) ? list_tail(stack,o) : o)[0] = pop();
-        pc = pc[2];
-        break;
-    case 3: // get
-/*debug*/         if (debug) { console.log("--- get " + show_opnd(o)); show_stack(); }
-        push(get_opnd(o));
-        pc = pc[2];
-        break;
-    case 4: // const
-/*debug*/         if (debug) { console.log("--- const " + o); show_stack(); }
-        push(o);
-        pc = pc[2];
-        break;
-    case 5: // if
-/*debug*/         if (debug) { console.log("--- if"); show_stack(); }
-        pc = pc[pop() !== FALSE ? 1 : 2];           
-        break;
-    }
-  }
-}
 
 // build the initial symbol table
 
-let symbol_table = NIL;
-let n = get_int(0);
-while (n > 0) {
-  n--;
-  symbol_table=[[0,[NIL,0,2],3],symbol_table,0];
-}
+symbol_table = NIL;
+n = get_int(0);
+while (n-- > 0) symbol_table=[[0,[NIL,0,2],3],symbol_table,0];
 
-let accum = NIL;
+accum = NIL;
 while (1) {
-  let c = get_byte();
+  c = get_byte();
   if (c == 44) { symbol_table=[[0,[accum,0,2],3],symbol_table,0]; accum = NIL; continue; }
   if (c == 59) break;
   accum = [c,accum,0];
@@ -210,7 +144,7 @@ while (1) {
     n = n>=d ? (n==d ? get_int(0) : symbol_ref(get_int(n-d-1))) : op<3 ? symbol_ref(n) : n;
     if (op>4) {
       n = [[n,0,pop()],NIL,1];
-      if (stack===0) break;
+      if (!stack) break;
       op=4;
     }
   }
@@ -219,7 +153,6 @@ while (1) {
 
 pc = n[0][2];
 
-is_num = (x) => typeof x === "number";
 get_opnd = (o) => (is_num(o) ? list_tail(stack,o) : o)[0];
 get_cont = () => { let s = stack; while (!s[2]) s = s[1]; return s; };
 
@@ -231,6 +164,70 @@ set_global(TRUE);
 set_global(NIL);
 set_global([0,NIL,1]); /* primitive 0 */
 
-stack = [0,0,[-1,0,0]]; // primordial continuation (executes halt instr.)
+stack = [0,0,[6,0,0]]; // primordial continuation (executes halt instr.)
 
-/*node*/ if (nodejs) run();
+run = () => {
+  while (1) {
+    let o = pc[1];
+    let i = pc[0];
+    switch (i) {
+    case 0: // jump
+    case 1: // call
+        if (debug) { console.log((i ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } /*debug*/
+        o = get_opnd(o);
+        let c = o[0];
+        if (is_num(c)) {
+            if (!primitives[c]()) return;
+            if (i) {
+                // call
+                c = pc;
+            } else {
+                // jump
+                c = get_cont();
+                stack[1] = c[0];
+            }
+        } else {
+            let c2 = [0,o,0];
+            let s2 = c2;
+            let nargs = c[0];
+            while (nargs--) s2 = [pop(),s2,0];
+            if (i) {
+                // call
+                c2[0] = stack;
+                c2[2] = pc[2];
+            } else {
+                // jump
+                let k = get_cont();
+                c2[0] = k[0];
+                c2[2] = k[2];
+            }
+            stack = s2;
+        }
+        pc = c[2];
+        break;
+    case 2: // set
+        if (debug) { console.log("--- set " + show_opnd(o)); show_stack(); } /*debug*/
+        (is_num(o) ? list_tail(stack,o) : o)[0] = pop();
+        pc = pc[2];
+        break;
+    case 3: // get
+        if (debug) { console.log("--- get " + show_opnd(o)); show_stack(); } /*debug*/
+        push(get_opnd(o));
+        pc = pc[2];
+        break;
+    case 4: // const
+        if (debug) { console.log("--- const " + o); show_stack(); } /*debug*/
+        push(o);
+        pc = pc[2];
+        break;
+    case 5: // if
+        if (debug) { console.log("--- if"); show_stack(); } /*debug*/
+        pc = pc[pop() === FALSE ? 2 : 1];           
+        break;
+    default: // halt
+        return;
+    }
+  }
+}
+
+if (nodejs) run(); /*node*/

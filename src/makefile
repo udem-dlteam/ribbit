@@ -61,8 +61,8 @@ stdlib.o: stdlib.c
 
 vm.js.in: generic-vm.js makefile
 	sed \
-	  -e 's|/\*debug\*/.*||g' \
-	  -e 's|/\*nodezzz\*/.*||g' \
+	  -e 's|.*/\*debug\*/.*||g' \
+	  -e 's|.*/\*nodezzz\*/.*||g' \
 	  -e 's|domdoc|A|g' \
 	  -e 's|dombody|B|g' \
 	  -e 's|selstart|C|g' \
@@ -96,10 +96,12 @@ vm.js.in: generic-vm.js makefile
 	  -e 's|get_opnd|u|g' \
 	  -e 's|get_cont|v|g' \
 	  -e 's|set_global|w|g' \
+	  -e 's|input|y|g' \
+	  -e 's|pc|z|g' \
 	  generic-vm.js > vm.js.in
 
 lib.scm.min.js: vm.js.in lib.scm ssc.scm makefile
 	gsi ./ssc.scm --target js lib.scm
 	npx google-closure-compiler --language_in=ECMASCRIPT_2020 --language_out=ECMASCRIPT_2020 --js lib.scm.js --js_output_file lib.scm.min.js
-	sed -i -e s"|'use strict';||" lib.scm.min.js
+	sed -i -e s"|'use strict';input=|y=|" lib.scm.min.js
 	wc lib.scm.min.js

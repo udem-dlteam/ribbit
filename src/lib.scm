@@ -88,7 +88,7 @@ symbol->string
 symbol?
 write
 
-quote set! if lambda
+quote set! define if lambda
 )
 
 ;;;----------------------------------------------------------------------------
@@ -182,7 +182,7 @@ quote set! if lambda
   (string->symbol-aux str symtbl))
 
 (define (string->symbol-aux str syms)
-  (if (clump? syms)
+  (if (pair? syms)
       (let ((sym (field0 syms)))
         (if (equal? (field1 sym) str)
             sym
@@ -407,7 +407,7 @@ quote set! if lambda
            (cond ((eq? first 'quote)
                   (clump const-op (cadr expr) cont))
 
-                 ((eq? first 'set!)
+                 ((or (eq? first 'set!) (eq? first 'define))
                   (comp cte
                         (caddr expr)
                         (gen-assign (lookup (cadr expr) cte 1)
@@ -426,7 +426,10 @@ quote set! if lambda
                            (make-procedure
                             (clump (length params)
                                    0
-                                   (comp (extend params cte)
+                                   (comp (extend params
+                                                 (cons #f
+                                                       (cons #f
+                                                             cte)))
                                          (caddr expr)
                                          tail))
                             '())

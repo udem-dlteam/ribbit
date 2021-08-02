@@ -121,7 +121,9 @@
                                    (comp-begin (ctx-cte-set
                                                 ctx
                                                 (extend params
-                                                        (ctx-cte ctx)))
+                                                        (cons #f
+                                                              (cons #f
+                                                                    (ctx-cte ctx)))))
                                                (cddr expr)
                                                tail))
                             '())
@@ -943,7 +945,7 @@
                 (lambda ()
                   (print "input = ")
                   (write (string-append encoded-program input))
-                  (print (if (equal? target "js") ";" ""))
+                  (println (if (equal? target "js") ";" ""))
                   (print vm-source))))))))))
 
 (define (main . args)
