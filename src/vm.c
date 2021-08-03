@@ -3,14 +3,14 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#define DEBUG
+//#define DEBUG
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunknown-pragmas"
 #pragma ide diagnostic ignored "ConstantFunctionResult"
 
-int input_len = 1628;
-char *input = "#etouq,,fi,,!rdc-tes,,esrever,?erudecorp,,,!rac-tes,,,!tes,,,,adbmal,rddc,lobmys>-gnirts,cossa,fer-tsil,gnirts>-lobmys,,gnirts>-tsil,rdddac,,tneitouq,qssa,?gnirts,,enilwen,ton,,rebmun>-gnirts,lobmys-denretninu>-gnirts,lave,,,,*,,?lobmys,,,,,,,?llun,htgnel,,,,,daer,,etirw,,rahc-keep,tsil>-gnirts,+,,rddac,-,,,,,rdac,,?lauqe,,,,<,,rahctup,snoc,=,rahc-daer,?riap,?qe,rac,,rdc,,,,,,,;9%]%9%@Z2@YFZ-YH@SvCvR3y]-93]3Z7^z]78Oi&>MjNai&kkz]N>kw(k!I(_1YIaA_C^~E^{!A(^8AYBlbA`^(`~D_C_~E_|]&9#AaYAk_C`6Z&dAbHai$C`^~E_|]:'`ko87^~i$'`ko87^~i$'`ko87^~Dw)L^~DlJ^~P^z]0'Z:a_m{]#'a_l'k_k~DjN_{!6'b`o9&HdCbAa_'Z#exP'd~YNbYOi&>MjNWeYIdakYM_oQ`~Dx@^6>MgZ8ecMfWdbpQa_~DxO^6Z0dYAlbQbWa_~DxD^'cQao~DwS#^C_~E_'bYAk``n~Z'_|!<2_@I^{]22uy!P2^2^@YP_~K`kYBVZ)u``vR%Z6u^z!G(i$8GA^@IC^~E^z!L(i$(i$8LA^@YFC^~E^@IvC~E^z!F8P^8GYCZ;^~Z'^2vE@YGYC^@IvE~Z4^2vL@YLA^@YFC^@IvK~E^8<vLvK~YN^8<vS;vF~Di%^8<vS-vF~Z1^z](9(8=~Gu^(^~Kk^Fy!=8=@F(^9(~GvR0^~K_vC(^~Kk^YDy!;1R^@F(i&~KvD^1R^@F(i&~i%~GvL^1R^@F(i&~i%~GvK^YDy]$1Z$^YH(i&@F~GvL^Ty!H9>_(^~^Z/^Z9HR^@F1Hi&YHwS#@F~GvJ^(i%@F(i$@F~GvS-^YD@F~GvF^9$@F~GvK^(^~Kk^Ty!D(^(^@YE_jFYJ~GjA^JjFy!/(^@YEjAjF8J~GjA^JjFy]F>kkjA]AVmk]*(_9*HaC_A^~E^{]K9*i&^z]=(i$9=Aa_(^~OC__C_~E_{]5(i$95Aa_(^~DC__C_~E_{!M(k8BYMA_l~E^z]<,^9<Vl`A^~K`k{!8(i$(i$(i$(i$88N`N^~OL`L^~OJ`J^~P_~P^(i%~D`^{],(^!#>ki#^Z.^9,La_(^~O`L^J_~P_{]>9,i#^z!K(_(i$(i$8KYBVvR%`Z)buA_~KvR/^~K_vR$C^~E^{]/8KkYC^z!0-`^{!N-i&^z]I9+`^{]B3^z];5^z].'n_kz]'8>n^z!C3^z]9'mk^z]48>m^z]C5^z]L3^z!O'l`^{]J8>l^z]1-i$^z]88@A^z!@8:A^z]?*A^z!:,A^z]M9+`^{]G8E`^{!*5^z!,3^z!1'k`^{!.8>k^z!>(i$-`N^~P^{!2Bv6!JBv5]6Bv4])Bv3!?Bv2!BBv1!4Bv0!-Bv/]EBv.]+Bu!EBt!7Bs!5Br!3Bq!9Bp]PBo]HBn!)Bm!(Bl!+'lk^zy";
+int input_len = 1728;
+char *input = "#etouq,,fi,,!rdc-tes,,esrever,?erudecorp,enifed,,,!rac-tes,,,!tes,,,,adbmal,rddc,lobmys>-gnirts,cossa,fer-tsil,gnirts>-lobmys,,gnirts>-tsil,,tneitouq,qssa,?gnirts,,enilwen,ton,rebmun>-gnirts,lobmys-denretninu>-gnirts,lave,,rdddac,,,*,,?lobmys,,,,,,,,daer,,etirw,,,rahc-keep,,,?llun,htgnel,tsil>-gnirts,,+,,-,,,,,,?lauqe,,rddac,rdac,,<,,rahctup,=,rahc-daer,,?riap,snoc,rac,?qe,,rdc,,,,,,,;9']'9'@Z3@YLZ/YN@TvCvR3y]/94]4Z8^z]88Gi&>GjOai&kkz]O>kw(k!C(_.YCaA_D^~F^{!;(^8;YBlbA`^(`~C_D_~F_|!J8HAaRk_D`0YJdAbEai$D`^~F_|]:'`ko89^~i$'`ko89^~i$'`ko89^~Cw)M^~ClK^~YA^z]$'Z:a_m{!H'a_l'k_k~CjO_{!0'b`o8JEdDbAa_'YHewS#'d~YFbYGi&>GjOOeYCEEfi$i$akYE_oN`~Cx@^0>GgZ-ecGfOdbpNa_~CxP^0Z$dRlbNbOa_~CxJ^8JEdDbAa_'YHewS#'d~YFbYGi&>GjOOeYCEEfi$i$akYE_oN`~Cx@^0>GgZ-ecGfOdbpNa_~CxP^0Z$dRlbNbOa_~i%~CxD^'cNao~CwS$^D_~F_'bRk``n~Z(_|!=3_@J^{]33uy]%3^3^@Z%_~L`kYBWZ*u``vR%Z7u^z!M(i$8MA^@JD^~F^z]#(i$(i$9#A^@YLD^~F^@JvC~F^z!L9%^8MYDZ;^~Z(^3vE@YMYD^@JvE~Z5^3vL@Z#A^@YLD^@JvK~F^8=vLvK~YF^8=vS;vF~Ci%^8=vS-vF~Z2^z])9)8>~Iu^(^~Lk^Hy!>8>@H(^9)~IvR0^~L_vC(^~Lk^YIy!<.S^@H(i&~LvD^.S^@H(i&~i%~IvL^.S^@H(i&~i%~IvK^YIy]&.Z&^YN(i&@H~IvL^Uy!N9>_(^~^Z1^Z9ES^@H.Ei&YNwS$@H~IvJ^(i%@H(i$@H~IvS-^YI@H~IvF^9&@H~IvK^(^~Lk^Uy!I(^(^@YK_jFYO~IjA^KjFy!1(^@YKjAjF8O~IjA^KjFy]F>kkjA]AWmk]+(_9+EaD_A^~F^{]L9+i&^z]=(i$9=Aa_(^~QD__D_~F_{]6(i$96Aa_(^~CD__D_~F_{!E(k8BYEA_l~F^z]<-^9<Wl`A^~L`k{!:(i$(i$(i$(i$8:P`P^~QM`M^~QK`K^~YA_~YA^(i%~C`^{].(^!#>ki#^Z0^9.Ma_(^~Q`M^K_~F_{]>9.i#^z!P(_(i$(i$8PYBWvR%`Z*buA_~LvR/^~L_vR$D^~F^{]18PkYD^z!2,`^{!F,i&^z]I9,`^{]B4^z];6^z]0'n_kz](8?n^z!D4^z]9'mk^z]58?m^z]C6^z]M4^z!G'l`^{]K8?l^z]2,i$^z]-88A^z!887A^z]?*A^z!7-A^z]N9,`^{]G8K`^{!*6^z!-4^z!.'k`^{!/8?k^z!?(i$,`P^~YA^{!3Bv6!OBv5]7Bv4]*Bv3!@Bv2!BBv1!5Bv0!,Bv/]EBv.],Bu!KBt!9Bs!6Br!4Bq!ABp!S#Bo]HBn!)Bm!(Bl!+'lk^zy";
 
 
 // an unsigned byte value for the REPL's code
@@ -125,9 +125,7 @@ clump NIL = {TAG_NUM(0), TAG_NUM(0), TAG_NUM(6)};
 #ifdef DEBUG
 
 void chars2str(obj o) {
-    if (o == TAG_CLUMP(&NIL)) {
-        printf("");
-    } else {
+    if (o != TAG_CLUMP(&NIL)) {
         printf("%c", (char) (NUM_OF(CLUMP_OF(o)->car) % 256));
         chars2str(CLUMP_OF(o)->cdr);
     }
@@ -149,13 +147,6 @@ void show_operand(obj o) {
 #endif
 
 obj boolean(bool x) {
-#ifdef DEBUG
-    if (x) {
-        printf("\tBOOL: true\n");
-    } else {
-        printf("\tBOOL: false\n");
-    }
-#endif
     return TAG_CLUMP(x ? &TRUE : &FALSE);
 }
 
@@ -316,7 +307,7 @@ void run() {
             case 1: // call
             {
 #ifdef DEBUG
-                printf(instr == 0 ? "--- jump " : "--- call ");
+                printf(instr ? "--- jump " : "--- call ");
                 show_operand(o);
                 PRINTLN();
 #endif
@@ -324,22 +315,18 @@ void run() {
                 obj c = (CLUMP_OF(o))->car;
 
                 if (is_num(c)) {
-#ifdef DEBUG
-                    printf("PRIM CALL %ld\n", NUM_OF(c));
-#endif
-
                     if (!primitives[NUM_OF(c)]()) {
                         return;
                     }
 
-                    if (0 == instr) {
+                    if (instr) {
+                        // call
+                        c = TAG_CLUMP(pc);
+                    } else {
                         // jump
                         clump *cont = get_cont();
                         c = TAG_CLUMP(cont);
                         stack->cdr = get_cont()->car;
-                    } else {
-                        // call
-                        c = TAG_CLUMP(pc);
                     }
                 } else {
                     clump *c2 = new_clump(TAG_NUM(0), o, TAG_NUM(0));
@@ -350,13 +337,13 @@ void run() {
                         s2 = new_clump(pop(), TAG_CLUMP(s2), TAG_NUM(0));
                     }
 
-                    if (is_num(pc->car) && pc->car == 0) {
+                    if (is_num(pc->car) && NUM_OF(pc->car)) {
+                        c2->car = TAG_CLUMP(stack);
+                        c2->tag = pc->tag;
+                    } else {
                         clump *k = get_cont();
                         c2->car = k->car;
                         c2->tag = k->tag;
-                    } else {
-                        c2->car = TAG_CLUMP(stack);
-                        c2->tag = pc->tag;
                     }
 
                     stack = s2;
