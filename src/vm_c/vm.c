@@ -16,9 +16,6 @@ char *input = "#etouq,,fi,,!rdc-tes,,esrever,?erudecorp,enifed,,,!rac-tes,,,!tes
 // an unsigned byte value for the REPL's code
 typedef unsigned char byte;
 
-// a primitive function
-typedef bool (*primitive)();
-
 // a tagged value
 typedef unsigned long obj;
 
@@ -150,146 +147,99 @@ obj boolean(bool x) {
     return TAG_CLUMP(x ? &TRUE : &FALSE);
 }
 
-bool prim_clump() {
-    PRIM3();
-    push(TAG_CLUMP(new_clump(x, y, z)));
-    return true;
+bool primitive(num prim) {
+    switch (prim) {
+        case 0: { // clump
+            PRIM3();
+            return push(TAG_CLUMP(new_clump(x, y, z)));
+        }
+        case 1: { // id
+            PRIM1();
+            return push(x);
+        }
+        case 2: { // pop
+            pop();
+            return true;
+        }
+        case 3: { // skip
+            obj x = pop();
+            pop();
+            return push(x);
+        }
+        case 4: { // unk
+            obj x = CLUMP_OF(stack->car)->car;
+            obj y = stack->cdr;
+            obj z = TAG_NUM(1);
+            stack->car = TAG_CLUMP(new_clump(x, y, z));
+            return true;
+        }
+        case 5: { // is clump?
+            PRIM1();
+            return push(boolean(is_clump(x)));
+        }
+        case 6: { // field0
+            PRIM1();
+            return push(CLUMP_OF(x)->car);
+        }
+        case 7: { // field1
+            PRIM1();
+            return push(CLUMP_OF(x)->cdr);
+        }
+        case 8: { // field2
+            PRIM1();
+            return push(CLUMP_OF(x)->tag);
+        }
+        case 9: { // set field0
+            PRIM2();
+            return push(CLUMP_OF(x)->car = y);
+        }
+        case 10: { // set field1
+            PRIM2();
+            return push(CLUMP_OF(x)->cdr = y);
+        }
+        case 11: { // set field2
+            PRIM2();
+            return push(CLUMP_OF(x)->tag = y);
+        }
+        case 12 : { // eq
+            PRIM2();
+            return push(boolean(x == y));
+        }
+        case 13: { // lt
+            PRIM2();
+            num _x = NUM_OF(x);
+            num _y = NUM_OF(y);
+            return push(boolean(_x < _y));
+        }
+        case 14: { // add
+            PRIM2();
+            return push(TAG_NUM((NUM_OF(x) + NUM_OF(y))));
+        }
+        case 15 : { // sub
+            PRIM2();
+            return push(TAG_NUM((NUM_OF(x) - NUM_OF(y))));
+        }
+        case 16: { // mul
+            PRIM2();
+            return push(TAG_NUM((NUM_OF(x) * NUM_OF(y))));
+        }
+        case 17: { // div
+            PRIM2();
+            return push(TAG_NUM((NUM_OF(x) / NUM_OF(y))));
+        }
+        case 18: { // getc
+            int c = pos < input_len ? get_byte() : getchar();
+            return push(TAG_NUM(c));
+        }
+        case 19: {
+            PRIM1();
+            putchar((int) NUM_OF(x));
+            fflush(stdout);
+            return push(x);
+        }
+    }
+    return false;
 }
-
-bool prim_id() {
-    PRIM1();
-    push(x);
-    return true;
-}
-
-bool prim_pop() {
-    pop();
-    return true;
-}
-
-bool prim_skip() {
-    obj x = pop();
-    pop();
-    return push(x);
-}
-
-bool prim_unk() {
-    obj x = CLUMP_OF(stack->car)->car;
-    obj y = stack->cdr;
-    obj z = TAG_NUM(1);
-    stack->car = TAG_CLUMP(new_clump(x, y, z));
-    return true;
-}
-
-bool prim_is_clump() {
-    PRIM1();
-    push(boolean(is_clump(x)));
-    return true;
-}
-
-bool prim_field0() {
-    PRIM1();
-    push(CLUMP_OF(x)->car);
-    return true;
-}
-
-bool prim_field1() {
-    PRIM1();
-    push(CLUMP_OF(x)->cdr);
-    return true;
-}
-
-bool prim_field2() {
-    PRIM1();
-    push(CLUMP_OF(x)->tag);
-    return true;
-}
-
-bool prim_set_field0() {
-    PRIM2();
-    push(CLUMP_OF(x)->car = y);
-    return true;
-}
-
-bool prim_set_field1() {
-    PRIM2();
-    push(CLUMP_OF(x)->cdr = y);
-    return true;
-}
-
-bool prim_set_field2() {
-    PRIM2();
-    push(CLUMP_OF(x)->tag = y);
-    return true;
-}
-
-bool prim_eq() {
-    PRIM2();
-    push(boolean(x == y));
-    return true;
-}
-
-bool prim_lt() {
-    PRIM2();
-    num _x = NUM_OF(x);
-    num _y = NUM_OF(y);
-    return push(boolean(_x < _y));
-}
-
-bool prim_add() {
-    PRIM2();
-    return push(TAG_NUM((NUM_OF(x) + NUM_OF(y))));
-}
-
-bool prim_sub() {
-    PRIM2();
-    return push(TAG_NUM((NUM_OF(x) - NUM_OF(y))));
-}
-
-bool prim_mul() {
-    PRIM2();
-    return push(TAG_NUM((NUM_OF(x) * NUM_OF(y))));
-}
-
-bool prim_div() {
-    PRIM2();
-    return push(TAG_NUM((NUM_OF(x) / NUM_OF(y))));
-}
-
-bool prim_getc() {
-    int c = pos < input_len ? get_byte() : getchar();
-    return push(TAG_NUM(c));
-}
-
-bool prim_putc() {
-    PRIM1();
-    putchar((int) NUM_OF(x));
-    fflush(stdout);
-    return push(x);
-}
-
-primitive primitives[PRIM_C] = {
-        prim_clump,
-        prim_id,
-        prim_pop,
-        prim_skip,
-        prim_unk,
-        prim_is_clump,
-        prim_field0,
-        prim_field1,
-        prim_field2,
-        prim_set_field0,
-        prim_set_field1,
-        prim_set_field2,
-        prim_eq,
-        prim_lt,
-        prim_add,
-        prim_sub,
-        prim_mul,
-        prim_div,
-        prim_getc,
-        prim_putc
-};
 
 
 void run() {
@@ -315,7 +265,7 @@ void run() {
                 obj c = (CLUMP_OF(o))->car;
 
                 if (is_num(c)) {
-                    if (!primitives[NUM_OF(c)]()) {
+                    if (!primitive(NUM_OF(c))) {
                         return;
                     }
 
