@@ -31,7 +31,6 @@ typedef struct {
 
 #define VM_HALT 6
 
-#define PRIM_C 20
 #define UNTAG(x) ((x) >> 1)
 #define CLUMP_OF(x) ((clump*)(UNTAG(x)))
 #define NUM_OF(x) ((num)(UNTAG((num)(x))))
@@ -231,14 +230,15 @@ bool primitive(num prim) {
             int c = pos < input_len ? get_byte() : getchar();
             return push(TAG_NUM(c));
         }
-        case 19: {
+        case 19: { // putc
             PRIM1();
             putchar((int) NUM_OF(x));
             fflush(stdout);
             return push(x);
         }
+        default:
+            return false;
     }
-    return false;
 }
 
 
@@ -340,7 +340,6 @@ void run() {
                 PRINTLN();
 #endif
 
-
                 obj p = pop();
                 if (p != TAG_CLUMP(&FALSE)) {
                     pc = CLUMP_OF(pc->cdr);
@@ -361,32 +360,30 @@ clump *symbol_ref(num n) {
     return CLUMP_OF(list_ref(symbol_table, n));
 }
 
+clump *create_sym(clump *name) {
+    clump *inner = new_clump(TAG_CLUMP(name), TAG_NUM(0), TAG_NUM(2));
+    clump *outer = new_clump(TAG_NUM(0), TAG_CLUMP(inner), TAG_NUM(3));
+    clump *root = new_clump(TAG_CLUMP(outer), TAG_CLUMP(symbol_table), TAG_NUM(0));
+    return root;
+}
+
 void build_sym_table() {
     num n = get_int(0);
 
     while (n > 0) {
         n--;
 
-        clump *inner = new_clump(TAG_CLUMP(&NIL), TAG_NUM(0), TAG_NUM(2));
-        clump *outer = new_clump(TAG_NUM(0), TAG_CLUMP(inner), TAG_NUM(3));
-        clump *root = new_clump(TAG_CLUMP(outer), TAG_CLUMP(symbol_table), TAG_NUM(0));
 
-        symbol_table = root;
+        symbol_table = create_sym(&NIL);
     }
 
     clump *accum = &NIL;
 
-    int iter = 0;
     while (1) {
-        iter++;
         byte c = get_byte();
 
         if (c == 44) {
-            clump *inner = new_clump(TAG_CLUMP(accum), TAG_NUM(0), TAG_NUM(2));
-            clump *outer = new_clump(TAG_NUM(0), TAG_CLUMP(inner), TAG_NUM(3));
-            clump *root = new_clump(TAG_CLUMP(outer), TAG_CLUMP(symbol_table), TAG_NUM(0));
-
-            symbol_table = root;
+            symbol_table = create_sym(accum);
             accum = &NIL;
             continue;
         }
@@ -396,11 +393,7 @@ void build_sym_table() {
         accum = new_clump(TAG_NUM(c), TAG_CLUMP(accum), TAG_NUM(0));
     }
 
-    clump *inner = new_clump(TAG_CLUMP(accum), TAG_NUM(0), TAG_NUM(2));
-    clump *outer = new_clump(TAG_NUM(0), TAG_CLUMP(inner), TAG_NUM(3));
-    clump *root = new_clump(TAG_CLUMP(outer), TAG_CLUMP(symbol_table), TAG_NUM(0));
-
-    symbol_table = root;
+    symbol_table = create_sym(accum);
 }
 
 void set_global(clump *c) {
