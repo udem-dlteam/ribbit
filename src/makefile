@@ -61,7 +61,7 @@ stdlib.o: stdlib.c
 
 vm.js.in: generic-vm.js makefile
 	sed \
-	  -e 's|.*/\*debug\*/.*||g' \
+	  -e 's|.*/\*debugzzz\*/.*||g' \
 	  -e 's|.*/\*nodezzz\*/.*||g' \
 	  -e 's|domdoc|A|g' \
 	  -e 's|dombody|B|g' \
@@ -100,8 +100,50 @@ vm.js.in: generic-vm.js makefile
 	  -e 's|pc|z|g' \
 	  generic-vm.js > vm.js.in
 
+vm.py.in: generic-vm.py makefile
+	sed \
+	  -e 's|.*#debug#.*||g' \
+	  -e 's|#.*||g' \
+	  -e 's|putchar|E|g' \
+	  -e 's|getchar|F|g' \
+	  -e 's|pos|G|g' \
+	  -e 's|get_byte|H|g' \
+	  -e 's|FALSE|I|g' \
+	  -e 's|TRUE|J|g' \
+	  -e 's|NIL|K|g' \
+	  -e 's|boolean|L|g' \
+	  -e 's|is_clump|M|g' \
+	  -e 's|stack|N|g' \
+	  -e 's|push|O|g' \
+	  -e 's|pop|P|g' \
+	  -e 's|prim1|Q|g' \
+	  -e 's|prim2|R|g' \
+	  -e 's|prim3|S|g' \
+	  -e 's|primitives|T|g' \
+	  -e 's|get_byte|U|g' \
+	  -e 's|get_code|V|g' \
+	  -e 's|get_int|W|g' \
+	  -e 's|list_tail|X|g' \
+	  -e 's|list_ref|Y|g' \
+	  -e 's|run|Z|g' \
+	  -e 's|symbol_table|q|g' \
+	  -e 's|symbol_ref|r|g' \
+	  -e 's|accum|s|g' \
+	  -e 's|is_num|t|g' \
+	  -e 's|get_opnd|u|g' \
+	  -e 's|get_cont|v|g' \
+	  -e 's|set_global|w|g' \
+	  -e 's|input|y|g' \
+	  -e 's|pc|z|g' \
+	  generic-vm.py > vm.py.in
+
 lib.scm.min.js: vm.js.in lib.scm ssc.scm makefile
 	gsi ./ssc.scm --target js lib.scm
 	npx google-closure-compiler --language_in=ECMASCRIPT_2020 --language_out=ECMASCRIPT_2020 --js lib.scm.js --js_output_file lib.scm.min.js
 	sed -i -e s"|'use strict';input=|y=|" lib.scm.min.js
 	wc lib.scm.min.js
+
+lib.scm.min.py: vm.py.in lib.scm ssc.scm makefile
+	gsi ./ssc.scm --target py --output lib.scm.min.py lib.scm
+	sed -i -e s"|input = |y=|" lib.scm.min.py
+	wc lib.scm.min.py
