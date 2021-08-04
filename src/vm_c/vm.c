@@ -291,9 +291,7 @@ void run() {
                         }
                         case 13: { // lt
                             PRIM2();
-                            num _x = NUM(x);
-                            num _y = NUM(y);
-                            push(boolean(_x < _y));
+                            push(boolean(x < y));
                             break;
                         }
                         case 14: { // add
