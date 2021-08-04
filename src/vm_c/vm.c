@@ -24,7 +24,6 @@ typedef unsigned long size_t;
 // basic def. of a boolean
 typedef unsigned char bool;
 #define true 1
-#define false 0
 
 
 // an unsigned byte value for the REPL's code
@@ -159,11 +158,6 @@ void show_operand(obj o) {
 obj boolean(bool x) {
     return TAG_CLUMP(x ? &TRUE : &FALSE);
 }
-
-void primitive(num prim) {
-
-}
-
 
 void run() {
 #define ADVANCE_PC() do {pc = CLUMP(pc->tag); } while(0)
