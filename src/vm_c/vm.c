@@ -64,13 +64,21 @@ size_t pos = 0;
 
 clump *heap_start;
 clump *heap_end;
-clump *alloc;
-clump *alloc_limit;
-clump *scan;
-clump broken_heart;
+
+// GC
+#define MAX_NB_OBJS 100000
+#define TOTAL_HEAP_SZ (MAX_NB_OBJS * CLUMP_NB_FIELDS * 2)
+#define heap_bot ((obj *)(heap_start))
+#define heap_mid (heap_bot + (TOTAL_HEAP_SZ>>1))
+#define heap_top (heap_bot + TOTAL_HEAP_SZ)
+
+obj *alloc;
+obj *alloc_limit;
+obj *scan;
+obj broken_heart;
+
 
 #ifdef NO_STD
-
 
 // implementation modified from `my_syscall` in nolibc.h (linux kernel), x86-32
 void *sys_brk(void *addr) {
@@ -87,31 +95,74 @@ void *sys_brk(void *addr) {
     return (void *) ptr;
 }
 
-#define MAX_NB_OBJS 10000
-#define heap_bot ((obj *)(mem_base + heap_start))
-#define heap_mid (heap_bot + max_nb_objs * CLUMP_NB_FIELDS)
-#define heap_top (heap_bot + max_nb_objs * CLUMP_NB_FIELDS * 2)
+#endif
 
 
 void init_heap() {
+#ifdef NO_STD
     heap_start = sys_brk((void *) NULL);
-    heap_end = sys_brk(heap_start + (sizeof(clump) * MAX_NB_OBJS));
+    void *new_brk = sys_brk(heap_top);
+#else
+    heap_start = malloc(TOTAL_HEAP_SZ);
+#endif
+
+    alloc = heap_bot;
+    alloc_limit = heap_mid;
+    stack = nil;
 }
 
-#endif
+void copy() {
+    obj o = *scan;
+    if (IS_CLUMP(o)) {
+        obj *ptr = CLUMP(o)->fields;
+        obj field0 = ptr[0];
+        obj copy;
 
+        if (field0 == broken_heart) {
+            copy = ptr[1];
+        } else {
+            copy = TAG_CLUMP(alloc);
+            *ptr++ = broken_heart;
+            *alloc++ = field0;
+            *alloc++ = *ptr++;
+            *alloc++ = *ptr;
+            ptr[-1] = copy;
+        }
+        *scan = copy;
+    }
+    scan++;
+}
+
+void gc() {
+    obj *start = (alloc_limit == heap_mid) ? heap_mid : heap_bot;
+    alloc_limit = start + MAX_NB_OBJS * CLUMP_NB_FIELDS;
+    alloc = start;
+    broken_heart = stack;
+
+    scan = &stack;
+    copy();
+    scan = start;
+
+    while (scan != alloc) {
+        copy();
+    }
+}
 
 clump *alloc_clump(obj car, obj cdr, obj tag) {
-#ifdef NO_STD
-    // TODO
-    clump *c = sys_brk((void *) NULL);
-    sys_brk(((void *) c) + sizeof(clump));
-#else
-    clump *c = malloc(sizeof(clump));
-#endif
+    *alloc++ = stack;
+    *alloc++ = stack;
+    *alloc++ = stack;
+
+    clump *c = (clump *) (alloc - CLUMP_NB_FIELDS);
+
     c->fields[0] = car;
     c->fields[1] = cdr;
     c->fields[2] = tag;
+
+    if (alloc == alloc_limit) {
+        gc();
+    }
+
     return c;
 }
 
@@ -552,6 +603,8 @@ void _start() {
 
 void init() {
 #endif
+    init_heap();
+
     build_sym_table();
     decode();
 
