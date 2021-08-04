@@ -16,8 +16,9 @@ if (nodejs) { // in nodejs? /*node*/
 
   getchar_sync = () => { /*node*/
     let buffer = Buffer.alloc(1); /*node*/
-    node_fs.readSync(0, buffer, 0, 1); /*node*/
-    return buffer[0]; /*node*/
+    if (node_fs.readSync(0, buffer, 0, 1)) /*node*/
+      return buffer[0]; /*node*/
+    return -1; /*node*/
   }; /*node*/
 
   getchar = () => { /*node*/
@@ -31,7 +32,7 @@ if (nodejs) { // in nodejs? /*node*/
   show_stack = () => { /*node*/ /*debug*/
     let s = stack; /*node*/ /*debug*/
     let r = []; /*node*/ /*debug*/
-    while (!s[2]) { r.push(s[0]); s=s[1]; } /*node*/ /*debug*/
+    while (!s[2]) { r[r.length]=s[0]; s=s[1]; } /*node*/ /*debug*/
     console.log(require("util").inspect(r, {showHidden: false, depth: 2})); /*node*/ /*debug*/
   } /*node*/ /*debug*/
 
@@ -162,7 +163,7 @@ set_global(symbol_table);
 set_global(FALSE);
 set_global(TRUE);
 set_global(NIL);
-set_global([0,NIL,1]); /* primitive 0 */
+set_global([0,NIL,1]); // primitive 0
 
 stack = [0,0,[6,0,0]]; // primordial continuation (executes halt instr.)
 
