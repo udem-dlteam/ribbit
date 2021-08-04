@@ -313,10 +313,10 @@ void run() {
                             break;
                         }
                         case 18: { // getc
-                            int c;
+                            int read;
 #ifdef NO_STD
                             if (pos < input_len) {
-                                c = get_byte();
+                                read = (int) get_byte();
                             } else {
                                 asm volatile ("push %%eax\n"
                                               "mov $0x03, %%eax\n" // sys_call
@@ -325,15 +325,15 @@ void run() {
                                               "mov $1, %%edx\n" // count
                                               "int $0x80\n"
                                               "pop %%eax\n"
-                                : "=a"(c)
+                                : "=a"(read)
                                 :
                                 : "ebx", "ecx", "edx", "esi", "edi");
-                                c &= 0xFF;
+                                read &= 0xFF;
                             }
 #else
                             c = pos < input_len ? get_byte() : getchar();
 #endif
-                            push(TAG_NUM(c));
+                            push(TAG_NUM(read));
                             break;
 
                         }
