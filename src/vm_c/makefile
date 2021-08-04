@@ -18,16 +18,16 @@ else
 	NASM=nasm
 endif
 
-GCC_DEFS =
-CFLAGS = -m32 \
-		 -ffunction-sections -fdata-sections -fno-plt -fno-stack-protector \
+GCC_DEFS = -DSMALL
+CFLAGS = -ffunction-sections -fdata-sections -fno-plt -fno-stack-protector \
 		 -fno-stack-check -fno-unwind-tables -flto -fno-stack-protector \
 		 -fno-stack-check -Os \
 		 -Wl,--build-id=none -z norelro -Wl,-z,noseparate-code \
 		 -Wl,--no-eh-frame-hdr -no-pie -Wl,--no-ld-generated-unwind-info \
 		 -Wl,--hash-style=sysv -Wl,-z,nodynamic-undefined-weak \
 		 -Wl,--gc-sections -fno-exceptions -fno-rtti -fno-threadsafe-statics \
-		 -fno-asynchronous-unwind-tables -fomit-frame-pointer -fno-pic -fno-PIE -fno-PIC -ffast-math -s
+		 -fno-asynchronous-unwind-tables -fomit-frame-pointer -fno-pic -fno-PIE -fno-PIC -ffast-math \
+		 -nostartfiles -nostdlib -s
 
 all: $(OUT)
 
@@ -39,5 +39,5 @@ $(OUT): $(INT)
 	$(OBJC) -S --remove-section .comment --remove-section .note --remove-section .hash --remove-section .eh_frame $(INT) $(OUT)
 
 $(INT): $(SRC)
-	$(GCC) vm.c $(CFLAGS) -o $(INT)
+	$(GCC) $(GCC_DEFS) vm.c $(CFLAGS) -o $(INT)
 
