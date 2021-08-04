@@ -1,7 +1,9 @@
 //#define DEBUG
 #ifndef NO_STD
+
 #include <stdio.h>
 #include <stdlib.h>
+
 #endif
 
 #pragma clang diagnostic push
@@ -22,7 +24,6 @@ typedef unsigned long size_t;
 // basic def. of a boolean
 typedef unsigned char bool;
 #define true 1
-#define false 0
 
 
 // an unsigned byte value for the REPL's code
@@ -44,8 +45,8 @@ typedef struct {
 #define VM_HALT 6
 
 #define UNTAG(x) ((x) >> 1)
-#define CLUMP_OF(x) ((clump*)(UNTAG(x)))
-#define NUM_OF(x) ((num)(UNTAG((num)(x))))
+#define CLUMP(x) ((clump*)(UNTAG(x)))
+#define NUM(x) ((num)(UNTAG((num)(x))))
 #define TAG_CLUMP(c_ptr) (((obj)(c_ptr)) << 1)
 #define TAG_NUM(num) ((((obj)(num)) << 1) | 1)
 
@@ -72,7 +73,7 @@ clump *new_clump(obj car, obj cdr, obj tag) {
 
 obj pop() {
     obj x = stack->car;
-    stack = CLUMP_OF(stack->cdr);
+    stack = CLUMP(stack->cdr);
     return x;
 }
 
@@ -105,7 +106,7 @@ bool is_num(obj x) {
 }
 
 clump *list_tail(clump *lst, num i) {
-    return (i == 0) ? lst : list_tail(CLUMP_OF(lst->cdr), i - 1);
+    return (i == 0) ? lst : list_tail(CLUMP(lst->cdr), i - 1);
 }
 
 obj list_ref(clump *lst, num i) {
@@ -113,14 +114,14 @@ obj list_ref(clump *lst, num i) {
 }
 
 obj get_opnd(obj o) {
-    return (is_num(o) ? list_tail(stack, NUM_OF(o)) : CLUMP_OF(o))->car;
+    return (is_num(o) ? list_tail(stack, NUM(o)) : CLUMP(o))->car;
 }
 
 clump *get_cont() {
     clump *s = stack;
 
-    while (!NUM_OF(s->tag)) {
-        s = CLUMP_OF(s->cdr);
+    while (!NUM(s->tag)) {
+        s = CLUMP(s->cdr);
     }
 
     return s;
@@ -134,21 +135,21 @@ clump NIL = {TAG_NUM(0), TAG_NUM(0), TAG_NUM(6)};
 
 void chars2str(obj o) {
     if (o != TAG_CLUMP(&NIL)) {
-        printf("%c", (char) (NUM_OF(CLUMP_OF(o)->car) % 256));
-        chars2str(CLUMP_OF(o)->cdr);
+        printf("%c", (char) (NUM(CLUMP(o)->car) % 256));
+        chars2str(CLUMP(o)->cdr);
     }
 }
 
 void sym2str(clump *c) {
-    chars2str(CLUMP_OF(c->cdr)->car);
+    chars2str(CLUMP(c->cdr)->car);
 }
 
 void show_operand(obj o) {
     if (is_num(o)) {
-        printf("int %ld", NUM_OF(o));
+        printf("int %ld", NUM(o));
     } else {
         printf("sym ");
-        sym2str(CLUMP_OF(o));
+        sym2str(CLUMP(o));
     }
 }
 
@@ -158,116 +159,11 @@ obj boolean(bool x) {
     return TAG_CLUMP(x ? &TRUE : &FALSE);
 }
 
-bool primitive(num prim) {
-    switch (prim) {
-        case 0: { // clump
-            PRIM3();
-            return push(TAG_CLUMP(new_clump(x, y, z)));
-        }
-        case 1: { // id
-            PRIM1();
-            return push(x);
-        }
-        case 2: { // pop
-            pop();
-            return true;
-        }
-        case 3: { // skip
-            obj x = pop();
-            pop();
-            return push(x);
-        }
-        case 4: { // unk
-            obj x = CLUMP_OF(stack->car)->car;
-            obj y = stack->cdr;
-            obj z = TAG_NUM(1);
-            stack->car = TAG_CLUMP(new_clump(x, y, z));
-            return true;
-        }
-        case 5: { // is clump?
-            PRIM1();
-            return push(boolean(is_clump(x)));
-        }
-        case 6: { // field0
-            PRIM1();
-            return push(CLUMP_OF(x)->car);
-        }
-        case 7: { // field1
-            PRIM1();
-            return push(CLUMP_OF(x)->cdr);
-        }
-        case 8: { // field2
-            PRIM1();
-            return push(CLUMP_OF(x)->tag);
-        }
-        case 9: { // set field0
-            PRIM2();
-            return push(CLUMP_OF(x)->car = y);
-        }
-        case 10: { // set field1
-            PRIM2();
-            return push(CLUMP_OF(x)->cdr = y);
-        }
-        case 11: { // set field2
-            PRIM2();
-            return push(CLUMP_OF(x)->tag = y);
-        }
-        case 12 : { // eq
-            PRIM2();
-            return push(boolean(x == y));
-        }
-        case 13: { // lt
-            PRIM2();
-            num _x = NUM_OF(x);
-            num _y = NUM_OF(y);
-            return push(boolean(_x < _y));
-        }
-        case 14: { // add
-            PRIM2();
-            return push(TAG_NUM((NUM_OF(x) + NUM_OF(y))));
-        }
-        case 15 : { // sub
-            PRIM2();
-            return push(TAG_NUM((NUM_OF(x) - NUM_OF(y))));
-        }
-        case 16: { // mul
-            PRIM2();
-            return push(TAG_NUM((NUM_OF(x) * NUM_OF(y))));
-        }
-        case 17: { // div
-            PRIM2();
-            return push(TAG_NUM((NUM_OF(x) / NUM_OF(y))));
-        }
-        case 18: { // getc
-#ifdef NO_STD
-            int c = 0;
-#else
-            int c = pos < input_len ? get_byte() : getchar();
-#endif
-            return push(TAG_NUM(c));
-
-        }
-        case 19: { // putc
-            PRIM1();
-#ifdef NO_STD
-
-#else
-            putchar((int) NUM_OF(x));
-            fflush(stdout);
-#endif
-            return push(x);
-        }
-        default:
-            return false;
-    }
-}
-
-
 void run() {
-#define ADVANCE_PC() do {pc = CLUMP_OF(pc->tag); } while(0)
+#define ADVANCE_PC() do {pc = CLUMP(pc->tag); } while(0)
     while (1) {
         obj o = pc->cdr;
-        num instr = NUM_OF(pc->car);
+        num instr = NUM(pc->car);
 
         switch (instr) {
             default:
@@ -283,11 +179,126 @@ void run() {
                 PRINTLN();
 #endif
                 o = get_opnd(o);
-                obj c = (CLUMP_OF(o))->car;
+                obj c = (CLUMP(o))->car;
 
                 if (is_num(c)) {
-                    if (!primitive(NUM_OF(c))) {
-                        return;
+                    switch (NUM(c)) {
+                        case 0: { // clump
+                            PRIM3();
+                            push(TAG_CLUMP(new_clump(x, y, z)));
+                            break;
+                        }
+                        case 1: { // id
+                            PRIM1();
+                            push(x);
+                            break;
+                        }
+                        case 2: { // pop
+                            pop();
+                            true;
+                            break;
+                        }
+                        case 3: { // skip
+                            obj x = pop();
+                            pop();
+                            push(x);
+                            break;
+                        }
+                        case 4: { // unk
+                            obj x = CLUMP(stack->car)->car;
+                            obj y = stack->cdr;
+                            obj z = TAG_NUM(1);
+                            stack->car = TAG_CLUMP(new_clump(x, y, z));
+                            break;
+                        }
+                        case 5: { // is clump?
+                            PRIM1();
+                            push(boolean(is_clump(x)));
+                            break;
+                        }
+                        case 6: { // field0
+                            PRIM1();
+                            push(CLUMP(x)->car);
+                            break;
+                        }
+                        case 7: { // field1
+                            PRIM1();
+                            push(CLUMP(x)->cdr);
+                            break;
+                        }
+                        case 8: { // field2
+                            PRIM1();
+                            push(CLUMP(x)->tag);
+                            break;
+                        }
+                        case 9: { // set field0
+                            PRIM2();
+                            push(CLUMP(x)->car = y);
+                            break;
+                        }
+                        case 10: { // set field1
+                            PRIM2();
+                            push(CLUMP(x)->cdr = y);
+                            break;
+                        }
+                        case 11: { // set field2
+                            PRIM2();
+                            push(CLUMP(x)->tag = y);
+                            break;
+                        }
+                        case 12 : { // eq
+                            PRIM2();
+                            push(boolean(x == y));
+                            break;
+                        }
+                        case 13: { // lt
+                            PRIM2();
+                            num _x = NUM(x);
+                            num _y = NUM(y);
+                            push(boolean(_x < _y));
+                            break;
+                        }
+                        case 14: { // add
+                            PRIM2();
+                            push(TAG_NUM((NUM(x) + NUM(y))));
+                            break;
+                        }
+                        case 15 : { // sub
+                            PRIM2();
+                            push(TAG_NUM((NUM(x) - NUM(y))));
+                            break;
+                        }
+                        case 16: { // mul
+                            PRIM2();
+                            push(TAG_NUM((NUM(x) * NUM(y))));
+                            break;
+                        }
+                        case 17: { // div
+                            PRIM2();
+                            push(TAG_NUM((NUM(x) / NUM(y))));
+                            break;
+                        }
+                        case 18: { // getc
+#ifdef NO_STD
+                            int c = 0;
+#else
+                            int c = pos < input_len ? get_byte() : getchar();
+#endif
+                            push(TAG_NUM(c));
+                            break;
+
+                        }
+                        case 19: { // putc
+                            PRIM1();
+#ifdef NO_STD
+
+#else
+                            putchar((int) NUM(x));
+                            fflush(stdout);
+#endif
+                            push(x);
+                            break;
+                        }
                     }
 
                     if (instr) {
@@ -302,13 +313,13 @@ void run() {
                 } else {
                     clump *c2 = new_clump(TAG_NUM(0), o, TAG_NUM(0));
                     clump *s2 = c2;
-                    num nargs = NUM_OF(CLUMP_OF(c)->car);
+                    num nargs = NUM(CLUMP(c)->car);
 
                     while (nargs--) {
                         s2 = new_clump(pop(), TAG_CLUMP(s2), TAG_NUM(0));
                     }
 
-                    if (is_num(pc->car) && NUM_OF(pc->car)) {
+                    if (is_num(pc->car) && NUM(pc->car)) {
                         c2->car = TAG_CLUMP(stack);
                         c2->tag = pc->tag;
                     } else {
@@ -319,7 +330,7 @@ void run() {
 
                     stack = s2;
                 }
-                pc = CLUMP_OF(CLUMP_OF(c)->tag);
+                pc = CLUMP(CLUMP(c)->tag);
                 break;
             }
             case 2: { // set
@@ -328,11 +339,8 @@ void run() {
                 show_operand(o);
                 PRINTLN();
 #endif
-                if (is_num(o)) {
-                    list_tail(stack, NUM_OF(o))->car = pop();
-                } else {
-                    CLUMP_OF(o)->car = pop();
-                }
+                obj x = pop();
+                ((is_num(o)) ? list_tail(stack, NUM(o)) : CLUMP(o))->car = x;
                 ADVANCE_PC();
                 break;
             }
@@ -363,9 +371,9 @@ void run() {
 
                 obj p = pop();
                 if (p != TAG_CLUMP(&FALSE)) {
-                    pc = CLUMP_OF(pc->cdr);
+                    pc = CLUMP(pc->cdr);
                 } else {
-                    pc = CLUMP_OF(pc->tag);
+                    pc = CLUMP(pc->tag);
                 }
                 break;
             }
@@ -378,7 +386,7 @@ void run() {
 clump *symbol_table = &NIL;
 
 clump *symbol_ref(num n) {
-    return CLUMP_OF(list_ref(symbol_table, n));
+    return CLUMP(list_ref(symbol_table, n));
 }
 
 clump *create_sym(clump *name) {
@@ -416,8 +424,8 @@ void build_sym_table() {
 }
 
 void set_global(clump *c) {
-    CLUMP_OF(symbol_table->car)->car = TAG_CLUMP(c);
-    symbol_table = CLUMP_OF(symbol_table->cdr);
+    CLUMP(symbol_table->car)->car = TAG_CLUMP(c);
+    symbol_table = CLUMP(symbol_table->cdr);
 }
 
 
@@ -465,7 +473,7 @@ void decode() {
         stack->car = TAG_CLUMP(new_clump(TAG_NUM(op), n, stack->car));
     }
 
-    pc = CLUMP_OF(CLUMP_OF(CLUMP_OF(n)->car)->tag);
+    pc = CLUMP(CLUMP(CLUMP(n)->car)->tag);
 }
 
 void setup_stack() {
@@ -480,6 +488,7 @@ void setup_stack() {
 #ifdef NOSTART
 void _start() {
 #else
+
 void init() {
 #endif
     build_sym_table();
@@ -497,9 +506,11 @@ void init() {
 }
 
 #ifndef NOSTART
+
 int main() {
     init();
 }
+
 #endif
 
 #pragma clang diagnostic pop
