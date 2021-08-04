@@ -101,7 +101,7 @@ void init_heap() {
 #endif
 
 
-clump *new_clump(obj car, obj cdr, obj tag) {
+clump *alloc_clump(obj car, obj cdr, obj tag) {
 #ifdef NO_STD
     // TODO
     clump *c = sys_brk((void *) NULL);
@@ -122,7 +122,7 @@ obj pop() {
 }
 
 bool push(obj x) {
-    stack = TAG_CLUMP(new_clump(x, stack, TAG_NUM(0)));
+    stack = TAG_CLUMP(alloc_clump(x, stack, TAG_NUM(0)));
     return true;
 }
 
@@ -221,7 +221,7 @@ void run() {
                     switch (NUM(c)) {
                         case 0: { // clump
                             PRIM3();
-                            push(TAG_CLUMP(new_clump(x, y, z)));
+                            push(TAG_CLUMP(alloc_clump(x, y, z)));
                             break;
                         }
                         case 1: { // id
@@ -244,7 +244,7 @@ void run() {
                             obj x = CLUMP(CLUMP(stack)->fields[0])->fields[0];
                             obj y = CLUMP(stack)->fields[1];
                             obj z = TAG_NUM(1);
-                            CLUMP(stack)->fields[0] = TAG_CLUMP(new_clump(x, y, z));
+                            CLUMP(stack)->fields[0] = TAG_CLUMP(alloc_clump(x, y, z));
                             break;
                         }
                         case 5: { // is clump?
@@ -372,12 +372,12 @@ void run() {
                         CLUMP(stack)->fields[1] = get_cont()->fields[0];
                     }
                 } else {
-                    clump *c2 = new_clump(TAG_NUM(0), o, TAG_NUM(0));
+                    clump *c2 = alloc_clump(TAG_NUM(0), o, TAG_NUM(0));
                     clump *s2 = c2;
                     num nargs = NUM(CLUMP(c)->fields[0]);
 
                     while (nargs--) {
-                        s2 = new_clump(pop(), TAG_CLUMP(s2), TAG_NUM(0));
+                        s2 = alloc_clump(pop(), TAG_CLUMP(s2), TAG_NUM(0));
                     }
 
                     if (IS_NUM(pc->fields[0]) && NUM(pc->fields[0])) {
@@ -451,9 +451,9 @@ clump *symbol_ref(num n) {
 }
 
 clump *create_sym(clump *name) {
-    clump *inner = new_clump(TAG_CLUMP(name), TAG_NUM(0), TAG_NUM(2));
-    clump *outer = new_clump(TAG_NUM(0), TAG_CLUMP(inner), TAG_NUM(3));
-    clump *root = new_clump(TAG_CLUMP(outer), TAG_CLUMP(symbol_table), TAG_NUM(0));
+    clump *inner = alloc_clump(TAG_CLUMP(name), TAG_NUM(0), TAG_NUM(2));
+    clump *outer = alloc_clump(TAG_NUM(0), TAG_CLUMP(inner), TAG_NUM(3));
+    clump *root = alloc_clump(TAG_CLUMP(outer), TAG_CLUMP(symbol_table), TAG_NUM(0));
     return root;
 }
 
@@ -478,7 +478,7 @@ void build_sym_table() {
 
         if (c == 59) break;
 
-        accum = new_clump(TAG_NUM(c), TAG_CLUMP(accum), TAG_NUM(0));
+        accum = alloc_clump(TAG_NUM(c), TAG_CLUMP(accum), TAG_NUM(0));
     }
 
     symbol_table = create_sym(accum);
@@ -510,7 +510,7 @@ void decode() {
             n = pop();
         } else {
             if (!op) {
-                stack = TAG_CLUMP(new_clump(TAG_NUM(0), stack, TAG_NUM(0)));
+                stack = TAG_CLUMP(alloc_clump(TAG_NUM(0), stack, TAG_NUM(0)));
             }
 
             // not very readable, see generic.vm.js
@@ -522,8 +522,8 @@ void decode() {
             }
 
             if (op > 4) {
-                clump *inner = new_clump(n, TAG_NUM(0), pop());
-                n = TAG_CLUMP(new_clump(TAG_CLUMP(inner), TAG_CLUMP(&NIL), TAG_NUM(1)));
+                clump *inner = alloc_clump(n, TAG_NUM(0), pop());
+                n = TAG_CLUMP(alloc_clump(TAG_CLUMP(inner), TAG_CLUMP(&NIL), TAG_NUM(1)));
                 if (stack == nil || stack == NULL) {
                     break;
                 }
@@ -531,19 +531,19 @@ void decode() {
             }
         }
 
-        CLUMP(stack)->fields[0] = TAG_CLUMP(new_clump(TAG_NUM(op), n, CLUMP(stack)->fields[0]));
+        CLUMP(stack)->fields[0] = TAG_CLUMP(alloc_clump(TAG_NUM(op), n, CLUMP(stack)->fields[0]));
     }
 
     pc = CLUMP(CLUMP(CLUMP(n)->fields[0])->fields[2]);
 }
 
 void setup_stack() {
-    stack = TAG_CLUMP(new_clump(TAG_NUM(0),
-                      TAG_NUM(0),
-                      TAG_CLUMP(new_clump(
-                              TAG_NUM(VM_HALT),
-                              TAG_NUM(0),
-                              TAG_NUM(0)))));
+    stack = TAG_CLUMP(alloc_clump(TAG_NUM(0),
+                                  TAG_NUM(0),
+                                  TAG_CLUMP(alloc_clump(
+                                          TAG_NUM(VM_HALT),
+                                          TAG_NUM(0),
+                                          TAG_NUM(0)))));
 }
 
 #ifdef NOSTART
@@ -559,7 +559,7 @@ void init() {
     set_global(&FALSE);
     set_global(&TRUE);
     set_global(&NIL);
-    set_global(new_clump(TAG_NUM(0), TAG_CLUMP(&NIL), TAG_NUM(1))); /* primitive 0 */
+    set_global(alloc_clump(TAG_NUM(0), TAG_CLUMP(&NIL), TAG_NUM(1))); /* primitive 0 */
 
     setup_stack();
 
