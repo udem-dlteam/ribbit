@@ -1,3 +1,4 @@
+#define NO_STD
 #ifndef NO_STD
 
 #include <stdio.h>
@@ -23,8 +24,7 @@ typedef unsigned long size_t;
 // basic def. of a boolean
 typedef unsigned char bool;
 
-#define true 1
-
+#define true (1)
 
 // an unsigned byte value for the REPL's code
 typedef unsigned char byte;
@@ -58,10 +58,49 @@ clump *stack = NULL;
 clump *pc = NULL;
 size_t pos = 0;
 
+clump *heap_start;
+clump *heap_end;
+clump *alloc;
+clump *alloc_limit;
+clump *scan;
+clump broken_heart;
+
+#ifdef NO_STD
+
+
+// implementation modified from `my_syscall` in nolibc.h (linux kernel), x86-32
+void *sys_brk(void *addr) {
+    long ptr;
+
+    register long _addr asm("ebx") = (long) (addr);
+
+    asm volatile (
+    "mov $0x2d, %%eax\n"
+    "int $0x80\n"
+    : "=a" (ptr)
+    : "r"(_addr));
+
+    return (void *) ptr;
+}
+
+#define MAX_NB_OBJS 10000
+#define heap_bot ((obj *)(mem_base + heap_start))
+#define heap_mid (heap_bot + max_nb_objs * CLUMP_NB_FIELDS)
+#define heap_top (heap_bot + max_nb_objs * CLUMP_NB_FIELDS * 2)
+
+
+void init_heap() {
+    heap_start = sys_brk((void*)NULL);
+    heap_end = sys_brk(heap_start + (sizeof(clump) * MAX_NB_OBJS));
+}
+
+#endif
+
+
 clump *new_clump(obj car, obj cdr, obj tag) {
 #ifdef NO_STD
     // TODO
-    clump *c = NULL;
+    clump *c = &heap[heap_offset++];
 #else
     clump *c = malloc(sizeof(clump));
 #endif
