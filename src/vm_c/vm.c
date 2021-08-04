@@ -1,4 +1,3 @@
-//#define DEBUG
 #ifndef NO_STD
 
 #include <stdio.h>
@@ -23,6 +22,7 @@ typedef unsigned long size_t;
 
 // basic def. of a boolean
 typedef unsigned char bool;
+
 #define true 1
 
 
@@ -279,10 +279,25 @@ void run() {
                             break;
                         }
                         case 18: { // getc
+                            int c;
 #ifdef NO_STD
-                            int c = 0;
+                            if(pos < input_len) {
+                                c = get_byte();
+                            } else {
+                                asm volatile ("push %%eax\n"
+                                              "mov $0x03, %%eax\n" // sys_call
+                                              "mov $0, %%ebx\n" // fd
+                                              "lea 0(%%esp), %%ecx\n" // ptr
+                                              "mov $1, %%edx\n" // count
+                                              "int $0x80\n"
+                                              "pop %%eax\n"
+                                              : "=a"(c)
+                                              :
+                                              : "ebx", "ecx", "edx", "esi", "edi");
+                                c &= 0xFF;
+                            }
 #else
-                            int c = pos < input_len ? get_byte() : getchar();
+                            c = pos < input_len ? get_byte() : getchar();
 #endif
                             push(TAG_NUM(c));
                             break;
@@ -291,9 +306,21 @@ void run() {
                         case 19: { // putc
                             PRIM1();
 #ifdef NO_STD
-
+                            {
+                                asm volatile ("mov %0, %%eax\n"
+                                              "push %%eax\n"
+                                              "mov $1, %%ebx\n" // fd
+                                              "lea 0(%%esp), %%ecx\n" // ptr
+                                              "mov $1, %%edx\n" // count
+                                              "mov $0x04, %%eax\n" // sys_call
+                                              "int $0x80\n"
+                                              "pop %%eax\n"
+                                :
+                                : "g"((int) (NUM(x) & 0xFF))
+                                : "eax", "ebx", "ecx", "edx", "esi", "edi");
+                            };
 #else
-                            putchar((int) NUM(x));
+                            putchar((char) NUM(x));
                             fflush(stdout);
 #endif
                             push(x);
