@@ -35,9 +35,11 @@ typedef unsigned long obj;
 // a number
 typedef long num;
 
+
 // a clump obj
+#define CLUMP_NB_FIELDS 3
 typedef struct {
-    obj fields[3];
+    obj fields[CLUMP_NB_FIELDS];
 } clump;
 
 #define VM_HALT 6
