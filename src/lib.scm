@@ -69,6 +69,8 @@ eval
 length
 list->string
 list-ref
+list-set!
+list-tail
 newline
 not
 null?
@@ -89,6 +91,11 @@ string->uninterned-symbol
 string?
 symbol->string
 symbol?
+vector-length
+vector-ref
+vector-set!
+vector-tail
+vector?
 write
 
 quote set! define if lambda
@@ -160,6 +167,13 @@ quote set! define if lambda
 
 (define (= x y) (eq? x y))
 
+(define (vector? o) (instance? o 7))
+(define (list->vector lst) (clump lst 0 7))
+(define (vector->list vect) (field0 vect))
+(define (vector-length vect) (length (field0 vect)))
+(define (vector-ref vect i) (list-ref (field0 vect) i))
+(define (vector-set! vect i x) (list-set! (field0 vect) i x))
+
 ;;;----------------------------------------------------------------------------
 
 ;; String to integer conversion.
@@ -204,10 +218,16 @@ quote set! define if lambda
            (equal? (field1 x) (field1 y))
            (equal? (field2 x) (field2 y)))))
 
-(define (list-ref lst n)
-  (if (< 0 n)
-      (list-ref (cdr lst) (- n 1))
-      (car lst)))
+(define (list-ref lst i)
+  (car (list-tail lst i)))
+
+(define (list-set! lst i x)
+  (set-car! (list-tail lst i) x))
+
+(define (list-tail lst i)
+  (if (< 0 i)
+      (list-tail (cdr lst) (- i 1))
+      lst))
 
 (define (length lst)
   (if (pair? lst)
@@ -301,9 +321,11 @@ quote set! define if lambda
              (cond ((= c 102) ;; #\f
                     (read-char) ;; skip "f"
                     #f)
-                   (else ;; assume it is #\t
+                   ((= c 116) ;; #\t
                     (read-char) ;; skip "t"
-                    #t))))
+                    #t)
+                   (else ;; assume it is #\(
+                    (list->vector (read))))))
           ((= c 39) ;; #\'
            (read-char) ;; skip "'"
            (cons 'quote (cons (read) '())))
@@ -376,6 +398,14 @@ quote set! define if lambda
          (putchar 34))
         ((symbol? o)
          (write-chars (string->list (symbol->string o))))
+        ((vector? o)
+         (putchar 35) ;; #\#
+         (write (vector->list o)))
+        ((procedure? o)
+         (putchar2 35 60) ;; #<proc>
+         (putchar2 112 114)
+         (putchar2 111 99)
+         (putchar 62))
         (else
          ;; must be a number
          (write-number o))))
