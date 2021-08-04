@@ -18,8 +18,8 @@ else
 	NASM=nasm
 endif
 
-GCC_DEFS = -DSMALL
-CFLAGS = -ffunction-sections -fdata-sections -fno-plt -fno-stack-protector \
+GCC_DEFS = -DNOSTART
+CFLAGS = -m32 -ffunction-sections -fdata-sections -fno-plt -fno-stack-protector \
 		 -fno-stack-check -fno-unwind-tables -flto -fno-stack-protector \
 		 -fno-stack-check -Os \
 		 -Wl,--build-id=none -z norelro -Wl,-z,noseparate-code \
@@ -27,7 +27,7 @@ CFLAGS = -ffunction-sections -fdata-sections -fno-plt -fno-stack-protector \
 		 -Wl,--hash-style=sysv -Wl,-z,nodynamic-undefined-weak \
 		 -Wl,--gc-sections -fno-exceptions -fno-rtti -fno-threadsafe-statics \
 		 -fno-asynchronous-unwind-tables -fomit-frame-pointer -fno-pic -fno-PIE -fno-PIC -ffast-math \
-		 -nostartfiles -nostdlib -s
+		 -nostartfiles -s
 
 all: $(OUT)
 
