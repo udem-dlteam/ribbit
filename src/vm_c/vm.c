@@ -59,7 +59,7 @@ typedef struct {
 #define nil (TAG_NUM(0))
 
 obj stack = nil;
-clump *pc = NULL;
+obj pc = nil;
 size_t pos = 0;
 
 clump *heap_start;
@@ -137,8 +137,8 @@ void gc() {
     obj *start = (alloc_limit == heap_mid) ? heap_mid : heap_bot;
     alloc_limit = start + MAX_NB_OBJS * CLUMP_NB_FIELDS;
     alloc = start;
-    broken_heart = stack;
 
+    broken_heart = stack;
     scan = &stack;
     copy();
     scan = start;
@@ -247,10 +247,10 @@ obj boolean(bool x) {
 }
 
 void run() {
-#define ADVANCE_PC() do {pc = CLUMP(pc->fields[2]); } while(0)
+#define ADVANCE_PC() do {pc = CLUMP(pc)->fields[2]; } while(0)
     while (1) {
-        obj o = pc->fields[1];
-        num instr = NUM(pc->fields[0]);
+        obj o = CLUMP(pc)->fields[1];
+        num instr = NUM(CLUMP(pc)->fields[0]);
 
         switch (instr) {
             default:
@@ -415,7 +415,7 @@ void run() {
 
                     if (instr) {
                         // call
-                        c = TAG_CLUMP(pc);
+                        c = pc;
                     } else {
                         // jump
                         clump *cont = get_cont();
@@ -431,9 +431,9 @@ void run() {
                         s2 = alloc_clump(pop(), TAG_CLUMP(s2), TAG_NUM(0));
                     }
 
-                    if (IS_NUM(pc->fields[0]) && NUM(pc->fields[0])) {
+                    if (IS_NUM(CLUMP(pc)->fields[0]) && NUM(CLUMP(pc)->fields[0])) {
                         c2->fields[0] = stack;
-                        c2->fields[2] = pc->fields[2];
+                        c2->fields[2] = CLUMP(pc)->fields[2];
                     } else {
                         clump *k = get_cont();
                         c2->fields[0] = k->fields[0];
@@ -442,7 +442,7 @@ void run() {
 
                     stack = TAG_CLUMP(s2);
                 }
-                pc = CLUMP(CLUMP(c)->fields[2]);
+                pc = CLUMP(c)->fields[2];
                 break;
             }
             case 2: { // set
@@ -483,9 +483,9 @@ void run() {
 
                 obj p = pop();
                 if (p != TAG_CLUMP(&FALSE)) {
-                    pc = CLUMP(pc->fields[1]);
+                    pc = CLUMP(pc)->fields[1];
                 } else {
-                    pc = CLUMP(pc->fields[2]);
+                    pc = CLUMP(pc)->fields[2];
                 }
                 break;
             }
@@ -585,7 +585,7 @@ void decode() {
         CLUMP(stack)->fields[0] = TAG_CLUMP(alloc_clump(TAG_NUM(op), n, CLUMP(stack)->fields[0]));
     }
 
-    pc = CLUMP(CLUMP(CLUMP(n)->fields[0])->fields[2]);
+    pc = CLUMP(CLUMP(n)->fields[0])->fields[2];
 }
 
 void setup_stack() {
@@ -600,7 +600,6 @@ void setup_stack() {
 #ifdef NOSTART
 void _start() {
 #else
-
 void init() {
 #endif
     init_heap();
