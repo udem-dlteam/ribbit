@@ -57,6 +57,7 @@ assq
 cadddr
 caddr
 cadr
+call/cc
 car
 cddr
 cdr
@@ -236,6 +237,20 @@ quote set! define if lambda
   (if (pair? lst)
       (reverse-aux (cdr lst) (cons (car lst) result))
       result))
+
+;;;----------------------------------------------------------------------------
+
+;; First-class continuations.
+
+(define (call/cc receiver)
+  (let ((clo (lambda () receiver)))
+    (let ((cont (field1 (field1 clo))))
+      (receiver (lambda (r)
+                  (let ((clo2 (lambda () r)))
+                    (let ((cont2 (field1 (field1 clo2))))
+                      (field0-set! cont2 (field0 cont))
+                      (field2-set! cont2 (field2 cont))
+                      r)))))))
 
 ;;;----------------------------------------------------------------------------
 
