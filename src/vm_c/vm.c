@@ -1,7 +1,9 @@
 //#define DEBUG
 #ifndef NO_STD
+
 #include <stdio.h>
 #include <stdlib.h>
+
 #endif
 
 #pragma clang diagnostic push
@@ -158,108 +160,8 @@ obj boolean(bool x) {
     return TAG_CLUMP(x ? &TRUE : &FALSE);
 }
 
-bool primitive(num prim) {
-    switch (prim) {
-        case 0: { // clump
-            PRIM3();
-            return push(TAG_CLUMP(new_clump(x, y, z)));
-        }
-        case 1: { // id
-            PRIM1();
-            return push(x);
-        }
-        case 2: { // pop
-            pop();
-            return true;
-        }
-        case 3: { // skip
-            obj x = pop();
-            pop();
-            return push(x);
-        }
-        case 4: { // unk
-            obj x = CLUMP_OF(stack->car)->car;
-            obj y = stack->cdr;
-            obj z = TAG_NUM(1);
-            stack->car = TAG_CLUMP(new_clump(x, y, z));
-            return true;
-        }
-        case 5: { // is clump?
-            PRIM1();
-            return push(boolean(is_clump(x)));
-        }
-        case 6: { // field0
-            PRIM1();
-            return push(CLUMP_OF(x)->car);
-        }
-        case 7: { // field1
-            PRIM1();
-            return push(CLUMP_OF(x)->cdr);
-        }
-        case 8: { // field2
-            PRIM1();
-            return push(CLUMP_OF(x)->tag);
-        }
-        case 9: { // set field0
-            PRIM2();
-            return push(CLUMP_OF(x)->car = y);
-        }
-        case 10: { // set field1
-            PRIM2();
-            return push(CLUMP_OF(x)->cdr = y);
-        }
-        case 11: { // set field2
-            PRIM2();
-            return push(CLUMP_OF(x)->tag = y);
-        }
-        case 12 : { // eq
-            PRIM2();
-            return push(boolean(x == y));
-        }
-        case 13: { // lt
-            PRIM2();
-            num _x = NUM_OF(x);
-            num _y = NUM_OF(y);
-            return push(boolean(_x < _y));
-        }
-        case 14: { // add
-            PRIM2();
-            return push(TAG_NUM((NUM_OF(x) + NUM_OF(y))));
-        }
-        case 15 : { // sub
-            PRIM2();
-            return push(TAG_NUM((NUM_OF(x) - NUM_OF(y))));
-        }
-        case 16: { // mul
-            PRIM2();
-            return push(TAG_NUM((NUM_OF(x) * NUM_OF(y))));
-        }
-        case 17: { // div
-            PRIM2();
-            return push(TAG_NUM((NUM_OF(x) / NUM_OF(y))));
-        }
-        case 18: { // getc
-#ifdef NO_STD
-            int c = 0;
-#else
-            int c = pos < input_len ? get_byte() : getchar();
-#endif
-            return push(TAG_NUM(c));
+void primitive(num prim) {
 
-        }
-        case 19: { // putc
-            PRIM1();
-#ifdef NO_STD
-
-#else
-            putchar((int) NUM_OF(x));
-            fflush(stdout);
-#endif
-            return push(x);
-        }
-        default:
-            return false;
-    }
 }
 
 
@@ -286,8 +188,123 @@ void run() {
                 obj c = (CLUMP_OF(o))->car;
 
                 if (is_num(c)) {
-                    if (!primitive(NUM_OF(c))) {
-                        return;
+                    switch (NUM_OF(c)) {
+                        case 0: { // clump
+                            PRIM3();
+                            push(TAG_CLUMP(new_clump(x, y, z)));
+                            break;
+                        }
+                        case 1: { // id
+                            PRIM1();
+                            push(x);
+                            break;
+                        }
+                        case 2: { // pop
+                            pop();
+                            true;
+                            break;
+                        }
+                        case 3: { // skip
+                            obj x = pop();
+                            pop();
+                            push(x);
+                            break;
+                        }
+                        case 4: { // unk
+                            obj x = CLUMP_OF(stack->car)->car;
+                            obj y = stack->cdr;
+                            obj z = TAG_NUM(1);
+                            stack->car = TAG_CLUMP(new_clump(x, y, z));
+                            break;
+                        }
+                        case 5: { // is clump?
+                            PRIM1();
+                            push(boolean(is_clump(x)));
+                            break;
+                        }
+                        case 6: { // field0
+                            PRIM1();
+                            push(CLUMP_OF(x)->car);
+                            break;
+                        }
+                        case 7: { // field1
+                            PRIM1();
+                            push(CLUMP_OF(x)->cdr);
+                            break;
+                        }
+                        case 8: { // field2
+                            PRIM1();
+                            push(CLUMP_OF(x)->tag);
+                            break;
+                        }
+                        case 9: { // set field0
+                            PRIM2();
+                            push(CLUMP_OF(x)->car = y);
+                            break;
+                        }
+                        case 10: { // set field1
+                            PRIM2();
+                            push(CLUMP_OF(x)->cdr = y);
+                            break;
+                        }
+                        case 11: { // set field2
+                            PRIM2();
+                            push(CLUMP_OF(x)->tag = y);
+                            break;
+                        }
+                        case 12 : { // eq
+                            PRIM2();
+                            push(boolean(x == y));
+                            break;
+                        }
+                        case 13: { // lt
+                            PRIM2();
+                            num _x = NUM_OF(x);
+                            num _y = NUM_OF(y);
+                            push(boolean(_x < _y));
+                            break;
+                        }
+                        case 14: { // add
+                            PRIM2();
+                            push(TAG_NUM((NUM_OF(x) + NUM_OF(y))));
+                            break;
+                        }
+                        case 15 : { // sub
+                            PRIM2();
+                            push(TAG_NUM((NUM_OF(x) - NUM_OF(y))));
+                            break;
+                        }
+                        case 16: { // mul
+                            PRIM2();
+                            push(TAG_NUM((NUM_OF(x) * NUM_OF(y))));
+                            break;
+                        }
+                        case 17: { // div
+                            PRIM2();
+                            push(TAG_NUM((NUM_OF(x) / NUM_OF(y))));
+                            break;
+                        }
+                        case 18: { // getc
+#ifdef NO_STD
+                            int c = 0;
+#else
+                            int c = pos < input_len ? get_byte() : getchar();
+#endif
+                            push(TAG_NUM(c));
+                            break;
+
+                        }
+                        case 19: { // putc
+                            PRIM1();
+#ifdef NO_STD
+
+#else
+                            putchar((int) NUM_OF(x));
+                            fflush(stdout);
+#endif
+                            push(x);
+                            break;
+                        }
                     }
 
                     if (instr) {
@@ -328,11 +345,8 @@ void run() {
                 show_operand(o);
                 PRINTLN();
 #endif
-                if (is_num(o)) {
-                    list_tail(stack, NUM_OF(o))->car = pop();
-                } else {
-                    CLUMP_OF(o)->car = pop();
-                }
+                obj x = pop();
+                ((is_num(o)) ? list_tail(stack, NUM_OF(o)) : CLUMP_OF(o))->car = x;
                 ADVANCE_PC();
                 break;
             }
@@ -480,6 +494,7 @@ void setup_stack() {
 #ifdef NOSTART
 void _start() {
 #else
+
 void init() {
 #endif
     build_sym_table();
@@ -497,9 +512,11 @@ void init() {
 }
 
 #ifndef NOSTART
+
 int main() {
     init();
 }
+
 #endif
 
 #pragma clang diagnostic pop
