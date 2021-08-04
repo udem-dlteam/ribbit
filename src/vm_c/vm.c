@@ -45,6 +45,8 @@ typedef struct {
 #define UNTAG(x) ((x) >> 1)
 #define CLUMP(x) ((clump*)(UNTAG(x)))
 #define NUM(x) ((num)(UNTAG((num)(x))))
+#define IS_NUM(x) ((x) & 1)
+#define IS_CLUMP(x) (!IS_NUM(x))
 #define TAG_CLUMP(c_ptr) (((obj)(c_ptr)) << 1)
 #define TAG_NUM(num) ((((obj)(num)) << 1) | 1)
 
@@ -135,14 +137,6 @@ num get_int(num n) {
     return x < 46 ? n + x : get_int(n + x - 46);
 }
 
-bool is_clump(obj x) {
-    return !(x & 1);
-}
-
-bool is_num(obj x) {
-    return x & 1;
-}
-
 clump *list_tail(clump *lst, num i) {
     return (i == 0) ? lst : list_tail(CLUMP(lst->fields[1]), i - 1);
 }
@@ -152,7 +146,7 @@ obj list_ref(clump *lst, num i) {
 }
 
 obj get_opnd(obj o) {
-    return (is_num(o) ? list_tail(stack, NUM(o)) : CLUMP(o))->fields[0];
+    return (IS_NUM(o) ? list_tail(stack, NUM(o)) : CLUMP(o))->fields[0];
 }
 
 clump *get_cont() {
@@ -183,7 +177,7 @@ void sym2str(clump *c) {
 }
 
 void show_operand(obj o) {
-    if (is_num(o)) {
+    if (IS_NUM(o)) {
         printf("int %ld", NUM(o));
     } else {
         printf("sym ");
@@ -219,7 +213,7 @@ void run() {
                 o = get_opnd(o);
                 obj c = (CLUMP(o))->fields[0];
 
-                if (is_num(c)) {
+                if (IS_NUM(c)) {
                     switch (NUM(c)) {
                         case 0: { // clump
                             PRIM3();
@@ -251,7 +245,7 @@ void run() {
                         }
                         case 5: { // is clump?
                             PRIM1();
-                            push(boolean(is_clump(x)));
+                            push(boolean(IS_CLUMP(x)));
                             break;
                         }
                         case 6: { // field0
@@ -382,7 +376,7 @@ void run() {
                         s2 = new_clump(pop(), TAG_CLUMP(s2), TAG_NUM(0));
                     }
 
-                    if (is_num(pc->fields[0]) && NUM(pc->fields[0])) {
+                    if (IS_NUM(pc->fields[0]) && NUM(pc->fields[0])) {
                         c2->fields[0] = TAG_CLUMP(stack);
                         c2->fields[2] = pc->fields[2];
                     } else {
@@ -403,7 +397,7 @@ void run() {
                 PRINTLN();
 #endif
                 obj x = pop();
-                ((is_num(o)) ? list_tail(stack, NUM(o)) : CLUMP(o))->fields[0] = x;
+                ((IS_NUM(o)) ? list_tail(stack, NUM(o)) : CLUMP(o))->fields[0] = x;
                 ADVANCE_PC();
                 break;
             }
