@@ -54,7 +54,9 @@ typedef struct {
 #define PRIM2() obj y = pop(); PRIM1()
 #define PRIM3() obj z = pop(); PRIM2()
 
-clump *stack = NULL;
+#define nil (TAG_NUM(0))
+
+obj stack = nil;
 clump *pc = NULL;
 size_t pos = 0;
 
@@ -112,13 +114,13 @@ clump *new_clump(obj car, obj cdr, obj tag) {
 }
 
 obj pop() {
-    obj x = stack->fields[0];
-    stack = CLUMP(stack->fields[1]);
+    obj x = CLUMP(stack)->fields[0];
+    stack = CLUMP(stack)->fields[1];
     return x;
 }
 
 bool push(obj x) {
-    stack = new_clump(x, TAG_CLUMP(stack), TAG_NUM(0));
+    stack = TAG_CLUMP(new_clump(x, stack, TAG_NUM(0)));
     return true;
 }
 
@@ -146,11 +148,11 @@ obj list_ref(clump *lst, num i) {
 }
 
 obj get_opnd(obj o) {
-    return (IS_NUM(o) ? list_tail(stack, NUM(o)) : CLUMP(o))->fields[0];
+    return (IS_NUM(o) ? list_tail(CLUMP(stack), NUM(o)) : CLUMP(o))->fields[0];
 }
 
 clump *get_cont() {
-    clump *s = stack;
+    clump *s = CLUMP(stack);
 
     while (!NUM(s->fields[2])) {
         s = CLUMP(s->fields[1]);
@@ -237,10 +239,10 @@ void run() {
                             break;
                         }
                         case 4: { // unk
-                            obj x = CLUMP(stack->fields[0])->fields[0];
-                            obj y = stack->fields[1];
+                            obj x = CLUMP(CLUMP(stack)->fields[0])->fields[0];
+                            obj y = CLUMP(stack)->fields[1];
                             obj z = TAG_NUM(1);
-                            stack->fields[0] = TAG_CLUMP(new_clump(x, y, z));
+                            CLUMP(stack)->fields[0] = TAG_CLUMP(new_clump(x, y, z));
                             break;
                         }
                         case 5: { // is clump?
@@ -348,7 +350,7 @@ void run() {
                                 :
                                 : "g"((int) (NUM(x) & 0xFF))
                                 : "eax", "ebx", "ecx", "edx", "esi", "edi");
-                            };
+                            }
 #else
                             putchar((char) NUM(x));
                             fflush(stdout);
@@ -365,7 +367,7 @@ void run() {
                         // jump
                         clump *cont = get_cont();
                         c = TAG_CLUMP(cont);
-                        stack->fields[1] = get_cont()->fields[0];
+                        CLUMP(stack)->fields[1] = get_cont()->fields[0];
                     }
                 } else {
                     clump *c2 = new_clump(TAG_NUM(0), o, TAG_NUM(0));
@@ -377,7 +379,7 @@ void run() {
                     }
 
                     if (IS_NUM(pc->fields[0]) && NUM(pc->fields[0])) {
-                        c2->fields[0] = TAG_CLUMP(stack);
+                        c2->fields[0] = stack;
                         c2->fields[2] = pc->fields[2];
                     } else {
                         clump *k = get_cont();
@@ -385,7 +387,7 @@ void run() {
                         c2->fields[2] = k->fields[2];
                     }
 
-                    stack = s2;
+                    stack = TAG_CLUMP(s2);
                 }
                 pc = CLUMP(CLUMP(c)->fields[2]);
                 break;
@@ -397,7 +399,7 @@ void run() {
                 PRINTLN();
 #endif
                 obj x = pop();
-                ((IS_NUM(o)) ? list_tail(stack, NUM(o)) : CLUMP(o))->fields[0] = x;
+                ((IS_NUM(o)) ? list_tail(CLUMP(stack), NUM(o)) : CLUMP(o))->fields[0] = x;
                 ADVANCE_PC();
                 break;
             }
@@ -506,7 +508,7 @@ void decode() {
             n = pop();
         } else {
             if (!op) {
-                stack = new_clump(TAG_NUM(0), TAG_CLUMP(stack), TAG_NUM(0));
+                stack = TAG_CLUMP(new_clump(TAG_NUM(0), stack, TAG_NUM(0)));
             }
 
             // not very readable, see generic.vm.js
@@ -520,26 +522,26 @@ void decode() {
             if (op > 4) {
                 clump *inner = new_clump(n, TAG_NUM(0), pop());
                 n = TAG_CLUMP(new_clump(TAG_CLUMP(inner), TAG_CLUMP(&NIL), TAG_NUM(1)));
-                if (stack == NULL) {
+                if (stack == nil || stack == NULL) {
                     break;
                 }
                 op = 4;
             }
         }
 
-        stack->fields[0] = TAG_CLUMP(new_clump(TAG_NUM(op), n, stack->fields[0]));
+        CLUMP(stack)->fields[0] = TAG_CLUMP(new_clump(TAG_NUM(op), n, CLUMP(stack)->fields[0]));
     }
 
     pc = CLUMP(CLUMP(CLUMP(n)->fields[0])->fields[2]);
 }
 
 void setup_stack() {
-    stack = new_clump(TAG_NUM(0),
+    stack = TAG_CLUMP(new_clump(TAG_NUM(0),
                       TAG_NUM(0),
                       TAG_CLUMP(new_clump(
                               TAG_NUM(VM_HALT),
                               TAG_NUM(0),
-                              TAG_NUM(0))));
+                              TAG_NUM(0)))));
 }
 
 #ifdef NOSTART
