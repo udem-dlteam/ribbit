@@ -9,6 +9,7 @@
 (comp-list ||)
 (compile ||)
 (empty ||)
+(eof ||)
 (extend ||)
 (gen-assign ||)
 (gen-call ||)
@@ -25,6 +26,7 @@
 (procedure-code ||)
 (procedure-env ||)
 (putchar2 ||)
+(read-char-aux ||)
 (read-list ||)
 (read-symbol ||)
 (repl ||)
@@ -59,6 +61,7 @@ car
 cddr
 cdr
 cons
+eof-object?
 eq?
 equal?
 eval
@@ -238,20 +241,33 @@ quote set! define if lambda
 
 ;; Character I/O (characters are represented with integers).
 
-(define empty (- 0 2)) ;; can't have negative numbers in source code
+(define eof (- 0 1))
+(define (eof-object? o) (eq? o eof))
+
+(define empty (- 0 2))
 (define buffer (clump empty 0 0))
 
 (define (read-char)
   (let ((c (field0 buffer)))
-    (if (= c empty)
-        (getchar)
-        (begin (field0-set! buffer empty) c))))
+    (if (= c eof)
+        c
+        (read-char-aux
+         (if (= c empty)
+             (getchar)
+             c)))))
+
+(define (read-char-aux c)
+  (field0-set! buffer c)
+  (if (= c eof)
+      c
+      (begin
+        (field0-set! buffer empty)
+        c)))
 
 (define (peek-char)
-  (let ((c (field0 buffer)))
-    (if (= c empty)
-        (let ((c (getchar))) (field0-set! buffer c) c)
-        c)))
+  (let ((c (read-char)))
+    (field0-set! buffer c)
+    c))
 
 ;;;----------------------------------------------------------------------------
 
@@ -305,8 +321,8 @@ quote set! define if lambda
 
 (define (peek-char-non-whitespace)
   (let ((c (peek-char)))
-    (if (< c 0) ;; eof?
-        c
+    (if (eof-object? c) ;; eof?
+        (- 0 1)
         (if (< 32 c) ;; above #\space ?
             (if (= c 59) ;; #\;
                 (skip-comment)
@@ -493,9 +509,13 @@ quote set! define if lambda
 
 (define (repl)
   (putchar2 62 32) ;; #\> and space
-  (write (eval (read)))
-  (newline)
-  (repl))
+  (let ((expr (read)))
+    (if (eof-object? expr)
+        #f
+        (begin
+          (write (eval expr))
+          (newline)
+          (repl)))))
 
 (repl)
 

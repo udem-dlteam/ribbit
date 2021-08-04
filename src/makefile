@@ -61,7 +61,7 @@ stdlib.o: stdlib.c
 
 vm.js.in: generic-vm.js makefile
 	sed \
-	  -e 's|.*/\*debugzzz\*/.*||g' \
+	  -e 's|.*/\*debug\*/.*||g' \
 	  -e 's|.*/\*nodezzz\*/.*||g' \
 	  -e 's|domdoc|A|g' \
 	  -e 's|dombody|B|g' \
@@ -144,6 +144,7 @@ lib.scm.min.js: vm.js.in lib.scm ssc.scm makefile
 	wc lib.scm.min.js
 
 lib.scm.min.py: vm.py.in lib.scm ssc.scm makefile
-	gsi ./ssc.scm --target py --output lib.scm.min.py lib.scm
-	sed -i -e s"|input = |y=|" lib.scm.min.py
+	gsi ./ssc.scm --target py lib.scm
+	sed -i -e s"|input = |y=|" lib.scm.py
+	pyminify lib.scm.py > lib.scm.min.py
 	wc lib.scm.min.py
