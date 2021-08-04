@@ -99,7 +99,7 @@ clump *new_clump(obj car, obj cdr, obj tag) {
 #ifdef NO_STD
     // TODO
     clump *c = sys_brk((void *) NULL);
-    sys_brk(((void*)c) + sizeof(clump));
+    sys_brk(((void *) c) + sizeof(clump));
 #else
     clump *c = malloc(sizeof(clump));
 #endif
@@ -298,12 +298,12 @@ void run() {
                         }
                         case 14: { // add
                             PRIM2();
-                            push(TAG_NUM((NUM(x) + NUM(y))));
+                            push(x + y - 1);
                             break;
                         }
                         case 15 : { // sub
                             PRIM2();
-                            push(TAG_NUM((NUM(x) - NUM(y))));
+                            push(x - y + 1);
                             break;
                         }
                         case 16: { // mul
