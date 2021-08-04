@@ -88,7 +88,7 @@ void *sys_brk(void *addr) {
 
 
 void init_heap() {
-    heap_start = sys_brk((void*)NULL);
+    heap_start = sys_brk((void *) NULL);
     heap_end = sys_brk(heap_start + (sizeof(clump) * MAX_NB_OBJS));
 }
 
@@ -98,7 +98,8 @@ void init_heap() {
 clump *new_clump(obj car, obj cdr, obj tag) {
 #ifdef NO_STD
     // TODO
-    clump *c = &heap[heap_offset++];
+    clump *c = sys_brk((void *) NULL);
+    sys_brk(((void*)c) + sizeof(clump));
 #else
     clump *c = malloc(sizeof(clump));
 #endif
@@ -328,9 +329,9 @@ void run() {
                                               "mov $1, %%edx\n" // count
                                               "int $0x80\n"
                                               "pop %%eax\n"
-                                              : "=a"(c)
-                                              :
-                                              : "ebx", "ecx", "edx", "esi", "edi");
+                                : "=a"(c)
+                                :
+                                : "ebx", "ecx", "edx", "esi", "edi");
                                 c &= 0xFF;
                             }
 #else
