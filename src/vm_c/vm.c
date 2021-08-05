@@ -1,4 +1,20 @@
 #define NO_STD
+#define DEBUG
+
+// debug instruction calls?
+#ifdef DEBUG_I_CALL
+#define DEBUG
+#endif
+
+
+#ifdef DEBUG
+
+#include <stdio.h>
+
+#define PRINTLN() do { printf("\n"); } while(0)
+
+#endif
+
 #ifndef NO_STD
 
 #include <stdio.h>
@@ -42,6 +58,8 @@ typedef struct {
     obj fields[CLUMP_NB_FIELDS];
 } clump;
 
+#define EXIT_HEAP_OVERFLOW 5
+#define EXIT_ILLEGAL_INSTR 6
 #define VM_HALT 6
 
 #define UNTAG(x) ((x) >> 1)
@@ -63,19 +81,22 @@ typedef struct {
 
 #define nil (TAG_NUM(0))
 
+// the only three roots allowed
 obj stack = nil;
 obj pc = nil;
+obj symbol_table = nil;
+
 size_t pos = 0;
 
 clump *heap_start;
-clump *heap_end;
 
 // GC
-#define MAX_NB_OBJS 100000
+#define MAX_NB_OBJS 5000
 #define TOTAL_HEAP_SZ (MAX_NB_OBJS * CLUMP_NB_FIELDS * 2)
 #define heap_bot ((obj *)(heap_start))
 #define heap_mid (heap_bot + (TOTAL_HEAP_SZ>>1))
 #define heap_top (heap_bot + TOTAL_HEAP_SZ)
+#define IN_HEAP(ptr) ({ unsigned long __ptr = (unsigned long)(ptr);__ptr >= ((unsigned long)heap_bot) && __ptr < ((unsigned long)heap_top); })
 
 obj *alloc;
 obj *alloc_limit;
@@ -117,39 +138,75 @@ void init_heap() {
 
 void copy() {
     obj o = *scan;
-    if (IS_CLUMP(o)) {
+    // we sometime reference clump that are allocated in BSS,
+    // we do not want to copy those
+    if (IS_CLUMP(o) && IN_HEAP((void *) CLUMP(o))) {
         obj *ptr = CLUMP(o)->fields;
         obj field0 = ptr[0];
         obj copy;
 
         if (field0 == broken_heart) {
-            copy = ptr[1];
+            copy = ptr[1]; // copied, get new address
         } else {
             copy = TAG_CLUMP(alloc);
-            *ptr++ = broken_heart;
+            *ptr++ = broken_heart; // ptr points to CDR
             *alloc++ = field0;
-            *alloc++ = *ptr++;
+            *alloc++ = *ptr++; // ptr points to TAG
             *alloc++ = *ptr;
-            ptr[-1] = copy;
+            ptr[-1] = copy; // set forward ptr. Since it points to TAG, ptr[-1] rewrites the CDR
         }
-        *scan = copy;
+        *scan = copy; // overwrite to new address.
     }
     scan++;
 }
 
+#ifdef NO_STD
+#define vm_exit(code) do{asm volatile ( "mov $0x01, %%eax\nmov %0, %%ebx\nint $0x80" : : "i"(code)); } while(0)
+#else
+#define vm_exit(code) do { exit((code)) } while(0)
+#endif
+
 void gc() {
-    obj *start = (alloc_limit == heap_mid) ? heap_mid : heap_bot;
-    alloc_limit = start + MAX_NB_OBJS * CLUMP_NB_FIELDS;
-    alloc = start;
+    // swap
+#ifdef DEBUG
+    printf("\tGC--\n");
+#endif
 
+    obj *to_space = (alloc_limit == heap_mid) ? heap_mid : heap_bot;
+    alloc_limit = to_space + (MAX_NB_OBJS * CLUMP_NB_FIELDS);
+
+    alloc = to_space;
+
+    // broken heart marker is stack
     broken_heart = stack;
-    scan = &stack;
-    copy();
-    scan = start;
 
-    while (scan != alloc) {
+    // root: stack
+    if (stack != nil) {
+        scan = &stack;
         copy();
     }
+
+    // root: pc
+    if (pc != nil) {
+        scan = &pc;
+        copy();
+    }
+
+    // root: st
+    if (symbol_table != nil) {
+        scan = &symbol_table;
+        copy();
+    }
+
+    // scan the to_space to pull all live references
+    scan = to_space;
+    while (scan != alloc) {
+        copy();
+        if (alloc >= alloc_limit) {
+            vm_exit(EXIT_HEAP_OVERFLOW);
+        }
+    }
+
 }
 
 
@@ -261,14 +318,18 @@ void run() {
         num instr = NUM(CLUMP(pc)->fields[0]);
 
         switch (instr) {
-            default:
+            default: { // error
+                vm_exit(EXIT_ILLEGAL_INSTR);
+                return;
+            }
             case VM_HALT: { // halt
+                vm_exit(0);
                 return;
             }
             case 0: // jump
             case 1: // call
             {
-#ifdef DEBUG
+#ifdef DEBUG_I_CALL
                 printf(instr ? "--- jump " : "--- call ");
                 show_operand(o);
                 PRINTLN();
@@ -458,7 +519,7 @@ void run() {
                 break;
             }
             case 2: { // set
-#ifdef DEBUG
+#ifdef DEBUG_I_CALL
                 printf("--- set ");
                 show_operand(o);
                 PRINTLN();
@@ -469,7 +530,7 @@ void run() {
                 break;
             }
             case 3: { // get
-#ifdef DEBUG
+#ifdef DEBUG_I_CALL
                 printf("--- get ");
                 show_operand(o);
                 PRINTLN();
@@ -479,7 +540,7 @@ void run() {
                 break;
             }
             case 4: { // const
-#ifdef DEBUG
+#ifdef DEBUG_I_CALL
                 printf("--- const ");
                 PRINTLN();
 #endif
@@ -488,7 +549,7 @@ void run() {
                 break;
             }
             case 5: { // if
-#ifdef DEBUG
+#ifdef DEBUG_I_CALL
                 printf("--- if");
                 PRINTLN();
 #endif
@@ -506,8 +567,6 @@ void run() {
 #undef ADVANCE_PC
 }
 
-
-obj symbol_table = nil;
 
 clump *symbol_ref(num n) {
     return CLUMP(list_ref(CLUMP(symbol_table), n));
