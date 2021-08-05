@@ -85,17 +85,16 @@ obj broken_heart;
 
 #ifdef NO_STD
 
-// implementation modified from `my_syscall` in nolibc.h (linux kernel), x86-32
 void *sys_brk(void *addr) {
     long ptr;
 
-    register long _addr asm("ebx") = (long) (addr);
-
     asm volatile (
+    "mov %0, %%ebx\n"
     "mov $0x2d, %%eax\n"
     "int $0x80\n"
     : "=a" (ptr)
-    : "r"(_addr));
+    : "g"((long) addr)
+    : "ebx" );
 
     return (void *) ptr;
 }
@@ -106,7 +105,7 @@ void *sys_brk(void *addr) {
 void init_heap() {
 #ifdef NO_STD
     heap_start = sys_brk((void *) NULL);
-    void *new_brk = sys_brk(heap_top);
+    void *new_brk = sys_brk((void *) heap_top);
 #else
     heap_start = malloc(TOTAL_HEAP_SZ);
 #endif
