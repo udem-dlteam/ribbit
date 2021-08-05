@@ -508,16 +508,16 @@ void run() {
 }
 
 
-clump *symbol_table = &NIL;
+obj symbol_table = nil;
 
 clump *symbol_ref(num n) {
-    return CLUMP(list_ref(symbol_table, n));
+    return CLUMP(list_ref(CLUMP(symbol_table), n));
 }
 
 clump *create_sym(clump *name) {
     clump *inner = alloc_clump(TAG_CLUMP(name), nil, TAG_NUM(2));
     clump *outer = alloc_clump(nil, TAG_CLUMP(inner), TAG_NUM(3));
-    clump *root = alloc_clump(TAG_CLUMP(outer), TAG_CLUMP(symbol_table), nil);
+    clump *root = alloc_clump(TAG_CLUMP(outer), symbol_table, nil);
     return root;
 }
 
@@ -526,7 +526,7 @@ void build_sym_table() {
 
     while (n > 0) {
         n--;
-        symbol_table = create_sym(&NIL);
+        symbol_table = TAG_CLUMP(create_sym(&NIL));
     }
 
     clump *accum = &NIL;
@@ -535,7 +535,7 @@ void build_sym_table() {
         byte c = get_byte();
 
         if (c == 44) {
-            symbol_table = create_sym(accum);
+            symbol_table = TAG_CLUMP(create_sym(accum));
             accum = &NIL;
             continue;
         }
@@ -545,12 +545,12 @@ void build_sym_table() {
         accum = alloc_clump(TAG_NUM(c), TAG_CLUMP(accum), nil);
     }
 
-    symbol_table = create_sym(accum);
+    symbol_table = TAG_CLUMP(create_sym(accum));
 }
 
 void set_global(clump *c) {
-    CLUMP(symbol_table->fields[0])->fields[0] = TAG_CLUMP(c);
-    symbol_table = CLUMP(symbol_table->fields[1]);
+    CAR(CAR(symbol_table)) = TAG_CLUMP(c);
+    symbol_table = CDR(symbol_table);
 }
 
 
@@ -621,7 +621,7 @@ void init() {
     build_sym_table();
     decode();
 
-    set_global(symbol_table);
+    set_global(CLUMP(symbol_table));
     set_global(&FALSE);
     set_global(&TRUE);
     set_global(&NIL);
