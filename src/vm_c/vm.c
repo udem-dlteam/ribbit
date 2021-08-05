@@ -60,6 +60,8 @@ typedef struct {
 
 #define EXIT_HEAP_OVERFLOW 5
 #define EXIT_ILLEGAL_INSTR 6
+#define EXIT_NO_MEMORY 7
+
 #define VM_HALT 6
 
 #define UNTAG(x) ((x) >> 1)
@@ -98,6 +100,12 @@ clump *heap_start;
 #define heap_top (heap_bot + TOTAL_HEAP_SZ)
 #define IN_HEAP(ptr) ({ unsigned long __ptr = (unsigned long)(ptr);__ptr >= ((unsigned long)heap_bot) && __ptr < ((unsigned long)heap_top); })
 
+#ifdef NO_STD
+#define vm_exit(code) do{asm volatile ( "mov $0x01, %%eax\nmov %0, %%ebx\nint $0x80" : : "i"(code)); } while(0)
+#else
+#define vm_exit(code) do { exit((code)) } while(0)
+#endif
+
 obj *alloc;
 obj *alloc_limit;
 obj *scan;
@@ -122,13 +130,21 @@ void *sys_brk(void *addr) {
 
 #endif
 
-
 void init_heap() {
 #ifdef NO_STD
     heap_start = sys_brk((void *) NULL);
     void *new_brk = sys_brk((void *) heap_top);
+
+    if (new_brk == heap_start) {
+        vm_exit(EXIT_NO_MEMORY);
+    }
+
 #else
     heap_start = malloc(TOTAL_HEAP_SZ);
+
+    if(!heap_start) {
+        vm_exit(EXIT_NO_MEMORY);
+    }
 #endif
 
     alloc = heap_bot;
@@ -160,11 +176,6 @@ void copy() {
     scan++;
 }
 
-#ifdef NO_STD
-#define vm_exit(code) do{asm volatile ( "mov $0x01, %%eax\nmov %0, %%ebx\nint $0x80" : : "i"(code)); } while(0)
-#else
-#define vm_exit(code) do { exit((code)) } while(0)
-#endif
 
 void gc() {
     // swap
@@ -206,7 +217,6 @@ void gc() {
             vm_exit(EXIT_HEAP_OVERFLOW);
         }
     }
-
 }
 
 
