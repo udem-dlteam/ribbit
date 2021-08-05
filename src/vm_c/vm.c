@@ -256,7 +256,7 @@ obj boolean(bool x) {
 }
 
 void run() {
-#define ADVANCE_PC() do {pc = CLUMP(pc)->fields[2]; } while(0)
+#define ADVANCE_PC() do {pc = TAG(pc); } while(0)
     while (1) {
         obj o = CLUMP(pc)->fields[1];
         num instr = NUM(CLUMP(pc)->fields[0]);
@@ -280,12 +280,12 @@ void run() {
                 if (IS_NUM(c)) {
                     switch (NUM(c)) {
                         case 0: { // clump
-                            clump *clmp = alloc_clump(0, 0, 0);
+                            obj clmp = TAG_CLUMP(alloc_clump(0, 0, 0));
                             PRIM3();
-                            clmp->fields[0] = x;
-                            clmp->fields[1] = y;
-                            clmp->fields[2] = z;
-                            push(TAG_CLUMP(clmp));
+                            CAR(clmp) = x;
+                            CDR(clmp) = y;
+                            TAG(clmp) = z;
+                            push(clmp);
                             break;
                         }
                         case 1: { // id
@@ -305,10 +305,10 @@ void run() {
                             break;
                         }
                         case 4: { // unk
-                            obj x = CLUMP(CLUMP(stack)->fields[0])->fields[0];
-                            obj y = CLUMP(stack)->fields[1];
+                            obj x = CAR(TOS);
+                            obj y = CDR(stack);
                             obj z = TAG_NUM(1);
-                            CLUMP(stack)->fields[0] = TAG_CLUMP(alloc_clump(x, y, z));
+                            TOS = TAG_CLUMP(alloc_clump(x, y, z));
                             break;
                         }
                         case 5: { // is clump?
@@ -318,32 +318,32 @@ void run() {
                         }
                         case 6: { // field0
                             PRIM1();
-                            push(CLUMP(x)->fields[0]);
+                            push(CAR(x));
                             break;
                         }
                         case 7: { // field1
                             PRIM1();
-                            push(CLUMP(x)->fields[1]);
+                            push(CDR(x));
                             break;
                         }
                         case 8: { // field2
                             PRIM1();
-                            push(CLUMP(x)->fields[2]);
+                            push(TAG(x));
                             break;
                         }
                         case 9: { // set field0
                             PRIM2();
-                            push(CLUMP(x)->fields[0] = y);
+                            push(CAR(x) = y);
                             break;
                         }
                         case 10: { // set field1
                             PRIM2();
-                            push(CLUMP(x)->fields[1] = y);
+                            push(CDR(x) = y);
                             break;
                         }
                         case 11: { // set field2
                             PRIM2();
-                            push(CLUMP(x)->fields[2] = y);
+                            push(TAG(x) = y);
                             break;
                         }
                         case 12 : { // eq
@@ -595,10 +595,10 @@ void decode() {
             }
         }
 
-        CLUMP(stack)->fields[0] = TAG_CLUMP(alloc_clump(TAG_NUM(op), n, CLUMP(stack)->fields[0]));
+        TOS = TAG_CLUMP(alloc_clump(TAG_NUM(op), n, TOS));
     }
 
-    pc = CLUMP(CLUMP(n)->fields[0])->fields[2];
+    pc = TAG(CAR(n));
 }
 
 void setup_stack() {
