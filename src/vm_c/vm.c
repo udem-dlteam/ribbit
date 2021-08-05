@@ -109,7 +109,6 @@ clump *heap_start;
 obj *alloc;
 obj *alloc_limit;
 obj *scan;
-obj broken_heart;
 
 
 #ifdef NO_STD
@@ -152,6 +151,13 @@ void init_heap() {
     stack = nil;
 }
 
+// NULL is a pointer (0) but would represent NULL
+// so it is never present in an obj field, and
+// cannot be a number because it is even. This
+// saves a couple of bytes v.s having STACK
+// as the broken heart value
+#define GC_COPIED_OBJ ((obj)NULL)
+
 void copy() {
     obj o = *scan;
     // we sometime reference clump that are allocated in BSS,
@@ -161,11 +167,11 @@ void copy() {
         obj field0 = ptr[0];
         obj copy;
 
-        if (field0 == broken_heart) {
+        if (field0 == GC_COPIED_OBJ) {
             copy = ptr[1]; // copied, get new address
         } else {
             copy = TAG_CLUMP(alloc);
-            *ptr++ = broken_heart; // ptr points to CDR
+            *ptr++ = GC_COPIED_OBJ; // ptr points to CDR
             *alloc++ = field0;
             *alloc++ = *ptr++; // ptr points to TAG
             *alloc++ = *ptr;
@@ -187,9 +193,6 @@ void gc() {
     alloc_limit = to_space + (MAX_NB_OBJS * CLUMP_NB_FIELDS);
 
     alloc = to_space;
-
-    // broken heart marker is stack
-    broken_heart = stack;
 
     // root: stack
     if (stack != nil) {
