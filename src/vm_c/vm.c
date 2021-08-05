@@ -56,6 +56,11 @@ typedef struct {
 #define PRIM2() obj y = pop(); PRIM1()
 #define PRIM3() obj z = pop(); PRIM2()
 
+#define CAR(x) CLUMP(x)->fields[0]
+#define CDR(x) CLUMP(x)->fields[1]
+#define TAG(x) CLUMP(x)->fields[2]
+#define TOS CAR(stack)
+
 #define nil (TAG_NUM(0))
 
 obj stack = nil;
@@ -150,8 +155,8 @@ void gc() {
 
 
 obj pop() {
-    obj x = CLUMP(stack)->fields[0];
-    stack = CLUMP(stack)->fields[1];
+    obj x = CAR(stack);
+    stack = CDR(stack);
     return x;
 }
 
@@ -170,15 +175,15 @@ void push(obj val) {
 
 clump *alloc_clump(obj car, obj cdr, obj tag) {
     push(car);
-    clump *allocated = CLUMP(stack);
+    obj allocated = stack;
 
-    obj old_stack = allocated->fields[1];
+    obj old_stack = CDR(allocated);
     stack = old_stack;
 
-    allocated->fields[1] = cdr;
-    allocated->fields[2] = tag;
+    CDR(allocated) = cdr;
+    TAG(allocated) = tag;
 
-    return allocated;
+    return CLUMP(allocated);
 }
 
 char get_byte() {
@@ -208,11 +213,11 @@ obj get_opnd(obj o) {
     return (IS_NUM(o) ? list_tail(CLUMP(stack), NUM(o)) : CLUMP(o))->fields[0];
 }
 
-clump *get_cont() {
-    clump *s = CLUMP(stack);
+obj get_cont() {
+    obj s = stack;
 
-    while (!NUM(s->fields[2])) {
-        s = CLUMP(s->fields[1]);
+    while (!NUM(TAG(s))) {
+        s = CDR(s);
     }
 
     return s;
@@ -426,26 +431,26 @@ void run() {
                         c = pc;
                     } else {
                         // jump
-                        clump *cont = get_cont();
-                        c = TAG_CLUMP(cont);
-                        CLUMP(stack)->fields[1] = get_cont()->fields[0];
+                        c = get_cont();
+                        CDR(stack) = CAR(c);
                     }
                 } else {
                     clump *c2 = alloc_clump(nil, o, nil);
                     clump *s2 = c2;
-                    num nargs = NUM(CLUMP(c)->fields[0]);
+
+                    num nargs = NUM(CAR(c));
 
                     while (nargs--) {
                         s2 = alloc_clump(pop(), TAG_CLUMP(s2), nil);
                     }
 
-                    if (IS_NUM(CLUMP(pc)->fields[0]) && NUM(CLUMP(pc)->fields[0])) {
+                    if (IS_NUM(CAR(pc)) && NUM(CAR(pc))) {
                         c2->fields[0] = stack;
-                        c2->fields[2] = CLUMP(pc)->fields[2];
+                        c2->fields[2] = TAG(pc);
                     } else {
-                        clump *k = get_cont();
-                        c2->fields[0] = k->fields[0];
-                        c2->fields[2] = k->fields[2];
+                        obj k = get_cont();
+                        c2->fields[0] = CAR(k);
+                        c2->fields[2] = TAG(k);
                     }
 
                     stack = TAG_CLUMP(s2);
@@ -491,9 +496,9 @@ void run() {
 
                 obj p = pop();
                 if (p != TAG_CLUMP(&FALSE)) {
-                    pc = CLUMP(pc)->fields[1];
+                    pc = CDR(pc);
                 } else {
-                    pc = CLUMP(pc)->fields[2];
+                    pc = TAG(pc);
                 }
                 break;
             }
