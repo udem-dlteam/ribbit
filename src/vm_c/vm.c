@@ -93,11 +93,11 @@ size_t pos = 0;
 clump *heap_start;
 
 // GC
-#define MAX_NB_OBJS 5000
-#define TOTAL_HEAP_SZ (MAX_NB_OBJS * CLUMP_NB_FIELDS * 2)
+#define MAX_NB_OBJS 10000
+#define SPACE_SZ (MAX_NB_OBJS * CLUMP_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
-#define heap_mid (heap_bot + (TOTAL_HEAP_SZ>>1))
-#define heap_top (heap_bot + TOTAL_HEAP_SZ)
+#define heap_mid (heap_bot + (SPACE_SZ))
+#define heap_top (heap_bot + (SPACE_SZ << 1))
 #define IN_HEAP(ptr) ({ unsigned long __ptr = (unsigned long)(ptr);__ptr >= ((unsigned long)heap_bot) && __ptr < ((unsigned long)heap_top); })
 
 #ifdef NO_STD
@@ -139,7 +139,7 @@ void init_heap() {
     }
 
 #else
-    heap_start = malloc(TOTAL_HEAP_SZ);
+    heap_start = malloc(SPACE_SZ << 1);
 
     if(!heap_start) {
         vm_exit(EXIT_NO_MEMORY);
@@ -190,7 +190,7 @@ void gc() {
 #endif
 
     obj *to_space = (alloc_limit == heap_mid) ? heap_mid : heap_bot;
-    alloc_limit = to_space + (MAX_NB_OBJS * CLUMP_NB_FIELDS);
+    alloc_limit = to_space + SPACE_SZ;
 
     alloc = to_space;
 
