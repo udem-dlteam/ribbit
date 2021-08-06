@@ -83,9 +83,11 @@ typedef struct {
 
 #define nil (TAG_NUM(0))
 
-// the only three roots allowed
+// the only two roots allowed
 obj stack = nil;
 obj pc = nil;
+
+// global, but not a root, referenced
 obj symbol_table = nil;
 
 size_t pos = 0;
@@ -185,6 +187,7 @@ void copy() {
 
 void gc() {
 #ifdef DEBUG
+
     obj *from_space = (alloc_limit == heap_mid) ? heap_bot : heap_mid;
 
     size_t objc = alloc - from_space;
@@ -210,12 +213,6 @@ void gc() {
         copy();
     }
 
-    // root: st
-    if (symbol_table != nil) {
-        scan = &symbol_table;
-        copy();
-    }
-
     // scan the to_space to pull all live references
     scan = to_space;
     while (scan != alloc) {
@@ -226,8 +223,10 @@ void gc() {
     }
 
 #ifdef DEBUG
+
     objc = alloc - to_space;
     printf("%d\n", objc);
+
 #endif
 }
 
@@ -356,11 +355,10 @@ void run() {
                 show_operand(o);
                 PRINTLN();
 #endif
-                o = get_opnd(o);
-                obj c = CAR(o);
-
-                if (IS_NUM(c)) {
-                    switch (NUM(c)) {
+#define jump_target CAR(get_opnd(CDR(pc)))
+                obj new_pc;
+                if (IS_NUM(jump_target)) {
+                    switch (NUM(jump_target)) {
                         case 0: { // clump
                             obj clmp = TAG_CLUMP(alloc_clump(0, 0, 0));
                             PRIM3();
@@ -510,17 +508,17 @@ void run() {
 
                     if (instr) {
                         // call
-                        c = pc;
+                        new_pc = pc;
                     } else {
                         // jump
-                        c = get_cont();
-                        CDR(stack) = CAR(c);
+                        new_pc = get_cont();
+                        CDR(stack) = CAR(new_pc);
                     }
                 } else {
                     clump *c2 = alloc_clump(nil, o, nil);
                     clump *s2 = c2;
 
-                    num nargs = NUM(CAR(c));
+                    num nargs = NUM(CAR(jump_target));
 
                     while (nargs--) {
                         s2 = alloc_clump(pop(), TAG_CLUMP(s2), nil);
@@ -536,10 +534,12 @@ void run() {
                     }
 
                     stack = TAG_CLUMP(s2);
+                    new_pc = jump_target;
                 }
-                pc = TAG(c);
+                pc = TAG(new_pc);
                 break;
             }
+#undef jump_target
             case 2: { // set
 #ifdef DEBUG_I_CALL
                 printf("--- set ");
