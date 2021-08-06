@@ -333,8 +333,6 @@ void run() {
 #define ADVANCE_PC() do {pc = TAG(pc); } while(0)
     while (1) {
         num instr = NUM(CAR(pc));
-        obj o = CDR(pc);
-
         switch (instr) {
             default: { // error
                 vm_exit(EXIT_ILLEGAL_INSTR);
@@ -512,14 +510,25 @@ void run() {
                         CDR(stack) = CAR(new_pc);
                     }
                 } else {
-                    clump *c2 = alloc_clump(nil, o, nil);
-                    clump *s2 = c2;
-
                     num nargs = NUM(CAR(jump_target));
 
-                    while (nargs--) {
-                        s2 = alloc_clump(pop(), TAG_CLUMP(s2), nil);
+                    // holding the reference to an alloc_clump is always safe
+                    // as long as you only have a single one live
+                    clump *temp = alloc_clump(nil, nil, nil);
+                    temp->fields[1] = CDR(pc); // fill after to avoid references being stale by assign time
+                    temp->fields[2] = pc;
+                    pc = TAG_CLUMP(temp);
+
+                    for (int a = 0; a < nargs; ++a) {
+                        temp = alloc_clump(pop(), nil, nil);
+                        temp->fields[1] = pc;
+                        pc = TAG_CLUMP(temp);
                     }
+
+                    clump *s2 = CLUMP(pc);
+                    clump *c2 = list_tail(s2, nargs);
+                    pc = c2->fields[2];
+                    c2->fields[2] = nil;
 
                     if (IS_NUM(CAR(pc)) && NUM(CAR(pc))) {
                         c2->fields[0] = stack;
@@ -544,7 +553,7 @@ void run() {
                 PRINTLN();
 #endif
                 obj x = pop();
-                ((IS_NUM(o)) ? list_tail(CLUMP(stack), NUM(o)) : CLUMP(o))->fields[0] = x;
+                ((IS_NUM(CDR(pc))) ? list_tail(CLUMP(stack), NUM(CDR(pc))) : CLUMP(CDR(pc)))->fields[0] = x;
                 ADVANCE_PC();
                 break;
             }
@@ -554,7 +563,7 @@ void run() {
                 show_operand(o);
                 PRINTLN();
 #endif
-                push(get_opnd(o));
+                push(get_opnd(CDR(pc)));
                 ADVANCE_PC();
                 break;
             }
@@ -563,7 +572,7 @@ void run() {
                 printf("--- const ");
                 PRINTLN();
 #endif
-                push(o);
+                push(CDR(pc));
                 ADVANCE_PC();
                 break;
             }
