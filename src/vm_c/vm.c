@@ -1,4 +1,5 @@
 // debug instruction calls?
+
 #ifdef DEBUG_I_CALL
 #define DEBUG
 #endif
@@ -78,14 +79,14 @@ typedef struct {
 #define TAG(x) CLUMP(x)->fields[2]
 #define TOS CAR(stack)
 
-#define nil (TAG_NUM(0))
+#define NUM_0 (TAG_NUM(0))
 
 // the only two roots allowed
-obj stack = nil;
-obj pc = nil;
+obj stack = NUM_0;
+obj pc = NUM_0;
 
 // global, but not a root, referenced
-obj symbol_table = nil;
+obj symbol_table = NUM_0;
 
 size_t pos = 0;
 
@@ -147,7 +148,7 @@ void init_heap() {
 
     alloc = heap_bot;
     alloc_limit = heap_mid;
-    stack = nil;
+    stack = NUM_0;
 }
 
 // NULL is a pointer (0) but would represent NULL
@@ -199,13 +200,13 @@ void gc() {
     alloc = to_space;
 
     // root: stack
-    if (stack != nil) {
+    if (stack != NUM_0) {
         scan = &stack;
         copy();
     }
 
     // root: pc
-    if (pc != nil) {
+    if (pc != NUM_0) {
         scan = &pc;
         copy();
     }
@@ -235,10 +236,10 @@ obj pop() {
 }
 
 void push(obj val) {
-    // default stack frame is (value, ->, nil)
+    // default stack frame is (value, ->, NUM_0)
     *alloc++ = val;
     *alloc++ = stack;
-    *alloc++ = nil;
+    *alloc++ = NUM_0;
 
     stack = TAG_CLUMP((clump *) (alloc - CLUMP_NB_FIELDS));
 
@@ -297,9 +298,9 @@ obj get_cont() {
     return s;
 }
 
-clump FALSE = {nil, nil, TAG_NUM(4)};
-clump TRUE = {nil, nil, TAG_NUM(5)};
-clump NIL = {nil, nil, TAG_NUM(6)};
+clump FALSE = {NUM_0, NUM_0, TAG_NUM(4)};
+clump TRUE = {NUM_0, NUM_0, TAG_NUM(5)};
+clump NIL = {NUM_0, NUM_0, TAG_NUM(6)};
 
 #ifdef DEBUG
 
@@ -514,13 +515,13 @@ void run() {
 
                     // holding the reference to an alloc_clump is always safe
                     // as long as you only have a single one live
-                    clump *temp = alloc_clump(nil, nil, nil);
+                    clump *temp = alloc_clump(NUM_0, NUM_0, NUM_0);
                     temp->fields[1] = CDR(pc); // fill after to avoid references being stale by assign time
                     temp->fields[2] = pc;
                     pc = TAG_CLUMP(temp);
 
                     for (int a = 0; a < nargs; ++a) {
-                        temp = alloc_clump(pop(), nil, nil);
+                        temp = alloc_clump(pop(), NUM_0, NUM_0);
                         temp->fields[1] = pc;
                         pc = TAG_CLUMP(temp);
                     }
@@ -528,7 +529,7 @@ void run() {
                     clump *s2 = CLUMP(pc);
                     clump *c2 = list_tail(s2, nargs);
                     pc = c2->fields[2];
-                    c2->fields[2] = nil;
+                    c2->fields[2] = NUM_0;
 
                     if (IS_NUM(CAR(pc)) && NUM(CAR(pc))) {
                         c2->fields[0] = stack;
@@ -601,9 +602,9 @@ clump *symbol_ref(num n) {
 }
 
 clump *create_sym(clump *name) {
-    clump *inner = alloc_clump(TAG_CLUMP(name), nil, TAG_NUM(2));
-    clump *outer = alloc_clump(nil, TAG_CLUMP(inner), TAG_NUM(3));
-    clump *root = alloc_clump(TAG_CLUMP(outer), symbol_table, nil);
+    clump *inner = alloc_clump(TAG_CLUMP(name), NUM_0, TAG_NUM(2));
+    clump *outer = alloc_clump(NUM_0, TAG_CLUMP(inner), TAG_NUM(3));
+    clump *root = alloc_clump(TAG_CLUMP(outer), symbol_table, NUM_0);
     return root;
 }
 
@@ -628,7 +629,7 @@ void build_sym_table() {
 
         if (c == 59) break;
 
-        accum = alloc_clump(TAG_NUM(c), TAG_CLUMP(accum), nil);
+        accum = alloc_clump(TAG_NUM(c), TAG_CLUMP(accum), NUM_0);
     }
 
     symbol_table = TAG_CLUMP(create_sym(accum));
@@ -660,7 +661,7 @@ void decode() {
             n = pop();
         } else {
             if (!op) {
-                stack = TAG_CLUMP(alloc_clump(nil, stack, nil));
+                stack = TAG_CLUMP(alloc_clump(NUM_0, stack, NUM_0));
             }
 
             // not very readable, see generic.vm.js
@@ -672,9 +673,9 @@ void decode() {
             }
 
             if (op > 4) {
-                clump *inner = alloc_clump(n, nil, pop());
+                clump *inner = alloc_clump(n, NUM_0, pop());
                 n = TAG_CLUMP(alloc_clump(TAG_CLUMP(inner), TAG_CLUMP(&NIL), TAG_NUM(1)));
-                if (stack == nil || stack == NULL) {
+                if (stack == NUM_0 || stack == NULL) {
                     break;
                 }
                 op = 4;
@@ -688,12 +689,12 @@ void decode() {
 }
 
 void setup_stack() {
-    stack = TAG_CLUMP(alloc_clump(nil,
-                                  nil,
+    stack = TAG_CLUMP(alloc_clump(NUM_0,
+                                  NUM_0,
                                   TAG_CLUMP(alloc_clump(
                                           TAG_NUM(VM_HALT),
-                                          nil,
-                                          nil))));
+                                          NUM_0,
+                                          NUM_0))));
 }
 
 #ifdef NOSTART
@@ -711,7 +712,7 @@ void init() {
     set_global(&FALSE);
     set_global(&TRUE);
     set_global(&NIL);
-    set_global(alloc_clump(nil, TAG_CLUMP(&NIL), TAG_NUM(1))); /* primitive 0 */
+    set_global(alloc_clump(NUM_0, TAG_CLUMP(&NIL), TAG_NUM(1))); /* primitive 0 */
 
     setup_stack();
 
