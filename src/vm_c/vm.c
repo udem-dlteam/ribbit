@@ -102,7 +102,7 @@ clump *heap_start;
 #ifdef NO_STD
 #define vm_exit(code) do{asm volatile ( "mov $0x01, %%eax\nmov %0, %%ebx\nint $0x80" : : "i"(code)); } while(0)
 #else
-#define vm_exit(code) do { exit((code)) } while(0)
+#define vm_exit(code) do { exit((code)); } while(0)
 #endif
 
 obj *alloc;
@@ -140,7 +140,7 @@ void init_heap() {
 #else
     heap_start = malloc(sizeof(obj) * (SPACE_SZ << 1));
 
-    if(!heap_start) {
+    if (!heap_start) {
         vm_exit(EXIT_NO_MEMORY);
     }
 #endif
@@ -472,7 +472,7 @@ void run() {
                                 read &= 0xFF;
                             }
 #else
-                            c = pos < input_len ? get_byte() : getchar();
+                            read = pos < input_len ? get_byte() : getchar();
 #endif
                             push(TAG_NUM(read));
                             break;
