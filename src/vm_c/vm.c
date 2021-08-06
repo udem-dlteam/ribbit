@@ -93,7 +93,7 @@ size_t pos = 0;
 clump *heap_start;
 
 // GC
-#define MAX_NB_OBJS 10000
+#define MAX_NB_OBJS 2000
 #define SPACE_SZ (MAX_NB_OBJS * CLUMP_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
 #define heap_mid (heap_bot + (SPACE_SZ))
