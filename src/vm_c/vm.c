@@ -139,7 +139,7 @@ void init_heap() {
     }
 
 #else
-    heap_start = malloc(SPACE_SZ << 1);
+    heap_start = malloc(sizeof(obj) * (SPACE_SZ << 1));
 
     if(!heap_start) {
         vm_exit(EXIT_NO_MEMORY);
