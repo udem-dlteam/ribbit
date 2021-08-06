@@ -37,7 +37,7 @@ clean:
 	rm -f $(INT)
 
 $(OUT): $(INT)
-	$(OBJC) -S --remove-section .comment --remove-section .note --remove-section .hash --remove-section .eh_frame $(INT) $(OUT)
+	$(OBJC) -S --remove-section .comment --remove-section .note --remove-section .hash --remove-section .eh_frame --remove-section .note.gnu.property $(INT) $(OUT)
 
 $(INT): $(SRC)
 	$(GCC) $(GCC_DEFS) vm.c $(CFLAGS) -o $(INT)
