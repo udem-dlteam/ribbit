@@ -327,8 +327,8 @@ obj boolean(bool x) {
 void run() {
 #define ADVANCE_PC() do {pc = TAG(pc); } while(0)
     while (1) {
-        obj o = CLUMP(pc)->fields[1];
-        num instr = NUM(CLUMP(pc)->fields[0]);
+        num instr = NUM(CAR(pc));
+        obj o = CDR(pc);
 
         switch (instr) {
             default: { // error
@@ -528,7 +528,7 @@ void run() {
 
                     stack = TAG_CLUMP(s2);
                 }
-                pc = CLUMP(c)->fields[2];
+                pc = TAG(c);
                 break;
             }
             case 2: { // set
