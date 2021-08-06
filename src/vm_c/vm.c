@@ -63,11 +63,11 @@ typedef struct {
 #define VM_HALT 6
 
 #define UNTAG(x) ((x) >> 1)
-#define CLUMP(x) ((clump*)(UNTAG(x)))
+#define CLUMP(x) ((clump*)(x))
 #define NUM(x) ((num)(UNTAG((num)(x))))
 #define IS_NUM(x) ((x) & 1)
 #define IS_CLUMP(x) (!IS_NUM(x))
-#define TAG_CLUMP(c_ptr) (((obj)(c_ptr)) << 1)
+#define TAG_CLUMP(c_ptr) (((obj)(c_ptr)))
 #define TAG_NUM(num) ((((obj)(num)) << 1) | 1)
 
 #define PRIM1() obj x = pop()
@@ -109,7 +109,6 @@ clump *heap_start;
 obj *alloc;
 obj *alloc_limit;
 obj *scan;
-
 
 #ifdef NO_STD
 
