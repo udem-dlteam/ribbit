@@ -357,7 +357,7 @@ void run() {
                 PRINTLN();
 #endif
                 o = get_opnd(o);
-                obj c = (CLUMP(o))->fields[0];
+                obj c = CAR(o);
 
                 if (IS_NUM(c)) {
                     switch (NUM(c)) {
