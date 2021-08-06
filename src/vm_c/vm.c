@@ -184,11 +184,15 @@ void copy() {
 
 
 void gc() {
-    // swap
 #ifdef DEBUG
-    printf("\tGC--\n");
+    obj *from_space = (alloc_limit == heap_mid) ? heap_bot : heap_mid;
+
+    size_t objc = alloc - from_space;
+    printf("\t--GC %d -> ", objc);
+
 #endif
 
+    // swap
     obj *to_space = (alloc_limit == heap_mid) ? heap_mid : heap_bot;
     alloc_limit = to_space + SPACE_SZ;
 
@@ -220,6 +224,11 @@ void gc() {
             vm_exit(EXIT_HEAP_OVERFLOW);
         }
     }
+
+#ifdef DEBUG
+    objc = alloc - to_space;
+    printf("%d\n", objc);
+#endif
 }
 
 
