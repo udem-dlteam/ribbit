@@ -70,10 +70,9 @@ get_byte = () => input[pos++].charCodeAt(0);
 
 // VM
 
-FALSE = [0,0,4]; TRUE = [0,0,5]; NIL = [0,0,6];
+FALSE = [0,0,5]; TRUE = [0,0,6]; NIL = [0,0,7];
 
 boolean = (x) => x ? TRUE : FALSE;
-
 is_num = (x) => typeof x == "number";
 
 stack = 0;
@@ -110,25 +109,26 @@ primitives = [
 
 get_code = () => { let x = get_byte()-35; return x<0 ? 57 : x; };
 get_int = (n) => { let x = get_code(); n *= 46; return x<46 ? n+x : get_int(n+x-46); };
-list_tail = (lst,i) => i ? list_tail(lst[1],i-1) : lst;
-list_ref = (lst,i) => list_tail(lst,i)[0]
+list_tail = (x,i) => i ? list_tail(x[1],i-1) : x;
 
 // build the initial symbol table
 
 symbol_table = NIL;
 n = get_int(0);
-while (n-- > 0) symbol_table=[[0,[NIL,0,2],3],symbol_table,0];
+while (n-- > 0) symbol_table=[[0,[NIL,0,3],4],symbol_table,0];
 
 accum = NIL;
+n = 0;
 while (1) {
   c = get_byte();
-  if (c == 44) { symbol_table=[[0,[accum,0,2],3],symbol_table,0]; accum = NIL; continue; }
+  if (c == 44) { symbol_table=[[0,[accum,n,3],4],symbol_table,0]; accum = NIL; n = 0; continue; }
   if (c == 59) break;
   accum = [c,accum,0];
+  n++;
 }
 
-symbol_table = [[0,[accum,0,2],3],symbol_table,0];
-symbol_ref = (n) => list_ref(symbol_table,n);
+symbol_table = [[0,[accum,n,3],4],symbol_table,0];
+symbol_ref = (n) => list_tail(symbol_table,n)[0];
 
 // decode the uVM instructions
 
