@@ -24,9 +24,9 @@ def get_byte():
 
 # VM
 
-FALSE=[0,0,4]
-TRUE=[0,0,5]
-NIL=[0,0,6]
+FALSE=[0,0,5]
+TRUE=[0,0,6]
+NIL=[0,0,7]
 
 boolean=lambda x:TRUE if x else FALSE
 is_num=lambda x:type(x) is int
@@ -86,7 +86,6 @@ def get_int(n):
  return n+x if x<46 else get_int(n+x-46)
 
 list_tail=lambda lst,i:lst if i==0 else list_tail(lst[1],i-1)
-list_ref=lambda lst,i:list_tail(lst,i)[0]
 
 # build the initial symbol table
 
@@ -94,19 +93,21 @@ symbol_table=NIL
 n=get_int(0)
 while n>0:
  n-=1
- symbol_table=[[0,[NIL,0,2],3],symbol_table,0]
+ symbol_table=[[0,[NIL,0,3],4],symbol_table,0]
 
 accum=NIL
+n=0
 while 1:
  c=get_byte()
  if c==44:
-  symbol_table=[[0,[accum,0,2],3],symbol_table,0]; accum=NIL
+  symbol_table=[[0,[accum,n,3],4],symbol_table,0]; accum=NIL; n=0
  else:
   if c==59: break
   accum=[c,accum,0]
+  n+=1
 
-symbol_table=[[0,[accum,0,2],3],symbol_table,0]
-symbol_ref=lambda n: list_ref(symbol_table,n)
+symbol_table=[[0,[accum,n,3],4],symbol_table,0]
+symbol_ref=lambda n: list_tail(symbol_table,n)[0]
 
 # decode the uVM instructions
 

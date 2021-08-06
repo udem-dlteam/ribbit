@@ -4,7 +4,6 @@
 (arg2 ||)
 (buffer ||)
 (close ||)
-(code ||)
 (comp ||)
 (comp-list ||)
 (compile ||)
@@ -84,6 +83,9 @@ read-char
 reverse
 set-car!
 set-cdr!
+string-length
+string-ref
+string-set!
 string->list
 string->number
 string->symbol
@@ -98,12 +100,12 @@ vector-tail
 vector?
 write
 
-quote set! define if lambda
+quote set! define if lambda define-macro
 )
 
 ;;;----------------------------------------------------------------------------
 
-(define (primitive i) (clump i 0 1))
+(define (primitive index) (clump index 0 1))
 
 ;;(define clump (primitive 0)) ;; predefined
 (define identity    (primitive 1))
@@ -149,30 +151,33 @@ quote set! define if lambda
 (define (procedure-code proc) (field0 proc))
 (define (procedure-env proc) (field1 proc))
 
-(define (string? o) (instance? o 2))
-(define (list->string lst) (clump lst 0 2))
-(define (string->list str) (field0 str))
+(define (vector? o) (instance? o 2))
+(define (list->vector lst) (clump lst (length lst) 2))
+(define (vector->list vect) (field0 vect))
+(define (vector-length vect) (field1 vect))
+(define (vector-ref vect i) (list-ref (field0 vect) i))
+(define (vector-set! vect i x) (list-set! (field0 vect) i x))
 
-(define (symbol? o) (instance? o 3))
-(define (string->uninterned-symbol str) (clump 0 str 3))
+(define (string? o) (instance? o 3))
+(define (list->string lst) (clump lst (length lst) 3))
+(define (string->list str) (field0 str))
+(define (string-length str) (field1 str))
+(define (string-ref str i) (list-ref (field0 str) i))
+(define (string-set! str i x) (list-set! (field0 str) i x))
+
+(define (symbol? o) (instance? o 4))
+(define (string->uninterned-symbol str) (clump #f str 4))
 (define (symbol->string sym) (field1 sym))
 (define (global-var-ref sym) (field0 sym))
-(define (global-var-set! sym x) (field1-set! sym x))
-
-;;(define false (clump 0 0 4)) ;; predefined
-;;(define true  (clump 0 0 5)) ;; predefined
-;;(define null  (clump 0 0 6)) ;; predefined
+(define (global-var-set! sym x) (field0-set! sym x))
 
 (define (null? o) (eq? o '()))
 
 (define (= x y) (eq? x y))
 
-(define (vector? o) (instance? o 7))
-(define (list->vector lst) (clump lst 0 7))
-(define (vector->list vect) (field0 vect))
-(define (vector-length vect) (length (field0 vect)))
-(define (vector-ref vect i) (list-ref (field0 vect) i))
-(define (vector-set! vect i x) (list-set! (field0 vect) i x))
+;;(define false (clump 0 0 5)) ;; predefined
+;;(define true  (clump 0 0 6)) ;; predefined
+;;(define null  (clump 0 0 7)) ;; predefined
 
 ;;;----------------------------------------------------------------------------
 
@@ -456,6 +461,17 @@ quote set! define if lambda
 (define const-op 4)
 (define if-op    5)
 
+(define macro-defs
+  (cons (cons 'define-macro
+              (lambda (expr)
+                (let ((name (cadr expr)))
+                  (let ((def (eval (caddr expr))))
+                    (set! macro-defs
+                      (cons (cons name def)
+                            macro-defs))
+                    #f))))
+        '()))
+
 (define (comp cte expr cont)
 
   (cond ((symbol? expr)
@@ -463,44 +479,47 @@ quote set! define if lambda
 
         ((pair? expr)
          (let ((first (car expr)))
+           (let ((macro-def (assq first macro-defs)))
+             (if macro-def
+                 (let ((f (cdr macro-def)))
+                   (comp cte (f expr) cont))
+                 (cond ((eq? first 'quote)
+                        (clump const-op (cadr expr) cont))
 
-           (cond ((eq? first 'quote)
-                  (clump const-op (cadr expr) cont))
+                       ((or (eq? first 'set!) (eq? first 'define))
+                        (comp cte
+                              (caddr expr)
+                              (gen-assign (lookup (cadr expr) cte 1)
+                                          cont)))
 
-                 ((or (eq? first 'set!) (eq? first 'define))
-                  (comp cte
-                        (caddr expr)
-                        (gen-assign (lookup (cadr expr) cte 1)
-                                    cont)))
+                       ((eq? first 'if)
+                        (comp cte
+                              (cadr expr)
+                              (clump if-op
+                                     (comp cte (caddr expr) cont)
+                                     (comp cte (cadddr expr) cont))))
 
-                 ((eq? first 'if)
-                  (comp cte
-                        (cadr expr)
-                        (clump if-op
-                               (comp cte (caddr expr) cont)
-                               (comp cte (cadddr expr) cont))))
-
-                 ((eq? first 'lambda)
-                  (let ((params (cadr expr)))
-                    (clump const-op
-                           (make-procedure
-                            (clump (length params)
-                                   0
-                                   (comp (extend params
-                                                 (cons #f
+                       ((eq? first 'lambda)
+                        (let ((params (cadr expr)))
+                          (clump const-op
+                                 (make-procedure
+                                  (clump (length params)
+                                         0
+                                         (comp (extend params
                                                        (cons #f
-                                                             cte)))
-                                         (caddr expr)
-                                         tail))
-                            '())
-                           (if (null? cte)
-                               cont
-                               (gen-call 'close cont)))))
+                                                             (cons #f
+                                                                   cte)))
+                                               (caddr expr)
+                                               tail))
+                                  '())
+                                 (if (null? cte)
+                                     cont
+                                     (gen-call 'close cont)))))
 
-                 (else
-                  (comp-list cte
-                             (cdr expr)
-                             (cons (car expr) cont))))))
+                       (else
+                        (comp-list cte
+                                   (cdr expr)
+                                   (cons (car expr) cont))))))))
 
         (else
          ;; self-evaluating
@@ -549,8 +568,8 @@ quote set! define if lambda
   (make-procedure (clump 0 0 (comp '() expr tail)) '()))
 
 (define (eval expr)
-  (set! code (compile expr))
-  (code))
+  (let ((code (compile expr)))
+    (code)))
 
 (define (repl)
   (putchar2 62 32) ;; #\> and space

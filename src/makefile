@@ -87,7 +87,6 @@ vm.js.in: generic-vm.js makefile
 	  -e 's|get_code|V|g' \
 	  -e 's|get_int|W|g' \
 	  -e 's|list_tail|X|g' \
-	  -e 's|list_ref|Y|g' \
 	  -e 's|run|Z|g' \
 	  -e 's|symbol_table|q|g' \
 	  -e 's|symbol_ref|r|g' \
@@ -124,7 +123,6 @@ vm.py.in: generic-vm.py makefile
 	  -e 's|get_code|V|g' \
 	  -e 's|get_int|W|g' \
 	  -e 's|list_tail|X|g' \
-	  -e 's|list_ref|Y|g' \
 	  -e 's|run|Z|g' \
 	  -e 's|symbol_table|q|g' \
 	  -e 's|symbol_ref|r|g' \
