@@ -3,6 +3,9 @@
 *.bin
 *.bin.elf
 *.bin.elf.stripped
+*.in
+*.min.js
+*.min.py
 
 
 # Created by https://www.toptal.com/developers/gitignore/api/pycharm+all

@@ -19,7 +19,6 @@ OBJC=objcopy
 NASM=nasm
 endif
 
-
 GCC_DEFS += -DPC
 CFLAGS += -g -Os -fno-stack-protector -Wall -fomit-frame-pointer -ffreestanding -nostdlib -nostdinc -fno-pie -m16 -fno-asynchronous-unwind-tables
 AS_FLAGS += --32
@@ -30,36 +29,10 @@ else
 LDFLAGS += -no-pie
 endif
 
-build: bin_files
-
-run: bin_files
-	qemu-system-i386 -hda boot.bin
-
-debug: bin_files
-	qemu-system-i386 -s -S -hda boot.bin
-
-attach:
-	gdb boot.bin.elf \
-		-ex 'target remote localhost:1234' \
-        -ex 'set architecture i8086' \
-				-ex 'layout asm' \
-        -ex 'continue'
-
 clean:
-	rm -rf *.bin *.o *.elf *.elf.stripped
+	rm -rf *.bin *.o *.elf *.elf.stripped *.in
 
-bin_files: boot.bin
-
-boot.bin: boot.asm
-	$(NASM) -f bin boot.asm -o boot.bin
-
-stdlib.o: stdlib.c
-	$(GCC) $(GCC_DEFS) $(CFLAGS) -c $*.c -o $*.o
-
-
-
-
-vm.js.in: generic-vm.js makefile
+vm.js.in: ./vm_js/generic-vm.js makefile
 	sed \
 	  -e 's|.*/\*debug\*/.*||g' \
 	  -e 's|.*/\*nodezzz\*/.*||g' \
@@ -97,9 +70,9 @@ vm.js.in: generic-vm.js makefile
 	  -e 's|set_global|w|g' \
 	  -e 's|input|y|g' \
 	  -e 's|pc|z|g' \
-	  generic-vm.js > vm.js.in
+	  ./vm_js/generic-vm.js > ./vm.js.in
 
-vm.py.in: generic-vm.py makefile
+vm.py.in: ./vm_py/generic-vm.py makefile
 	sed \
 	  -e 's|.*#debug#.*||g' \
 	  -e 's|#.*||g' \
@@ -133,7 +106,7 @@ vm.py.in: generic-vm.py makefile
 	  -e 's|set_global|w|g' \
 	  -e 's|input|y|g' \
 	  -e 's|pc|z|g' \
-	  generic-vm.py > vm.py.in
+	  ./vm_py/generic-vm.py > vm.py.in
 
 lib.scm.min.js: vm.js.in lib.scm ssc.scm makefile
 	gsi ./ssc.scm --target js lib.scm
