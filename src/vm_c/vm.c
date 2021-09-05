@@ -306,8 +306,7 @@ void prealloc(size_t n) {
     }
 
     if (alloc + obj_req >= alloc_limit) {
-        printf("OOM");
-        exit(EXIT_HEAP_OVERFLOW);
+        vm_exit(EXIT_HEAP_OVERFLOW);
     }
 }
 
@@ -378,7 +377,7 @@ obj get_cont() {
 }
 
 #define TRUE (CAR(FALSE))
-#define NIL (CAR(TRUE))
+#define NIL (CDR(FALSE))
 
 #ifdef DEBUG
 
@@ -796,9 +795,9 @@ void init() {
 
     prealloc(3);
 
-    obj NNIL = TAG_CLUMP(alloc_clump(NUM_0, NUM_0, TAG_NUM(6)));
-    obj TTRUE = TAG_CLUMP(alloc_clump(NNIL, NUM_0, TAG_NUM(5)));
-    FALSE = TAG_CLUMP(alloc_clump(TTRUE, NUM_0, TAG_NUM(4)));
+    obj nil_obj = TAG_CLUMP(alloc_clump(NUM_0, NUM_0, TAG_NUM(6)));
+    obj true_obj = TAG_CLUMP(alloc_clump(NUM_0, NUM_0, TAG_NUM(5)));
+    FALSE = TAG_CLUMP(alloc_clump(true_obj, nil_obj, TAG_NUM(4)));
 
     build_sym_table();
     decode();
