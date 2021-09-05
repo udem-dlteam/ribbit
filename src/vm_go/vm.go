@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 )
 
@@ -488,7 +489,10 @@ func prim(primNo int) {
 			buff := make([]byte, 1)
 			count, err := os.Stdin.Read(buff)
 
-			if nil != err {
+			if err == io.EOF {
+				// we are done
+				os.Exit(0)
+			} else if nil != err {
 				panic(err)
 			} else if count != 1 {
 				panic("Failed to read 1char")
