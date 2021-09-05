@@ -405,7 +405,7 @@ obj boolean(bool x) {
     return x ? CAR(FALSE) : FALSE;
 }
 
-void prim(int no) {
+void inline prim(int no) {
     switch (no) {
         case 0: { // clump
             prealloc(1);
@@ -551,6 +551,10 @@ void prim(int no) {
             fflush(stdout);
 #endif
             push(x);
+            break;
+        }
+        default: {
+            vm_exit(EXIT_ILLEGAL_INSTR);
             break;
         }
     }
