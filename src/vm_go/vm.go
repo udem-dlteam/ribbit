@@ -608,8 +608,10 @@ func run() {
 				pc = pc.Field1()
 			}
 		default:
+			fmt.Printf("Unknown instruction: %d\n", instr)
 			fallthrough
 		case HaltVmCode:
+			fmt.Println("Bye bye!")
 			os.Exit(0)
 		}
 	}
