@@ -521,57 +521,45 @@ func run() {
 				}
 			}
 
-			var newPc Obj
+			operand := getOperand(pc.Field1())
+			c := operand.Field0()
 
-			jmpTarget := func() Obj {
-				return getOperand(pc.Field1()).Field0()
-			}
-
-			if jmpTarget().Number() {
-				prim(jmpTarget().Value())
+			if c.Number() {
+				prim(c.Value())
 
 				if call {
-					newPc = pc
+					c = pc
 				} else {
-					newPc = getCont()
-					stack.Field1Set(newPc.Field0())
+					c = getCont()
+					stack.Field1Set(c.Field0())
 				}
 			} else {
 				if DebugICall {
 					fmt.Printf("Calling a symbol\n")
 				}
-				argC := jmpTarget().Field0().Value()
 
-				temp := allocClump(tagNum(0), tagNum(0), tagNum(0))
-				temp.Field1Set(pc.Field1())
-				temp.Field2Set(pc)
-				pc = temp
+				argC := operand.Field0().Field0().Value()
+				c2 := allocClump(tagNum(0), operand, tagNum(0))
+				s2 := c2
 
-				for a := 0; a < argC; a++ {
-					temp = allocClump(pop(), tagNum(0), tagNum(0))
-					temp.Field1Set(pc)
-					pc = temp
+				for argC > 0 {
+					argC--
+					s2 = allocClump(pop(), s2, tagNum(0))
 				}
 
-				s2 := pc
-				c2 := listTail(s2, tagNum(argC))
-				pc = c2.Field2()
-				c2.Field2Set(tagNum(0))
-
-				if pc.Field0().Number() && pc.Field0().Value() != 0 {
+				if call {
 					c2.Field0Set(stack)
 					c2.Field2Set(pc.Field2())
 				} else {
-					k := getCont()
-					c2.Field0Set(k.Field0())
-					c2.Field2Set(k.Field2())
+					cont := getCont()
+					c2.Field0Set(cont.Field0())
+					c2.Field2Set(cont.Field2())
 				}
 
 				stack = s2
-				newPc = jmpTarget()
 			}
 
-			pc = newPc.Field2()
+			pc = c.Field2()
 		case 2: // set
 			if DebugICall {
 				fmt.Println("--- set")
