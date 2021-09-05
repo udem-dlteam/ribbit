@@ -47,87 +47,87 @@ func tagNum(x int) Obj {
 	return nb
 }
 
-func (this *Num) Number() bool {
+func (num *Num) Number() bool {
 	return true
 }
 
-func (this *Num) Clump() bool {
+func (num *Num) Clump() bool {
 	return false
 }
 
-func (this *Num) Field0() Obj {
+func (num *Num) Field0() Obj {
 	panic("Not a clump")
 }
 
-func (this *Num) Field1() Obj {
+func (num *Num) Field1() Obj {
 	panic("Not a clump")
 }
 
-func (this *Num) Field2() Obj {
+func (num *Num) Field2() Obj {
 	panic("Not a clump")
 }
 
-func (this *Num) Field0Set(obj Obj) Obj {
+func (num *Num) Field0Set(obj Obj) Obj {
 	panic("Not a clump")
 }
 
-func (this *Num) Field1Set(obj Obj) Obj {
+func (num *Num) Field1Set(obj Obj) Obj {
 	panic("Not a clump")
 }
 
-func (this *Num) Field2Set(obj Obj) Obj {
+func (num *Num) Field2Set(obj Obj) Obj {
 	panic("Not a clump")
 }
 
-func (this *Num) Value() int {
-	return this.x
+func (num *Num) Value() int {
+	return num.x
 }
 
-func (this *Num) Add(v int) Obj {
-	r := this.x + v
+func (num *Num) Add(v int) Obj {
+	r := num.x + v
 	return tagNum(r)
 }
 
-func (this *Clump) Number() bool {
+func (clump *Clump) Number() bool {
 	return false
 }
 
-func (this *Clump) Clump() bool {
+func (clump *Clump) Clump() bool {
 	return true
 }
 
-func (this *Clump) Field0() Obj {
-	return this.x
+func (clump *Clump) Field0() Obj {
+	return clump.x
 }
 
-func (this *Clump) Field1() Obj {
-	return this.y
+func (clump *Clump) Field1() Obj {
+	return clump.y
 }
 
-func (this *Clump) Field2() Obj {
-	return this.z
+func (clump *Clump) Field2() Obj {
+	return clump.z
 }
 
-func (this *Clump) Field0Set(obj Obj) Obj {
-	this.x = obj
+func (clump *Clump) Field0Set(obj Obj) Obj {
+	clump.x = obj
 	return obj
 }
 
-func (this *Clump) Field1Set(obj Obj) Obj {
-	this.y = obj
+func (clump *Clump) Field1Set(obj Obj) Obj {
+	clump.y = obj
 	return obj
 }
 
-func (this *Clump) Field2Set(obj Obj) Obj {
-	this.z = obj
+func (clump *Clump) Field2Set(obj Obj) Obj {
+	clump.z = obj
 	return obj
 }
 
-func (this *Clump) Value() int {
+func (clump *Clump) Value() int {
 	panic("Not a number")
 }
 
-func (this *Clump) Add(int) Obj {
+func (clump *Clump) Add(int) Obj {
 	panic("Not a number")
 }
 
@@ -172,9 +172,9 @@ func getInt(n int) int {
 // ===============================================
 // ===============================================
 
-var stack Obj = nil
-var symbolTable Obj = nil
-var pc Obj = nil
+var stack = tagNum(0)
+var symbolTable = tagNum(0)
+var pc = tagNum(0)
 
 var FALSE *Clump = nil
 var TRUE *Clump = nil
@@ -515,9 +515,9 @@ func run() {
 			call := 1 == instr
 			if DebugICall {
 				if call {
-					fmt.Println("--call")
+					fmt.Println("--- call")
 				} else {
-					fmt.Println("--jump")
+					fmt.Println("--- jump")
 				}
 			}
 
@@ -574,7 +574,7 @@ func run() {
 			pc = newPc.Field2()
 		case 2: // set
 			if DebugICall {
-				fmt.Println("--set")
+				fmt.Println("--- set")
 			}
 			x := pop()
 
@@ -586,19 +586,19 @@ func run() {
 			pc = pc.Field2()
 		case 3: // get
 			if DebugICall {
-				fmt.Println("--get")
+				fmt.Println("--- get")
 			}
 			push(getOperand(pc.Field1()))
 			pc = pc.Field2()
 		case 4: // const
 			if DebugICall {
-				fmt.Println("--const")
+				fmt.Println("--- const")
 			}
 			push(pc.Field1())
 			pc = pc.Field2()
 		case 5: // if
 			if DebugICall {
-				fmt.Println("--if")
+				fmt.Println("--- if")
 			}
 			p := pop()
 
