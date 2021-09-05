@@ -130,9 +130,10 @@ typedef struct {
 
 #define NUM_0 (TAG_NUM(0))
 
-// the only two roots allowed
+// the only three roots allowed
 obj stack = NUM_0;
 obj pc = NUM_0;
+obj FALSE = NUM_0;
 
 // global, but not a root, referenced
 obj symbol_table = NUM_0;
@@ -147,11 +148,6 @@ clump *heap_start;
 #define heap_bot ((obj *)(heap_start))
 #define heap_mid (heap_bot + (SPACE_SZ))
 #define heap_top (heap_bot + (SPACE_SZ << 1))
-#define IN_HEAP(ptr)                                                           \
-  ({                                                                           \
-    unsigned long __ptr = (unsigned long)(ptr);                                \
-    __ptr >= ((unsigned long)heap_bot) && __ptr < ((unsigned long)heap_top);   \
-  })
 
 #ifdef NO_STD
 #define vm_exit(code)                                                          \
@@ -219,7 +215,7 @@ void copy() {
     obj o = *scan;
     // we sometime reference clump that are allocated in BSS,
     // we do not want to copy those
-    if (IS_CLUMP(o) && IN_HEAP((void *) CLUMP(o))) {
+    if (IS_CLUMP(o)) {
         obj *ptr = CLUMP(o)->fields;
         obj field0 = ptr[0];
         obj copy;
@@ -268,6 +264,12 @@ void gc() {
         copy();
     }
 
+    // root: false
+    if (FALSE != NUM_0) {
+        scan = &FALSE;
+        copy();
+    }
+
     // scan the to_space to pull all live references
     scan = to_space;
     while (scan != alloc) {
@@ -306,6 +308,19 @@ void prealloc(size_t n) {
     if (alloc + obj_req >= alloc_limit) {
         printf("OOM");
         exit(EXIT_HEAP_OVERFLOW);
+    }
+}
+
+void push2(obj car, obj tag) {
+    // default stack frame is (value, ->, NUM_0)
+    *alloc++ = car;
+    *alloc++ = stack;
+    *alloc++ = tag;
+
+    stack = TAG_CLUMP((clump *) (alloc - CLUMP_NB_FIELDS));
+
+    if (alloc == alloc_limit) {
+        gc();
     }
 }
 
@@ -362,9 +377,8 @@ obj get_cont() {
     return s;
 }
 
-clump FALSE = {NUM_0, NUM_0, TAG_NUM(4)};
-clump TRUE = {NUM_0, NUM_0, TAG_NUM(5)};
-clump NIL = {NUM_0, NUM_0, TAG_NUM(6)};
+#define TRUE (CAR(FALSE))
+#define NIL (CAR(TRUE))
 
 #ifdef DEBUG
 
@@ -388,7 +402,9 @@ void show_operand(obj o) {
 
 #endif
 
-obj boolean(bool x) { return TAG_CLUMP(x ? &TRUE : &FALSE); }
+obj boolean(bool x) {
+    return x ? CAR(FALSE) : FALSE;
+}
 
 void prim(int no) {
     switch (no) {
@@ -646,7 +662,7 @@ void run() {
 #endif
 
                 obj p = pop();
-                if (p != TAG_CLUMP(&FALSE)) {
+                if (p != FALSE) {
                     pc = CDR(pc);
                 } else {
                     pc = TAG(pc);
@@ -660,7 +676,7 @@ void run() {
 
 clump *symbol_ref(num n) { return CLUMP(list_ref(CLUMP(symbol_table), n)); }
 
-num lst_length(obj list) {
+obj lst_length(obj list) {
     size_t l = 0;
 
     while (IS_CLUMP(list) && NUM(TAG(list)) == 0) {
@@ -671,10 +687,10 @@ num lst_length(obj list) {
     return TAG_NUM(l);
 }
 
-clump *create_sym(clump *name) {
+clump *create_sym(obj name) {
     prealloc(3);
-    clump *list = alloc_clump(TAG_CLUMP(name), lst_length(TAG_CLUMP(name)), TAG_NUM(3));
-    clump *sym = alloc_clump(TAG_CLUMP(&FALSE), TAG_CLUMP(list), TAG_NUM(4));
+    clump *list = alloc_clump(name, lst_length(name), TAG_NUM(3));
+    clump *sym = alloc_clump(FALSE, TAG_CLUMP(list), TAG_NUM(4));
     clump *root = alloc_clump(TAG_CLUMP(sym), symbol_table, NUM_0);
     return root;
 }
@@ -684,17 +700,17 @@ void build_sym_table() {
 
     while (n > 0) {
         n--;
-        symbol_table = TAG_CLUMP(create_sym(&NIL));
+        symbol_table = TAG_CLUMP(create_sym(NIL));
     }
 
-    clump *accum = &NIL;
+    obj accum = NIL;
 
     while (1) {
         byte c = get_byte();
 
         if (c == 44) {
             symbol_table = TAG_CLUMP(create_sym(accum));
-            accum = &NIL;
+            accum = NIL;
             continue;
         }
 
@@ -702,14 +718,14 @@ void build_sym_table() {
             break;
 
         prealloc(1);
-        accum = alloc_clump(TAG_NUM(c), TAG_CLUMP(accum), NUM_0);
+        accum = TAG_CLUMP(alloc_clump(TAG_NUM(c), TAG_CLUMP(accum), NUM_0));
     }
 
     symbol_table = TAG_CLUMP(create_sym(accum));
 }
 
-void set_global(clump *c) {
-    CAR(CAR(symbol_table)) = TAG_CLUMP(c);
+void set_global(obj c) {
+    CAR(CAR(symbol_table)) = c;
     symbol_table = CDR(symbol_table);
 }
 
@@ -749,7 +765,7 @@ void decode() {
             if (op > 4) {
                 prealloc(2);
                 clump *inner = alloc_clump(n, NUM_0, pop());
-                n = TAG_CLUMP(alloc_clump(TAG_CLUMP(inner), TAG_CLUMP(&NIL), TAG_NUM(1)));
+                n = TAG_CLUMP(alloc_clump(TAG_CLUMP(inner), NIL, TAG_NUM(1)));
                 if (stack == NUM_0 || stack == NULL) {
                     break;
                 }
@@ -778,15 +794,22 @@ void init() {
 #endif
     init_heap();
 
+    prealloc(3);
+
+    obj NNIL = TAG_CLUMP(alloc_clump(NUM_0, NUM_0, TAG_NUM(6)));
+    obj TTRUE = TAG_CLUMP(alloc_clump(NNIL, NUM_0, TAG_NUM(5)));
+    FALSE = TAG_CLUMP(alloc_clump(TTRUE, NUM_0, TAG_NUM(4)));
+
     build_sym_table();
     decode();
 
-    set_global(CLUMP(symbol_table));
-    set_global(&FALSE);
-    set_global(&TRUE);
-    set_global(&NIL);
+    set_global(symbol_table);
+    set_global(FALSE);
+    set_global(TRUE);
+    set_global(NIL);
+
     prealloc(1);
-    set_global(alloc_clump(NUM_0, NUM_0, TAG_NUM(1))); /* primitive 0 */
+    set_global(TAG_CLUMP(alloc_clump(NUM_0, NUM_0, TAG_NUM(1)))); /* primitive 0 */
 
     setup_stack();
 
