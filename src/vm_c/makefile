@@ -33,6 +33,7 @@ CFLAGS = -m32 -ffunction-sections -fdata-sections -fno-plt -fno-stack-protector 
 all: $(OUT)
 
 clean:
+	rm -f *.o
 	rm -f $(OUT)
 	rm -f $(INT)
 
