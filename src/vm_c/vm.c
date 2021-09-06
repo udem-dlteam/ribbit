@@ -161,7 +161,7 @@ trio *heap_start;
   } while (0)
 #endif
 
-obj *alloc;
+register obj *alloc asm("edi");
 obj *alloc_limit;
 obj *scan;
 
