@@ -14,7 +14,7 @@ const Input = "#?vqe,fer-gnirts,enifed,htgnel-gnirts,!tes-rav-labolg,!tes-rotcev
 
 // ===============================================
 // ===============================================
-//                 OBJ + CLUMP
+//                 OBJ + TRIO
 //                   + prim
 // ===============================================
 // ===============================================
@@ -25,7 +25,7 @@ type prim3 func(x, y, z Obj) Obj
 
 type Obj interface {
 	Number() bool
-	Clump() bool
+	Trio() bool
 	Field0() Obj
 	Field0Set(Obj) Obj
 	Field1() Obj
@@ -40,7 +40,7 @@ type Num struct {
 	x int
 }
 
-type Clump struct {
+type Trio struct {
 	x, y, z Obj
 }
 
@@ -54,32 +54,32 @@ func (num *Num) Number() bool {
 	return true
 }
 
-func (num *Num) Clump() bool {
+func (num *Num) Trio() bool {
 	return false
 }
 
 func (num *Num) Field0() Obj {
-	panic("Not a clump")
+	panic("Not a ")
 }
 
 func (num *Num) Field1() Obj {
-	panic("Not a clump")
+	panic("Not a ")
 }
 
 func (num *Num) Field2() Obj {
-	panic("Not a clump")
+	panic("Not a ")
 }
 
 func (num *Num) Field0Set(Obj) Obj {
-	panic("Not a clump")
+	panic("Not a ")
 }
 
 func (num *Num) Field1Set(Obj) Obj {
-	panic("Not a clump")
+	panic("Not a ")
 }
 
 func (num *Num) Field2Set(Obj) Obj {
-	panic("Not a clump")
+	panic("Not a ")
 }
 
 func (num *Num) Value() int {
@@ -91,46 +91,46 @@ func (num *Num) Add(v int) Obj {
 	return tagNum(r)
 }
 
-func (clump *Clump) Number() bool {
+func (*Trio) Number() bool {
 	return false
 }
 
-func (clump *Clump) Clump() bool {
+func (*Trio) Trio() bool {
 	return true
 }
 
-func (clump *Clump) Field0() Obj {
-	return clump.x
+func (trio *Trio) Field0() Obj {
+	return trio.x
 }
 
-func (clump *Clump) Field1() Obj {
-	return clump.y
+func (trio *Trio) Field1() Obj {
+	return trio.y
 }
 
-func (clump *Clump) Field2() Obj {
-	return clump.z
+func (trio *Trio) Field2() Obj {
+	return trio.z
 }
 
-func (clump *Clump) Field0Set(obj Obj) Obj {
-	clump.x = obj
+func (trio *Trio) Field0Set(obj Obj) Obj {
+	trio.x = obj
 	return obj
 }
 
-func (clump *Clump) Field1Set(obj Obj) Obj {
-	clump.y = obj
+func (trio *Trio) Field1Set(obj Obj) Obj {
+	trio.y = obj
 	return obj
 }
 
-func (clump *Clump) Field2Set(obj Obj) Obj {
-	clump.z = obj
+func (trio *Trio) Field2Set(obj Obj) Obj {
+	trio.z = obj
 	return obj
 }
 
-func (clump *Clump) Value() int {
+func (*Trio) Value() int {
 	panic("Not a number")
 }
 
-func (clump *Clump) Add(int) Obj {
+func (*Trio) Add(int) Obj {
 	panic("Not a number")
 }
 
@@ -179,12 +179,12 @@ var stack = tagNum(0)
 var symbolTable = tagNum(0)
 var pc = tagNum(0)
 
-var FALSE *Clump = nil
-var TRUE *Clump = nil
-var NIL *Clump = nil
+var FALSE *Trio = nil
+var TRUE *Trio = nil
+var NIL *Trio = nil
 
 func push(val Obj) {
-	tos := new(Clump)
+	tos := new(Trio)
 	tos.x = val
 	tos.y = stack
 	tos.z = tagNum(0)
@@ -198,7 +198,7 @@ func pop() Obj {
 	return x
 }
 
-func allocClump(car, cdr, tag Obj) Obj {
+func allocTrio(car, cdr, tag Obj) Obj {
 	push(car)
 	allocated := stack
 
@@ -214,7 +214,7 @@ func allocClump(car, cdr, tag Obj) Obj {
 func lstLength(lst Obj) Obj {
 	n := 0
 
-	for lst.Clump() && lst.Field2().Value() == 0 {
+	for lst.Trio() && lst.Field2().Value() == 0 {
 		n++
 		lst = lst.Field1()
 	}
@@ -223,9 +223,9 @@ func lstLength(lst Obj) Obj {
 }
 
 func createSym(chars Obj) Obj {
-	list := allocClump(chars, lstLength(chars), tagNum(3))
-	sym := allocClump(FALSE, list, tagNum(4))
-	return allocClump(sym, symbolTable, tagNum(0))
+	list := allocTrio(chars, lstLength(chars), tagNum(3))
+	sym := allocTrio(FALSE, list, tagNum(4))
+	return allocTrio(sym, symbolTable, tagNum(0))
 }
 
 func listTail(list, i Obj) Obj {
@@ -283,7 +283,7 @@ func buildSymTable() {
 			break
 		}
 
-		accum = allocClump(tagNum(c), accum, tagNum(0))
+		accum = allocTrio(tagNum(c), accum, tagNum(0))
 	}
 
 	symbolTable = createSym(accum)
@@ -315,7 +315,7 @@ func decode() {
 			n = pop()
 		} else {
 			if op == 0 {
-				stack = allocClump(tagNum(0), stack, tagNum(0))
+				stack = allocTrio(tagNum(0), stack, tagNum(0))
 			}
 
 			if n.Value() >= d {
@@ -331,8 +331,8 @@ func decode() {
 			}
 
 			if op > 4 {
-				inner := allocClump(n, tagNum(0), pop())
-				n = allocClump(inner, NIL, tagNum(1))
+				inner := allocTrio(n, tagNum(0), pop())
+				n = allocTrio(inner, NIL, tagNum(1))
 
 				if stack == nil || (stack.Number() && stack.Value() == 0) {
 					break
@@ -341,16 +341,16 @@ func decode() {
 			}
 		}
 
-		stack.Field0Set(allocClump(tagNum(op), n, stack.Field0()))
+		stack.Field0Set(allocTrio(tagNum(op), n, stack.Field0()))
 	}
 
 	pc = n.Field0().Field2()
 }
 
-func initConstantClumps() {
+func initConstantTrios() {
 
-	init := func(x, y, z int) *Clump {
-		cl := new(Clump)
+	init := func(x, y, z int) *Trio {
+		cl := new(Trio)
 		cl.x = tagNum(x)
 		cl.y = tagNum(y)
 		cl.z = tagNum(z)
@@ -363,10 +363,10 @@ func initConstantClumps() {
 }
 
 func setupStack() {
-	stack = allocClump(
+	stack = allocTrio(
 		tagNum(0),
 		tagNum(0),
-		allocClump(tagNum(HaltVmCode),
+		allocTrio(tagNum(HaltVmCode),
 			tagNum(0),
 			tagNum(0)))
 
@@ -405,9 +405,9 @@ func prim(primNo int) {
 	}
 
 	switch primNo {
-	case 0: // clump
+	case 0: //
 		doPrim3(func(x, y, z Obj) Obj {
-			return allocClump(x, y, z)
+			return allocTrio(x, y, z)
 		})
 	case 1:
 		doPrim1(func(x Obj) Obj {
@@ -423,10 +423,10 @@ func prim(primNo int) {
 		x := stack.Field0().Field0()
 		y := stack.Field1()
 		z := tagNum(1)
-		stack.Field0Set(allocClump(x, y, z))
+		stack.Field0Set(allocTrio(x, y, z))
 	case 5:
 		doPrim1(func(x Obj) Obj {
-			return boolean(x.Clump())
+			return boolean(x.Trio())
 		})
 	case 6:
 		doPrim1(func(x Obj) Obj {
@@ -456,7 +456,7 @@ func prim(primNo int) {
 		doPrim2(func(x, y Obj) Obj {
 			if x.Number() && y.Number() {
 				return boolean(x.Value() == (y.Value()))
-			} else if x.Clump() && y.Clump() {
+			} else if x.Trio() && y.Trio() {
 				return boolean(x == y)
 			} else {
 				return FALSE
@@ -558,12 +558,12 @@ func run() {
 
 				newCont.Field1Set(proc)
 
-				c2 := allocClump(tagNum(0), proc, tagNum(0))
+				c2 := allocTrio(tagNum(0), proc, tagNum(0))
 				s2 := c2
 
 				for argC > 0 {
 					argC--
-					s2 = allocClump(pop(), s2, tagNum(0))
+					s2 = allocTrio(pop(), s2, tagNum(0))
 				}
 
 				if call {
@@ -625,7 +625,7 @@ func run() {
 }
 
 func initVm() {
-	initConstantClumps()
+	initConstantTrios()
 	buildSymTable()
 	decode()
 
@@ -633,7 +633,7 @@ func initVm() {
 	setGlobal(FALSE)
 	setGlobal(TRUE)
 	setGlobal(NIL)
-	setGlobal(allocClump(tagNum(0), tagNum(0), tagNum(1)))
+	setGlobal(allocTrio(tagNum(0), tagNum(0), tagNum(1)))
 
 	setupStack()
 
