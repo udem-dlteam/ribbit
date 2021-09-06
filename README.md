@@ -1,10 +1,3 @@
-# sectorscheme
-A minimal Scheme implementation for x86 that fits in a single 512 byte sector.  It supports closures, tail calls, first-class continuations and a REPL.
+# Threebit
 
-## Structure
-
-> src
-    > *.S = GNU AS 
-    > *.asm = NASM
-    > *.c = C (w/GCC extensions)
-
+A minimal Scheme implementation meant for embedding.  It supports closures, tail calls, first-class continuations and a REPL. All that for around 4KB!
