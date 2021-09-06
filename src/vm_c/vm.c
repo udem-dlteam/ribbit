@@ -293,23 +293,6 @@ obj pop() {
     return x;
 }
 
-/**
- * Make sure that there is sufficient space to allocate n clumps
- * @param n
- * @return
- */
-void prealloc(size_t n) {
-    size_t obj_req = (n + 1) * CLUMP_NB_FIELDS;
-
-    if (alloc + obj_req >= alloc_limit) {
-        gc();
-    }
-
-    if (alloc + obj_req >= alloc_limit) {
-        vm_exit(EXIT_HEAP_OVERFLOW);
-    }
-}
-
 void push2(obj car, obj tag) {
     // default stack frame is (value, ->, NUM_0)
     *alloc++ = car;
@@ -324,23 +307,42 @@ void push2(obj car, obj tag) {
 }
 
 void push(obj val) {
-    // default stack frame is (value, ->, NUM_0)
-    *alloc++ = val;
-    *alloc++ = stack;
-    *alloc++ = NUM_0;
-
-    stack = TAG_CLUMP((clump *) (alloc - CLUMP_NB_FIELDS));
-
-    if (alloc == alloc_limit) {
-        gc();
-    }
+    push2(val, NUM_0);
 }
 
+/**
+ * Allocate a clump that is not kept on the stack (can be linked
+ * from anywhere). The car and cdr can be live references to other
+ * clumps.
+ * @param car
+ * @param cdr
+ * @param tag
+ * @return
+ */
 clump *alloc_clump(obj car, obj cdr, obj tag) {
-    *alloc++ = car;
-    *alloc++ = cdr;
-    *alloc++ = tag;
-    return (clump *) (alloc - CLUMP_NB_FIELDS);
+    push2(car, cdr); // tag is set
+    obj old_stack = CDR(stack);
+    obj allocated = stack;
+
+
+    CDR(allocated) = TAG(allocated);
+    TAG(allocated) = tag;
+
+    stack = old_stack;
+
+    return CLUMP(allocated);
+}
+
+clump *alloc_clump2(obj car, obj cdr, obj tag) {
+    push2(car, tag); // tag is set
+    obj old_stack = CDR(stack);
+    obj allocated = stack;
+
+    CDR(allocated) = cdr;
+
+    stack = old_stack;
+
+    return CLUMP(allocated);
 }
 
 char get_byte() { return input[pos++]; }
@@ -405,10 +407,9 @@ obj boolean(bool x) {
     return x ? CAR(FALSE) : FALSE;
 }
 
-void inline prim(int no) {
+void prim(int no) {
     switch (no) {
         case 0: { // clump
-            prealloc(1);
             obj clmp = TAG_CLUMP(alloc_clump(0, 0, 0));
             PRIM3();
             CAR(clmp) = x;
@@ -434,11 +435,9 @@ void inline prim(int no) {
             break;
         }
         case 4: { // unk
-            prealloc(1);
             obj x = CAR(TOS);
             obj y = CDR(stack);
-            obj z = TAG_NUM(1);
-            TOS = TAG_CLUMP(alloc_clump(x, y, z));
+            TOS = TAG_CLUMP(alloc_clump(x, y, TAG_NUM(1)));
             break;
         }
         case 5: { // is clump?
@@ -585,32 +584,30 @@ void run() {
                 PRINTLN();
 #endif
 #define jump_target CAR(get_opnd(CDR(pc)))
-                obj new_pc;
                 bool call = instr;
                 if (IS_NUM(jump_target)) {
                     prim(NUM(jump_target));
 
-                    if (instr) {
-                        // call
-                        new_pc = pc;
-                    } else {
+                    if (!instr) {
                         // jump
-                        new_pc = get_cont();
-                        CDR(stack) = CAR(new_pc);
+                        pc = get_cont();
+                        CDR(stack) = CAR(pc);
                     }
+                    pc = TAG(pc);
                 } else {
                     num argc = NUM(TOS);
-                    prealloc(argc + 1);
-                    new_pc = CAR(get_opnd(CDR(pc)));
+                    // Use the car of the PC to save the new PC
+                    CAR(pc) = CAR(get_opnd(CDR(pc)));
+
                     pop();
 
-                    obj c2 = TAG_CLUMP(alloc_clump(NUM_0, get_opnd(CDR(pc)), NUM_0));
-                    obj s2 = c2;
+                    obj s2 = TAG_CLUMP(alloc_clump(NUM_0, get_opnd(CDR(pc)), NUM_0));
 
-                    while (argc--) {
+                    for (int i = 0; i < argc; ++i) {
                         s2 = TAG_CLUMP(alloc_clump(pop(), s2, NUM_0));
                     }
 
+                    obj c2 = TAG_CLUMP(list_tail(CLUMP(s2), argc));
                     if (call) {
                         CAR(c2) = stack;
                         TAG(c2) = TAG(pc);
@@ -621,8 +618,11 @@ void run() {
                     }
 
                     stack = s2;
+
+                    obj new_pc = CAR(pc);
+                    CAR(pc) = TAG_NUM(instr);
+                    pc = TAG(new_pc);
                 }
-                pc = TAG(new_pc);
                 break;
             }
 #undef jump_target
@@ -691,7 +691,6 @@ obj lst_length(obj list) {
 }
 
 clump *create_sym(obj name) {
-    prealloc(3);
     clump *list = alloc_clump(name, lst_length(name), TAG_NUM(3));
     clump *sym = alloc_clump(FALSE, TAG_CLUMP(list), TAG_NUM(4));
     clump *root = alloc_clump(TAG_CLUMP(sym), symbol_table, NUM_0);
@@ -720,7 +719,6 @@ void build_sym_table() {
         if (c == 59)
             break;
 
-        prealloc(1);
         accum = TAG_CLUMP(alloc_clump(TAG_NUM(c), TAG_CLUMP(accum), NUM_0));
     }
 
@@ -752,8 +750,7 @@ void decode() {
             n = pop();
         } else {
             if (!op) {
-                prealloc(1);
-                stack = TAG_CLUMP(alloc_clump(NUM_0, stack, NUM_0));
+                push2(NUM_0, NUM_0);
             }
 
             // not very readable, see generic.vm.js
@@ -766,9 +763,7 @@ void decode() {
             }
 
             if (op > 4) {
-                prealloc(2);
-                clump *inner = alloc_clump(n, NUM_0, pop());
-                n = TAG_CLUMP(alloc_clump(TAG_CLUMP(inner), NIL, TAG_NUM(1)));
+                n = TAG_CLUMP(alloc_clump(TAG_CLUMP(alloc_clump2(n, NUM_0, pop())), NIL, TAG_NUM(1)));
                 if (stack == NUM_0 || stack == NULL) {
                     break;
                 }
@@ -776,17 +771,25 @@ void decode() {
             }
         }
 
-        prealloc(1);
-        TOS = TAG_CLUMP(alloc_clump(TAG_NUM(op), n, TOS));
+        clump *c = alloc_clump(TAG_NUM(op), n, 0);
+        c->fields[2] = TOS;
+        TOS = TAG_CLUMP(c);
     }
 
     pc = TAG(CAR(n));
 }
 
 void setup_stack() {
-    prealloc(2);
-    stack = TAG_CLUMP(alloc_clump(NUM_0, NUM_0, TAG_CLUMP(
-            alloc_clump(TAG_NUM(VM_HALT), NUM_0, NUM_0))));
+    push(NUM_0);
+    push(NUM_0);
+
+    obj first = CDR(stack);
+    CDR(stack) = NUM_0;
+    TAG(stack) = first;
+
+    CAR(first) = TAG_NUM(VM_HALT);
+    CDR(first) = NUM_0;
+    TAG(first) = NUM_0;
 }
 
 #ifdef NOSTART
@@ -797,11 +800,10 @@ void init() {
 #endif
     init_heap();
 
-    prealloc(3);
+    FALSE = TAG_CLUMP(alloc_clump(TAG_CLUMP(alloc_clump(NUM_0, NUM_0, TAG_NUM(5))),
+                                  TAG_CLUMP(alloc_clump(NUM_0, NUM_0, TAG_NUM(6))),
+                                  TAG_NUM(4)));
 
-    obj nil_obj = TAG_CLUMP(alloc_clump(NUM_0, NUM_0, TAG_NUM(6)));
-    obj true_obj = TAG_CLUMP(alloc_clump(NUM_0, NUM_0, TAG_NUM(5)));
-    FALSE = TAG_CLUMP(alloc_clump(true_obj, nil_obj, TAG_NUM(4)));
 
     build_sym_table();
     decode();
@@ -811,7 +813,6 @@ void init() {
     set_global(TRUE);
     set_global(NIL);
 
-    prealloc(1);
     set_global(TAG_CLUMP(alloc_clump(NUM_0, NUM_0, TAG_NUM(1)))); /* primitive 0 */
 
     setup_stack();
