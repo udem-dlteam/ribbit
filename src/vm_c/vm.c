@@ -253,30 +253,21 @@ void gc() {
   alloc = to_space;
 
   // root: stack
-  if (stack != NUM_0) {
-    scan = &stack;
-    copy();
-  }
+  scan = &stack;
+  copy();
 
   // root: pc
-  if (pc != NUM_0) {
-    scan = &pc;
-    copy();
-  }
+  scan = &pc;
+  copy();
 
   // root: false
-  if (FALSE != NUM_0) {
-    scan = &FALSE;
-    copy();
-  }
+  scan = &FALSE;
+  copy();
 
   // scan the to_space to pull all live references
   scan = to_space;
   while (scan != alloc) {
     copy();
-    if (alloc >= alloc_limit) {
-      vm_exit(EXIT_HEAP_OVERFLOW);
-    }
   }
 
 #ifdef DEBUG
@@ -305,8 +296,6 @@ void push2(obj car, obj tag) {
     gc();
   }
 }
-
-void push(obj val) { push2(val, NUM_0); }
 
 /**
  * Allocate a trio that is not kept on the stack (can be linked
@@ -410,12 +399,12 @@ void prim(int no) {
     CAR(clmp) = x;
     CDR(clmp) = y;
     TAG(clmp) = z;
-    push(clmp);
+    push2(clmp, NUM_0);
     break;
   }
   case 1: { // id
     PRIM1();
-    push(x);
+    push2(x, NUM_0);
     break;
   }
   case 2: { // pop
@@ -426,7 +415,7 @@ void prim(int no) {
   case 3: { // skip
     obj x = pop();
     pop();
-    push(x);
+    push2(x, NUM_0);
     break;
   }
   case 4: { // unk
@@ -437,67 +426,67 @@ void prim(int no) {
   }
   case 5: { // is trio?
     PRIM1();
-    push(boolean(IS_TRIO(x)));
+    push2(boolean(IS_TRIO(x)), NUM_0);
     break;
   }
   case 6: { // field0
     PRIM1();
-    push(CAR(x));
+    push2(CAR(x), NUM_0);
     break;
   }
   case 7: { // field1
     PRIM1();
-    push(CDR(x));
+    push2(CDR(x), NUM_0);
     break;
   }
   case 8: { // field2
     PRIM1();
-    push(TAG(x));
+    push2(TAG(x), NUM_0);
     break;
   }
   case 9: { // set field0
     PRIM2();
-    push(CAR(x) = y);
+    push2(CAR(x) = y, NUM_0);
     break;
   }
   case 10: { // set field1
     PRIM2();
-    push(CDR(x) = y);
+    push2(CDR(x) = y, NUM_0);
     break;
   }
   case 11: { // set field2
     PRIM2();
-    push(TAG(x) = y);
+    push2(TAG(x) = y, NUM_0);
     break;
   }
   case 12: { // eq
     PRIM2();
-    push(boolean(x == y));
+    push2(boolean(x == y), NUM_0);
     break;
   }
   case 13: { // lt
     PRIM2();
-    push(boolean(x < y));
+    push2(boolean(x < y), NUM_0);
     break;
   }
   case 14: { // add
     PRIM2();
-    push(x + y - 1);
+    push2(x + y - 1, NUM_0);
     break;
   }
   case 15: { // sub
     PRIM2();
-    push(x - y + 1);
+    push2(x - y + 1, NUM_0);
     break;
   }
   case 16: { // mul
     PRIM2();
-    push(TAG_NUM((NUM(x) * NUM(y))));
+    push2(TAG_NUM((NUM(x) * NUM(y))), NUM_0);
     break;
   }
   case 17: { // div
     PRIM2();
-    push(TAG_NUM((NUM(x) / NUM(y))));
+    push2(TAG_NUM((NUM(x) / NUM(y))), NUM_0);
     break;
   }
   case 18: { // getc
@@ -521,7 +510,7 @@ void prim(int no) {
 #else
     read = pos < input_len ? get_byte() : getchar();
 #endif
-    push(TAG_NUM(read));
+    push2(TAG_NUM(read), NUM_0);
     break;
   }
   case 19: { // putc
@@ -544,7 +533,7 @@ void prim(int no) {
     putchar((char)NUM(x));
     fflush(stdout);
 #endif
-    push(x);
+    push2(x, NUM_0);
     break;
   }
   default: {
@@ -639,7 +628,7 @@ void run() {
       show_operand(o);
       PRINTLN();
 #endif
-      push(get_opnd(CDR(pc)));
+      push2(get_opnd(CDR(pc)), NUM_0);
       ADVANCE_PC();
       break;
     }
@@ -648,7 +637,7 @@ void run() {
       printf("--- const ");
       PRINTLN();
 #endif
-      push(CDR(pc));
+      push2(CDR(pc), NUM_0);
       ADVANCE_PC();
       break;
     }
@@ -775,8 +764,8 @@ void decode() {
 }
 
 void setup_stack() {
-  push(NUM_0);
-  push(NUM_0);
+  push2(NUM_0, NUM_0);
+  push2(NUM_0, NUM_0);
 
   obj first = CDR(stack);
   CDR(stack) = NUM_0;
