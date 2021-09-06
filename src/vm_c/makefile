@@ -1,6 +1,6 @@
 # Makefile to Compile the C VM as the smallest possible VM
 UNAME = $(shell uname)
-OUT=vm.o
+OUT=uVM
 INT=vm.o.unstripped
 SRC=vm.c
 
@@ -25,7 +25,7 @@ CFLAGS = -m32 -ffunction-sections -fdata-sections -fno-plt -fno-stack-protector 
 		 -Wl,--build-id=none -z norelro -Wl,-z,noseparate-code \
 		 -Wl,--no-eh-frame-hdr -no-pie -Wl,--no-ld-generated-unwind-info \
 		 -Wl,--hash-style=sysv -Wl,-z,nodynamic-undefined-weak \
-		 -Wl,--gc-sections -fno-exceptions -fno-rtti -fno-threadsafe-statics \
+		 -Wl,--gc-sections -fno-exceptions \
 		 -fno-asynchronous-unwind-tables -fomit-frame-pointer -fno-pic -fno-PIE -fno-PIC -ffast-math \
 		 -nostartfiles -nostdlib -s
 
