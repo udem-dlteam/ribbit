@@ -14,7 +14,7 @@ const Input = "#?vqe,fer-gnirts,enifed,htgnel-gnirts,!tes-rav-labolg,!tes-rotcev
 
 // ===============================================
 // ===============================================
-//                 OBJ + TRIO
+//                 OBJ + RIB
 //                   + prim
 // ===============================================
 // ===============================================
@@ -25,7 +25,7 @@ type prim3 func(x, y, z Obj) Obj
 
 type Obj interface {
 	Number() bool
-	Trio() bool
+	Rib() bool
 	Field0() Obj
 	Field0Set(Obj) Obj
 	Field1() Obj
@@ -40,7 +40,7 @@ type Num struct {
 	x int
 }
 
-type Trio struct {
+type Rib struct {
 	x, y, z Obj
 }
 
@@ -54,7 +54,7 @@ func (num *Num) Number() bool {
 	return true
 }
 
-func (num *Num) Trio() bool {
+func (num *Num) Rib() bool {
 	return false
 }
 
@@ -91,46 +91,46 @@ func (num *Num) Add(v int) Obj {
 	return tagNum(r)
 }
 
-func (*Trio) Number() bool {
+func (*Rib) Number() bool {
 	return false
 }
 
-func (*Trio) Trio() bool {
+func (*Rib) Rib() bool {
 	return true
 }
 
-func (trio *Trio) Field0() Obj {
+func (trio *Rib) Field0() Obj {
 	return trio.x
 }
 
-func (trio *Trio) Field1() Obj {
+func (trio *Rib) Field1() Obj {
 	return trio.y
 }
 
-func (trio *Trio) Field2() Obj {
+func (trio *Rib) Field2() Obj {
 	return trio.z
 }
 
-func (trio *Trio) Field0Set(obj Obj) Obj {
+func (trio *Rib) Field0Set(obj Obj) Obj {
 	trio.x = obj
 	return obj
 }
 
-func (trio *Trio) Field1Set(obj Obj) Obj {
+func (trio *Rib) Field1Set(obj Obj) Obj {
 	trio.y = obj
 	return obj
 }
 
-func (trio *Trio) Field2Set(obj Obj) Obj {
+func (trio *Rib) Field2Set(obj Obj) Obj {
 	trio.z = obj
 	return obj
 }
 
-func (*Trio) Value() int {
+func (*Rib) Value() int {
 	panic("Not a number")
 }
 
-func (*Trio) Add(int) Obj {
+func (*Rib) Add(int) Obj {
 	panic("Not a number")
 }
 
@@ -179,12 +179,12 @@ var stack = tagNum(0)
 var symbolTable = tagNum(0)
 var pc = tagNum(0)
 
-var FALSE *Trio = nil
-var TRUE *Trio = nil
-var NIL *Trio = nil
+var FALSE *Rib = nil
+var TRUE *Rib = nil
+var NIL *Rib = nil
 
 func push(val Obj) {
-	tos := new(Trio)
+	tos := new(Rib)
 	tos.x = val
 	tos.y = stack
 	tos.z = tagNum(0)
@@ -198,7 +198,7 @@ func pop() Obj {
 	return x
 }
 
-func allocTrio(car, cdr, tag Obj) Obj {
+func allocRib(car, cdr, tag Obj) Obj {
 	push(car)
 	allocated := stack
 
@@ -214,7 +214,7 @@ func allocTrio(car, cdr, tag Obj) Obj {
 func lstLength(lst Obj) Obj {
 	n := 0
 
-	for lst.Trio() && lst.Field2().Value() == 0 {
+	for lst.Rib() && lst.Field2().Value() == 0 {
 		n++
 		lst = lst.Field1()
 	}
@@ -223,9 +223,9 @@ func lstLength(lst Obj) Obj {
 }
 
 func createSym(chars Obj) Obj {
-	list := allocTrio(chars, lstLength(chars), tagNum(3))
-	sym := allocTrio(FALSE, list, tagNum(4))
-	return allocTrio(sym, symbolTable, tagNum(0))
+	list := allocRib(chars, lstLength(chars), tagNum(3))
+	sym := allocRib(FALSE, list, tagNum(4))
+	return allocRib(sym, symbolTable, tagNum(0))
 }
 
 func listTail(list, i Obj) Obj {
@@ -283,7 +283,7 @@ func buildSymTable() {
 			break
 		}
 
-		accum = allocTrio(tagNum(c), accum, tagNum(0))
+		accum = allocRib(tagNum(c), accum, tagNum(0))
 	}
 
 	symbolTable = createSym(accum)
@@ -315,7 +315,7 @@ func decode() {
 			n = pop()
 		} else {
 			if op == 0 {
-				stack = allocTrio(tagNum(0), stack, tagNum(0))
+				stack = allocRib(tagNum(0), stack, tagNum(0))
 			}
 
 			if n.Value() >= d {
@@ -331,8 +331,8 @@ func decode() {
 			}
 
 			if op > 4 {
-				inner := allocTrio(n, tagNum(0), pop())
-				n = allocTrio(inner, NIL, tagNum(1))
+				inner := allocRib(n, tagNum(0), pop())
+				n = allocRib(inner, NIL, tagNum(1))
 
 				if stack == nil || (stack.Number() && stack.Value() == 0) {
 					break
@@ -341,16 +341,16 @@ func decode() {
 			}
 		}
 
-		stack.Field0Set(allocTrio(tagNum(op), n, stack.Field0()))
+		stack.Field0Set(allocRib(tagNum(op), n, stack.Field0()))
 	}
 
 	pc = n.Field0().Field2()
 }
 
-func initConstantTrios() {
+func initConstantRibs() {
 
-	init := func(x, y, z int) *Trio {
-		cl := new(Trio)
+	init := func(x, y, z int) *Rib {
+		cl := new(Rib)
 		cl.x = tagNum(x)
 		cl.y = tagNum(y)
 		cl.z = tagNum(z)
@@ -363,10 +363,10 @@ func initConstantTrios() {
 }
 
 func setupStack() {
-	stack = allocTrio(
+	stack = allocRib(
 		tagNum(0),
 		tagNum(0),
-		allocTrio(tagNum(HaltVmCode),
+		allocRib(tagNum(HaltVmCode),
 			tagNum(0),
 			tagNum(0)))
 
@@ -407,7 +407,7 @@ func prim(primNo int) {
 	switch primNo {
 	case 0: //
 		doPrim3(func(x, y, z Obj) Obj {
-			return allocTrio(x, y, z)
+			return allocRib(x, y, z)
 		})
 	case 1:
 		doPrim1(func(x Obj) Obj {
@@ -423,10 +423,10 @@ func prim(primNo int) {
 		x := stack.Field0().Field0()
 		y := stack.Field1()
 		z := tagNum(1)
-		stack.Field0Set(allocTrio(x, y, z))
+		stack.Field0Set(allocRib(x, y, z))
 	case 5:
 		doPrim1(func(x Obj) Obj {
-			return boolean(x.Trio())
+			return boolean(x.Rib())
 		})
 	case 6:
 		doPrim1(func(x Obj) Obj {
@@ -456,7 +456,7 @@ func prim(primNo int) {
 		doPrim2(func(x, y Obj) Obj {
 			if x.Number() && y.Number() {
 				return boolean(x.Value() == (y.Value()))
-			} else if x.Trio() && y.Trio() {
+			} else if x.Rib() && y.Rib() {
 				return boolean(x == y)
 			} else {
 				return FALSE
@@ -558,12 +558,12 @@ func run() {
 
 				newCont.Field1Set(proc)
 
-				c2 := allocTrio(tagNum(0), proc, tagNum(0))
+				c2 := allocRib(tagNum(0), proc, tagNum(0))
 				s2 := c2
 
 				for argC > 0 {
 					argC--
-					s2 = allocTrio(pop(), s2, tagNum(0))
+					s2 = allocRib(pop(), s2, tagNum(0))
 				}
 
 				if call {
@@ -625,7 +625,7 @@ func run() {
 }
 
 func initVm() {
-	initConstantTrios()
+	initConstantRibs()
 	buildSymTable()
 	decode()
 
@@ -633,7 +633,7 @@ func initVm() {
 	setGlobal(FALSE)
 	setGlobal(TRUE)
 	setGlobal(NIL)
-	setGlobal(allocTrio(tagNum(0), tagNum(0), tagNum(1)))
+	setGlobal(allocRib(tagNum(0), tagNum(0), tagNum(1)))
 
 	setupStack()
 

@@ -95,11 +95,11 @@ typedef unsigned long obj;
 // a number
 typedef long num;
 
-// a trio obj
-#define TRIO_NB_FIELDS 3
+// a rib obj
+#define RIB_NB_FIELDS 3
 typedef struct {
-  obj fields[TRIO_NB_FIELDS];
-} trio;
+  obj fields[RIB_NB_FIELDS];
+} rib;
 
 #define EXIT_HEAP_OVERFLOW 5
 #define EXIT_ILLEGAL_INSTR 6
@@ -108,11 +108,11 @@ typedef struct {
 #define VM_HALT 6
 
 #define UNTAG(x) ((x) >> 1)
-#define TRIO(x) ((trio *)(x))
+#define RIB(x) ((rib *)(x))
 #define NUM(x) ((num)(UNTAG((num)(x))))
 #define IS_NUM(x) ((x)&1)
-#define IS_TRIO(x) (!IS_NUM(x))
-#define TAG_TRIO(c_ptr) (((obj)(c_ptr)))
+#define IS_RIB(x) (!IS_NUM(x))
+#define TAG_RIB(c_ptr) (((obj)(c_ptr)))
 #define TAG_NUM(num) ((((obj)(num)) << 1) | 1)
 
 #define PRIM1() obj x = pop()
@@ -123,9 +123,9 @@ typedef struct {
   obj z = pop();                                                               \
   PRIM2()
 
-#define CAR(x) TRIO(x)->fields[0]
-#define CDR(x) TRIO(x)->fields[1]
-#define TAG(x) TRIO(x)->fields[2]
+#define CAR(x) RIB(x)->fields[0]
+#define CDR(x) RIB(x)->fields[1]
+#define TAG(x) RIB(x)->fields[2]
 #define TOS CAR(stack)
 
 #define NUM_0 (TAG_NUM(0))
@@ -140,11 +140,11 @@ obj symbol_table = NUM_0;
 
 size_t pos = 0;
 
-trio *heap_start;
+rib *heap_start;
 
 // GC
 #define MAX_NB_OBJS 15000
-#define SPACE_SZ (MAX_NB_OBJS * TRIO_NB_FIELDS)
+#define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
 #define heap_mid (heap_bot + (SPACE_SZ))
 #define heap_top (heap_bot + (SPACE_SZ << 1))
@@ -213,17 +213,17 @@ void init_heap() {
 
 void copy() {
   obj o = *scan;
-  // we sometime reference trio that are allocated in BSS,
+  // we sometime reference rib that are allocated in BSS,
   // we do not want to copy those
-  if (IS_TRIO(o)) {
-    obj *ptr = TRIO(o)->fields;
+  if (IS_RIB(o)) {
+    obj *ptr = RIB(o)->fields;
     obj field0 = ptr[0];
     obj copy;
 
     if (field0 == GC_COPIED_OBJ) {
       copy = ptr[1]; // copied, get new address
     } else {
-      copy = TAG_TRIO(alloc);
+      copy = TAG_RIB(alloc);
       *ptr++ = GC_COPIED_OBJ; // ptr points to CDR
       *alloc++ = field0;
       *alloc++ = *ptr++; // ptr points to TAG
@@ -290,7 +290,7 @@ void push2(obj car, obj tag) {
   *alloc++ = stack;
   *alloc++ = tag;
 
-  stack = TAG_TRIO((trio *)(alloc - TRIO_NB_FIELDS));
+  stack = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
 
   if (alloc == alloc_limit) {
     gc();
@@ -298,15 +298,15 @@ void push2(obj car, obj tag) {
 }
 
 /**
- * Allocate a trio that is not kept on the stack (can be linked
+ * Allocate a rib that is not kept on the stack (can be linked
  * from anywhere). The car and cdr can be live references to other
- * trios.
+ * ribs.
  * @param car
  * @param cdr
  * @param tag
  * @return
  */
-trio *alloc_trio(obj car, obj cdr, obj tag) {
+rib *alloc_rib(obj car, obj cdr, obj tag) {
   push2(car, cdr); // tag is set
   obj old_stack = CDR(stack);
   obj allocated = stack;
@@ -316,10 +316,10 @@ trio *alloc_trio(obj car, obj cdr, obj tag) {
 
   stack = old_stack;
 
-  return TRIO(allocated);
+  return RIB(allocated);
 }
 
-trio *alloc_trio2(obj car, obj cdr, obj tag) {
+rib *alloc_rib2(obj car, obj cdr, obj tag) {
   push2(car, tag); // tag is set
   obj old_stack = CDR(stack);
   obj allocated = stack;
@@ -328,7 +328,7 @@ trio *alloc_trio2(obj car, obj cdr, obj tag) {
 
   stack = old_stack;
 
-  return TRIO(allocated);
+  return RIB(allocated);
 }
 
 char get_byte() { return input[pos++]; }
@@ -344,14 +344,14 @@ num get_int(num n) {
   return x < 46 ? n + x : get_int(n + x - 46);
 }
 
-trio *list_tail(trio *lst, num i) {
-  return (i == 0) ? lst : list_tail(TRIO(lst->fields[1]), i - 1);
+rib *list_tail(rib *lst, num i) {
+  return (i == 0) ? lst : list_tail(RIB(lst->fields[1]), i - 1);
 }
 
-obj list_ref(trio *lst, num i) { return list_tail(lst, i)->fields[0]; }
+obj list_ref(rib *lst, num i) { return list_tail(lst, i)->fields[0]; }
 
 obj get_opnd(obj o) {
-  return (IS_NUM(o) ? list_tail(TRIO(stack), NUM(o)) : TRIO(o))->fields[0];
+  return (IS_NUM(o) ? list_tail(RIB(stack), NUM(o)) : RIB(o))->fields[0];
 }
 
 obj get_cont() {
@@ -370,20 +370,20 @@ obj get_cont() {
 #ifdef DEBUG
 
 void chars2str(obj o) {
-  if (o != TAG_TRIO(&NIL)) {
-    printf("%c", (char)(NUM(TRIO(o)->fields[0]) % 256));
-    chars2str(TRIO(o)->fields[1]);
+  if (o != TAG_RIB(&NIL)) {
+    printf("%c", (char)(NUM(RIB(o)->fields[0]) % 256));
+    chars2str(RIB(o)->fields[1]);
   }
 }
 
-void sym2str(trio *c) { chars2str(TRIO(c->fields[1])->fields[0]); }
+void sym2str(rib *c) { chars2str(RIB(c->fields[1])->fields[0]); }
 
 void show_operand(obj o) {
   if (IS_NUM(o)) {
     printf("int %ld", NUM(o));
   } else {
     printf("sym ");
-    sym2str(TRIO(o));
+    sym2str(RIB(o));
   }
 }
 
@@ -393,8 +393,8 @@ obj boolean(bool x) { return x ? CAR(FALSE) : FALSE; }
 
 void prim(int no) {
   switch (no) {
-  case 0: { // trio
-    obj clmp = TAG_TRIO(alloc_trio(0, 0, 0));
+  case 0: { // rib
+    obj clmp = TAG_RIB(alloc_rib(0, 0, 0));
     PRIM3();
     CAR(clmp) = x;
     CDR(clmp) = y;
@@ -421,12 +421,12 @@ void prim(int no) {
   case 4: { // unk
     obj x = CAR(TOS);
     obj y = CDR(stack);
-    TOS = TAG_TRIO(alloc_trio(x, y, TAG_NUM(1)));
+    TOS = TAG_RIB(alloc_rib(x, y, TAG_NUM(1)));
     break;
   }
-  case 5: { // is trio?
+  case 5: { // is rib?
     PRIM1();
-    push2(boolean(IS_TRIO(x)), NUM_0);
+    push2(boolean(IS_RIB(x)), NUM_0);
     break;
   }
   case 6: { // field0
@@ -585,13 +585,13 @@ void run() {
 
         pop();
 
-        obj s2 = TAG_TRIO(alloc_trio(NUM_0, get_opnd(CDR(pc)), NUM_0));
+        obj s2 = TAG_RIB(alloc_rib(NUM_0, get_opnd(CDR(pc)), NUM_0));
 
         for (int i = 0; i < argc; ++i) {
-          s2 = TAG_TRIO(alloc_trio(pop(), s2, NUM_0));
+          s2 = TAG_RIB(alloc_rib(pop(), s2, NUM_0));
         }
 
-        obj c2 = TAG_TRIO(list_tail(TRIO(s2), argc));
+        obj c2 = TAG_RIB(list_tail(RIB(s2), argc));
         if (call) {
           CAR(c2) = stack;
           TAG(c2) = TAG(pc);
@@ -617,7 +617,7 @@ void run() {
       PRINTLN();
 #endif
       obj x = pop();
-      ((IS_NUM(CDR(pc))) ? list_tail(TRIO(stack), NUM(CDR(pc))) : TRIO(CDR(pc)))
+      ((IS_NUM(CDR(pc))) ? list_tail(RIB(stack), NUM(CDR(pc))) : RIB(CDR(pc)))
           ->fields[0] = x;
       ADVANCE_PC();
       break;
@@ -660,12 +660,12 @@ void run() {
 #undef ADVANCE_PC
 }
 
-trio *symbol_ref(num n) { return TRIO(list_ref(TRIO(symbol_table), n)); }
+rib *symbol_ref(num n) { return RIB(list_ref(RIB(symbol_table), n)); }
 
 obj lst_length(obj list) {
   size_t l = 0;
 
-  while (IS_TRIO(list) && NUM(TAG(list)) == 0) {
+  while (IS_RIB(list) && NUM(TAG(list)) == 0) {
     ++l;
     list = CDR(list);
   }
@@ -673,10 +673,10 @@ obj lst_length(obj list) {
   return TAG_NUM(l);
 }
 
-trio *create_sym(obj name) {
-  trio *list = alloc_trio(name, lst_length(name), TAG_NUM(3));
-  trio *sym = alloc_trio(FALSE, TAG_TRIO(list), TAG_NUM(4));
-  trio *root = alloc_trio(TAG_TRIO(sym), symbol_table, NUM_0);
+rib *create_sym(obj name) {
+  rib *list = alloc_rib(name, lst_length(name), TAG_NUM(3));
+  rib *sym = alloc_rib(FALSE, TAG_RIB(list), TAG_NUM(4));
+  rib *root = alloc_rib(TAG_RIB(sym), symbol_table, NUM_0);
   return root;
 }
 
@@ -685,7 +685,7 @@ void build_sym_table() {
 
   while (n > 0) {
     n--;
-    symbol_table = TAG_TRIO(create_sym(NIL));
+    symbol_table = TAG_RIB(create_sym(NIL));
   }
 
   obj accum = NIL;
@@ -694,7 +694,7 @@ void build_sym_table() {
     byte c = get_byte();
 
     if (c == 44) {
-      symbol_table = TAG_TRIO(create_sym(accum));
+      symbol_table = TAG_RIB(create_sym(accum));
       accum = NIL;
       continue;
     }
@@ -702,10 +702,10 @@ void build_sym_table() {
     if (c == 59)
       break;
 
-    accum = TAG_TRIO(alloc_trio(TAG_NUM(c), TAG_TRIO(accum), NUM_0));
+    accum = TAG_RIB(alloc_rib(TAG_NUM(c), TAG_RIB(accum), NUM_0));
   }
 
-  symbol_table = TAG_TRIO(create_sym(accum));
+  symbol_table = TAG_RIB(create_sym(accum));
 }
 
 void set_global(obj c) {
@@ -740,14 +740,14 @@ void decode() {
 
       if (n >= d) {
         n = (n == d) ? TAG_NUM(get_int(0))
-                     : TAG_TRIO(symbol_ref(get_int(n - d - 1)));
+                     : TAG_RIB(symbol_ref(get_int(n - d - 1)));
       } else {
-        n = (op < 3) ? TAG_TRIO(symbol_ref(n)) : TAG_NUM(n);
+        n = (op < 3) ? TAG_RIB(symbol_ref(n)) : TAG_NUM(n);
       }
 
       if (op > 4) {
-        n = TAG_TRIO(alloc_trio(TAG_TRIO(alloc_trio2(n, NUM_0, pop())), NIL,
-                                TAG_NUM(1)));
+        n = TAG_RIB(
+            alloc_rib(TAG_RIB(alloc_rib2(n, NUM_0, pop())), NIL, TAG_NUM(1)));
         if (stack == NUM_0 || stack == NULL) {
           break;
         }
@@ -755,9 +755,9 @@ void decode() {
       }
     }
 
-    trio *c = alloc_trio(TAG_NUM(op), n, 0);
+    rib *c = alloc_rib(TAG_NUM(op), n, 0);
     c->fields[2] = TOS;
-    TOS = TAG_TRIO(c);
+    TOS = TAG_RIB(c);
   }
 
   pc = TAG(CAR(n));
@@ -784,9 +784,9 @@ void init() {
 #endif
   init_heap();
 
-  FALSE = TAG_TRIO(alloc_trio(TAG_TRIO(alloc_trio(NUM_0, NUM_0, TAG_NUM(5))),
-                              TAG_TRIO(alloc_trio(NUM_0, NUM_0, TAG_NUM(6))),
-                              TAG_NUM(4)));
+  FALSE = TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, TAG_NUM(5))),
+                            TAG_RIB(alloc_rib(NUM_0, NUM_0, TAG_NUM(6))),
+                            TAG_NUM(4)));
 
   build_sym_table();
   decode();
@@ -796,7 +796,7 @@ void init() {
   set_global(TRUE);
   set_global(NIL);
 
-  set_global(TAG_TRIO(alloc_trio(NUM_0, NUM_0, TAG_NUM(1)))); /* primitive 0 */
+  set_global(TAG_RIB(alloc_rib(NUM_0, NUM_0, TAG_NUM(1)))); /* primitive 0 */
 
   setup_stack();
 

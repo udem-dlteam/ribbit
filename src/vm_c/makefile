@@ -1,6 +1,6 @@
 # Makefile to Compile the C VM as the smallest possible VM
 UNAME = $(shell uname)
-OUT=uVM
+OUT=rVM
 INT=vm.o.unstripped
 SRC=vm.c
 
