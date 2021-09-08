@@ -143,7 +143,7 @@ size_t pos = 0;
 rib *heap_start;
 
 // GC
-#define MAX_NB_OBJS 15000
+#define MAX_NB_OBJS 30000
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
 #define heap_mid (heap_bot + (SPACE_SZ))
