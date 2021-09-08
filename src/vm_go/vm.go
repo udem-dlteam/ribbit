@@ -357,9 +357,9 @@ func initConstantRibs() {
 		return cl
 	}
 
-	TRUE = init(0, 0, 4)
+	TRUE = init(0, 0, 6)
 	FALSE = init(0, 0, 5)
-	NIL = init(0, 0, 6)
+	NIL = init(0, 0, 7)
 }
 
 func setupStack() {
