@@ -784,9 +784,9 @@ void init() {
 #endif
   init_heap();
 
-  FALSE = TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, TAG_NUM(5))),
-                            TAG_RIB(alloc_rib(NUM_0, NUM_0, TAG_NUM(6))),
-                            TAG_NUM(4)));
+  FALSE = TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, TAG_NUM(6))),
+                            TAG_RIB(alloc_rib(NUM_0, NUM_0, TAG_NUM(7))),
+                            TAG_NUM(5)));
 
   build_sym_table();
   decode();
