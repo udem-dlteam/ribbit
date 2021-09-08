@@ -30,7 +30,7 @@ LDFLAGS += -no-pie
 endif
 
 clean:
-	rm -rf *.bin *.o *.elf *.elf.stripped *.in
+	rm -rf *.bin *.o *.elf *.elf.stripped *.in lib.scm.py lib.scm.js
 
 vm.js.in: ./vm_js/generic-vm.js makefile
 	sed \
