@@ -7,4 +7,9 @@
         (ack (- m 1) (ack m (- n 1)))
         ))))
 
-(ack 3 9)
+
+(define run
+ (lambda ()
+  (ack 3 9)))
+
+(run)

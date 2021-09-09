@@ -3,4 +3,7 @@
     sum
     (calc (- i 1) (+ i sum)))))
 
-(calc 10000 0)
+(define run (lambda ()
+ (calc 10000 0)))
+
+(run)

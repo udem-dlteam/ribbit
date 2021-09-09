@@ -5,4 +5,9 @@
       (+ (fib (- n 1))
          (fib (- n 2))))))
 
-(fib 35)
+(define run
+  (lambda ()
+  (fib 35)))
+
+
+(run)

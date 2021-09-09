@@ -21,4 +21,11 @@
                              (cons '/ (cons (cadr a) (cons '* (cons (caddr a) (cons (caddr a) (cons (deriv (caddr a)) '()))))))))
               0)))))))
 
-(deriv '(+ (* 3 x x) (* a x x) (* b x) 5))
+
+(define run
+  (lambda ()
+    (deriv '(+ (* 3 x x) (* a x x) (* b x) 5))))
+
+
+
+(run)

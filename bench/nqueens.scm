@@ -33,4 +33,8 @@
 (define nqueens (lambda (n)
   (my-try (one-to n) '() '())))
 
-(nqueens 8)
+(define run (lambda ()
+  (nqueens 8)))
+
+
+(run)

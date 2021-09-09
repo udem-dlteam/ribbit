@@ -27,4 +27,7 @@
 (define l12 (listn 12))
 (define  l6 (listn 6))
 
-(mas l18 l12 l6)
+(define run (lambda ()
+  (mas l18 l12 l6)))
+
+(run)
