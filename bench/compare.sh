@@ -136,6 +136,19 @@ picobit() {
 
 }
 
+cminischeme() {
+    rm -rf minischeme
+    rm -rf fminischeme
+}
+
+minischeme() {
+    git clone git@github.com:ignorabimus/minischeme.git fminischeme
+    pushd minischeme/src make > /dev/null 2>&1
+    make > /dev/null 2>&1
+    cp minischeme ../../minischeme
+    popd
+}
+
 clean() {
     rm *.csv
     cpico
@@ -145,21 +158,6 @@ clean() {
     ctinyscheme
     cmitscm
     cbitscm
-}
-
-runBIT() {
-
-    for test in $tests
-    do
-        echo "BIT : $test" 
-        cp "$test" bit-scheme/"$test" > /dev/null 2>&1 
-        pushd bit-scheme > /dev/null 2>&1 
-        sed -i 's/(run)/(display (run))/' "$test" > /dev/null 2>&1 
-        make "${test%.*}.c" && make "${test%.*}" 
-        echo "" | time -f "$TIME_FMT" "./${test%.*}"
-        popd
-    done
-
 }
 
 run() {
@@ -209,7 +207,9 @@ tinyscheme
 bitscm
 mitscm
 picobit
+minischeme
 
+run minischeme
 run bit.sh
 run pico.sh
 run rvm
