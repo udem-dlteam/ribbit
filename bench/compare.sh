@@ -1,6 +1,5 @@
 #!/bin/bash
 
-SHOW_OUTPUT="no"
 TIME_FMT="Total time: %E\tUser Mode (s) %U\t"
 
 tests=$(ls *.scm)
@@ -133,8 +132,18 @@ space() {
     smallspace
 }
 
+cpico() {
+
+}
+
+picobit() {
+    cpico
+    git clone git@github.com:SamuelYvon/picobit.git picobit
+
+}
 
 clean() {
+    cpico
     crvm
     cchicken
     cqscheme
@@ -167,6 +176,7 @@ rvm
 tinyscheme
 bitscm
 mitscm
+picobit
 
 runBIT
 run mitscm
