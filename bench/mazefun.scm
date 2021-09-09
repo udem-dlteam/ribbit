@@ -3,7 +3,7 @@
                  (reverse r)
                  (imap f (cdr l) (cons (f (car l)) r)))))
 
-(define map (lambda (f l)
+(define my-map (lambda (f l)
               (imap f l '())))
 
 (define oor (lambda (a b) (if (a) #t (b))))
@@ -19,7 +19,7 @@
   (lambda (x l)
     (if (not (pair? l))
       #f
-      (if (eqv? x (car l))
+      (if (eq? x (car l))
         #t
         (my-member x (cdr l))))))
 
@@ -71,7 +71,7 @@
 
 (define for
   (lambda (lo hi func)
-   (map func (for-aux lo hi))))
+   (my-map func (for-aux lo hi))))
 
 (define concat
   (lambda (lists)
@@ -120,7 +120,7 @@
 
 (define matrix-map
   (lambda (f mat)
-    (map (lambda (lst) (map f lst)) mat)))
+    (my-map (lambda (lst) (my-map f lst)) mat)))
 
 (define initial-random 0)
 
@@ -169,7 +169,7 @@
           (for 0 n (lambda (i)
                      (concat
                        (for 0 m (lambda (j)
-                                  (if (equal? (my-even? i) (my-even? j))
+                                  (if (eq? (my-even? i) (my-even? j))
                                     '()
                                     (cons (cons i j) '()))))))))
         ))))
@@ -202,7 +202,7 @@
 (define try-to-pierce-aux2
   (lambda (i j pos cave ncs)
     (if (duplicates?
-          (map (lambda (nc) (matrix-read cave (car nc) (cdr nc))) ncs))
+          (my-map (lambda (nc) (matrix-read cave (car nc) (cdr nc))) ncs))
       cave
       (pierce pos
               (foldl (lambda (c nc) (change-cavity c nc pos))
@@ -220,7 +220,7 @@
 
 (define change-cavity-aux-2
   (lambda (cavity-id i j cave pos new-cavity-id old-cavity-id)
-    (if (equal? cavity-id old-cavity-id)
+    (if (eq? cavity-id old-cavity-id)
       (foldl (lambda (c nc)
                (change-cavity-aux c nc new-cavity-id old-cavity-id))
              (matrix-write cave i j new-cavity-id)
