@@ -133,12 +133,21 @@ space() {
 }
 
 cpico() {
-
+    rm -rf fpicobit
 }
 
 picobit() {
     cpico
-    git clone git@github.com:SamuelYvon/picobit.git picobit
+    git clone git@github.com:SamuelYvon/picobit.git fpicobit > /dev/null 2>&1
+    pushd fpicobit
+
+    make clean > /dev/null 2>&1
+    make > /dev/null 2>&1
+
+    cp picobit ..
+    cp picobit-vm ..
+
+    popd 
 
 }
 
@@ -182,3 +191,4 @@ runBIT
 run mitscm
 run tinyscheme
 run rvm
+run pico.sh
