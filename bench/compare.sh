@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 
 TIME_FMT="Total time: %E\tUser Mode (s) %U\t"
 
@@ -106,7 +106,7 @@ bitscm() {
     popd
 }
 
-runbit() {
+runBIT() {
 
     for test in $tests
     do
@@ -152,6 +152,7 @@ picobit() {
 }
 
 clean() {
+    rm *.csv
     cpico
     crvm
     cchicken
@@ -166,14 +167,37 @@ run() {
     space
     echo "=============================================="
     exe="$1"
+    echo "Testing $exe"
+    echo "=============================================="
 
-    for test in $tests
-    do
-        echo "$exe : $test"
-        cat "$test" | time -f "$TIME_FMT" "./$exe"
-        smallspace
-    done
+    if command -v hyperfine > /dev/null 2>&1; then
 
+        benches=()
+        for test in $(echo "$tests")
+        do
+            if [[ -f "./$exe" ]]; then
+                benches=(${benches[@]} "cat $test | ./$exe")
+            else
+                benches=(${benches[@]} "cat $test | $exe")
+            fi
+
+        done
+
+        hyperfine -i --export-csv "bench-$exe.csv" ${benches[@]}
+    else
+        for test in $tests
+        do
+            echo "$exe : $test"
+
+            if [[ -f "./$exe" ]]; then
+                cat "$test" | time -f "$TIME_FMT" "./$exe"
+            else
+                cat "$test" | time -f "$TIME_FMT" "$exe"
+            fi
+
+            smallspace
+        done
+    fi
 }
 
 if [[ "$1" == "--clean" ]]; then
@@ -187,8 +211,9 @@ bitscm
 mitscm
 picobit
 
-runBIT
-run mitscm
-run tinyscheme
 run rvm
-run pico.sh
+run mitscm
+run gsi
+run tinyscheme
+runBIT
+# run pico.sh
