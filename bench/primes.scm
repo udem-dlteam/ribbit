@@ -34,9 +34,19 @@
 
 (define primes<= (lambda (n)
                    (sieve (interval-list 2 n))))
+
+(define run-n
+  (lambda (lo hi r)
+    (if (< lo hi)
+      (run-n (+ 1 lo) hi (primes<= 100))
+      r)))
+
 (define run
- (lambda ()
-   (primes<= 100)))
+  (lambda ()
+    (run-n 0 30000 0)))
+
+
+
 
 (run)
 

@@ -8,8 +8,14 @@
         ))))
 
 
+(define run-n
+ (lambda (lo hi r)
+ (if (< lo hi)
+  (run-n (+ 1 lo) hi (ack 3 9))
+  r)))
+
 (define run
  (lambda ()
-  (ack 3 9)))
+  (run-n 0 10 0)))
 
 (run)

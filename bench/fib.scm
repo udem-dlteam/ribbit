@@ -5,9 +5,14 @@
       (+ (fib (- n 1))
          (fib (- n 2))))))
 
-(define run
-  (lambda ()
-  (fib 35)))
+(define run-n
+ (lambda (lo hi r)
+ (if (< lo hi)
+  (run-n (+ 1 lo) hi (fib 35))
+  r)))
 
+(define run
+ (lambda ()
+  (run-n 0 5 0)))
 
 (run)

@@ -284,7 +284,15 @@
   (lambda (pos cave)
    (neighboring-cavities-aux-1 pos cave (matrix-size cave))))
 
-(define run (lambda ()
-  (make-maze 11 11)))
+(define run-n
+  (lambda (lo hi r)
+    (if (< lo hi)
+      (run-n (+ 1 lo) hi  (make-maze 11 11))
+    r)))
+
+(define run
+  (lambda ()
+    (run-n 0 30 0)))
+
 
 (run)

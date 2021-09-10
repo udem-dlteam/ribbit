@@ -16,4 +16,16 @@
             (call/cc (lambda (k) (ctak-aux k (- y 1) z x)))
             (call/cc (lambda (k) (ctak-aux k (- z 1) x y)))))))))
 
-(ctak 18 12 6)
+(define run-n
+  (lambda (lo hi r)
+    (if (< lo hi)
+      (run-n (+ 1 lo) hi (ctak 18 12 6))
+      r)))
+
+(define run
+ (lambda ()
+  (run-n 0 300 0)))
+
+(run)
+
+

@@ -27,7 +27,14 @@
 (define l12 (listn 12))
 (define  l6 (listn 6))
 
-(define run (lambda ()
-  (mas l18 l12 l6)))
+(define run-n
+  (lambda (lo hi r)
+    (if (< lo hi)
+      (run-n (+ 1 lo) hi (mas l18 l12 l6))
+      r)))
+
+(define run
+  (lambda ()
+    (run-n 0 100 0)))
 
 (run)

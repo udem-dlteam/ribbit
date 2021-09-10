@@ -22,10 +22,14 @@
               0)))))))
 
 
+(define run-n
+ (lambda (lo hi r)
+ (if (< lo hi)
+  (run-n (+ 1 lo) hi (deriv '(+ (* 3 x x) (* a x x) (* b x) 5)))
+  r)))
+
 (define run
-  (lambda ()
-    (deriv '(+ (* 3 x x) (* a x x) (* b x) 5))))
-
-
+ (lambda ()
+  (run-n 0 100000 0)))
 
 (run)

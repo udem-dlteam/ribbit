@@ -6,8 +6,16 @@
            (tak (- y 1) z x)
            (tak (- z 1) x y)))))
 
-(define run (lambda ()
-  (tak 18 12 6)))
+(define run-n
+  (lambda (lo hi r)
+    (if (< lo hi)
+      (run-n (+ 1 lo) hi (tak 18 12 6))
+      r)))
+
+(define run
+  (lambda ()
+    (run-n 0 1000 0)))
+
 
 (run)
 
