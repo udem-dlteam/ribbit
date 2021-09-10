@@ -145,9 +145,9 @@ cminischeme() {
 
 minischeme() {
     git clone git@github.com:ignorabimus/minischeme.git fminischeme
-    pushd minischeme/src make > /dev/null 2>&1
+    pushd fminischeme/src
     make > /dev/null 2>&1
-    cp minischeme ../../minischeme
+    cp miniscm ../../minischeme
     popd
 }
 
