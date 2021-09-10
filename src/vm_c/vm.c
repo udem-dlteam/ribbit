@@ -130,6 +130,14 @@ typedef struct {
 
 #define NUM_0 (TAG_NUM(0))
 
+#define PAIR_TAG TAG_NUM(0)
+#define CLOSURE_TAG TAG_NUM(1)
+#define STRING_TAG TAG_NUM(3)
+#define SYMBOL_TAG TAG_NUM(4)
+#define FALSE_TAG TAG_NUM(5)
+#define TRUE_TAG TAG_NUM(6)
+#define NIL_TAG TAG_NUM(7)
+
 // the only three roots allowed
 obj stack = NUM_0;
 obj pc = NUM_0;
@@ -161,7 +169,11 @@ rib *heap_start;
   } while (0)
 #endif
 
+#ifdef NO_STD
 register obj *alloc asm("edi");
+#else
+obj *alloc;
+#endif
 obj *alloc_limit;
 obj *scan;
 
@@ -674,9 +686,9 @@ obj lst_length(obj list) {
 }
 
 rib *create_sym(obj name) {
-  rib *list = alloc_rib(name, lst_length(name), TAG_NUM(3));
-  rib *sym = alloc_rib(FALSE, TAG_RIB(list), TAG_NUM(4));
-  rib *root = alloc_rib(TAG_RIB(sym), symbol_table, NUM_0);
+  rib *list = alloc_rib(name, lst_length(name), STRING_TAG);
+  rib *sym = alloc_rib(FALSE, TAG_RIB(list), SYMBOL_TAG);
+  rib *root = alloc_rib(TAG_RIB(sym), symbol_table, PAIR_TAG);
   return root;
 }
 
@@ -702,7 +714,7 @@ void build_sym_table() {
     if (c == 59)
       break;
 
-    accum = TAG_RIB(alloc_rib(TAG_NUM(c), TAG_RIB(accum), NUM_0));
+    accum = TAG_RIB(alloc_rib(TAG_NUM(c), TAG_RIB(accum), PAIR_TAG));
   }
 
   symbol_table = TAG_RIB(create_sym(accum));
@@ -784,9 +796,9 @@ void init() {
 #endif
   init_heap();
 
-  FALSE = TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, TAG_NUM(6))),
-                            TAG_RIB(alloc_rib(NUM_0, NUM_0, TAG_NUM(7))),
-                            TAG_NUM(5)));
+  FALSE =
+      TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, TRUE_TAG)),
+                        TAG_RIB(alloc_rib(NUM_0, NUM_0, NIL_TAG)), FALSE_TAG));
 
   build_sym_table();
   decode();
@@ -796,7 +808,7 @@ void init() {
   set_global(TRUE);
   set_global(NIL);
 
-  set_global(TAG_RIB(alloc_rib(NUM_0, NUM_0, TAG_NUM(1)))); /* primitive 0 */
+  set_global(TAG_RIB(alloc_rib(NUM_0, NUM_0, CLOSURE_TAG))); /* primitive 0 */
 
   setup_stack();
 
