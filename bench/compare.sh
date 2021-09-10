@@ -119,6 +119,8 @@ space() {
 
 cpico() {
     rm -rf fpicobit
+    rm -rf picobit
+    rm -rf picobit-vm
 }
 
 picobit() {
@@ -150,12 +152,14 @@ minischeme() {
 }
 
 clean() {
+    rm *.zip
     rm *.csv
     cpico
     crvm
     cchicken
     cqscheme
     ctinyscheme
+    cminischeme
     cmitscm
     cbitscm
 }
