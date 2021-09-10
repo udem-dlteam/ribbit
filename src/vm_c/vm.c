@@ -411,12 +411,12 @@ void prim(int no) {
     CAR(clmp) = x;
     CDR(clmp) = y;
     TAG(clmp) = z;
-    push2(clmp, NUM_0);
+    push2(clmp, PAIR_TAG);
     break;
   }
   case 1: { // id
     PRIM1();
-    push2(x, NUM_0);
+    push2(x, PAIR_TAG);
     break;
   }
   case 2: { // pop
@@ -427,78 +427,78 @@ void prim(int no) {
   case 3: { // skip
     obj x = pop();
     pop();
-    push2(x, NUM_0);
+    push2(x, PAIR_TAG);
     break;
   }
-  case 4: { // unk
+  case 4: { // close
     obj x = CAR(TOS);
     obj y = CDR(stack);
-    TOS = TAG_RIB(alloc_rib(x, y, TAG_NUM(1)));
+    TOS = TAG_RIB(alloc_rib(x, y, CLOSURE_TAG));
     break;
   }
   case 5: { // is rib?
     PRIM1();
-    push2(boolean(IS_RIB(x)), NUM_0);
+    push2(boolean(IS_RIB(x)), PAIR_TAG);
     break;
   }
   case 6: { // field0
     PRIM1();
-    push2(CAR(x), NUM_0);
+    push2(CAR(x), PAIR_TAG);
     break;
   }
   case 7: { // field1
     PRIM1();
-    push2(CDR(x), NUM_0);
+    push2(CDR(x), PAIR_TAG);
     break;
   }
   case 8: { // field2
     PRIM1();
-    push2(TAG(x), NUM_0);
+    push2(TAG(x), PAIR_TAG);
     break;
   }
   case 9: { // set field0
     PRIM2();
-    push2(CAR(x) = y, NUM_0);
+    push2(CAR(x) = y, PAIR_TAG);
     break;
   }
   case 10: { // set field1
     PRIM2();
-    push2(CDR(x) = y, NUM_0);
+    push2(CDR(x) = y, PAIR_TAG);
     break;
   }
   case 11: { // set field2
     PRIM2();
-    push2(TAG(x) = y, NUM_0);
+    push2(TAG(x) = y, PAIR_TAG);
     break;
   }
   case 12: { // eq
     PRIM2();
-    push2(boolean(x == y), NUM_0);
+    push2(boolean(x == y), PAIR_TAG);
     break;
   }
   case 13: { // lt
     PRIM2();
-    push2(boolean(x < y), NUM_0);
+    push2(boolean(x < y), PAIR_TAG);
     break;
   }
   case 14: { // add
     PRIM2();
-    push2(x + y - 1, NUM_0);
+    push2(x + y - 1, PAIR_TAG);
     break;
   }
   case 15: { // sub
     PRIM2();
-    push2(x - y + 1, NUM_0);
+    push2(x - y + 1, PAIR_TAG);
     break;
   }
   case 16: { // mul
     PRIM2();
-    push2(TAG_NUM((NUM(x) * NUM(y))), NUM_0);
+    push2(TAG_NUM((NUM(x) * NUM(y))), PAIR_TAG);
     break;
   }
   case 17: { // div
     PRIM2();
-    push2(TAG_NUM((NUM(x) / NUM(y))), NUM_0);
+    push2(TAG_NUM((NUM(x) / NUM(y))), PAIR_TAG);
     break;
   }
   case 18: { // getc
@@ -522,7 +522,7 @@ void prim(int no) {
 #else
     read = pos < input_len ? get_byte() : getchar();
 #endif
-    push2(TAG_NUM(read), NUM_0);
+    push2(TAG_NUM(read), PAIR_TAG);
     break;
   }
   case 19: { // putc
@@ -545,7 +545,7 @@ void prim(int no) {
     putchar((char)NUM(x));
     fflush(stdout);
 #endif
-    push2(x, NUM_0);
+    push2(x, PAIR_TAG);
     break;
   }
   default: {
@@ -597,10 +597,10 @@ void run() {
 
         pop();
 
-        obj s2 = TAG_RIB(alloc_rib(NUM_0, get_opnd(CDR(pc)), NUM_0));
+        obj s2 = TAG_RIB(alloc_rib(NUM_0, get_opnd(CDR(pc)), PAIR_TAG));
 
         for (int i = 0; i < argc; ++i) {
-          s2 = TAG_RIB(alloc_rib(pop(), s2, NUM_0));
+          s2 = TAG_RIB(alloc_rib(pop(), s2, PAIR_TAG));
         }
 
         obj c2 = TAG_RIB(list_tail(RIB(s2), argc));
@@ -640,7 +640,7 @@ void run() {
       show_operand(o);
       PRINTLN();
 #endif
-      push2(get_opnd(CDR(pc)), NUM_0);
+      push2(get_opnd(CDR(pc)), PAIR_TAG);
       ADVANCE_PC();
       break;
     }
@@ -649,7 +649,7 @@ void run() {
       printf("--- const ");
       PRINTLN();
 #endif
-      push2(CDR(pc), NUM_0);
+      push2(CDR(pc), PAIR_TAG);
       ADVANCE_PC();
       break;
     }
@@ -759,7 +759,7 @@ void decode() {
 
       if (op > 4) {
         n = TAG_RIB(
-            alloc_rib(TAG_RIB(alloc_rib2(n, NUM_0, pop())), NIL, TAG_NUM(1)));
+            alloc_rib(TAG_RIB(alloc_rib2(n, NUM_0, pop())), NIL, CLOSURE_TAG));
         if (stack == NUM_0 || stack == NULL) {
           break;
         }
@@ -776,8 +776,8 @@ void decode() {
 }
 
 void setup_stack() {
-  push2(NUM_0, NUM_0);
-  push2(NUM_0, NUM_0);
+  push2(NUM_0, PAIR_TAG);
+  push2(NUM_0, PAIR_TAG);
 
   obj first = CDR(stack);
   CDR(stack) = NUM_0;
@@ -785,7 +785,7 @@ void setup_stack() {
 
   CAR(first) = TAG_NUM(VM_HALT);
   CDR(first) = NUM_0;
-  TAG(first) = NUM_0;
+  TAG(first) = PAIR_TAG;
 }
 
 #ifdef NOSTART
