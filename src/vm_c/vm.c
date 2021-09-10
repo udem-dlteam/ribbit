@@ -105,8 +105,6 @@ typedef struct {
 #define EXIT_ILLEGAL_INSTR 6
 #define EXIT_NO_MEMORY 7
 
-#define VM_HALT 6
-
 #define UNTAG(x) ((x) >> 1)
 #define RIB(x) ((rib *)(x))
 #define NUM(x) ((num)(UNTAG((num)(x))))
@@ -130,13 +128,21 @@ typedef struct {
 
 #define NUM_0 (TAG_NUM(0))
 
+#define INSTR_AP 0
+#define INSTR_SET 1
+#define INSTR_GET 2
+#define INSTR_CONST 3
+#define INSTR_IF 4
+#define INSTR_HALT 5
+
 #define PAIR_TAG TAG_NUM(0)
 #define CLOSURE_TAG TAG_NUM(1)
+#define SYMBOL_TAG TAG_NUM(2)
 #define STRING_TAG TAG_NUM(3)
-#define SYMBOL_TAG TAG_NUM(4)
+#define SYMBOL_VECTOR TAG_NUM(4)
 #define FALSE_TAG TAG_NUM(5)
-#define TRUE_TAG TAG_NUM(6)
-#define NIL_TAG TAG_NUM(7)
+#define TRUE_TAG TAG_NUM(5)
+#define NIL_TAG TAG_NUM(5)
 
 // the only three roots allowed
 obj stack = NUM_0;
@@ -567,12 +573,11 @@ void run() {
       vm_exit(EXIT_ILLEGAL_INSTR);
       return;
     }
-    case VM_HALT: { // halt
+    case INSTR_HALT: { // halt
       vm_exit(0);
       return;
     }
-    case 0: // jump
-    case 1: // call
+    case INSTR_AP: // call or jump
     {
 #ifdef DEBUG_I_CALL
       printf(instr ? "--- jump " : "--- call ");
@@ -622,7 +627,7 @@ void run() {
       break;
     }
 #undef jump_target
-    case 2: { // set
+    case INSTR_SET: { // set
 #ifdef DEBUG_I_CALL
       printf("--- set ");
       show_operand(o);
@@ -634,7 +639,7 @@ void run() {
       ADVANCE_PC();
       break;
     }
-    case 3: { // get
+    case INSTR_GET: { // get
 #ifdef DEBUG_I_CALL
       printf("--- get ");
       show_operand(o);
@@ -644,7 +649,7 @@ void run() {
       ADVANCE_PC();
       break;
     }
-    case 4: { // const
+    case INSTR_CONST: { // const
 #ifdef DEBUG_I_CALL
       printf("--- const ");
       PRINTLN();
@@ -653,7 +658,7 @@ void run() {
       ADVANCE_PC();
       break;
     }
-    case 5: { // if
+    case INSTR_IF: { // if
 #ifdef DEBUG_I_CALL
       printf("--- if");
       PRINTLN();
@@ -783,7 +788,7 @@ void setup_stack() {
   CDR(stack) = NUM_0;
   TAG(stack) = first;
 
-  CAR(first) = TAG_NUM(VM_HALT);
+  CAR(first) = TAG_NUM(INSTR_HALT);
   CDR(first) = NUM_0;
   TAG(first) = PAIR_TAG;
 }
