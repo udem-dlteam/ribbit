@@ -1,50 +1,33 @@
+;; This is the Ribbit Scheme runtime library.
+
+;;;----------------------------------------------------------------------------
+
+;; Exported symbols.
+
 (export
 
-(arg1 ||)
-(arg2 ||)
-(buffer ||)
-(close ||)
-(comp ||)
-(comp-list ||)
-(compile ||)
-(empty ||)
-(eof ||)
-(extend ||)
-(gen-assign ||)
-(gen-call ||)
-(gen-noop ||)
-(getchar ||)
-(global-var-ref ||)
-(global-var-set! ||)
-(identity ||)
-(instance? ||)
-(lookup ||)
-(make-procedure ||)
-(peek-char-non-whitespace ||)
-(primitive ||)
-(procedure-code ||)
-(procedure-env ||)
-(putchar2 ||)
-(read-char-aux ||)
-(read-list ||)
-(read-symbol ||)
-(repl ||)
-(reverse-aux ||)
-(skip-comment ||)
-(string->number-aux ||)
-(string->symbol-aux ||)
-(tail ||)
-(write-chars ||)
-(write-list ||)
-(write-number ||)
-
-(clump? ||)
-(field0 ||)
-(field0-set! ||)
-(field1 ||)
-(field1-set! ||)
-(field2 ||)
-(field2-set! ||)
+#|
+    rib
+    id
+    arg1
+    arg2
+    close
+    rib?
+    field0
+    field1
+    field2
+    field0-set!
+    field1-set!
+    field2-set!
+    eqv?
+    <
+    +
+    -
+    *
+    quotient
+    putchar
+    getchar
+|#
 
 *
 +
@@ -62,13 +45,12 @@ cddr
 cdr
 cons
 eof-object?
-eq?
 equal?
+eqv?
 eval
 length
 list->string
 list-ref
-list-set!
 list-tail
 newline
 not
@@ -76,50 +58,61 @@ null?
 pair?
 peek-char
 procedure?
-putchar
 quotient
 read
 read-char
 reverse
 set-car!
 set-cdr!
-string-length
-string-ref
-string-set!
 string->list
 string->number
 string->symbol
-string->uninterned-symbol
+string-length
+string-ref
+string-set!
 string?
 symbol->string
 symbol?
 vector-length
 vector-ref
 vector-set!
-vector-tail
 vector?
 write
 
-quote set! define if lambda define-macro
+quote set! define if lambda
+
+#; ;; support for begin special form
+begin
+
+#; ;; support for single armed let special form
+let
+
 )
 
 ;;;----------------------------------------------------------------------------
 
-(define (primitive index) (clump index 0 1))
+(define pair-type      0)
+(define procedure-type 1)
+(define symbol-type    2)
+(define string-type    3)
+(define vector-type    4)
+(define singleton-type 5)
 
-;;(define clump (primitive 0)) ;; predefined
-(define identity    (primitive 1))
+(define (primitive index) (rib index 0 procedure-type))
+
+;;(define rib (primitive 0)) ;; predefined
+(define id          (primitive 1))
 (define arg1        (primitive 2))
 (define arg2        (primitive 3))
 (define close       (primitive 4))
-(define clump?      (primitive 5))
+(define rib?        (primitive 5))
 (define field0      (primitive 6))
 (define field1      (primitive 7))
 (define field2      (primitive 8))
 (define field0-set! (primitive 9))
 (define field1-set! (primitive 10))
 (define field2-set! (primitive 11))
-(define eq?         (primitive 12))
+(define eqv?        (primitive 12))
 (define <           (primitive 13))
 (define +           (primitive 14))
 (define -           (primitive 15))
@@ -130,54 +123,53 @@ quote set! define if lambda define-macro
 
 ;;;----------------------------------------------------------------------------
 
-;; Implementation of Small-Scheme types using the uVM operations.
+;; Implementation of Ribbit Scheme types using the uVM operations.
 
-(define (instance? o type) (and (clump? o) (eq? (field2 o) type)))
+(define (instance? type) (lambda (o) (and (rib? o) (eqv? (field2 o) type))))
 
-(define (pair? o) (instance? o 0))
-(define (cons car cdr) (clump car cdr 0))
-(define (car pair) (field0 pair))
-(define (cdr pair) (field1 pair))
-(define (set-car! pair x) (field0-set! pair x))
-(define (set-cdr! pair x) (field1-set! pair x))
-(define (cadr pair) (car (cdr pair)))
-(define (cddr pair) (cdr (cdr pair)))
-(define (caddr pair) (cadr (cdr pair)))
-(define (cadddr pair) (caddr (cdr pair)))
-(define (not x) (eq? x #f))
+(define pair? (instance? pair-type))
+(define (cons car cdr) (rib car cdr pair-type))
+(define car field0)
+(define cdr field1)
+(define set-car! field0-set!)
+(define set-cdr! field1-set!)
+(define (cadr pair) (field0 (field1 pair)))
+(define (cddr pair) (field1 (field1 pair)))
+(define (caddr pair) (cadr (field1 pair)))
+(define (cadddr pair) (caddr (field1 pair)))
+(define (not x) (eqv? x #f))
 
-(define (procedure? o) (instance? o 1))
-(define (make-procedure code env) (clump code env 1))
-(define (procedure-code proc) (field0 proc))
-(define (procedure-env proc) (field1 proc))
+(define procedure? (instance? procedure-type))
+(define (make-procedure code env) (rib code env procedure-type))
+(define procedure-code field0)
+(define procedure-env field1)
 
-(define (vector? o) (instance? o 2))
-(define (list->vector lst) (clump lst (length lst) 2))
-(define (vector->list vect) (field0 vect))
-(define (vector-length vect) (field1 vect))
+(define vector? (instance? vector-type))
+(define (list->vector lst) (rib lst (length lst) vector-type))
+(define vector->list field0)
+(define vector-length field1)
 (define (vector-ref vect i) (list-ref (field0 vect) i))
 (define (vector-set! vect i x) (list-set! (field0 vect) i x))
 
-(define (string? o) (instance? o 3))
-(define (list->string lst) (clump lst (length lst) 3))
-(define (string->list str) (field0 str))
-(define (string-length str) (field1 str))
+(define string? (instance? string-type))
+(define (list->string lst) (rib lst (length lst) string-type))
+(define string->list field0)
+(define string-length field1)
 (define (string-ref str i) (list-ref (field0 str) i))
 (define (string-set! str i x) (list-set! (field0 str) i x))
 
-(define (symbol? o) (instance? o 4))
-(define (string->uninterned-symbol str) (clump #f str 4))
-(define (symbol->string sym) (field1 sym))
-(define (global-var-ref sym) (field0 sym))
-(define (global-var-set! sym x) (field0-set! sym x))
+(define symbol? (instance? symbol-type))
+(define (string->uninterned-symbol str) (rib #f str symbol-type))
+(define symbol->string field1)
+(define global-var-ref field0)
+(define global-var-set! field0-set!)
 
-(define (null? o) (eq? o '()))
+;;(define false (rib 0 0 singleton-type)) ;; predefined
+;;(define true  (rib 0 0 singleton-type)) ;; predefined
+;;(define nil   (rib 0 0 singleton-type)) ;; predefined
 
-(define (= x y) (eq? x y))
-
-;;(define false (clump 0 0 5)) ;; predefined
-;;(define true  (clump 0 0 6)) ;; predefined
-;;(define null  (clump 0 0 7)) ;; predefined
+(define (null? o) (eqv? o '()))
+(define = eqv?)
 
 ;;;----------------------------------------------------------------------------
 
@@ -198,8 +190,6 @@ quote set! define if lambda define-macro
 
 ;; Symbol table.
 
-;;(define symtbl '()) ;; predefined
-
 (define (string->symbol str)
   (string->symbol-aux str symtbl))
 
@@ -210,15 +200,20 @@ quote set! define if lambda define-macro
             sym
             (string->symbol-aux str (field1 syms))))
       (let ((sym (string->uninterned-symbol str)))
-        (set! symtbl (clump sym symtbl 0))
+        (set! symtbl (cons sym symtbl))
         sym)))
+
+(define symtbl (field1 rib))
+;;  (arg1 (field1 rib) (putchar 33))) ;; get the symbol table
+
+(field1-set! rib 0) ;; release symbol table if not otherwise needed
 
 ;;;----------------------------------------------------------------------------
 
 (define (equal? x y)
-  (or (eq? x y)
-      (and (clump? x)
-           (clump? y)
+  (or (eqv? x y)
+      (and (rib? x)
+           (rib? y)
            (equal? (field0 x) (field0 y))
            (equal? (field1 x) (field1 y))
            (equal? (field2 x) (field2 y)))))
@@ -242,7 +237,7 @@ quote set! define if lambda define-macro
 (define (assq x lst)
   (if (pair? lst)
       (let ((couple (car lst)))
-        (if (eq? x (car couple))
+        (if (eqv? x (car couple))
             couple
             (assq x (cdr lst))))
       #f))
@@ -268,37 +263,35 @@ quote set! define if lambda define-macro
 ;; First-class continuations.
 
 (define (call/cc receiver)
-  (let ((clo (lambda () receiver)))
-    (let ((cont (field1 (field1 clo))))
-      (receiver (lambda (r)
-                  (let ((clo2 (lambda () r)))
-                    (let ((cont2 (field1 (field1 clo2))))
-                      (field0-set! cont2 (field0 cont))
-                      (field2-set! cont2 (field2 cont))
-                      r)))))))
+  (let ((c (field1 (field1 (close #f))))) ;; get call/cc continuation rib
+    (receiver (lambda (r)
+                (let ((c2 (field1 (field1 (close #f)))))
+                  (field0-set! c2 (field0 c)) ;; set "stack" field
+                  (field2-set! c2 (field2 c)) ;; set "pc" field
+                  r))))) ;; return to continuation
 
 ;;;----------------------------------------------------------------------------
 
 ;; Character I/O (characters are represented with integers).
 
 (define eof (- 0 1))
-(define (eof-object? o) (eq? o eof))
+(define (eof-object? o) (eqv? o eof))
 
 (define empty (- 0 2))
-(define buffer (clump empty 0 0))
+(define buffer (rib empty 0 0))
 
 (define (read-char)
   (let ((c (field0 buffer)))
-    (if (= c eof)
+    (if (eqv? c eof)
         c
         (read-char-aux
-         (if (= c empty)
+         (if (eqv? c empty)
              (getchar)
              c)))))
 
 (define (read-char-aux c)
   (field0-set! buffer c)
-  (if (= c eof)
+  (if (eqv? c eof)
       c
       (begin
         (field0-set! buffer empty)
@@ -317,21 +310,21 @@ quote set! define if lambda define-macro
   (let ((c (peek-char-non-whitespace)))
     (cond ((< c 0)
            c)
-          ((= c 40) ;; #\(
+          ((eqv? c 40) ;; #\(
            (read-char) ;; skip "("
            (read-list))
-          ((= c 35) ;; #\#
+          ((eqv? c 35) ;; #\#
            (read-char) ;; skip "#"
            (let ((c (peek-char)))
-             (cond ((= c 102) ;; #\f
+             (cond ((eqv? c 102) ;; #\f
                     (read-char) ;; skip "f"
                     #f)
-                   ((= c 116) ;; #\t
+                   ((eqv? c 116) ;; #\t
                     (read-char) ;; skip "t"
                     #t)
                    (else ;; assume it is #\(
                     (list->vector (read))))))
-          ((= c 39) ;; #\'
+          ((eqv? c 39) ;; #\'
            (read-char) ;; skip "'"
            (cons 'quote (cons (read) '())))
           (else
@@ -344,7 +337,7 @@ quote set! define if lambda define-macro
 
 (define (read-list)
   (let ((c (peek-char-non-whitespace)))
-    (if (= c 41) ;; #\)
+    (if (eqv? c 41) ;; #\)
         (begin
           (read-char) ;; skip ")"
           '())
@@ -353,8 +346,8 @@ quote set! define if lambda define-macro
 
 (define (read-symbol)
   (let ((c (peek-char)))
-    (if (or (= c 40) ;; #\(
-            (= c 41) ;; #\)
+    (if (or (eqv? c 40) ;; #\(
+            (eqv? c 41) ;; #\)
             (< c 33)) ;; whitespace or eof?
         '()
         (begin
@@ -366,7 +359,7 @@ quote set! define if lambda define-macro
     (if (eof-object? c) ;; eof?
         (- 0 1)
         (if (< 32 c) ;; above #\space ?
-            (if (= c 59) ;; #\;
+            (if (eqv? c 59) ;; #\;
                 (skip-comment)
                 c)
             (begin
@@ -377,7 +370,7 @@ quote set! define if lambda define-macro
   (let ((c (read-char)))
     (if (< c 0) ;; eof?
         c
-        (if (= c 10) ;; #\newline
+        (if (eqv? c 10) ;; #\newline
             (peek-char-non-whitespace)
             (skip-comment)))))
 
@@ -388,7 +381,7 @@ quote set! define if lambda define-macro
 (define (write o)
   (cond ((not o)
          (putchar2 35 102)) ;; #f
-        ((eq? o #t)
+        ((eqv? o #t)
          (putchar2 35 116)) ;; #t
         ((null? o)
          (putchar2 40 41)) ;; ()
@@ -407,10 +400,9 @@ quote set! define if lambda define-macro
          (putchar 35) ;; #\#
          (write (vector->list o)))
         ((procedure? o)
-         (putchar2 35 60) ;; #<proc>
-         (putchar2 112 114)
-         (putchar2 111 99)
-         (putchar 62))
+         (putchar2 35 112) ;; #proc
+         (putchar2 114 111)
+         (putchar 99))
         (else
          ;; must be a number
          (write-number o))))
@@ -452,107 +444,159 @@ quote set! define if lambda define-macro
 
 ;;;----------------------------------------------------------------------------
 
-;; Compiler from Small-Scheme to uVM code.
+;; Compiler from Ribbit Scheme to uVM code.
 
-(define jump-op  0)
-(define call-op  1)
-(define set-op   2)
-(define get-op   3)
-(define const-op 4)
-(define if-op    5)
-
-(define macro-defs
-  (cons (cons 'define-macro
-              (lambda (expr)
-                (let ((name (cadr expr)))
-                  (let ((def (eval (caddr expr))))
-                    (set! macro-defs
-                      (cons (cons name def)
-                            macro-defs))
-                    #f))))
-        '()))
+(define jump/call-op 0)
+(define set-op       1)
+(define get-op       2)
+(define const-op     3)
+(define if-op        4)
 
 (define (comp cte expr cont)
 
   (cond ((symbol? expr)
-         (clump get-op (lookup expr cte 0) cont))
+         (rib get-op (lookup expr cte 0) cont))
 
         ((pair? expr)
          (let ((first (car expr)))
-           (let ((macro-def (assq first macro-defs)))
-             (if macro-def
-                 (let ((f (cdr macro-def)))
-                   (comp cte (f expr) cont))
-                 (cond ((eq? first 'quote)
-                        (clump const-op (cadr expr) cont))
+           (cond ((eqv? first 'quote)
+                  (rib const-op (cadr expr) cont))
 
-                       ((or (eq? first 'set!) (eq? first 'define))
-                        (comp cte
-                              (caddr expr)
-                              (gen-assign (lookup (cadr expr) cte 1)
-                                          cont)))
+                 ((or (eqv? first 'set!) (eqv? first 'define))
+                  (comp cte
+                        (caddr expr)
+                        (gen-assign (lookup (cadr expr) cte 1)
+                                    cont)))
 
-                       ((eq? first 'if)
-                        (comp cte
-                              (cadr expr)
-                              (clump if-op
-                                     (comp cte (caddr expr) cont)
-                                     (comp cte (cadddr expr) cont))))
+                 ((eqv? first 'if)
+                  (comp cte
+                        (cadr expr)
+                        (rib if-op
+                             (comp cte (caddr expr) cont)
+                             (comp cte (cadddr expr) cont))))
 
-                       ((eq? first 'lambda)
-                        (let ((params (cadr expr)))
-                          (clump const-op
-                                 (make-procedure
-                                  (clump (length params)
-                                         0
-                                         (comp (extend params
-                                                       (cons #f
-                                                             (cons #f
-                                                                   cte)))
-                                               (caddr expr)
-                                               tail))
-                                  '())
-                                 (if (null? cte)
-                                     cont
-                                     (gen-call 'close cont)))))
+                 ((eqv? first 'lambda)
+                  (let ((params (cadr expr)))
+                    (rib const-op
+                         (make-procedure
+                          (rib (length params)
+                               0
+                               ;#; ;; support for single expression in body
+                               (comp (extend params
+                                             (cons #f
+                                                   (cons #f
+                                                         cte)))
+                                     (caddr expr)
+                                     tail)
+                               #; ;; support for multiple expressions in body
+                               (comp-begin (extend params
+                                                   (cons #f
+                                                         (cons #f
+                                                               cte)))
+                                           (cddr expr)
+                                           tail))
+                          '())
+                         (if (null? cte)
+                             cont
+                             (gen-call 'close cont)))))
 
-                       (else
-                        (comp-list cte
-                                   (cdr expr)
-                                   (cons (car expr) cont))))))))
+#; ;; support for begin special form
+                 ((eqv? first 'begin)
+                  (comp-begin cte (cdr expr) cont))
+
+#; ;; support for single armed let special form
+                 ((eqv? first 'let)
+                  (let ((binding (car (cadr expr))))
+                    (comp-bind cte
+                               (car binding)
+                               (cadr binding)
+                               (cddr expr)
+                               cont)))
+
+                 (else
+                  ;#; ;; support for calls with only variable in operator position
+                  (comp-call cte
+                             (cdr expr)
+                             (cons first cont))
+                  #; ;; support for calls with any expression in operator position
+                  (let ((args (cdr expr)))
+                    (if (symbol? first)
+                        (comp-call cte
+                                   args
+                                   (cons first cont))
+                        (comp-bind cte
+                                   '_
+                                   first
+                                   ;#; ;; support for single expression in body
+                                   (cons '_ args)
+                                   #; ;; support for multiple expressions in body
+                                   (cons (cons '_ args) '())
+                                   cont)))))))
 
         (else
          ;; self-evaluating
-         (clump const-op expr cont))))
+         (rib const-op expr cont))))
+
+(define (comp-bind cte var expr body cont)
+  (comp cte
+        expr
+        ;#; ;; support for single expression in body
+        (comp (cons var cte)
+              body
+              (if (eqv? cont tail)
+                  cont
+                  (rib jump/call-op ;; call
+                       'arg2
+                       cont)))
+        #; ;; support for multiple expressions in body
+        (comp-begin (cons var cte)
+                    body
+                    (if (eqv? cont tail)
+                        cont
+                        (rib jump/call-op ;; call
+                             'arg2
+                             cont)))))
+
+(define (comp-begin cte exprs cont)
+  (comp cte
+        (car exprs)
+        (if (pair? (cdr exprs))
+            (rib jump/call-op ;; call
+                 'arg1
+                 (comp-begin cte (cdr exprs) cont))
+            cont)))
 
 (define (gen-call v cont)
-  (if (eq? cont tail)
-      (clump jump-op v 0)
-      (clump call-op v cont)))
+  (if (eqv? cont tail)
+      (rib jump/call-op v 0)      ;; jump
+      (rib jump/call-op v cont))) ;; call
 
 (define (gen-assign v cont)
-  (clump set-op v (gen-noop cont)))
+  (rib set-op v (gen-noop cont)))
 
 (define (gen-noop cont)
-  (if (and (clump? cont) ;; starts with pop?
-           (eq? (field0 cont) call-op)
-           (eq? (field1 cont) 'arg1))
+  (if (and (rib? cont) ;; starts with pop?
+           (eqv? (field0 cont) jump/call-op) ;; call?
+           (eqv? (field1 cont) 'arg1)
+           (rib? (field2 cont)))
       (field2 cont) ;; remove pop
-      (clump const-op 0 cont))) ;; add dummy value for set!
+      (rib const-op 0 cont))) ;; add dummy value for set!
 
-(define (comp-list cte exprs var-cont)
+(define (comp-call cte exprs var-cont)
   (if (pair? exprs)
       (comp cte
             (car exprs)
-            (comp-list (cons '#f cte)
+            (comp-call (cons #f cte)
                        (cdr exprs)
                        var-cont))
-      (gen-call (lookup (car var-cont) cte 0)
-                (cdr var-cont))))
+      (let ((var (car var-cont)))
+        (let ((cont (cdr var-cont)))
+          (let ((v (lookup var cte 0)))
+            (gen-call v cont))))))
 
 (define (lookup var cte i)
   (if (pair? cte)
-      (if (eq? (car cte) var)
+      (if (eqv? (car cte) var)
           i
           (lookup var (cdr cte) (+ i 1)))
       var))
@@ -562,14 +606,13 @@ quote set! define if lambda define-macro
       (cons (car vars) (extend (cdr vars) cte))
       cte))
 
-(define tail (clump jump-op 'identity 0))
+(define tail (rib jump/call-op 'id 0)) ;; jump
 
 (define (compile expr) ;; converts an s-expression to a procedure
-  (make-procedure (clump 0 0 (comp '() expr tail)) '()))
+  (make-procedure (rib 0 0 (comp '() expr tail)) '()))
 
 (define (eval expr)
-  (let ((code (compile expr)))
-    (code)))
+  ((compile expr)))
 
 (define (repl)
   (putchar2 62 32) ;; #\> and space
@@ -581,6 +624,13 @@ quote set! define if lambda define-macro
           (newline)
           (repl)))))
 
-(repl)
+;;(eval (cons 'define (cons 'f (cons (cons 'lambda (cons (cons 'x '()) (cons (cons 'if (cons (cons '< (cons 'x (cons 2 '()))) (cons 'x (cons (cons '+ (cons (cons 'f (cons (cons '- (cons 'x (cons 1 '()))) '())) (cons (cons 'f (cons (cons '- (cons 'x (cons 2 '()))) '())) '()))) '())))) '()))) '()))))
+;;(eval (cons 'f (cons 25 '())))
+
+;(write symtbl)
+;;(eval (string->symbol (list->string '())))
+;;(repl)
+
+;;(write 42)
 
 ;;;----------------------------------------------------------------------------
