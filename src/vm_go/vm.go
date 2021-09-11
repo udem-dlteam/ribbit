@@ -7,10 +7,26 @@ import (
 )
 
 const DebugICall = false
-const HaltVmCode = 6
 
 //goland:noinspection SpellCheckingInspection
-const Input = "#?vqe,fer-gnirts,enifed,htgnel-gnirts,!tes-rav-labolg,!tes-rotcev,esrever,etouq,rddc,*,fer-rav-labolg,+,2gra_,vne-erudecorp,!tes-gnirts,reffub,cc/llac,<,edoc-erudecorp,!rdc-tes,tneitouq,-,foe,htgnel-rotcev,ytpme,fi,adbmal,fer-rotcev,liat,!tes,lobmys-denretninu>-gnirts,tsil>-rotcev,rahcteg_,?gnirts,!tes-2dleif_,enilwen,?rotcev,!rac-tes,?erudecorp,ton,qssa,lave,rebmun>-gnirts,lobmys>-gnirts,!tes-1dleif_,elipmoc,rotcev>-tsil,poon-neg,cossa,gnirts>-tsil,ngissa-neg,xua-rebmun>-gnirts,lper,xua-rahc-daer,tsil-daer,xua-esrever,tneitouq_,rdddac,tnemmoc-piks,?tcejbo-foe,gnirts>-lobmys,tsil-etirw,rebmun-etirw,fer-tsil,xua-lobmys>-gnirts,!tes-tsil,llac-pmoc,srahc-etirw,rahc-keep,?lobmys,liat-tsil,dnetxe,*_,erudecorp-ekam,?llun,lobmys-daer,?pmulc_,ecapsetihw-non-rahc-keep,tsil>-gnirts,esolc_,daer,etirw,?ecnatsni,pukool,?lauqe,+_,llac-neg,!tes-0dleif_,2rahctup,htgnel,2dleif_,rddac,-_,rdac,<_,pmoc,rahctup_,rahc-daer,?riap,=,1dleif_,0dleif_,rac,snoc,evitimirp,?vqe_,rdc,1gra_,ytitnedi_,pmulc_,lin_,eurt_,eslaf_,lbtmys_;92k]292k@ZCk@YClZ=l^(i$~Z+l^YDk@SmvCvR3y]=7$kZ9l^z]98Kmi&>LnjJai&kkz]J>kw(k!M(_-mYMmaAl_El^~Il^{!A(^8AnVlbAl`^(`~B_El_~Il_|]$'Umc``o8>ma^~i$'Umc``o8>ma^~HmElYFlZ*l_vS&~YOl^YAnkcaAl_El^AlaEl`5nZ$ndAlbDmai$El`^~Il_|]7'`ko8:^~i$'`ko8:^~i$'`ko8:^~Bw)G^~BlF^~YH^z]4'Z7la_m{!>'a_l'k_k~BjJ_{!5'b`o9$nDmDmRlbea_`Al`'UmewE'd~YJlbYKmi&>LnjJPleYMmDmDmfi$i$akRl_oNl`~BxL^5n>LngZ-lecLnfPldbpNla_~BxM^5nZ4mdYAnlbNlbPla_~BwS6^9$nDmDmRlbea_`Al`'UmewE'd~YJlbYKmi&>LnjJPleYMmDmDmfi$i$akRl_oNl`~BxL^5n>LngZ-lecLnfPldbpNla_~BxM^5nZ4mdYAnlbNlbPla_~i%~BxI^'cNlao~BwS1^El_~Il_'bYAnk``n~YOl_|!<4_@K^{]C4uy](4^4^@Z(l_~M`kVOYLu``vR%Z.u^z]#(i$9#lAl^@KEl^~Il^z])(i$(i$9)lAl^@YClEl^~Il^@KvC~Il^z!C9(l^4vS*@SmvS6vS9@SmvS7vF~Z@l^8ClZGl^@KvF~ZBl^9#lYFlZ*l^~YOl^4vE@Z#lYFl^@KvE~ZEl^4vL@Z)lAl^@YClEl^@KvK~Il^8<mvLvK~YJl^8<mvS;vF~Bi%^8<mvS-vF~Z?l^z],9,k8Gk~Hmu^(^~Mk^Jky!G8Gk@Jk(^9,k~HmvR0^~M_vC88lk~Z+l^YPky!I-mYIk^@Jk(i&~MvD^-mYIk^@Jk(i&~i%~HmvL^-mYIk^@Jk(i&~i%~HmvK^YPky]0-mZ0k^YDk(i&@Jk~HmvL^YGky!D9;l_(^~^Z<l^Z5lDmYIk^@Jk-mDmi&YDkwS1@Jk~HmvJ^98lYDk(i%@Jk~HmvS;^(i$@Jk~HmvS-^YPk@Jk~HmvF^90k@Jk~HmvK^(^~Mk^YGky!P(^@T_iS)Jky]1(^@TjNiS)(^~HmjP^@T_iS)z!391l^91lZF~HmjN^(^~HmjP^FiS)y!S)>kkjN]NOmk]++jP^z]POlk!S(7&lYE(_@ZDQc^@TFc^GGYEi$zGGYEi$z]/(_9/mDmaEl_Al^~Il^{!S29/mi&^z]6(i$96mAla_(^~WmEl__El_~Il_{]>(i$9>mAla_(^~BEl__El_~Il_{!;(k8?RlAl_l~Il^z!N(^8NmOl`Al^~M`k{]%9AmaYNm`^|]'.lYNm`^{!@(i$(i$(i$(i$8@mQ`Q^~WmG`G^~WmF`F^~YH_~YH^(i%~B`^{]&(^!#>ki#^ZHl^9&mGa_(^~Wm`G^F_~Il_{];9&mi#^z]3(_(i$(i$93mVOvR%`YLbuAl_~MvR/^~M_vR$El^~Il^{]<93mkYFl^z!S$9.`^{!S/8L`^{!S#88`^{!S-8?`^{!S'6`^{!1+`^{!S8+`^{!J+i&^z!S48=`^{!S./^z]*0^z]H'o_i$z!OYBlo!S*9%nb`F^|!S79'm`F^{!S50^z!F/^z]5'nRl_^z]EYBln!S39%nb`F^|]K9'm`F^{]O0^z]G/^z]8'mRl_^z]BYBlm!S+0^z!S&/^z!K'l`^{]@YBll]?+i$^z]-89lAl^z!987lAl^z!S0*lAl^z!7.lAl^z!S%9:`^{]A8=`^{!*0^z!./^z!-'k`^{!2YBlk!B8E(i$+bQ^~YH^zz!4Clv6]FClv5].Clv4!LClv3!8Clv2!?Clv1!6Clv0!+Clv/]DClv.]:Clu!=Clt!:Cls!0Clr!/Clq!HClp!EClo!S,Cln!)Clm!(Cll!,'lk^zy"
+const Input = "Bfer-gnirts,htgnel-gnirts,fi,!rdc-tes,!tes-gnirts,esrever,enifed,!tes-rotcev,=,cc/llac,!tes,adbmal,rddc,fer-rotcev,htgnel-rotcev,etouq,lobmys>-gnirts,cossa,gnirts>-lobmys,gnirts>-tsil,?erudecorp,?rotcev,!rac-tes,qssa,tneitouq,?gnirts,enilwen,ton,rebmun>-gnirts,lave,fer-tsil,rdddac,*,?tcejbo-foe,?lobmys,rahc-keep,?llun,liat-tsil,tsil>-gnirts,daer,+,etirw,,,,?lauqe,htgnel,,,-,,rddac,rdac,<,,,,,rahc-daer,?riap,rac,,rdc,snoc,,?vqe,,,,,,;9I]I9I?YP?YAYM^'i$~YI^YC?OvCvR3y!M7#YS&^z!S&9Ai&:IiS,ai&kkz!S,:kw'k]@'_+Z@aC_E^~F^{!>'^8>YBlbC`^'`~@_E_~F_|]C9B`^Uka_CaE`2ZCdCbBai$E`^~F_|!S(#`kn4^~i$#`kn4^~i$#`kn4^~i$#`kn4^~QK^~@w(D^~@kJ^~Q^z]G#YS(a_l{]B#a_k#k_k~@iS,_{!2#b`n9CBd`Ca_#ZBex>#d~YFbZAi&:IiS,NeZ@BBfi$i$akS_nM`~@x1^2:IgYKecIfNdboMa_~@x:^2ZGdUlbMbNa_~@x6^9CBd`Ca_#ZBex>#d~YFbZAi&:IiS,NeZ@BBfi$i$akS_nM`~@x1^2:IgYKecIfNdboMa_~@x:^2ZGdUlbMbNa_~i%~@x2^#cMan~@x-^E_~F_#bUk``m~YH_|!81_?H^{!P1uy]H1^1^?ZH_~L`kYBPYJu``vR%Z$u^z]?'i$9?C^?HE^~F^z]E'i$'i$9EC^?YAE^~F^?HvC~F^z!A9H^1vS*?OvS6vS9?OvS7vF~Z(^8AYS'^?HvF~Z'^9?YDZ*^~YH^1vE?Z?YD^?HvE~Z#^1vL?ZEC^?YAE^?HvK~F^88vLvK~YF^88vS;vF~@i%^88vS-vF~YO^z]L9L8@~@u^'^~Lk^Gy!@8@?G'^9L~@vR0^~L_vC89lk~YI^YGy!?+V^?G'i&~LvD^+V^?G'i&~i%~@vL^+V^?G'i&~i%~@vK^YGy]J+ZJ^YC'i&?G~@vL^Wy!C9,_'^~^YN^Z)BV^?G+Bi&YCx-?G~@vJ^9PYC'i%?G~@vS;^'i$?G~@vS-^YG?G~@vF^9J?G~@vK^'^~Lk^Wy!G'^?Z=_iS+Gy]F'^?Z=iS*iS+'^~@iS-^?Z=_iS+z!09F^9FZO~@iS*^'^~@iS-^JiS+y!S+:kkiS*!S*Pmk!I)iS-^z!S-Plk]37%Z>'_?YS$Kc^?Z=Jc^DDZ>i$zDDZ>i$z]M'_9MBaE_C^~F^{]79Mi&^z]+'i$9+Ca_'^~TE__E_~F_{]%'i$9%Ca_'^~@E__E_~F_{!<'k8BSC_l~F^z!E'^8EPl`C^~L`k{]K9&aYE`^|!L.YE`^{!='i$'i$'i$'i$8=K`K^~TD`D^~TJ`J^~Q_~Q^'i%~@`^{?YS%ki#!S)Di#]N'^!S)BiS)^YS#^9NDa_'^~T`D^J_~F_{],9NiS)^z]D'_'i$'i$9DYBPvR%`YJbuC_~LvR/^~L_vR$E^~F^{!N9DkYD^z]4i)!F)i&^z]*i-!S##m_i$z!HRm]89Kb`J^|]<8L`J^{];i-!Di3])#nS_^z]#Rn]59Kb`J^|]/8L`J^{].i-!S'i3]P#oS_^z]'Ro]A#l`^{](Rl!O)i$^z!K87D^z!76D^z]0-D^z!63D^z]9iS%]&j=!,i-!.i3!+#k`^{!/Rk!;9>'i$)bK^~Q^zz!1Av6]OAv5]$Av4!JAv3!9Av2!BAv1!5Av0!)Av/!S$Av.!S%Au]=At!4As!-Ar!3Aq!:Ap]>Ao!(Am!'Al!*#lk^zy"
+
+const (
+	InstrCall  = 0
+	InstrSet   = 1
+	InstrGet   = 2
+	InstrConst = 3
+	InstrIf    = 4
+	InstrHalt  = 5
+)
+
+const (
+	PairTag      = 0
+	ClosureTag   = 1
+	SymbolTag    = 2
+	StringTag    = 3
+	SingletonTag = 5
+)
 
 // ===============================================
 // ===============================================
@@ -187,7 +203,7 @@ func push(val Obj) {
 	tos := new(Rib)
 	tos.x = val
 	tos.y = stack
-	tos.z = tagNum(0)
+	tos.z = tagNum(PairTag)
 
 	stack = tos
 }
@@ -223,9 +239,9 @@ func lstLength(lst Obj) Obj {
 }
 
 func createSym(chars Obj) Obj {
-	list := allocRib(chars, lstLength(chars), tagNum(3))
-	sym := allocRib(FALSE, list, tagNum(4))
-	return allocRib(sym, symbolTable, tagNum(0))
+	str := allocRib(chars, lstLength(chars), tagNum(StringTag))
+	sym := allocRib(FALSE, str, tagNum(SymbolTag))
+	return allocRib(sym, symbolTable, tagNum(PairTag))
 }
 
 func listTail(list, i Obj) Obj {
@@ -283,7 +299,7 @@ func buildSymTable() {
 			break
 		}
 
-		accum = allocRib(tagNum(c), accum, tagNum(0))
+		accum = allocRib(tagNum(c), accum, tagNum(PairTag))
 	}
 
 	symbolTable = createSym(accum)
@@ -312,10 +328,11 @@ func decode() {
 		}
 
 		if x > 90 {
+			op = InstrIf
 			n = pop()
 		} else {
 			if op == 0 {
-				stack = allocRib(tagNum(0), stack, tagNum(0))
+				stack = allocRib(tagNum(0), stack, tagNum(PairTag))
 			}
 
 			if n.Value() >= d {
@@ -332,12 +349,16 @@ func decode() {
 
 			if op > 4 {
 				inner := allocRib(n, tagNum(0), pop())
-				n = allocRib(inner, NIL, tagNum(1))
+				n = allocRib(inner, NIL, tagNum(ClosureTag))
 
 				if stack == nil || (stack.Number() && stack.Value() == 0) {
 					break
 				}
-				op = 4
+				op = InstrConst
+			} else if op > 0 {
+				op--
+			} else {
+				op = 0
 			}
 		}
 
@@ -357,18 +378,18 @@ func initConstantRibs() {
 		return cl
 	}
 
-	TRUE = init(0, 0, 6)
-	FALSE = init(0, 0, 5)
-	NIL = init(0, 0, 7)
+	TRUE = init(0, 0, SingletonTag)
+	FALSE = init(0, 0, SingletonTag)
+	NIL = init(0, 0, SingletonTag)
 }
 
 func setupStack() {
 	stack = allocRib(
 		tagNum(0),
 		tagNum(0),
-		allocRib(tagNum(HaltVmCode),
+		allocRib(tagNum(InstrHalt),
 			tagNum(0),
-			tagNum(0)))
+			tagNum(PairTag)))
 
 }
 
@@ -422,7 +443,7 @@ func prim(primNo int) {
 	case 4:
 		x := stack.Field0().Field0()
 		y := stack.Field1()
-		z := tagNum(1)
+		z := tagNum(ClosureTag)
 		stack.Field0Set(allocRib(x, y, z))
 	case 5:
 		doPrim1(func(x Obj) Obj {
@@ -522,12 +543,11 @@ func run() {
 	for {
 		instr := pc.Field0().Value()
 		operand := pc.Field1()
+		next := pc.Field2()
 
 		switch instr {
-		case 0: // jump
-			fallthrough
-		case 1: // call
-			call := 1 == instr
+		case InstrCall: // call
+			call := next.Rib()
 			if DebugICall {
 				if call {
 					fmt.Println("--- call")
@@ -553,17 +573,14 @@ func run() {
 					fmt.Printf("Calling a symbol\n")
 				}
 
-				newCont := stack
-				argC := pop().Value()
+				argC := code.Field0().Value()
 
-				newCont.Field1Set(proc)
-
-				c2 := allocRib(tagNum(0), proc, tagNum(0))
+				c2 := allocRib(tagNum(0), proc, tagNum(PairTag))
 				s2 := c2
 
 				for argC > 0 {
 					argC--
-					s2 = allocRib(pop(), s2, tagNum(0))
+					s2 = allocRib(pop(), s2, tagNum(PairTag))
 				}
 
 				if call {
@@ -579,7 +596,7 @@ func run() {
 			}
 
 			pc = code.Field2()
-		case 2: // set
+		case InstrSet: // set
 			if DebugICall {
 				fmt.Println("--- set")
 			}
@@ -591,19 +608,19 @@ func run() {
 				pc.Field1().Field0Set(x)
 			}
 			pc = pc.Field2()
-		case 3: // get
+		case InstrGet: // get
 			if DebugICall {
 				fmt.Println("--- get")
 			}
 			push(getOperand(pc.Field1()))
 			pc = pc.Field2()
-		case 4: // const
+		case InstrConst: // const
 			if DebugICall {
 				fmt.Println("--- const")
 			}
 			push(pc.Field1())
 			pc = pc.Field2()
-		case 5: // if
+		case InstrIf: // if
 			if DebugICall {
 				fmt.Println("--- if")
 			}
@@ -617,7 +634,7 @@ func run() {
 		default:
 			fmt.Printf("Unknown instruction: %d\n", instr)
 			fallthrough
-		case HaltVmCode:
+		case InstrHalt:
 			fmt.Println("Bye bye!")
 			os.Exit(0)
 		}
@@ -629,11 +646,10 @@ func initVm() {
 	buildSymTable()
 	decode()
 
-	setGlobal(symbolTable)
+	setGlobal(allocRib(tagNum(0), symbolTable, tagNum(ClosureTag)))
 	setGlobal(FALSE)
 	setGlobal(TRUE)
 	setGlobal(NIL)
-	setGlobal(allocRib(tagNum(0), tagNum(0), tagNum(1)))
 
 	setupStack()
 
