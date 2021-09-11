@@ -1,6 +1,5 @@
 // debug instruction calls?
 
-#define DEBUG_I_CALL
 #ifdef DEBUG_I_CALL
 #define DEBUG
 #endif
@@ -96,10 +95,7 @@ typedef struct {
 #define CLOSURE_TAG TAG_NUM(1)
 #define SYMBOL_TAG TAG_NUM(2)
 #define STRING_TAG TAG_NUM(3)
-#define SYMBOL_VECTOR TAG_NUM(4)
-#define FALSE_TAG TAG_NUM(5)
-#define TRUE_TAG TAG_NUM(5)
-#define NIL_TAG TAG_NUM(5)
+#define SINGLETON_TAG TAG_NUM(5)
 
 // the only three roots allowed
 obj stack = NUM_0;
@@ -549,7 +545,7 @@ void run() {
         }
         pc = TAG(pc);
       } else {
-        num argc = CAR(code);
+        num argc = NUM(CAR(code));
         // Use the car of the PC to save the new PC
         CAR(pc) = CAR(get_opnd(CDR(pc)));
 
@@ -723,10 +719,14 @@ void decode() {
           break;
         }
         op = INSTR_CONST;
+      } else if(op > 0) {
+          op --;
+      } else {
+          op = 0;
       }
     }
 
-    rib *c = alloc_rib(TAG_NUM(op > 0 ? op - 1 : 0), n, 0);
+    rib *c = alloc_rib(TAG_NUM(op), n, 0);
     c->fields[2] = TOS;
     TOS = TAG_RIB(c);
   }
@@ -756,8 +756,9 @@ void init() {
   init_heap();
 
   FALSE =
-      TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, TRUE_TAG)),
-                        TAG_RIB(alloc_rib(NUM_0, NUM_0, NIL_TAG)), FALSE_TAG));
+      TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),
+                        TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),
+                        SINGLETON_TAG));
 
   build_sym_table();
   decode();
