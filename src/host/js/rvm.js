@@ -28,7 +28,7 @@ if (nodejs) { // in nodejs? /*node*/
 
   sym2str = (s) => chars2str(s[1][0]); /*node*/ /*debug*/
   chars2str = (s) => (s===NIL) ? "" : (String.fromCharCode(s[0])+chars2str(s[1])); /*node*/ /*debug*/
-  show_opnd = (o) => is_num(o) ? "int " + o : "sym " + sym2str(o); /*node*/ /*debug*/
+  show_opnd = (o) => is_rib(o) ? "sym " + sym2str(o) : "int " + o; /*node*/ /*debug*/
   show_stack = () => { /*node*/ /*debug*/
     let s = stack; /*node*/ /*debug*/
     let r = []; /*node*/ /*debug*/
@@ -73,7 +73,7 @@ get_byte = () => input[pos++].charCodeAt(0);
 FALSE = [0,0,5]; TRUE = [0,0,5]; NIL = [0,0,5];
 
 boolean = (x) => x ? TRUE : FALSE;
-is_num = (x) => typeof x == "number";
+is_rib = (x) => x.length;
 
 stack = 0;
 
@@ -90,7 +90,7 @@ primitives = [
   () => { pop(); return true; },
   () => { let x = pop(); pop(); return push(x); },
   () => { let x = pop(); return push([x[0],stack,1]); },
-  prim1((x) => boolean(!is_num(x))),
+  prim1((x) => boolean(is_rib(x))),
   prim1((x) => x[0]),
   prim1((x) => x[1]),
   prim1((x) => x[2]),
@@ -149,15 +149,15 @@ while (1) {
       op=4;
     }
   }
-    stack[0] = [op?op-1:0,n,stack[0]];
+  stack[0] = [op?op-1:0,n,stack[0]];
 }
 
 pc = n[0][2];
 
-get_opnd = (o) => (is_num(o) ? list_tail(stack,o) : o)[0];
+get_opnd = (o) => is_rib(o) ? o : list_tail(stack,o);
 get_cont = () => { let s = stack; while (!s[2]) s = s[1]; return s; };
 
-set_global = (val) => { symtbl[0][0] = val; symtbl = symtbl[1]; };
+set_global = (x) => { symtbl[0][0] = x; symtbl = symtbl[1]; };
 
 set_global([0,symtbl,1]); // primitive 0
 set_global(FALSE);
@@ -172,19 +172,9 @@ run = () => {
     switch (pc[0]) {
     case 0: // jump/call
         if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } /*debug*/
-        o = get_opnd(o);
+        o = get_opnd(o)[0];
         let c = o[0];
-        if (is_num(c)) {
-            if (!primitives[c]()) return;
-            if (pc[2]===0) {
-                // jump
-                c = get_cont();
-                stack[1] = c[0];
-            } else {
-                // call
-                c = pc;
-            }
-        } else {
+        if (is_rib(c)) {
             let c2 = [0,o,0];
             let s2 = c2;
             let nargs = c[0];
@@ -200,17 +190,27 @@ run = () => {
                 c2[2] = pc[2];
             }
             stack = s2;
+        } else {
+            if (!primitives[c]()) return;
+            if (pc[2]===0) {
+                // jump
+                c = get_cont();
+                stack[1] = c[0];
+            } else {
+                // call
+                c = pc;
+            }
         }
         pc = c[2];
         break;
     case 1: // set
         if (debug) { console.log("--- set " + show_opnd(o)); show_stack(); } /*debug*/
-        (is_num(o) ? list_tail(stack,o) : o)[0] = pop();
+        get_opnd(o)[0] = pop();
         pc = pc[2];
         break;
     case 2: // get
         if (debug) { console.log("--- get " + show_opnd(o)); show_stack(); } /*debug*/
-        push(get_opnd(o));
+        push(get_opnd(o)[0]);
         pc = pc[2];
         break;
     case 3: // const

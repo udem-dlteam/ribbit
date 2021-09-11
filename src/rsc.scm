@@ -39,7 +39,7 @@
 
 ;;;----------------------------------------------------------------------------
 
-;; The compiler from SScheme to RVM code.
+;; The compiler from Ribbit Scheme to RVM code.
 
 (define (make-ctx cte live exports) (rib cte (list live) exports))
 
@@ -826,7 +826,7 @@
 (define (string-from-file path)
   (call-with-input-file path (lambda (port) (read-line port #f))))
 
-(define (ssc-main src-path output-path target input-path verbosity)
+(define (rsc-main src-path output-path target input-path verbosity)
   (let* ((lib (read-from-file (path-expand "lib.scm" (root-dir))))
          (program (append lib (read-from-file src-path))))
     (let ((prog-exports (comp-program program)))
@@ -844,31 +844,47 @@
 ;;            (println "*** RVM code encoding length: " (string-length encoded-program))
 ;;            (pp encoded-program)
 ;;            (exit)
-            (let ((vm-source
-                   (string-from-file
-                    (string-append "host/" target "/rvm." target)))
-                  (input
-                   (string-append encoded-program
-                                  (if input-path
-                                      (string-from-file input-path)
-                                      ""))))
+            (let* ((vm-source
+                    (string-from-file
+                     (path-expand (string-append "host/" target "/rvm." target)
+                                  (root-dir))))
+                   (input
+                    (string-append encoded-program
+                                   (if input-path
+                                       (string-from-file input-path)
+                                       "")))
+                   (output
+                    (with-output-to-string
+                      (lambda ()
+                        (cond ((equal? target "scm")
+                               (write `(define input ,input))
+                               (newline))
+                              (else
+                               (cond ((equal? target "c")
+                                      (display "char *")))
+                               (display "input = ")
+                               (write input)
+                               (cond ((not (equal? target "py"))
+                                      (display ";")))
+                               (newline)))
+                        (display vm-source))))
+                   (minified-output
+                    (let ((port (open-process
+                                 (list path:
+                                       (path-expand
+                                        (string-append "host/" target "/minify")
+                                        (root-dir))))))
+                      (display output port)
+                      (close-output-port port)
+                      (let ((out (read-line port #f)))
+                        (close-port port)
+                        out))))
               (if (>= verbosity 1)
                   (println "*** RVM code length: " (string-length input) " bytes"))
               (with-output-to-file
                   output-path
                 (lambda ()
-                  (cond ((equal? target "scm")
-                         (write `(define input ,input))
-                         (newline))
-                        (else
-                         (cond ((equal? target "c")
-                                (display "char *")))
-                         (display "input = ")
-                         (write input)
-                         (cond ((not (equal? target "py"))
-                                (display ";")))
-                         (newline)))
-                  (display vm-source))))))))))
+                  (display minified-output))))))))))
 
 (define (root-dir)
   (path-directory (or (script-file) (executable-path))))
@@ -916,7 +932,7 @@
         (begin
           (println "*** a Scheme source file must be specified")
           (exit 1))
-        (ssc-main src-path
+        (rsc-main src-path
                   (or output-path
                       (string-append src-path "." target))
                   target
