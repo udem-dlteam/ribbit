@@ -4,6 +4,7 @@
 #define DEBUG
 #endif
 
+
 #ifdef DEBUG
 
 #include <stdio.h>
@@ -26,53 +27,8 @@
 #pragma clang diagnostic ignored "-Wunknown-pragmas"
 #pragma ide diagnostic ignored "ConstantFunctionResult"
 
-int input_len = 2941;
-char *input =
-    "#?vqe,fer-gnirts,enifed,htgnel-gnirts,!tes-rav-labolg,!tes-rotcev,esrever,"
-    "etouq,rddc,*,fer-rav-labolg,+,2gra_,vne-erudecorp,!tes-gnirts,reffub,cc/"
-    "llac,<,edoc-erudecorp,!rdc-tes,tneitouq,-,foe,htgnel-rotcev,ytpme,fi,"
-    "adbmal,fer-rotcev,liat,!tes,lobmys-denretninu>-gnirts,tsil>-rotcev,"
-    "rahcteg_,?gnirts,!tes-2dleif_,enilwen,?rotcev,!rac-tes,?erudecorp,ton,"
-    "qssa,lave,rebmun>-gnirts,lobmys>-gnirts,!tes-1dleif_,elipmoc,rotcev>-tsil,"
-    "poon-neg,cossa,gnirts>-tsil,ngissa-neg,xua-rebmun>-gnirts,lper,xua-rahc-"
-    "daer,tsil-daer,xua-esrever,tneitouq_,rdddac,tnemmoc-piks,?tcejbo-foe,"
-    "gnirts>-lobmys,tsil-etirw,rebmun-etirw,fer-tsil,xua-lobmys>-gnirts,!tes-"
-    "tsil,llac-pmoc,srahc-etirw,rahc-keep,?lobmys,liat-tsil,dnetxe,*_,"
-    "erudecorp-ekam,?llun,lobmys-daer,?pmulc_,ecapsetihw-non-rahc-keep,tsil>-"
-    "gnirts,esolc_,daer,etirw,?ecnatsni,pukool,?lauqe,+_,llac-neg,!tes-0dleif_,"
-    "2rahctup,htgnel,2dleif_,rddac,-_,rdac,<_,pmoc,rahctup_,rahc-daer,?riap,=,"
-    "1dleif_,0dleif_,rac,snoc,evitimirp,?vqe_,rdc,1gra_,ytitnedi_,pmulc_,lin_,"
-    "eurt_,eslaf_,lbtmys_;92k]292k@ZCk@YClZ=l^(i$~Z+l^YDk@SmvCvR3y]=7$kZ9l^z]"
-    "98Kmi&>LnjJai&kkz]J>kw(k!M(_-mYMmaAl_El^~Il^{!A(^8AnVlbAl`^(`~B_El_~Il_|]$"
-    "'Umc``o8>ma^~i$'Umc``o8>ma^~HmElYFlZ*l_vS&~YOl^YAnkcaAl_El^AlaEl`5nZ$"
-    "ndAlbDmai$El`^~Il_|]7'`ko8:^~i$'`ko8:^~i$'`ko8:^~Bw)G^~BlF^~YH^z]4'Z7la_m{"
-    "!>'a_l'k_k~BjJ_{!5'b`o9$nDmDmRlbea_`Al`'UmewE'd~YJlbYKmi&>"
-    "LnjJPleYMmDmDmfi$i$akRl_oNl`~BxL^5n>LngZ-lecLnfPldbpNla_~BxM^"
-    "5nZ4mdYAnlbNlbPla_~BwS6^9$nDmDmRlbea_`Al`'UmewE'd~YJlbYKmi&>"
-    "LnjJPleYMmDmDmfi$i$akRl_oNl`~BxL^5n>LngZ-lecLnfPldbpNla_~BxM^"
-    "5nZ4mdYAnlbNlbPla_~i%~BxI^'cNlao~BwS1^El_~Il_'bYAnk``n~YOl_|!<4_@K^{]C4uy]"
-    "(4^4^@Z(l_~M`kVOYLu``vR%Z.u^z]#(i$9#lAl^@KEl^~Il^z])(i$(i$9)lAl^@YClEl^~"
-    "Il^@KvC~Il^z!C9(l^4vS*@SmvS6vS9@SmvS7vF~Z@l^8ClZGl^@KvF~ZBl^9#lYFlZ*l^~"
-    "YOl^4vE@Z#lYFl^@KvE~ZEl^4vL@Z)lAl^@YClEl^@KvK~Il^8<mvLvK~YJl^8<mvS;vF~Bi%^"
-    "8<mvS-vF~Z?l^z],9,k8Gk~Hmu^(^~Mk^Jky!G8Gk@Jk(^9,k~HmvR0^~M_vC88lk~Z+l^"
-    "YPky!I-mYIk^@Jk(i&~MvD^-mYIk^@Jk(i&~i%~HmvL^-mYIk^@Jk(i&~i%~HmvK^YPky]0-"
-    "mZ0k^YDk(i&@Jk~HmvL^YGky!D9;l_(^~^Z<l^Z5lDmYIk^@Jk-mDmi&YDkwS1@Jk~HmvJ^"
-    "98lYDk(i%@Jk~HmvS;^(i$@Jk~HmvS-^YPk@Jk~HmvF^90k@Jk~HmvK^(^~Mk^YGky!P(^@T_"
-    "iS)Jky]1(^@TjNiS)(^~HmjP^@T_iS)z!391l^91lZF~HmjN^(^~HmjP^FiS)y!S)>kkjN]"
-    "NOmk]++jP^z]POlk!S(7&lYE(_@ZDQc^@TFc^GGYEi$zGGYEi$z]/(_9/"
-    "mDmaEl_Al^~Il^{!S29/"
-    "mi&^z]6(i$96mAla_(^~WmEl__El_~Il_{]>(i$9>mAla_(^~BEl__El_~Il_{!;(k8?RlAl_"
-    "l~Il^z!N(^8NmOl`Al^~M`k{]%9AmaYNm`^|]'.lYNm`^{!@(i$(i$(i$(i$8@mQ`Q^~WmG`G^"
-    "~WmF`F^~YH_~YH^(i%~B`^{]&(^!#>ki#^ZHl^9&mGa_(^~Wm`G^F_~Il_{];9&mi#^z]3(_("
-    "i$(i$93mVOvR%`YLbuAl_~MvR/^~M_vR$El^~Il^{]<93mkYFl^z!S$9.`^{!S/"
-    "8L`^{!S#88`^{!S-8?`^{!S'6`^{!1+`^{!S8+`^{!J+i&^z!S48=`^{!S./"
-    "^z]*0^z]H'o_i$z!OYBlo!S*9%nb`F^|!S79'm`F^{!S50^z!F/"
-    "^z]5'nRl_^z]EYBln!S39%nb`F^|]K9'm`F^{]O0^z]G/^z]8'mRl_^z]BYBlm!S+0^z!S&/"
-    "^z!K'l`^{]@YBll]?+i$^z]-89lAl^z!987lAl^z!S0*lAl^z!7.lAl^z!S%9:`^{]A8=`^{!*"
-    "0^z!./"
-    "^z!-'k`^{!2YBlk!B8E(i$+bQ^~YH^zz!4Clv6]FClv5].Clv4!LClv3!8Clv2!?Clv1!"
-    "6Clv0!+Clv/]DClv.]:Clu!=Clt!:Cls!0Clr!/"
-    "Clq!HClp!EClo!S,Cln!)Clm!(Cll!,'lk^zy";
+int input_len = 1980;
+char *input = "Bfer-gnirts,htgnel-gnirts,fi,!rdc-tes,!tes-gnirts,esrever,enifed,!tes-rotcev,=,cc/llac,!tes,adbmal,rddc,fer-rotcev,htgnel-rotcev,etouq,lobmys>-gnirts,cossa,gnirts>-lobmys,gnirts>-tsil,?erudecorp,?rotcev,!rac-tes,qssa,tneitouq,?gnirts,enilwen,ton,rebmun>-gnirts,lave,fer-tsil,rdddac,*,?tcejbo-foe,?lobmys,rahc-keep,?llun,liat-tsil,tsil>-gnirts,daer,+,etirw,,,,?lauqe,htgnel,,,-,,rddac,rdac,<,,,,,rahc-daer,?riap,rac,,rdc,snoc,,?vqe,,,,,,;9I]I9I?YP?YAYM^'i$~YI^YC?OvCvR3y!M7#YS&^z!S&9Ai&:IiS,ai&kkz!S,:kw'k]@'_+Z@aC_E^~F^{!>'^8>YBlbC`^'`~@_E_~F_|]C9B`^Uka_CaE`2ZCdCbBai$E`^~F_|!S(#`kn4^~i$#`kn4^~i$#`kn4^~i$#`kn4^~QK^~@w(D^~@kJ^~Q^z]G#YS(a_l{]B#a_k#k_k~@iS,_{!2#b`n9CBd`Ca_#ZBex>#d~YFbZAi&:IiS,NeZ@BBfi$i$akS_nM`~@x1^2:IgYKecIfNdboMa_~@x:^2ZGdUlbMbNa_~@x6^9CBd`Ca_#ZBex>#d~YFbZAi&:IiS,NeZ@BBfi$i$akS_nM`~@x1^2:IgYKecIfNdboMa_~@x:^2ZGdUlbMbNa_~i%~@x2^#cMan~@x-^E_~F_#bUk``m~YH_|!81_?H^{!P1uy]H1^1^?ZH_~L`kYBPYJu``vR%Z$u^z]?'i$9?C^?HE^~F^z]E'i$'i$9EC^?YAE^~F^?HvC~F^z!A9H^1vS*?OvS6vS9?OvS7vF~Z(^8AYS'^?HvF~Z'^9?YDZ*^~YH^1vE?Z?YD^?HvE~Z#^1vL?ZEC^?YAE^?HvK~F^88vLvK~YF^88vS;vF~@i%^88vS-vF~YO^z]L9L8@~@u^'^~Lk^Gy!@8@?G'^9L~@vR0^~L_vC89lk~YI^YGy!?+V^?G'i&~LvD^+V^?G'i&~i%~@vL^+V^?G'i&~i%~@vK^YGy]J+ZJ^YC'i&?G~@vL^Wy!C9,_'^~^YN^Z)BV^?G+Bi&YCx-?G~@vJ^9PYC'i%?G~@vS;^'i$?G~@vS-^YG?G~@vF^9J?G~@vK^'^~Lk^Wy!G'^?Z=_iS+Gy]F'^?Z=iS*iS+'^~@iS-^?Z=_iS+z!09F^9FZO~@iS*^'^~@iS-^JiS+y!S+:kkiS*!S*Pmk!I)iS-^z!S-Plk]37%Z>'_?YS$Kc^?Z=Jc^DDZ>i$zDDZ>i$z]M'_9MBaE_C^~F^{]79Mi&^z]+'i$9+Ca_'^~TE__E_~F_{]%'i$9%Ca_'^~@E__E_~F_{!<'k8BSC_l~F^z!E'^8EPl`C^~L`k{]K9&aYE`^|!L.YE`^{!='i$'i$'i$'i$8=K`K^~TD`D^~TJ`J^~Q_~Q^'i%~@`^{?YS%ki#!S)Di#]N'^!S)BiS)^YS#^9NDa_'^~T`D^J_~F_{],9NiS)^z]D'_'i$'i$9DYBPvR%`YJbuC_~LvR/^~L_vR$E^~F^{!N9DkYD^z]4i)!F)i&^z]*i-!S##m_i$z!HRm]89Kb`J^|]<8L`J^{];i-!Di3])#nS_^z]#Rn]59Kb`J^|]/8L`J^{].i-!S'i3]P#oS_^z]'Ro]A#l`^{](Rl!O)i$^z!K87D^z!76D^z]0-D^z!63D^z]9iS%]&j=!,i-!.i3!+#k`^{!/Rk!;9>'i$)bK^~Q^zz!1Av6]OAv5]$Av4!JAv3!9Av2!BAv1!5Av0!)Av/!S$Av.!S%Au]=At!4As!-Ar!3Aq!:Ap]>Ao!(Am!'Al!*#lk^zy";
 
 #ifndef NULL
 
@@ -105,8 +61,6 @@ typedef struct {
 #define EXIT_ILLEGAL_INSTR 6
 #define EXIT_NO_MEMORY 7
 
-#define VM_HALT 6
-
 #define UNTAG(x) ((x) >> 1)
 #define RIB(x) ((rib *)(x))
 #define NUM(x) ((num)(UNTAG((num)(x))))
@@ -129,6 +83,19 @@ typedef struct {
 #define TOS CAR(stack)
 
 #define NUM_0 (TAG_NUM(0))
+
+#define INSTR_AP 0
+#define INSTR_SET 1
+#define INSTR_GET 2
+#define INSTR_CONST 3
+#define INSTR_IF 4
+#define INSTR_HALT 5
+
+#define PAIR_TAG TAG_NUM(0)
+#define CLOSURE_TAG TAG_NUM(1)
+#define SYMBOL_TAG TAG_NUM(2)
+#define STRING_TAG TAG_NUM(3)
+#define SINGLETON_TAG TAG_NUM(5)
 
 // the only three roots allowed
 obj stack = NUM_0;
@@ -161,7 +128,11 @@ rib *heap_start;
   } while (0)
 #endif
 
+#ifdef NO_STD
 register obj *alloc asm("edi");
+#else
+obj *alloc;
+#endif
 obj *alloc_limit;
 obj *scan;
 
@@ -399,12 +370,12 @@ void prim(int no) {
     CAR(clmp) = x;
     CDR(clmp) = y;
     TAG(clmp) = z;
-    push2(clmp, NUM_0);
+    push2(clmp, PAIR_TAG);
     break;
   }
   case 1: { // id
     PRIM1();
-    push2(x, NUM_0);
+    push2(x, PAIR_TAG);
     break;
   }
   case 2: { // pop
@@ -415,86 +386,83 @@ void prim(int no) {
   case 3: { // skip
     obj x = pop();
     pop();
-    push2(x, NUM_0);
+    push2(x, PAIR_TAG);
     break;
   }
-  case 4: { // unk
+  case 4: { // close
     obj x = CAR(TOS);
     obj y = CDR(stack);
-    TOS = TAG_RIB(alloc_rib(x, y, TAG_NUM(1)));
+    TOS = TAG_RIB(alloc_rib(x, y, CLOSURE_TAG));
     break;
   }
   case 5: { // is rib?
     PRIM1();
-    push2(boolean(IS_RIB(x)), NUM_0);
+    push2(boolean(IS_RIB(x)), PAIR_TAG);
     break;
   }
   case 6: { // field0
     PRIM1();
-    push2(CAR(x), NUM_0);
+    push2(CAR(x), PAIR_TAG);
     break;
   }
   case 7: { // field1
     PRIM1();
-    push2(CDR(x), NUM_0);
+    push2(CDR(x), PAIR_TAG);
     break;
   }
   case 8: { // field2
     PRIM1();
-    push2(TAG(x), NUM_0);
+    push2(TAG(x), PAIR_TAG);
     break;
   }
   case 9: { // set field0
     PRIM2();
-    push2(CAR(x) = y, NUM_0);
+    push2(CAR(x) = y, PAIR_TAG);
     break;
   }
   case 10: { // set field1
     PRIM2();
-    push2(CDR(x) = y, NUM_0);
+    push2(CDR(x) = y, PAIR_TAG);
     break;
   }
   case 11: { // set field2
     PRIM2();
-    push2(TAG(x) = y, NUM_0);
+    push2(TAG(x) = y, PAIR_TAG);
     break;
   }
   case 12: { // eq
     PRIM2();
-    push2(boolean(x == y), NUM_0);
+    push2(boolean(x == y), PAIR_TAG);
     break;
   }
   case 13: { // lt
     PRIM2();
-    push2(boolean(x < y), NUM_0);
+    push2(boolean(x < y), PAIR_TAG);
     break;
   }
   case 14: { // add
     PRIM2();
-    push2(x + y - 1, NUM_0);
+    push2(x + y - 1, PAIR_TAG);
     break;
   }
   case 15: { // sub
     PRIM2();
-    push2(x - y + 1, NUM_0);
+    push2(x - y + 1, PAIR_TAG);
     break;
   }
   case 16: { // mul
     PRIM2();
-    push2(TAG_NUM((NUM(x) * NUM(y))), NUM_0);
+    push2(TAG_NUM((NUM(x) * NUM(y))), PAIR_TAG);
     break;
   }
   case 17: { // div
     PRIM2();
-    push2(TAG_NUM((NUM(x) / NUM(y))), NUM_0);
+    push2(TAG_NUM((NUM(x) / NUM(y))), PAIR_TAG);
     break;
   }
   case 18: { // getc
     int read;
 #ifdef NO_STD
-    if (pos < input_len) {
-      read = (int)get_byte();
-    } else {
       asm volatile("push %%eax\n"
                    "mov $0x03, %%eax\n"    // sys_call
                    "mov $0, %%ebx\n"       // fd
@@ -506,11 +474,10 @@ void prim(int no) {
                    :
                    : "ebx", "ecx", "edx", "esi", "edi");
       read &= 0xFF;
-    }
 #else
-    read = pos < input_len ? get_byte() : getchar();
+    read = getchar();
 #endif
-    push2(TAG_NUM(read), NUM_0);
+    push2(TAG_NUM(read), PAIR_TAG);
     break;
   }
   case 19: { // putc
@@ -533,7 +500,7 @@ void prim(int no) {
     putchar((char)NUM(x));
     fflush(stdout);
 #endif
-    push2(x, NUM_0);
+    push2(x, PAIR_TAG);
     break;
   }
   default: {
@@ -555,50 +522,50 @@ void run() {
       vm_exit(EXIT_ILLEGAL_INSTR);
       return;
     }
-    case VM_HALT: { // halt
+    case INSTR_HALT: { // halt
       vm_exit(0);
       return;
     }
-    case 0: // jump
-    case 1: // call
+    case INSTR_AP: // call or jump
     {
+        bool jump = IS_NUM(TAG(pc)) && NUM(TAG(pc)) == 0;
 #ifdef DEBUG_I_CALL
-      printf(instr ? "--- jump " : "--- call ");
-      show_operand(o);
+      printf(jump ? "--- jump " : "--- call ");
       PRINTLN();
 #endif
-#define jump_target CAR(get_opnd(CDR(pc)))
-      bool call = instr;
-      if (IS_NUM(jump_target)) {
-        prim(NUM(jump_target));
+#define proc (get_opnd(CDR(pc)))
+#define code CAR(proc)
+      if (IS_NUM(code)) {
+        prim(NUM(code));
 
-        if (!instr) {
+        if (jump) {
           // jump
           pc = get_cont();
           CDR(stack) = CAR(pc);
         }
         pc = TAG(pc);
       } else {
-        num argc = NUM(TOS);
+        num argc = NUM(CAR(code));
         // Use the car of the PC to save the new PC
         CAR(pc) = CAR(get_opnd(CDR(pc)));
 
-        pop();
+//        pop();
 
-        obj s2 = TAG_RIB(alloc_rib(NUM_0, get_opnd(CDR(pc)), NUM_0));
+        obj s2 = TAG_RIB(alloc_rib(NUM_0, proc, PAIR_TAG));
 
         for (int i = 0; i < argc; ++i) {
-          s2 = TAG_RIB(alloc_rib(pop(), s2, NUM_0));
+          s2 = TAG_RIB(alloc_rib(pop(), s2, PAIR_TAG));
         }
 
         obj c2 = TAG_RIB(list_tail(RIB(s2), argc));
-        if (call) {
-          CAR(c2) = stack;
-          TAG(c2) = TAG(pc);
+
+        if (jump) {
+            obj k = get_cont();
+            CAR(c2) = CAR(k);
+            TAG(c2) = TAG(k);
         } else {
-          obj k = get_cont();
-          CAR(c2) = CAR(k);
-          TAG(c2) = TAG(k);
+            CAR(c2) = stack;
+            TAG(c2) = TAG(pc);
         }
 
         stack = s2;
@@ -609,11 +576,11 @@ void run() {
       }
       break;
     }
-#undef jump_target
-    case 2: { // set
+#undef code
+#undef proc
+    case INSTR_SET: { // set
 #ifdef DEBUG_I_CALL
       printf("--- set ");
-      show_operand(o);
       PRINTLN();
 #endif
       obj x = pop();
@@ -622,26 +589,25 @@ void run() {
       ADVANCE_PC();
       break;
     }
-    case 3: { // get
+    case INSTR_GET: { // get
 #ifdef DEBUG_I_CALL
       printf("--- get ");
-      show_operand(o);
       PRINTLN();
 #endif
-      push2(get_opnd(CDR(pc)), NUM_0);
+      push2(get_opnd(CDR(pc)), PAIR_TAG);
       ADVANCE_PC();
       break;
     }
-    case 4: { // const
+    case INSTR_CONST: { // const
 #ifdef DEBUG_I_CALL
       printf("--- const ");
       PRINTLN();
 #endif
-      push2(CDR(pc), NUM_0);
+      push2(CDR(pc), PAIR_TAG);
       ADVANCE_PC();
       break;
     }
-    case 5: { // if
+    case INSTR_IF: { // if
 #ifdef DEBUG_I_CALL
       printf("--- if");
       PRINTLN();
@@ -674,9 +640,9 @@ obj lst_length(obj list) {
 }
 
 rib *create_sym(obj name) {
-  rib *list = alloc_rib(name, lst_length(name), TAG_NUM(3));
-  rib *sym = alloc_rib(FALSE, TAG_RIB(list), TAG_NUM(4));
-  rib *root = alloc_rib(TAG_RIB(sym), symbol_table, NUM_0);
+  rib *list = alloc_rib(name, lst_length(name), STRING_TAG);
+  rib *sym = alloc_rib(FALSE, TAG_RIB(list), SYMBOL_TAG);
+  rib *root = alloc_rib(TAG_RIB(sym), symbol_table, PAIR_TAG);
   return root;
 }
 
@@ -702,7 +668,7 @@ void build_sym_table() {
     if (c == 59)
       break;
 
-    accum = TAG_RIB(alloc_rib(TAG_NUM(c), TAG_RIB(accum), NUM_0));
+    accum = TAG_RIB(alloc_rib(TAG_NUM(c), TAG_RIB(accum), PAIR_TAG));
   }
 
   symbol_table = TAG_RIB(create_sym(accum));
@@ -730,6 +696,7 @@ void decode() {
     }
 
     if (x > 90) {
+      op = INSTR_IF;
       n = pop();
     } else {
       if (!op) {
@@ -747,11 +714,15 @@ void decode() {
 
       if (op > 4) {
         n = TAG_RIB(
-            alloc_rib(TAG_RIB(alloc_rib2(n, NUM_0, pop())), NIL, TAG_NUM(1)));
+            alloc_rib(TAG_RIB(alloc_rib2(n, NUM_0, pop())), NIL, CLOSURE_TAG));
         if (stack == NUM_0 || stack == NULL) {
           break;
         }
-        op = 4;
+        op = INSTR_CONST;
+      } else if(op > 0) {
+          op --;
+      } else {
+          op = 0;
       }
     }
 
@@ -764,16 +735,16 @@ void decode() {
 }
 
 void setup_stack() {
-  push2(NUM_0, NUM_0);
-  push2(NUM_0, NUM_0);
+  push2(NUM_0, PAIR_TAG);
+  push2(NUM_0, PAIR_TAG);
 
   obj first = CDR(stack);
   CDR(stack) = NUM_0;
   TAG(stack) = first;
 
-  CAR(first) = TAG_NUM(VM_HALT);
+  CAR(first) = TAG_NUM(INSTR_HALT);
   CDR(first) = NUM_0;
-  TAG(first) = NUM_0;
+  TAG(first) = PAIR_TAG;
 }
 
 #ifdef NOSTART
@@ -784,19 +755,19 @@ void init() {
 #endif
   init_heap();
 
-  FALSE = TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, TAG_NUM(6))),
-                            TAG_RIB(alloc_rib(NUM_0, NUM_0, TAG_NUM(7))),
-                            TAG_NUM(5)));
+  FALSE =
+      TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),
+                        TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),
+                        SINGLETON_TAG));
 
   build_sym_table();
   decode();
 
-  set_global(symbol_table);
+  set_global(TAG_RIB(alloc_rib(NUM_0, symbol_table, CLOSURE_TAG))); /* primitive 0 */
   set_global(FALSE);
   set_global(TRUE);
   set_global(NIL);
 
-  set_global(TAG_RIB(alloc_rib(NUM_0, NUM_0, TAG_NUM(1)))); /* primitive 0 */
 
   setup_stack();
 
