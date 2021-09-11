@@ -1,4 +1,4 @@
-debug = true; /*debug*/
+debug = false; /*debug*/
 
 nodejs = ((function () { return this !== this.window; })()); /*node*/
 if (nodejs) { // in nodejs? /*node*/
@@ -70,7 +70,7 @@ get_byte = () => input[pos++].charCodeAt(0);
 
 // VM
 
-FALSE = [0,0,5]; TRUE = [0,0,6]; NIL = [0,0,7];
+FALSE = [0,0,5]; TRUE = [0,0,5]; NIL = [0,0,5];
 
 boolean = (x) => x ? TRUE : FALSE;
 is_num = (x) => typeof x == "number";
@@ -113,22 +113,22 @@ list_tail = (x,i) => i ? list_tail(x[1],i-1) : x;
 
 // build the initial symbol table
 
-symbol_table = NIL;
+symtbl = NIL;
 n = get_int(0);
-while (n-- > 0) symbol_table=[[0,[NIL,0,3],4],symbol_table,0];
+while (n-- > 0) symtbl=[[0,[NIL,0,3],2],symtbl,0];
 
 accum = NIL;
 n = 0;
 while (1) {
   c = get_byte();
-  if (c == 44) { symbol_table=[[0,[accum,n,3],4],symbol_table,0]; accum = NIL; n = 0; continue; }
+  if (c == 44) { symtbl=[[0,[accum,n,3],2],symtbl,0]; accum = NIL; n = 0; continue; }
   if (c == 59) break;
   accum = [c,accum,0];
   n++;
 }
 
-symbol_table = [[0,[accum,n,3],4],symbol_table,0];
-symbol_ref = (n) => list_tail(symbol_table,n)[0];
+symtbl = [[0,[accum,n,3],2],symtbl,0];
+symbol_ref = (n) => list_tail(symtbl,n)[0];
 
 // decode the uVM instructions
 
@@ -137,19 +137,19 @@ while (1) {
   n = x;
   d = 0;
   op = -1;
-  while (n>2+(d=[20,30,0,10,11,4][++op])) n -= d+3;
+  while ((d=[20,30,0,10,11,4][++op])+2<n) n -= d+3;
   if (x>90)
     n = pop();
   else {
     if (!op) stack = [0,stack,0];
     n = n>=d ? (n==d ? get_int(0) : symbol_ref(get_int(n-d-1))) : op<3 ? symbol_ref(n) : n;
-    if (op>4) {
-      n = [[n,0,pop()],NIL,1];
+    if (4<op) {
+      n = [[n,0,pop()],0,1];
       if (!stack) break;
       op=4;
     }
   }
-  stack[0] = [op,n,stack[0]];
+    stack[0] = [op?op-1:0,n,stack[0]];
 }
 
 pc = n[0][2];
@@ -157,71 +157,68 @@ pc = n[0][2];
 get_opnd = (o) => (is_num(o) ? list_tail(stack,o) : o)[0];
 get_cont = () => { let s = stack; while (!s[2]) s = s[1]; return s; };
 
-set_global = (val) => { symbol_table[0][0] = val; symbol_table = symbol_table[1]; };
+set_global = (val) => { symtbl[0][0] = val; symtbl = symtbl[1]; };
 
-set_global(symbol_table);
+set_global([0,symtbl,1]); // primitive 0
 set_global(FALSE);
 set_global(TRUE);
 set_global(NIL);
-set_global([0,NIL,1]); // primitive 0
 
-stack = [0,0,[6,0,0]]; // primordial continuation (executes halt instr.)
+stack = [0,0,[5,0,0]]; // primordial continuation (executes halt instr.)
 
 run = () => {
   while (1) {
     let o = pc[1];
-    let i = pc[0];
-    switch (i) {
-    case 0: // jump
-    case 1: // call
-        if (debug) { console.log((i ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } /*debug*/
+    switch (pc[0]) {
+    case 0: // jump/call
+        if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } /*debug*/
         o = get_opnd(o);
         let c = o[0];
         if (is_num(c)) {
             if (!primitives[c]()) return;
-            if (i) {
-                // call
-                c = pc;
-            } else {
+            if (pc[2]===0) {
                 // jump
                 c = get_cont();
                 stack[1] = c[0];
+            } else {
+                // call
+                c = pc;
             }
         } else {
             let c2 = [0,o,0];
             let s2 = c2;
             let nargs = c[0];
             while (nargs--) s2 = [pop(),s2,0];
-            if (i) {
-                // call
-                c2[0] = stack;
-                c2[2] = pc[2];
-            } else {
+            if (pc[2]===0) {
                 // jump
                 let k = get_cont();
                 c2[0] = k[0];
                 c2[2] = k[2];
+            } else {
+                // call
+                c2[0] = stack;
+                c2[2] = pc[2];
             }
             stack = s2;
         }
         pc = c[2];
         break;
-    case 2: // set
+    case 1: // set
         if (debug) { console.log("--- set " + show_opnd(o)); show_stack(); } /*debug*/
         (is_num(o) ? list_tail(stack,o) : o)[0] = pop();
         pc = pc[2];
         break;
-    case 3: // get
+    case 2: // get
         if (debug) { console.log("--- get " + show_opnd(o)); show_stack(); } /*debug*/
         push(get_opnd(o));
         pc = pc[2];
         break;
-    case 4: // const
+    case 3: // const
         if (debug) { console.log("--- const " + o); show_stack(); } /*debug*/
         push(o);
         pc = pc[2];
         break;
-    case 5: // if
+    case 4: // if
         if (debug) { console.log("--- if"); show_stack(); } /*debug*/
         pc = pc[pop() === FALSE ? 2 : 1];           
         break;

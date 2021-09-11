@@ -846,7 +846,7 @@
 ;;            (exit)
             (let ((vm-source
                    (string-from-file
-                    (string-append "rvm." target)))
+                    (string-append "host/" target "/rvm." target)))
                   (input
                    (string-append encoded-program
                                   (if input-path
