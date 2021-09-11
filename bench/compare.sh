@@ -184,7 +184,7 @@ run() {
 
         done
 
-        hyperfine -i --export-csv "bench-$exe.csv" ${benches[@]}
+        hyperfine --min-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
     else
         for test in $tests
         do
