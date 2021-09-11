@@ -19,7 +19,7 @@
   (lambda (x l)
     (if (not (pair? l))
       #f
-      (if (eq? x (car l))
+      (if (eqv? x (car l))
         #t
         (my-member x (cdr l))))))
 
@@ -169,7 +169,7 @@
           (for 0 n (lambda (i)
                      (concat
                        (for 0 m (lambda (j)
-                                  (if (eq? (my-even? i) (my-even? j))
+                                  (if (eqv? (my-even? i) (my-even? j))
                                     '()
                                     (cons (cons i j) '()))))))))
         ))))
@@ -220,7 +220,7 @@
 
 (define change-cavity-aux-2
   (lambda (cavity-id i j cave pos new-cavity-id old-cavity-id)
-    (if (eq? cavity-id old-cavity-id)
+    (if (eqv? cavity-id old-cavity-id)
       (foldl (lambda (c nc)
                (change-cavity-aux c nc new-cavity-id old-cavity-id))
              (matrix-write cave i j new-cavity-id)
