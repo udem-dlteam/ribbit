@@ -10,10 +10,10 @@ crvm() {
 
 rvm() {
     crvm
-    pushd ../src/vm_c/
+    pushd ../src/host/c
     make clean >> /dev/null
     make >> /dev/null
-    cp rVM ../../bench/rvm
+    cp rVM ../../../bench/rvm
     popd
 }
 
