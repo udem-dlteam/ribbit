@@ -1,47 +1,26 @@
 #!/usr/bin/env gsi
 
-;;; Small-Scheme compiler.
+;;; Ribbit Scheme compiler.
 
 ;;;----------------------------------------------------------------------------
 
-(define primitives
-  '(clump
-    identity
-    arg1
-    arg2
-    clump?
-    field0
-    field1
-    field2
-    field0-set!
-    field1-set!
-    field2-set!
-    eq?
-    <
-    +
-    -
-    *
-    quotient
-    putchar
-    getchar
-    close))
+(define predefined '(rib false true nil)) ;; predefined symbols
 
-(define predefined
-  '(symtbl false true null clump))
-
-(define jump-op  (##quote jump))
-(define call-op  (##quote call))
-(define set-op   (##quote set))
-(define get-op   (##quote get))
-(define const-op (##quote const))
-(define if-op    (##quote if))
+(define jump/call-op 'jump/call)
+(define set-op       'set)
+(define get-op       'get)
+(define const-op     'const)
+(define if-op        'if)
 
 ;;;----------------------------------------------------------------------------
 
-(define (instance? o type) (and (clump? o) (eq? (field2 o) type)))
+(define pair-type      0)
+(define procedure-type 1)
 
-(define (clump field0 field1 field2) (vector field0 field1 field2))
-(define (clump? o) (vector? o))
+(define (instance? o type) (and (rib? o) (eqv? (field2 o) type)))
+
+(define (rib field0 field1 field2) (vector field0 field1 field2))
+(define (rib? o) (vector? o))
 (define (field0 o) (vector-ref o 0))
 (define (field1 o) (vector-ref o 1))
 (define (field2 o) (vector-ref o 2))
@@ -49,8 +28,8 @@
 (define (field1-set! o x) (vector-set! o 1 x) o)
 (define (field2-set! o x) (vector-set! o 2 x) o)
 
-(define (procedure2? o) (instance? o 1))
-(define (make-procedure code env) (clump code env 1))
+(define (procedure2? o) (instance? o procedure-type))
+(define (make-procedure code env) (rib code env procedure-type))
 (define (procedure-code proc) (field0 proc))
 (define (procedure-env proc) (field1 proc))
 
@@ -60,17 +39,19 @@
 
 ;;;----------------------------------------------------------------------------
 
-;; The compiler from SScheme to uVM code.
+;; The compiler from SScheme to RVM code.
 
-(define (make-ctx cte live exports) (clump cte live exports))
+(define (make-ctx cte live exports) (rib cte (list live) exports))
 
 (define (ctx-cte ctx) (field0 ctx))
-(define (ctx-live ctx) (field1 ctx))
+(define (ctx-live ctx) (car (field1 ctx)))
 (define (ctx-exports ctx) (field2 ctx))
 
-(define (ctx-cte-set ctx x) (clump x (ctx-live ctx) (ctx-exports ctx)))
-(define (ctx-live-set ctx x) (clump (ctx-cte ctx) x (ctx-exports ctx)))
-(define (ctx-exports-set ctx x) (clump (ctx-cte ctx) (ctx-live ctx) x))
+(define (ctx-cte-set ctx x)
+  (rib x (field1 ctx) (field2 ctx)))
+
+(define (ctx-live-set! ctx x)
+  (set-car! (field1 ctx) x))
 
 (define (comp ctx expr cont)
 
@@ -78,84 +59,88 @@
          (let ((v (lookup expr (ctx-cte ctx) 0)))
            (let ((g (live? expr (ctx-live ctx))))
              (if (and g (constant? g)) ;; constant propagated?
-                 (clump const-op (cadr (cadr g)) cont)
-                 (clump get-op v cont)))))
+                 (rib const-op (cadr (cadr g)) cont)
+                 (rib get-op v cont)))))
 
         ((pair? expr)
          (let ((first (car expr)))
 
-           (cond ((eq? first 'quote)
-                  (clump const-op (cadr expr) cont))
+           (cond ((eqv? first 'quote)
+                  (rib const-op (cadr expr) cont))
 
-                 ((eq? first 'set!)
+                 ((eqv? first 'set!)
                   (let ((var (cadr expr)))
                     (let ((val (caddr expr)))
                       (let ((v (lookup var (ctx-cte ctx) 1)))
-                        (if (eq? v var) ;; global?
+                        (if (eqv? v var) ;; global?
                             (let ((g (live? var (ctx-live ctx))))
                               (if g
                                   (if (constant? g)
                                       (begin
                                         '(pp `(*** constant propagation of ,var = ,(cadr g))
-                                            (current-error-port))
+                                             (current-error-port))
                                         (gen-noop cont))
                                       (comp ctx val (gen-assign v cont)))
                                   (begin
                                     '(pp `(*** removed dead assignment to ,var)
-                                        (current-error-port))
+                                         (current-error-port))
                                     (gen-noop cont))))
                             (comp ctx val (gen-assign v cont)))))))
 
-                 ((eq? first 'if)
+                 ((eqv? first 'if)
                   (let ((cont-false (comp ctx (cadddr expr) cont)))
                     (let ((cont-true (comp ctx (caddr expr) cont)))
-                      (let ((cont-test (clump if-op cont-true cont-false)))
+                      (let ((cont-test (rib if-op cont-true cont-false)))
                         (comp ctx (cadr expr) cont-test)))))
 
-                 ((eq? first 'lambda)
+                 ((eqv? first 'lambda)
                   (let ((params (cadr expr)))
-                    (clump const-op
-                           (make-procedure
-                            (clump (length params)
-                                   0
-                                   (comp-begin (ctx-cte-set
-                                                ctx
-                                                (extend params
-                                                        (cons #f
-                                                              (cons #f
-                                                                    (ctx-cte ctx)))))
-                                               (cddr expr)
-                                               tail))
-                            '())
-                           (if (null? (ctx-cte ctx))
-                               cont
-                               (gen-call 'close cont)))))
+                    (rib const-op
+                         (make-procedure
+                          (rib (length params)
+                               0
+                               (comp-begin (ctx-cte-set
+                                            ctx
+                                            (extend params
+                                                    (cons #f
+                                                          (cons #f
+                                                                (ctx-cte ctx)))))
+                                           (cddr expr)
+                                           tail))
+                          '())
+                         (if (null? (ctx-cte ctx))
+                             cont
+                             (gen-call (use-symbol ctx 'close) cont)))))
 
-                 ((eq? first 'let)
-                  (let ((binding (car (cadr expr))))
-                    (comp ctx
-                          (cadr binding)
-                          (comp-begin (ctx-cte-set
-                                       ctx
-                                       (cons (car binding) (ctx-cte ctx)))
-                                      (cdr (cdr expr))
-                                      (if (eq? cont tail)
-                                          cont
-                                          (clump call-op 'arg2 cont))))))
-
-                 ((eq? first 'begin)
+                 ((eqv? first 'begin)
                   (comp-begin ctx (cdr expr) cont))
 
+                 ((eqv? first 'let)
+                  (let ((binding (car (cadr expr))))
+                    (let ((body (cddr expr)))
+                      (comp-bind ctx
+                                 (car binding)
+                                 (cadr binding)
+                                 body
+                                 cont))))
+
                  (else
-                  (comp-list ctx
-                             (cdr expr)
-                             (lambda (ctx)
-                               (gen-call (lookup (car expr) (ctx-cte ctx) 0)
-                                         cont)))))))
+                  (let ((args (cdr expr)))
+                    (if (symbol? first)
+                        (comp-call ctx
+                                   args
+                                   (lambda (ctx)
+                                     (let ((v (lookup first (ctx-cte ctx) 0)))
+                                       (gen-call v cont))))
+                        (comp-bind ctx
+                                   '_
+                                   first
+                                   (cons (cons '_ args) '())
+                                   cont)))))))
 
         (else
          ;; self-evaluating
-         (clump const-op expr cont))))
+         (rib const-op expr cont))))
 
 (define (reverse lst)
   (reverse-aux lst '()))
@@ -166,39 +151,57 @@
       result))
 
 (define (gen-call v cont)
-  (if (eq? cont tail)
-      (clump jump-op v 0)
-      (clump call-op v cont)))
+  (if (eqv? cont tail)
+      (rib jump/call-op v 0)      ;; jump
+      (rib jump/call-op v cont))) ;; call
 
 (define (gen-assign v cont)
-  (clump set-op v (gen-noop cont)))
+  (rib set-op v (gen-noop cont)))
 
 (define (gen-noop cont)
-  (if (and (clump? cont) ;; starts with pop?
-           (eq? (field0 cont) call-op)
-           (eq? (field1 cont) 'arg1))
+  (if (and (rib? cont) ;; starts with pop?
+           (eqv? (field0 cont) jump/call-op) ;; call?
+           (eqv? (field1 cont) 'arg1)
+           (rib? (field2 cont)))
       (field2 cont) ;; remove pop
-      (clump const-op 0 cont))) ;; add dummy value for set!
+      (rib const-op 0 cont))) ;; add dummy value for set!
+
+(define (comp-bind ctx var expr body cont)
+  (comp ctx
+        expr
+        (comp-begin (ctx-cte-set ctx (cons var (ctx-cte ctx)))
+                    body
+                    (if (eqv? cont tail)
+                        cont
+                        (rib jump/call-op ;; call
+                             (use-symbol ctx 'arg2)
+                             cont)))))
+
+(define (use-symbol ctx sym)
+  (ctx-live-set! ctx (add-live sym (ctx-live ctx)))
+  sym)
 
 (define (comp-begin ctx exprs cont)
   (comp ctx
         (car exprs)
         (if (pair? (cdr exprs))
-            (clump call-op 'arg1 (comp-begin ctx (cdr exprs) cont))
+            (rib jump/call-op ;; call
+                 (use-symbol ctx 'arg1)
+                 (comp-begin ctx (cdr exprs) cont))
             cont)))
 
-(define (comp-list ctx exprs k)
+(define (comp-call ctx exprs k)
   (if (pair? exprs)
       (comp ctx
             (car exprs)
-            (comp-list (ctx-cte-set ctx (cons #f (ctx-cte ctx)))
+            (comp-call (ctx-cte-set ctx (cons #f (ctx-cte ctx)))
                        (cdr exprs)
                        k))
       (k ctx)))
 
 (define (lookup var cte i)
   (if (pair? cte)
-      (if (eq? (car cte) var)
+      (if (eqv? (car cte) var)
           i
           (lookup var (cdr cte) (+ i 1)))
       var))
@@ -208,14 +211,14 @@
       (cons (car vars) (extend (cdr vars) cte))
       cte))
 
-(define tail (clump jump-op 'identity 0))
+(define tail (rib jump/call-op 'id 0)) ;; jump
 
 ;;;----------------------------------------------------------------------------
 
 (define (comp-program exprs)
   (if (pair? exprs)
       (let ((first (car exprs)))
-        (if (and (pair? first) (eq? (car first) 'export))
+        (if (and (pair? first) (eqv? (car first) 'export))
             (comp-program* (cdr exprs) (exports->alist (cdr first)))
             (comp-program* exprs #f)))
       (comp-program* exprs #f)))
@@ -224,14 +227,14 @@
   (let ((expansion (expand-begin exprs)))
     (let ((live (liveness-analysis expansion exports)))
 ;;      (pp `(***expansion: ,(uvm->host expansion)))
-;;      (pp (uvm->host live))
+;;      (pp `(live: ,live))(exit)
       (cons
        (make-procedure
-        (clump 0 ;; 0 parameters
-               0
-               (comp (make-ctx '() live exports)
-                     expansion
-                     tail))
+        (rib 0 ;; 0 parameters
+             0
+             (comp (make-ctx '() live exports)
+                   expansion
+                   tail))
         '())
        (or exports
            (map (lambda (v)
@@ -260,31 +263,31 @@
         ((pair? expr)
          (let ((first (car expr)))
 
-           (cond ((eq? first 'quote)
+           (cond ((eqv? first 'quote)
                   (expand-constant (cadr expr)))
 
-                 ((eq? first 'set!)
+                 ((eqv? first 'set!)
                   (let ((var (cadr expr)))
                     (cons 'set!
                           (cons var
                                 (cons (expand (caddr expr))
                                       '())))))
 
-                 ((eq? first 'if)
+                 ((eqv? first 'if)
                   (cons 'if
                         (cons (expand (cadr expr))
                               (cons (expand (caddr expr))
                                     (cons (expand (cadddr expr))
                                           '())))))
 
-                 ((eq? first 'lambda)
+                 ((eqv? first 'lambda)
                   (let ((params (cadr expr)))
                     (cons 'lambda
                           (cons params
                                 (cons (expand-begin (cddr expr))
                                       '())))))
 
-                 ((eq? first 'let)
+                 ((eqv? first 'let)
                   (let ((binding (car (cadr expr))))
                     (cons 'let
                           (cons (cons (cons (car binding)
@@ -294,10 +297,10 @@
                                 (cons (expand-begin (cddr expr))
                                       '())))))
 
-                 ((eq? first 'begin)
+                 ((eqv? first 'begin)
                   (expand-begin (cdr expr)))
 
-                 ((eq? first 'define)
+                 ((eqv? first 'define)
                   (let ((pattern (cadr expr)))
                     (if (pair? pattern)
                         (cons 'set!
@@ -311,7 +314,7 @@
                                     (cons (expand (caddr expr))
                                           '()))))))
 
-                 ((eq? first 'and)
+                 ((eqv? first 'and)
                   (expand (if (pair? (cdr expr))
                               (if (pair? (cddr expr))
                                   (cons 'if
@@ -323,7 +326,7 @@
                                   (cadr expr))
                               #t)))
 
-                 ((eq? first 'or)
+                 ((eqv? first 'or)
                   (expand (if (pair? (cdr expr))
                               (if (pair? (cddr expr))
                                   (cons 'if
@@ -335,9 +338,9 @@
                                   (cadr expr))
                               #f)))
 
-                 ((eq? first 'cond)
+                 ((eqv? first 'cond)
                   (expand (if (pair? (cdr expr))
-                              (if (eq? 'else (car (cadr expr)))
+                              (if (eqv? 'else (car (cadr expr)))
                                   (cons 'begin (cdr (cadr expr)))
                                   (cons 'if
                                         (cons (car (cadr expr))
@@ -355,10 +358,10 @@
          (expand-constant expr))))
 
 (define (expand-constant x)
-  (cond ((eq? x #f)  'false)
-        ((eq? x #t)  'true)
-        ((eq? x '()) 'null)
-        (else        (cons 'quote (cons x '())))))
+  (cond ((eqv? x #f)  'false)
+        ((eqv? x #t)  'true)
+        ((eqv? x '()) 'nil)
+        (else         (cons 'quote (cons x '())))))
         
 (define (expand-begin exprs)
   (let ((x (expand-begin* exprs '())))
@@ -373,7 +376,7 @@
       (let ((expr (car exprs)))
         (let ((r (expand-begin* (cdr exprs) rest)))
           (if (and (pair? expr)
-                   (eq? (car expr) 'begin))
+                   (eqv? (car expr) 'begin))
               (expand-begin* (cdr expr) r)
               (cons (expand expr) r))))
       rest))
@@ -389,10 +392,22 @@
 ;; Analyse global variable liveness.
 
 (define (liveness-analysis expr exports)
-  (let loop ((live-globals (exports->live (or exports '()))))
+  (let ((live (liveness-analysis-aux expr '())))
+    (if (assoc 'symtbl live)
+        (liveness-analysis-aux expr exports)
+        live)))
+
+(define (liveness-analysis-aux expr exports)
+  (let loop ((live-globals
+              (add-live 'arg1 ;; TODO: these should not be forced live...
+                        (add-live 'arg2
+                                  (add-live 'close
+                                            (add-live 'id
+                                                      (exports->live
+                                                       (or exports '()))))))))
     (reset-defs live-globals)
     (let ((x (liveness expr live-globals (not exports))))
-      (if (eq? x live-globals)
+      (if (eqv? x live-globals)
           live-globals
           (loop x)))))
 
@@ -410,10 +425,16 @@
           (loop (cdr lst)))
         #f)))
 
+(define (add-live var live-globals)
+  (if (live? var live-globals)
+      live-globals
+      (let ((g (cons var '())))
+        (cons g live-globals))))
+
 (define (live? var lst)
   (if (pair? lst)
       (let ((x (car lst)))
-        (if (eq? var (car x))
+        (if (eqv? var (car x))
             x
             (live? var (cdr lst))))
       #f))
@@ -422,40 +443,39 @@
   (and (pair? (cdr g))
        (null? (cddr g))
        (pair? (cadr g))
-       (eq? 'quote (car (cadr g)))))
+       (eqv? 'quote (car (cadr g)))))
 
 (define (in? var cte)
-  (not (eq? var (lookup var cte 0))))
+  (not (eqv? var (lookup var cte 0))))
 
 (define (liveness expr live-globals export-all?)
 
-  (define (add-live var)
-    (if (live? var live-globals)
-        #f
-        (let ((g (cons var '())))
-          (set! live-globals (cons g live-globals))
-          g)))
+  (define (add var)
+    (set! live-globals (add-live var live-globals)))
 
   (define (liveness expr cte top?)
 
     (cond ((symbol? expr)
            (if (in? expr cte) ;; local var?
                #f
-               (add-live expr))) ;; mark the global variable as "live"
+               (add expr))) ;; mark the global variable as "live"
 
           ((pair? expr)
            (let ((first (car expr)))
 
-             (cond ((eq? first 'quote)
-                    #f)
+             (cond ((eqv? first 'quote)
+                    (let ((val (cadr expr)))
+                      (if (symbol? val)
+                          (add val))
+                      #f))
 
-                   ((eq? first 'set!)
+                   ((eqv? first 'set!)
                     (let ((var (cadr expr)))
                       (let ((val (caddr expr)))
                         (if (in? var cte) ;; local var?
                             (liveness val cte #f)
                             (begin
-                              (if export-all? (add-live var))
+                              (if export-all? (add var))
                               (let ((g (live? var live-globals))) ;; variable live?
                                 (if g
                                     (begin
@@ -463,20 +483,20 @@
                                       (liveness val cte #f))
                                     #f)))))))
 
-                   ((eq? first 'if)
+                   ((eqv? first 'if)
                     (liveness (cadr expr) cte #f)
                     (liveness (caddr expr) cte #f)
                     (liveness (cadddr expr) cte #f))
 
-                   ((eq? first 'let)
+                   ((eqv? first 'let)
                     (let ((binding (car (cadr expr))))
                       (liveness (cadr binding) cte #f)
                       (liveness (caddr expr) (cons (car binding) cte) #f)))
 
-                   ((eq? first 'begin)
+                   ((eqv? first 'begin)
                     (liveness-list (cdr expr) cte))
 
-                   ((eq? first 'lambda)
+                   ((eqv? first 'lambda)
                     (let ((params (cadr expr)))
                       (liveness (caddr expr) (extend params cte) #f)))
 
@@ -533,22 +553,6 @@
 (define const-proc-start (+ const-sym-start 2))
 (define if-start         (+ const-proc-start (+ const-proc-short 1)))
 
-(define decoder
-  (vector jump-sym-short     ;; (+ 1 2) INT SYM
-          call-sym-short     ;; (+ 1 2) INT SYM
-          0                  ;; (+ 1 2) INT SYM
-          get-int-short      ;; (+ 1 2) INT SYM
-          const-int-short    ;; (+ 1 2) INT SYM
-          const-proc-short)) ;; (+ 1 1) INT IF
-
-(define ops ;; TODO: remove after debugging
-  (vector jump-op
-          call-op
-          set-op
-          get-op
-          const-op
-          if-op))
-
 (define (encode proc exports)
 
   (define syms (make-table))
@@ -559,10 +563,10 @@
   (define (scan-opnd o pos)
     (cond ((symbol? o)
            (let ((descr
-                  (##or (table-ref syms o #f)
-                        (let ((descr (clump 0 0 0)))
-                          (table-set! syms o descr)
-                          descr))))
+                  (or (table-ref syms o #f)
+                      (let ((descr (rib 0 0 0)))
+                        (table-set! syms o descr)
+                        descr))))
              (cond ((= pos 0)
                     (field0-set! descr (+ 1 (field0 descr))))
                    ((= pos 1)
@@ -573,27 +577,19 @@
            (scan-proc o))))
 
   (define (scan code)
-    (if (clump? code)
-
+    (if (rib? code)
         (let ((op (oper code)))
-          (if (eq? op jump-op)
-
-              (scan-opnd (opnd code) 0) ;; 0 = jump/call
-
-              (begin
-                (cond ((eq? op if-op)
-                       (scan (opnd code)))
-                      ((eq? op call-op)
-                       (scan-opnd (opnd code) 0)) ;; 0 = jump/call
-                      ((eq? op get-op)
-                       (scan-opnd (opnd code) 1)) ;; 1 = get
-                      ((eq? op const-op)
-                       (scan-opnd (opnd code) 2)) ;; 2 = const
-                      ((eq? op set-op)
-                       (scan-opnd (opnd code) 3))) ;; 3 = set
-                (scan (next code)))))
-
-        (error "clump expected")))
+          (cond ((eqv? op if-op)
+                 (scan (opnd code)))
+                ((eqv? op jump/call-op)
+                 (scan-opnd (opnd code) 0)) ;; 0 = jump/call
+                ((eqv? op get-op)
+                 (scan-opnd (opnd code) 1)) ;; 1 = get
+                ((eqv? op const-op)
+                 (scan-opnd (opnd code) 2)) ;; 2 = const
+                ((eqv? op set-op)
+                 (scan-opnd (opnd code) 3))) ;; 3 = set
+          (scan (next code)))))
 
   (define (encode-sym o)
     (let ((descr (table-ref syms o)))
@@ -615,7 +611,7 @@
   (define (encode-n-aux n stream end)
     (let ((q (quotient n eb/2)))
       (let ((r (- n (* q eb/2))))
-        (let ((t (cons (if (eq? stream end) r (+ r eb/2)) stream)))
+        (let ((t (cons (if (eqv? stream end) r (+ r eb/2)) stream)))
           (if (= q 0)
               t
               (encode-n-aux q t end))))))
@@ -637,27 +633,27 @@
   (define (number? x) (integer? x))
 
   (define (enc code stream)
-    (if (clump? code)
+    (if (rib? code)
         (let ((op (oper code)))
-          (if (eq? op jump-op)
+          (cond ((eqv? op jump/call-op)
+                 (if (eqv? 0 (next code)) ;; jump?
 
-              (let ((o (opnd code)))
-                (cond ((number? o)
-                       (encode-long1 jump-int-start
-                                     o
-                                     stream))
-                      ((symbol? o)
-                       (let ((x (encode-sym o)))
-                         (if (< x jump-sym-short)
-                             (cons (+ jump-start x)
-                                   stream)
-                             (encode-long2 jump-sym-start
-                                           x
-                                           stream))))
-                      (else
-                       (error "can't encode jump" o))))
+                     (let ((o (opnd code)))
+                       (cond ((number? o)
+                              (encode-long1 jump-int-start
+                                            o
+                                            stream))
+                             ((symbol? o)
+                              (let ((x (encode-sym o)))
+                                (if (< x jump-sym-short)
+                                    (cons (+ jump-start x)
+                                          stream)
+                                    (encode-long2 jump-sym-start
+                                                  x
+                                                  stream))))
+                             (else
+                              (error "can't encode jump" o))))
 
-              (cond ((eq? op call-op)
                      (enc (next code)
                           (let ((o (opnd code)))
                             (cond ((number? o)
@@ -673,67 +669,67 @@
                                                        x
                                                        stream))))
                                   (else
-                                   (error "can't encode call" o))))))
+                                   (error "can't encode call" o)))))))
 
-                    ((eq? op const-op)
-                     (enc (next code)
-                          (let ((o (opnd code)))
-                            (cond ((number? o)
-                                   (if (< o const-int-short)
-                                       (cons (+ const-start o)
-                                             stream)
-                                       (encode-long1 const-int-start
-                                                     o
-                                                     stream)))
-                                  ((symbol? o)
-                                   (encode-long2 const-sym-start
-                                                 (encode-sym o)
-                                                 stream))
-                                  ((procedure2? o)
-                                   (enc-proc o stream))
-                                  (else
-                                   (error "can't encode const" o))))))
+                ((eqv? op set-op)
+                 (enc (next code)
+                      (let ((o (opnd code)))
+                        (cond ((number? o)
+                               (encode-long1 set-int-start
+                                             o
+                                             stream))
+                              ((symbol? o)
+                               (encode-long2 set-sym-start
+                                             (encode-sym o)
+                                             stream))
+                              (else
+                               (error "can't encode set" o))))))
 
-                    ((eq? op set-op)
-                     (enc (next code)
-                          (let ((o (opnd code)))
-                            (cond ((number? o)
-                                   (encode-long1 set-int-start
+                ((eqv? op get-op)
+                 (enc (next code)
+                      (let ((o (opnd code)))
+                        (cond ((number? o)
+                               (if (< o get-int-short)
+                                   (cons (+ get-start o)
+                                         stream)
+                                   (encode-long1 get-int-start
                                                  o
-                                                 stream))
-                                  ((symbol? o)
-                                   (encode-long2 set-sym-start
-                                                 (encode-sym o)
-                                                 stream))
-                                  (else
-                                   (error "can't encode set" o))))))
+                                                 stream)))
+                              ((symbol? o)
+                               (encode-long2 get-sym-start
+                                             (encode-sym o)
+                                             stream))
+                              (else
+                               (error "can't encode get" o))))))
 
-                    ((eq? op get-op)
-                     (enc (next code)
-                          (let ((o (opnd code)))
-                            (cond ((number? o)
-                                   (if (< o get-int-short)
-                                       (cons (+ get-start o)
-                                             stream)
-                                       (encode-long1 get-int-start
-                                                     o
-                                                     stream)))
-                                  ((symbol? o)
-                                   (encode-long2 get-sym-start
-                                                 (encode-sym o)
-                                                 stream))
-                                  (else
-                                   (error "can't encode get" o))))))
+                ((eqv? op const-op)
+                 (enc (next code)
+                      (let ((o (opnd code)))
+                        (cond ((number? o)
+                               (if (< o const-int-short)
+                                   (cons (+ const-start o)
+                                         stream)
+                                   (encode-long1 const-int-start
+                                                 o
+                                                 stream)))
+                              ((symbol? o)
+                               (encode-long2 const-sym-start
+                                             (encode-sym o)
+                                             stream))
+                              ((procedure2? o)
+                               (enc-proc o stream))
+                              (else
+                               (error "can't encode const" o))))))
 
-                    ((eq? op if-op)
-                     (enc (next code)
-                          (enc (opnd code)
-                               (cons if-start
-                                     stream))))
+                ((eqv? op if-op)
+                 (enc (next code)
+                      (enc (opnd code)
+                           (cons if-start
+                                 stream))))
 
-                    (else
-                     (error "unknown op" op)))))
-        (error "clump expected")))
+                (else
+                 (error "unknown op" op))))
+        (error "rib expected")))
 
   (define (ordering sym-descr)
     (let ((sym (car sym-descr)))
@@ -815,95 +811,6 @@
 
 ;;;----------------------------------------------------------------------------
 
-(define (decode stream)
-
-  (define pos 0)
-
-  (define (rd-char)
-    (let ((x (char->integer (string-ref stream pos))))
-      (set! pos (+ pos 1))
-      x))
-
-  (define (rd-code)
-    (let ((x (- (rd-char) 35)))
-      (if (< x 0) 57 x)))
-
-  (define (rd-int n)
-    (let ((x (rd-code)))
-      (let ((y (* n eb/2)))
-        (if (< x eb/2)
-            (+ y x)
-            (rd-int (+ y (- x eb/2)))))))
-
-  (define (build-symbols)
-    (let loop0 ((n (rd-int 0)) (symbols '()))
-      (if (> n 0)
-          (loop0 (- n 1) (cons (string->uninterned-symbol "") symbols))
-          (let loop1 ((symbols symbols))
-            (let loop2 ((accum '()))
-
-              (define (add-symbol)
-                (cons (string->uninterned-symbol (list->string accum)) symbols))
-
-              (let ((c (rd-char)))
-                (if (= c 44) ;; #\, separates symbols
-                    (loop1 (add-symbol))
-                    (if (= c 59) ;; #\; terminates symbol list
-                        (add-symbol)
-                        (loop2 (cons (integer->char c) accum))))))))))
-
-  (let ((symbols (build-symbols)))
-
-    (define stack 0)
-
-    (define (sym n)
-      (list-ref symbols n))
-
-    (define (dec)
-      (let ((x (rd-code)))
-        (let loop ((op 0) (n x))
-          (let ((d (vector-ref decoder op)))
-            (if (< (+ d 2) n)
-                (loop (+ op 1) (- n (+ d 3)))
-                (let ((_op (vector-ref ops op))) ;; TODO: replace with identity
-                  (if (= op 0) (set! stack (clump 0 stack 0)) #f)
-                  (if (< n d)        ;; short?
-                      (if (< op 3)   ;; for jump/call/set short is sym
-                          (add _op (sym n))
-                          (if (< op 5) ;; for get/const short is int
-                              (add _op n)
-                              (add-const-proc n)))
-                      (if (= x if-start)
-                          (let ((code (field0 stack)))
-                            (set! stack (field1 stack))
-                            (add if-op code))
-                          (let ((opnd
-                                 (if (= n d) ;; int?
-                                     (rd-int 0)
-                                     (sym (rd-int (- n (+ d 1)))))))
-                            (if (< op 5)
-                                (add _op opnd)
-                                (add-const-proc opnd)))))))))))
-
-    (define (add-const-proc n)
-      (let ((proc (make-procedure
-                   (clump n 0 (field0 stack))
-                   '())))
-        (set! stack (field1 stack))
-        (if (eq? stack 0)
-            proc
-            (add const-op proc))))
-
-    (define (add op opnd)
-      (field0-set! stack (clump op opnd (field0 stack)))
-      (dec))
-
-;;    (pp symbols)
-
-    (dec)))
-
-;;;----------------------------------------------------------------------------
-
 (define (read-program)
   (let ((x (read)))
     (if (eof-object? x)
@@ -920,37 +827,55 @@
   (call-with-input-file path (lambda (port) (read-line port #f))))
 
 (define (ssc-main src-path output-path target input-path verbosity)
-  (let ((program (read-from-file src-path)))
+  (let* ((lib (read-from-file (path-expand "lib.scm" (root-dir))))
+         (program (append lib (read-from-file src-path))))
     (let ((prog-exports (comp-program program)))
       (let ((proc (car prog-exports)))
         (let ((exports (cdr prog-exports)))
-          (if (>= verbosity 1)
-              (begin
-                (println "*** uVM code:")
-                (pp proc)))
           (if (>= verbosity 2)
+              (begin
+                (println "*** RVM code:")
+                (pp proc)))
+          (if (>= verbosity 3)
               (begin
                 (println "*** exports:")
                 (pp exports)))
           (let ((encoded-program (encode proc exports)))
-            (let ((input
-                   (if input-path
-                       (string-from-file input-path)
-                       ""))
-                  (vm-source
+;;            (println "*** RVM code encoding length: " (string-length encoded-program))
+;;            (pp encoded-program)
+;;            (exit)
+            (let ((vm-source
                    (string-from-file
-                    (string-append "vm." target ".in"))))
+                    (string-append "rvm." target)))
+                  (input
+                   (string-append encoded-program
+                                  (if input-path
+                                      (string-from-file input-path)
+                                      ""))))
+              (if (>= verbosity 1)
+                  (println "*** RVM code length: " (string-length input) " bytes"))
               (with-output-to-file
                   output-path
                 (lambda ()
-                  (print "input = ")
-                  (write (string-append encoded-program input))
-                  (println (if (equal? target "js") ";" ""))
-                  (print vm-source))))))))))
+                  (cond ((equal? target "scm")
+                         (write `(define input ,input))
+                         (newline))
+                        (else
+                         (cond ((equal? target "c")
+                                (display "char *")))
+                         (display "input = ")
+                         (write input)
+                         (cond ((not (equal? target "py"))
+                                (display ";")))
+                         (newline)))
+                  (display vm-source))))))))))
+
+(define (root-dir)
+  (path-directory (or (script-file) (executable-path))))
 
 (define (main . args)
   (let ((verbosity 0)
-        (target "js")
+        (target "scm")
         (input-path #f)
         (output-path #f)
         (src-path #f))
@@ -968,8 +893,14 @@
                   ((and (pair? rest) (member arg '("-o" "--output")))
                    (set! output-path (car rest))
                    (loop (cdr rest)))
-                  ((member arg '("-v"))
+                  ((member arg '("-v" "--v"))
                    (set! verbosity (+ verbosity 1))
+                   (loop rest))
+                  ((member arg '("-vv" "--vv"))
+                   (set! verbosity (+ verbosity 2))
+                   (loop rest))
+                  ((member arg '("-vvv" "--vvv"))
+                   (set! verbosity (+ verbosity 3))
                    (loop rest))
                   (else
                    (if (and (>= (string-length arg) 1)
