@@ -147,7 +147,6 @@ cminischeme() {
     rm -rf minischeme.tar.gz
     rm -rf minischeme
     rm -rf fminischeme
-    rm minischeme
 }
 
 minischeme() {
@@ -155,7 +154,7 @@ minischeme() {
     tar xvf minischeme.tar.gz > /dev/null 2>&1
     mv minischeme fminischeme > /dev/null 2>&1
     pushd fminischeme > /dev/null 2>&1
-    mv makefile Makefile
+    mv makefile Makefile > /dev/null 2>&1
     make > /dev/null 2>&1
     cp miniscm ../minischeme
     popd
@@ -224,7 +223,6 @@ mitscm
 picobit
 minischeme
 echo "==       READY       =="
-
 run rvm
 run rvm1
 run rvm3
