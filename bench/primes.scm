@@ -40,8 +40,9 @@
       (run-n (+ 1 lo) hi (primes<= 100))
       r)))
 
+
 (define run
   (lambda ()
-    (run-n 0 30000 0)))
+    (run-n 0 2500 0)))
 
 (run)
