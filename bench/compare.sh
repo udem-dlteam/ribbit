@@ -1,11 +1,12 @@
 #!/bin/zsh
 
-TIME_FMT="Total time: %E\tUser Mode (s) %U\t"
-
 tests=$(ls *.scm)
 
 crvm() {
     rm -rf rvm
+    rm -rf rvm1
+    rm -rf rvm2
+    rm -rf rvm3
 }
 
 rvm() {
@@ -143,15 +144,20 @@ picobit() {
 }
 
 cminischeme() {
+    rm -rf minischeme.tar.gz
     rm -rf minischeme
     rm -rf fminischeme
+    rm minischeme
 }
 
 minischeme() {
-    git clone git@github.com:ignorabimus/minischeme.git fminischeme > /dev/null 2>&1
-    pushd fminischeme/src
+    wget ftp://ftp.cs.indiana.edu/pub/scheme-repository/imp/minischeme.tar.gz -O minischeme.tar.gz > /dev/null 2>&1
+    tar xvf minischeme.tar.gz > /dev/null 2>&1
+    mv minischeme fminischeme > /dev/null 2>&1
+    pushd fminischeme > /dev/null 2>&1
+    mv makefile Makefile
     make > /dev/null 2>&1
-    cp miniscm ../../minischeme
+    cp miniscm ../minischeme
     popd
 }
 
