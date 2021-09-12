@@ -80,6 +80,7 @@ cmitscm() {
 }
 
 mitscm() {
+    # https://people.csail.mit.edu/jaffer/scm/index.html
     cmitscm
     wget https://groups.csail.mit.edu/mac/ftpdir/users/jaffer/scm.zip -O mitscm.zip > /dev/null 2>&1
     unzip mitscm.zip > /dev/null 2>&1
