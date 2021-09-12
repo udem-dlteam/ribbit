@@ -39,8 +39,8 @@ def build_map(scheme_and_files):
     return result_map
 
 
-def print_table(benchmarks, results):
-    schemes = results.keys()
+def print_global_table(benchmarks, results):
+    schemes = sorted(results.keys())
 
     printable_schemes = list(schemes)
     printable_schemes.insert(0, "")
@@ -66,12 +66,32 @@ def print_table(benchmarks, results):
     # print(max_len)
 
 
+def print_benchmark_table(benchmark: str, results):
+    schemes = sorted(results.keys())
+    printable_schemes = list(schemes)
+    printable_schemes.insert(0, "")
+    max_len = max(max(map(lambda scheme_name: len(scheme_name), printable_schemes)),
+                  max(map(lambda bench_name: len(bench_name), [benchmark])))
+
+    space = "    "
+    print(benchmark)
+    for scheme in schemes:
+        mean = f"{(results[scheme][benchmark][1]):06f}"
+        line = f"{scheme.ljust(max_len, ' ')}{space}{mean.rjust(int(max_len * 1.2), ' ')}"
+        print(line)
+
+
 def main():
     csv_files = [file for file in glob.glob("*.csv")]
     scheme_and_files = list(map(lambda x: (scheme_name_of(x), x), csv_files))
     benchmarks = [file for file in glob.glob("*.scm")]
     result_map = build_map(scheme_and_files)
-    print_table(benchmarks, result_map)
+    print_global_table(benchmarks, result_map)
+
+    for benchmark in benchmarks:
+        print()
+        print()
+        print_benchmark_table(benchmark, result_map)
 
 
 if __name__ == '__main__':
