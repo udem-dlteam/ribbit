@@ -14,6 +14,9 @@ rvm() {
     make clean >> /dev/null
     make >> /dev/null
     cp rVM ../../../bench/rvm
+    cp rVM1 ../../../bench/rvm1
+    cp rVM2 ../../../bench/rvm2
+    cp rVM3 ../../../bench/rvm3
     popd
 }
 
@@ -145,7 +148,7 @@ cminischeme() {
 }
 
 minischeme() {
-    git clone git@github.com:ignorabimus/minischeme.git fminischeme
+    git clone git@github.com:ignorabimus/minischeme.git fminischeme > /dev/null 2>&1
     pushd fminischeme/src
     make > /dev/null 2>&1
     cp miniscm ../../minischeme
@@ -185,7 +188,7 @@ run() {
 
         done
 
-        hyperfine --min-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
+        hyperfine --min-runs 2 --max-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
     else
         for test in $tests
         do
@@ -207,13 +210,18 @@ if [[ "$1" == "--clean" ]]; then
     exit 0
 fi
 
+echo "== Preparing Schemes =="
 rvm
 tinyscheme
 bitscm
 mitscm
 picobit
 minischeme
+echo "==       READY       =="
 
+run rvm
+run rvm1
+run rvm3
 run minischeme
 run bit.sh
 run pico.sh

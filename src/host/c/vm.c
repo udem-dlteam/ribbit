@@ -4,7 +4,6 @@
 #define DEBUG
 #endif
 
-
 #ifdef DEBUG
 
 #include <stdio.h>
@@ -27,7 +26,37 @@
 #pragma clang diagnostic ignored "-Wunknown-pragmas"
 #pragma ide diagnostic ignored "ConstantFunctionResult"
 
-char *input = "Bfer-gnirts,htgnel-gnirts,fi,!rdc-tes,!tes-gnirts,esrever,enifed,!tes-rotcev,=,cc/llac,!tes,adbmal,rddc,fer-rotcev,htgnel-rotcev,etouq,lobmys>-gnirts,cossa,gnirts>-lobmys,gnirts>-tsil,?erudecorp,?rotcev,!rac-tes,qssa,tneitouq,?gnirts,enilwen,ton,rebmun>-gnirts,lave,fer-tsil,rdddac,*,?tcejbo-foe,?lobmys,rahc-keep,?llun,liat-tsil,tsil>-gnirts,daer,+,etirw,,,,?lauqe,htgnel,,,-,,rddac,rdac,<,,,,,rahc-daer,?riap,rac,,rdc,snoc,,?vqe,,,,,,;9I]I9I?YP?YAYM^'i$~YI^YC?OvCvR3y!M7#YS&^z!S&9Ai&:IiS,ai&kkz!S,:kw'k]@'_+Z@aC_E^~F^{!>'^8>YBlbC`^'`~@_E_~F_|]C9B`^Uka_CaE`2ZCdCbBai$E`^~F_|!S(#`kn4^~i$#`kn4^~i$#`kn4^~i$#`kn4^~QK^~@w(D^~@kJ^~Q^z]G#YS(a_l{]B#a_k#k_k~@iS,_{!2#b`n9CBd`Ca_#ZBex>#d~YFbZAi&:IiS,NeZ@BBfi$i$akS_nM`~@x1^2:IgYKecIfNdboMa_~@x:^2ZGdUlbMbNa_~@x6^9CBd`Ca_#ZBex>#d~YFbZAi&:IiS,NeZ@BBfi$i$akS_nM`~@x1^2:IgYKecIfNdboMa_~@x:^2ZGdUlbMbNa_~i%~@x2^#cMan~@x-^E_~F_#bUk``m~YH_|!81_?H^{!P1uy]H1^1^?ZH_~L`kYBPYJu``vR%Z$u^z]?'i$9?C^?HE^~F^z]E'i$'i$9EC^?YAE^~F^?HvC~F^z!A9H^1vS*?OvS6vS9?OvS7vF~Z(^8AYS'^?HvF~Z'^9?YDZ*^~YH^1vE?Z?YD^?HvE~Z#^1vL?ZEC^?YAE^?HvK~F^88vLvK~YF^88vS;vF~@i%^88vS-vF~YO^z]L9L8@~@u^'^~Lk^Gy!@8@?G'^9L~@vR0^~L_vC89lk~YI^YGy!?+V^?G'i&~LvD^+V^?G'i&~i%~@vL^+V^?G'i&~i%~@vK^YGy]J+ZJ^YC'i&?G~@vL^Wy!C9,_'^~^YN^Z)BV^?G+Bi&YCx-?G~@vJ^9PYC'i%?G~@vS;^'i$?G~@vS-^YG?G~@vF^9J?G~@vK^'^~Lk^Wy!G'^?Z=_iS+Gy]F'^?Z=iS*iS+'^~@iS-^?Z=_iS+z!09F^9FZO~@iS*^'^~@iS-^JiS+y!S+:kkiS*!S*Pmk!I)iS-^z!S-Plk]37%Z>'_?YS$Kc^?Z=Jc^DDZ>i$zDDZ>i$z]M'_9MBaE_C^~F^{]79Mi&^z]+'i$9+Ca_'^~TE__E_~F_{]%'i$9%Ca_'^~@E__E_~F_{!<'k8BSC_l~F^z!E'^8EPl`C^~L`k{]K9&aYE`^|!L.YE`^{!='i$'i$'i$'i$8=K`K^~TD`D^~TJ`J^~Q_~Q^'i%~@`^{?YS%ki#!S)Di#]N'^!S)BiS)^YS#^9NDa_'^~T`D^J_~F_{],9NiS)^z]D'_'i$'i$9DYBPvR%`YJbuC_~LvR/^~L_vR$E^~F^{!N9DkYD^z]4i)!F)i&^z]*i-!S##m_i$z!HRm]89Kb`J^|]<8L`J^{];i-!Di3])#nS_^z]#Rn]59Kb`J^|]/8L`J^{].i-!S'i3]P#oS_^z]'Ro]A#l`^{](Rl!O)i$^z!K87D^z!76D^z]0-D^z!63D^z]9iS%]&j=!,i-!.i3!+#k`^{!/Rk!;9>'i$)bK^~Q^zz!1Av6]OAv5]$Av4!JAv3!9Av2!BAv1!5Av0!)Av/!S$Av.!S%Au]=At!4As!-Ar!3Aq!:Ap]>Ao!(Am!'Al!*#lk^zy";
+char *input =
+    "Bfer-gnirts,htgnel-gnirts,fi,!rdc-tes,!tes-gnirts,esrever,enifed,!tes-"
+    "rotcev,=,cc/"
+    "llac,!tes,adbmal,rddc,fer-rotcev,htgnel-rotcev,etouq,lobmys>-gnirts,cossa,"
+    "gnirts>-lobmys,gnirts>-tsil,?erudecorp,?rotcev,!rac-tes,qssa,tneitouq,?"
+    "gnirts,enilwen,ton,rebmun>-gnirts,lave,fer-tsil,rdddac,*,?tcejbo-foe,?"
+    "lobmys,rahc-keep,?llun,liat-tsil,tsil>-gnirts,daer,+,etirw,,,,?lauqe,"
+    "htgnel,,,-,,rddac,rdac,<,,,,,rahc-daer,?riap,rac,,rdc,snoc,,?vqe,,,,,,;9I]"
+    "I9I?YP?YAYM^'i$~YI^YC?OvCvR3y!M7#YS&^z!S&9Ai&:IiS,ai&kkz!S,:kw'k]@'_+Z@aC_"
+    "E^~F^{!>'^8>YBlbC`^'`~@_E_~F_|]C9B`^Uka_CaE`2ZCdCbBai$E`^~F_|!S(#`kn4^~i$#"
+    "`kn4^~i$#`kn4^~i$#`kn4^~QK^~@w(D^~@kJ^~Q^z]G#YS(a_l{]B#a_k#k_k~@iS,_{!2#b`"
+    "n9CBd`Ca_#ZBex>#d~YFbZAi&:IiS,NeZ@BBfi$i$akS_nM`~@x1^2:IgYKecIfNdboMa_~@x:"
+    "^2ZGdUlbMbNa_~@x6^9CBd`Ca_#ZBex>#d~YFbZAi&:IiS,NeZ@BBfi$i$akS_nM`~@x1^2:"
+    "IgYKecIfNdboMa_~@x:^2ZGdUlbMbNa_~i%~@x2^#cMan~@x-^E_~F_#bUk``m~YH_|!81_?H^"
+    "{!P1uy]H1^1^?ZH_~L`kYBPYJu``vR%Z$u^z]?'i$9?C^?HE^~F^z]E'i$'i$9EC^?YAE^~F^?"
+    "HvC~F^z!A9H^1vS*?OvS6vS9?OvS7vF~Z(^8AYS'^?HvF~Z'^9?YDZ*^~YH^1vE?Z?YD^?HvE~"
+    "Z#^1vL?ZEC^?YAE^?HvK~F^88vLvK~YF^88vS;vF~@i%^88vS-vF~YO^z]L9L8@~@u^'^~Lk^"
+    "Gy!@8@?G'^9L~@vR0^~L_vC89lk~YI^YGy!?+V^?G'i&~LvD^+V^?G'i&~i%~@vL^+V^?G'i&~"
+    "i%~@vK^YGy]J+ZJ^YC'i&?G~@vL^Wy!C9,_'^~^YN^Z)BV^?G+Bi&YCx-?G~@vJ^9PYC'i%?G~"
+    "@vS;^'i$?G~@vS-^YG?G~@vF^9J?G~@vK^'^~Lk^Wy!G'^?Z=_iS+Gy]F'^?Z=iS*iS+'^~@"
+    "iS-^?Z=_iS+z!09F^9FZO~@iS*^'^~@iS-^JiS+y!S+:kkiS*!S*Pmk!I)iS-^z!S-Plk]37%"
+    "Z>'_?YS$Kc^?Z=Jc^DDZ>i$zDDZ>i$z]M'_9MBaE_C^~F^{]79Mi&^z]+'i$9+Ca_'^~TE__E_"
+    "~F_{]%'i$9%Ca_'^~@E__E_~F_{!<'k8BSC_l~F^z!E'^8EPl`C^~L`k{]K9&aYE`^|!L.YE`^"
+    "{!='i$'i$'i$'i$8=K`K^~TD`D^~TJ`J^~Q_~Q^'i%~@`^{?YS%ki#!S)Di#]N'^!S)BiS)^"
+    "YS#^9NDa_'^~T`D^J_~F_{],9NiS)^z]D'_'i$'i$9DYBPvR%`YJbuC_~LvR/"
+    "^~L_vR$E^~F^{!N9DkYD^z]4i)!F)i&^z]*i-!S##m_i$z!HRm]89Kb`J^|]<8L`J^{];i-!"
+    "Di3])#nS_^z]#Rn]59Kb`J^|]/"
+    "8L`J^{].i-!S'i3]P#oS_^z]'Ro]A#l`^{](Rl!O)i$^z!K87D^z!76D^z]0-D^z!63D^z]"
+    "9iS%]&j=!,i-!.i3!+#k`^{!/"
+    "Rk!;9>'i$)bK^~Q^zz!1Av6]OAv5]$Av4!JAv3!9Av2!BAv1!5Av0!)Av/"
+    "!S$Av.!S%Au]=At!4As!-Ar!3Aq!:Ap]>Ao!(Am!'Al!*#lk^zy";
 
 #ifndef NULL
 
@@ -127,7 +156,7 @@ rib *heap_start;
   } while (0)
 #endif
 
-#ifdef NO_STD
+#if defined(NO_STD) && !defined(NO_REG)
 register obj *alloc asm("edi");
 #else
 obj *alloc;
@@ -460,17 +489,17 @@ void prim(int no) {
   case 18: { // getc
     int read;
 #ifdef NO_STD
-      asm volatile("push %%eax\n"
-                   "mov $0x03, %%eax\n"    // sys_call
-                   "mov $0, %%ebx\n"       // fd
-                   "lea 0(%%esp), %%ecx\n" // ptr
-                   "mov $1, %%edx\n"       // count
-                   "int $0x80\n"
-                   "pop %%eax\n"
-                   : "=a"(read)
-                   :
-                   : "ebx", "ecx", "edx", "esi", "edi");
-      read &= 0xFF;
+    asm volatile("push %%eax\n"
+                 "mov $0x03, %%eax\n"    // sys_call
+                 "mov $0, %%ebx\n"       // fd
+                 "lea 0(%%esp), %%ecx\n" // ptr
+                 "mov $1, %%edx\n"       // count
+                 "int $0x80\n"
+                 "pop %%eax\n"
+                 : "=a"(read)
+                 :
+                 : "ebx", "ecx", "edx", "esi", "edi");
+    read &= 0xFF;
 #else
     read = getchar();
 #endif
@@ -523,7 +552,7 @@ void run() {
     }
     case INSTR_AP: // call or jump
     {
-        bool jump = IS_NUM(TAG(pc)) && NUM(TAG(pc)) == 0;
+      bool jump = IS_NUM(TAG(pc)) && NUM(TAG(pc)) == 0;
 #ifdef DEBUG_I_CALL
       printf(jump ? "--- jump " : "--- call ");
       PRINTLN();
@@ -544,7 +573,7 @@ void run() {
         // Use the car of the PC to save the new PC
         CAR(pc) = CAR(get_opnd(CDR(pc)));
 
-//        pop();
+        //        pop();
 
         obj s2 = TAG_RIB(alloc_rib(NUM_0, proc, PAIR_TAG));
 
@@ -555,12 +584,12 @@ void run() {
         obj c2 = TAG_RIB(list_tail(RIB(s2), argc));
 
         if (jump) {
-            obj k = get_cont();
-            CAR(c2) = CAR(k);
-            TAG(c2) = TAG(k);
+          obj k = get_cont();
+          CAR(c2) = CAR(k);
+          TAG(c2) = TAG(k);
         } else {
-            CAR(c2) = stack;
-            TAG(c2) = TAG(pc);
+          CAR(c2) = stack;
+          TAG(c2) = TAG(pc);
         }
 
         stack = s2;
@@ -714,10 +743,10 @@ void decode() {
           break;
         }
         op = INSTR_CONST;
-      } else if(op > 0) {
-          op --;
+      } else if (op > 0) {
+        op--;
       } else {
-          op = 0;
+        op = 0;
       }
     }
 
@@ -750,19 +779,18 @@ void init() {
 #endif
   init_heap();
 
-  FALSE =
-      TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),
-                        TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),
-                        SINGLETON_TAG));
+  FALSE = TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),
+                            TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),
+                            SINGLETON_TAG));
 
   build_sym_table();
   decode();
 
-  set_global(TAG_RIB(alloc_rib(NUM_0, symbol_table, CLOSURE_TAG))); /* primitive 0 */
+  set_global(
+      TAG_RIB(alloc_rib(NUM_0, symbol_table, CLOSURE_TAG))); /* primitive 0 */
   set_global(FALSE);
   set_global(TRUE);
   set_global(NIL);
-
 
   setup_stack();
 
