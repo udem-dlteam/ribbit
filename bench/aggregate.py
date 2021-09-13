@@ -76,7 +76,7 @@ def print_benchmark_table(benchmark: str, results):
     space = "    "
     print(benchmark)
     for scheme in schemes:
-        mean = f"{(results[scheme][benchmark][1]):06f}"
+        mean = f"{(results[scheme][benchmark][1]):03f}"
         line = f"{scheme.ljust(max_len, ' ')}{space}{mean.rjust(int(max_len * 1.2), ' ')}"
         print(line)
 
