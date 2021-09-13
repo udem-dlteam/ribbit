@@ -1,3 +1,11 @@
+(define ilength (lambda (l t)
+                 (if (pair? l)
+                  (ilength (cdr l) (+ 1 t))
+                  t)))
+
+(define my-length (lambda (l)
+                    (ilength l 0)))
+
 (define imap (lambda (f l r)
                (if (not (pair? l))
                  (reverse r)
@@ -116,7 +124,7 @@
 
 (define matrix-size
   (lambda (mat)
-    (cons (length mat) (length (car mat)))))
+    (cons (my-length mat) (my-length (car mat)))))
 
 (define matrix-map
   (lambda (f mat)
@@ -139,7 +147,7 @@
     (shuffle-aux-2
      lst
      new-random
-     (my-modulo new-random (length lst)))))
+     (my-modulo new-random (my-length lst)))))
 
 (define shuffle-aux
   (lambda (lst current-random)
