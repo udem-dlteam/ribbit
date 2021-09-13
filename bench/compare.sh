@@ -160,11 +160,24 @@ minischeme() {
     popd
 }
 
+csiod() {
+}
+
+siod() {
+    csiod
+    mkdir fsiod
+    pushd fsiod
+    wget http://people.delphiforums.com/gjc/siod.tgz -O siod.tgz
+    tar xvf siod.tgz
+
+}
+
 clean() {
     rm *.zip
     rm *.csv
     cpico
     crvm
+    csiod
     cchicken
     cqscheme
     ctinyscheme
@@ -222,6 +235,7 @@ bitscm
 mitscm
 picobit
 minischeme
+siod
 echo "==       READY       =="
 run rvm
 run rvm1
