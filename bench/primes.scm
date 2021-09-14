@@ -5,8 +5,7 @@
                           (i-my-modulo a b (+ acc b))
                           (if (= (+ acc b) a)
                             0
-                            (- a acc)
-                            )))))
+                            (- a acc))))))
 
 (define my-modulo
   (lambda (a b)
@@ -19,7 +18,7 @@
 
 (define remove-multiples 
   (lambda (n l)
-    (if (null? l)
+    (if (not (pair? l))
       '()
       (if (= (my-modulo (car l) n) 0)
         (remove-multiples n (cdr l))
@@ -27,7 +26,7 @@
               (remove-multiples n (cdr l)))))))
 
 (define sieve (lambda (l)
-                (if (null? l)
+                (if (not (pair? l))
                   '()
                   (cons (car l)
                         (sieve (remove-multiples (car l) (cdr l)))))))
@@ -41,12 +40,9 @@
       (run-n (+ 1 lo) hi (primes<= 100))
       r)))
 
+
 (define run
   (lambda ()
-    (run-n 0 30000 0)))
-
-
-
+    (run-n 0 2500 0)))
 
 (run)
-

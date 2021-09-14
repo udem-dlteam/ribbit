@@ -1,3 +1,11 @@
+(define ilength (lambda (l t)
+                 (if (pair? l)
+                  (ilength (cdr l) (+ 1 t))
+                  t)))
+
+(define my-length (lambda (l)
+                    (ilength l 0)))
+
 (define imap (lambda (f l r)
                (if (not (pair? l))
                  (reverse r)
@@ -19,7 +27,7 @@
   (lambda (x l)
     (if (not (pair? l))
       #f
-      (if (eq? x (car l))
+      (if (eqv? x (car l))
         #t
         (my-member x (cdr l))))))
 
@@ -116,7 +124,7 @@
 
 (define matrix-size
   (lambda (mat)
-    (cons (length mat) (length (car mat)))))
+    (cons (my-length mat) (my-length (car mat)))))
 
 (define matrix-map
   (lambda (f mat)
@@ -139,7 +147,7 @@
     (shuffle-aux-2
      lst
      new-random
-     (my-modulo new-random (length lst)))))
+     (my-modulo new-random (my-length lst)))))
 
 (define shuffle-aux
   (lambda (lst current-random)
@@ -169,7 +177,7 @@
           (for 0 n (lambda (i)
                      (concat
                        (for 0 m (lambda (j)
-                                  (if (eq? (my-even? i) (my-even? j))
+                                  (if (eqv? (my-even? i) (my-even? j))
                                     '()
                                     (cons (cons i j) '()))))))))
         ))))
@@ -220,7 +228,7 @@
 
 (define change-cavity-aux-2
   (lambda (cavity-id i j cave pos new-cavity-id old-cavity-id)
-    (if (eq? cavity-id old-cavity-id)
+    (if (eqv? cavity-id old-cavity-id)
       (foldl (lambda (c nc)
                (change-cavity-aux c nc new-cavity-id old-cavity-id))
              (matrix-write cave i j new-cavity-id)

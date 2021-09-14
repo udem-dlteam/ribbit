@@ -14,7 +14,7 @@
 
 (define run
   (lambda ()
-    (run-n 0 1000 0)))
+    (run-n 0 200 0)))
 
 
 (run)

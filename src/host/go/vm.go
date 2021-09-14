@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-const DebugICall = true
+const DebugICall = false
 
 //goland:noinspection SpellCheckingInspection
 const Input = "Bfer-gnirts,htgnel-gnirts,fi,!rdc-tes,!tes-gnirts,esrever,enifed,!tes-rotcev,=,cc/llac,!tes,adbmal,rddc,fer-rotcev,htgnel-rotcev,etouq,lobmys>-gnirts,cossa,gnirts>-lobmys,gnirts>-tsil,?erudecorp,?rotcev,!rac-tes,qssa,tneitouq,?gnirts,enilwen,ton,rebmun>-gnirts,lave,fer-tsil,rdddac,*,?tcejbo-foe,?lobmys,rahc-keep,?llun,liat-tsil,tsil>-gnirts,daer,+,etirw,,,,?lauqe,htgnel,,,-,,rddac,rdac,<,,,,,rahc-daer,?riap,rac,,rdc,snoc,,?vqe,,,,,,;9I]I9I?YP?YAYM^'i$~YI^YC?OvCvR3y!M7#YS&^z!S&9Ai&:IiS,ai&kkz!S,:kw'k]@'_+Z@aC_E^~F^{!>'^8>YBlbC`^'`~@_E_~F_|]C9B`^Uka_CaE`2ZCdCbBai$E`^~F_|!S(#`kn4^~i$#`kn4^~i$#`kn4^~i$#`kn4^~QK^~@w(D^~@kJ^~Q^z]G#YS(a_l{]B#a_k#k_k~@iS,_{!2#b`n9CBd`Ca_#ZBex>#d~YFbZAi&:IiS,NeZ@BBfi$i$akS_nM`~@x1^2:IgYKecIfNdboMa_~@x:^2ZGdUlbMbNa_~@x6^9CBd`Ca_#ZBex>#d~YFbZAi&:IiS,NeZ@BBfi$i$akS_nM`~@x1^2:IgYKecIfNdboMa_~@x:^2ZGdUlbMbNa_~i%~@x2^#cMan~@x-^E_~F_#bUk``m~YH_|!81_?H^{!P1uy]H1^1^?ZH_~L`kYBPYJu``vR%Z$u^z]?'i$9?C^?HE^~F^z]E'i$'i$9EC^?YAE^~F^?HvC~F^z!A9H^1vS*?OvS6vS9?OvS7vF~Z(^8AYS'^?HvF~Z'^9?YDZ*^~YH^1vE?Z?YD^?HvE~Z#^1vL?ZEC^?YAE^?HvK~F^88vLvK~YF^88vS;vF~@i%^88vS-vF~YO^z]L9L8@~@u^'^~Lk^Gy!@8@?G'^9L~@vR0^~L_vC89lk~YI^YGy!?+V^?G'i&~LvD^+V^?G'i&~i%~@vL^+V^?G'i&~i%~@vK^YGy]J+ZJ^YC'i&?G~@vL^Wy!C9,_'^~^YN^Z)BV^?G+Bi&YCx-?G~@vJ^9PYC'i%?G~@vS;^'i$?G~@vS-^YG?G~@vF^9J?G~@vK^'^~Lk^Wy!G'^?Z=_iS+Gy]F'^?Z=iS*iS+'^~@iS-^?Z=_iS+z!09F^9FZO~@iS*^'^~@iS-^JiS+y!S+:kkiS*!S*Pmk!I)iS-^z!S-Plk]37%Z>'_?YS$Kc^?Z=Jc^DDZ>i$zDDZ>i$z]M'_9MBaE_C^~F^{]79Mi&^z]+'i$9+Ca_'^~TE__E_~F_{]%'i$9%Ca_'^~@E__E_~F_{!<'k8BSC_l~F^z!E'^8EPl`C^~L`k{]K9&aYE`^|!L.YE`^{!='i$'i$'i$'i$8=K`K^~TD`D^~TJ`J^~Q_~Q^'i%~@`^{?YS%ki#!S)Di#]N'^!S)BiS)^YS#^9NDa_'^~T`D^J_~F_{],9NiS)^z]D'_'i$'i$9DYBPvR%`YJbuC_~LvR/^~L_vR$E^~F^{!N9DkYD^z]4i)!F)i&^z]*i-!S##m_i$z!HRm]89Kb`J^|]<8L`J^{];i-!Di3])#nS_^z]#Rn]59Kb`J^|]/8L`J^{].i-!S'i3]P#oS_^z]'Ro]A#l`^{](Rl!O)i$^z!K87D^z!76D^z]0-D^z!63D^z]9iS%]&j=!,i-!.i3!+#k`^{!/Rk!;9>'i$)bK^~Q^zz!1Av6]OAv5]$Av4!JAv3!9Av2!BAv1!5Av0!)Av/!S$Av.!S%Au]=At!4As!-Ar!3Aq!:Ap]>Ao!(Am!'Al!*#lk^zy"
@@ -203,7 +203,7 @@ func push(val Obj) {
 	tos := new(Rib)
 	tos.x = val
 	tos.y = stack
-	tos.z = tagNum(0)
+	tos.z = tagNum(PairTag)
 
 	stack = tos
 }
@@ -239,8 +239,8 @@ func lstLength(lst Obj) Obj {
 }
 
 func createSym(chars Obj) Obj {
-	list := allocRib(chars, lstLength(chars), tagNum(StringTag))
-	sym := allocRib(FALSE, list, tagNum(SymbolTag))
+	str := allocRib(chars, lstLength(chars), tagNum(StringTag))
+	sym := allocRib(FALSE, str, tagNum(SymbolTag))
 	return allocRib(sym, symbolTable, tagNum(PairTag))
 }
 
@@ -332,7 +332,7 @@ func decode() {
 			n = pop()
 		} else {
 			if op == 0 {
-				stack = allocRib(tagNum(0), stack, tagNum(0))
+				stack = allocRib(tagNum(0), stack, tagNum(PairTag))
 			}
 
 			if n.Value() >= d {
@@ -389,7 +389,7 @@ func setupStack() {
 		tagNum(0),
 		allocRib(tagNum(InstrHalt),
 			tagNum(0),
-			tagNum(0)))
+			tagNum(PairTag)))
 
 }
 
@@ -504,23 +504,26 @@ func prim(primNo int) {
 			return tagNum(x.Value() / y.Value())
 		})
 	case 18:
-		buff := make([]byte, 1)
-		count, err := os.Stdin.Read(buff)
+		if pos < len(Input) {
+			push(tagNum(int(getByte())))
+		} else {
+			buff := make([]byte, 1)
+			count, err := os.Stdin.Read(buff)
 
-		if err == io.EOF {
-			// we are done
-			os.Exit(0)
-		} else if nil != err {
-			panic(err)
-		} else if count != 1 {
-			panic("Failed to read 1char")
+			if err == io.EOF {
+				// we are done
+				os.Exit(0)
+			} else if nil != err {
+				panic(err)
+			} else if count != 1 {
+				panic("Failed to read 1char")
+			}
+
+			push(tagNum(int(buff[0])))
 		}
-
-		push(tagNum(int(buff[0])))
 	case 19:
 		doPrim1(func(x Obj) Obj {
-			fmt.Printf(">")
-			//fmt.Printf("%c", byte(x.Value()))
+			fmt.Printf("%c", byte(x.Value()))
 			return x
 		})
 	}
@@ -540,10 +543,11 @@ func run() {
 	for {
 		instr := pc.Field0().Value()
 		operand := pc.Field1()
+		next := pc.Field2()
 
 		switch instr {
-		case InstrCall: // jump
-			call := pc.Field2().Rib()
+		case InstrCall: // call
+			call := next.Rib()
 			if DebugICall {
 				if call {
 					fmt.Println("--- call")
@@ -558,12 +562,12 @@ func run() {
 			if code.Number() {
 				prim(code.Value())
 
-				if !call {
-					pc = getCont()
-					stack.Field1Set(pc.Field0())
+				if call {
+					code = pc
+				} else {
+					code = getCont()
+					stack.Field1Set(code.Field0())
 				}
-
-				pc = pc.Field2()
 			} else {
 				if DebugICall {
 					fmt.Printf("Calling a symbol\n")
@@ -571,12 +575,7 @@ func run() {
 
 				argC := code.Field0().Value()
 
-				newPc := proc.Field0()
-
-				newCont := stack
-				newCont.Field1Set(proc)
-
-				c2 := allocRib(tagNum(PairTag), proc, tagNum(PairTag))
+				c2 := allocRib(tagNum(0), proc, tagNum(PairTag))
 				s2 := c2
 
 				for argC > 0 {
@@ -584,19 +583,19 @@ func run() {
 					s2 = allocRib(pop(), s2, tagNum(PairTag))
 				}
 
-				if !call {
+				if call {
+					c2.Field0Set(stack)
+					c2.Field2Set(pc.Field2())
+				} else {
 					cont := getCont()
 					c2.Field0Set(cont.Field0())
 					c2.Field2Set(cont.Field2())
-				} else {
-					c2.Field0Set(stack)
-					c2.Field2Set(pc.Field2())
 				}
 
 				stack = s2
-
-				pc = newPc.Field2()
 			}
+
+			pc = code.Field2()
 		case InstrSet: // set
 			if DebugICall {
 				fmt.Println("--- set")

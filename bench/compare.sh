@@ -1,19 +1,23 @@
 #!/bin/zsh
 
-TIME_FMT="Total time: %E\tUser Mode (s) %U\t"
-
 tests=$(ls *.scm)
 
 crvm() {
     rm -rf rvm
+    rm -rf rvm1
+    rm -rf rvm2
+    rm -rf rvm3
 }
 
 rvm() {
     crvm
-    pushd ../src/vm_c/
+    pushd ../src/host/c
     make clean >> /dev/null
     make >> /dev/null
-    cp rVM ../../bench/rvm
+    cp rVM ../../../bench/rvm
+    cp rVM1 ../../../bench/rvm1
+    cp rVM2 ../../../bench/rvm2
+    cp rVM3 ../../../bench/rvm3
     popd
 }
 
@@ -80,6 +84,7 @@ cmitscm() {
 }
 
 mitscm() {
+    # https://people.csail.mit.edu/jaffer/scm/index.html
     cmitscm
     wget https://groups.csail.mit.edu/mac/ftpdir/users/jaffer/scm.zip -O mitscm.zip > /dev/null 2>&1
     unzip mitscm.zip > /dev/null 2>&1
@@ -139,16 +144,41 @@ picobit() {
 }
 
 cminischeme() {
+    rm -rf minischeme.tar.gz
     rm -rf minischeme
     rm -rf fminischeme
 }
 
 minischeme() {
-    git clone git@github.com:ignorabimus/minischeme.git fminischeme
-    pushd fminischeme/src
+    wget ftp://ftp.cs.indiana.edu/pub/scheme-repository/imp/minischeme.tar.gz -O minischeme.tar.gz > /dev/null 2>&1
+    tar xvf minischeme.tar.gz > /dev/null 2>&1
+    mv minischeme fminischeme > /dev/null 2>&1
+    pushd fminischeme > /dev/null 2>&1
+    mv makefile Makefile > /dev/null 2>&1
     make > /dev/null 2>&1
-    cp miniscm ../../minischeme
+    cp miniscm ../minischeme
     popd
+}
+
+csiod() {
+    rm -rf siod
+    rm -rf libsiod
+    rm -rf fsiod
+}
+
+siod() {
+    csiod
+    mkdir fsiod > /dev/null 2>&1 
+    pushd fsiod > /dev/null 2>&1 
+    wget http://people.delphiforums.com/gjc/siod.tgz -O siod.tgz > /dev/null 2>&1 
+    tar xvf siod.tgz > /dev/null 2>&1 
+    sed -i 's/-Xlinker $(LIBSIODDIR)/-Xlinker \./' makefile > /dev/null 2>&1 
+    make linux > /dev/null 2>&1 
+
+    cp siod .. > /dev/null 2>&1 
+    cp libsiod.so .. > /dev/null 2>&1 
+
+    popd > /dev/null 2>&1 
 }
 
 clean() {
@@ -156,6 +186,7 @@ clean() {
     rm *.csv
     cpico
     crvm
+    csiod
     cchicken
     cqscheme
     ctinyscheme
@@ -184,7 +215,7 @@ run() {
 
         done
 
-        hyperfine --min-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
+        hyperfine --min-runs 2 --max-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
     else
         for test in $tests
         do
@@ -206,13 +237,19 @@ if [[ "$1" == "--clean" ]]; then
     exit 0
 fi
 
+echo "== Preparing Schemes =="
 rvm
 tinyscheme
 bitscm
 mitscm
 picobit
 minischeme
-
+siod
+echo "==       READY       =="
+run rvm
+run rvm3
+run crvm.sh
+run rrvm3.sh
 run minischeme
 run bit.sh
 run pico.sh
@@ -220,3 +257,4 @@ run rvm
 run mitscm
 run gsi
 run tinyscheme
+run siod
