@@ -1,8 +1,16 @@
 # Makefile to Compile the C VM as the smallest possible VM
+# Also supports `make compiled` to take `source.scm` and 
+# receive an executable `compiled`
+
 UNAME = $(shell uname)
 OUT=rVM
+COMPILED_OUT=compiled
 INT=vm.o.unstripped
-SRC=vm.c
+COMPILED_INT=vm.comp.o.unstripped
+
+COMPILED_INTERMEDIARY=vm.intermediary.c
+
+SRC=vm.c makefile
 
 ifeq ($(UNAME), Darwin)
 	LD=/usr/local/Cellar/x86_64-elf-binutils/2.36.1/bin/x86_64-elf-ld
@@ -29,39 +37,38 @@ CFLAGS = -m32 -ffunction-sections -fdata-sections -fno-plt -fno-stack-protector 
 		 -fno-asynchronous-unwind-tables -fomit-frame-pointer -fno-pic -fno-PIE -fno-PIC -ffast-math \
 		 -nostartfiles -nostdlib -s
 
+OBJCARGS = -S --remove-section .comment --remove-section .note --remove-section .hash --remove-section .eh_frame --remove-section .note.gnu.property
+
 COPT_SPACE = -Os
 COPT_FAST3 = -O3 -DNO_REG
 COPT_FAST2 = -O2 -DNO_REG
 COPT_FAST1 = -O1 -DNO_REG
 
-all: $(OUT) $(OUT)1 $(OUT)2 $(OUT)3
+all: $(OUT) $(OUT)3
 
 clean:
 	rm -f *.o
 	rm -f $(OUT)*
 	rm -f $(INT)*
+	rm -f $(COMPILED_INT)
+	rm -f $(COMPILED_OUT)
 
 $(OUT): $(INT)
-	$(OBJC) -S --remove-section .comment --remove-section .note --remove-section .hash --remove-section .eh_frame --remove-section .note.gnu.property $(INT) $(OUT)
-
-$(OUT)1: $(INT)1
-	$(OBJC) -S --remove-section .comment --remove-section .note --remove-section .hash --remove-section .eh_frame --remove-section .note.gnu.property $(INT)1 $(OUT)1
-
-$(OUT)2: $(INT)2
-	$(OBJC) -S --remove-section .comment --remove-section .note --remove-section .hash --remove-section .eh_frame --remove-section .note.gnu.property $(INT)2 $(OUT)2
+	$(OBJC) $(OBJCARGS) $(INT) $(OUT)
 
 $(OUT)3: $(INT)3
-	$(OBJC) -S --remove-section .comment --remove-section .note --remove-section .hash --remove-section .eh_frame --remove-section .note.gnu.property $(INT)3 $(OUT)3
+	$(OBJC) $(OBJCARGS) $(INT)3 $(OUT)3
 
-$(INT): $(SRC)
+$(INT): $(SRC) 
 	$(GCC) $(GCC_DEFS) vm.c $(CFLAGS) $(COPT_SPACE) -o $(INT)
-
-$(INT)1: $(SRC)
-	$(GCC) $(GCC_DEFS) vm.c $(CFLAGS) $(COPT_FAST1) -o $(INT)1
-
-$(INT)2: $(SRC)
-	$(GCC) $(GCC_DEFS) vm.c $(CFLAGS) $(COPT_FAST2) -o $(INT)2
 
 $(INT)3: $(SRC)
 	$(GCC) $(GCC_DEFS) vm.c $(CFLAGS) $(COPT_FAST3) -o $(INT)3
 
+$(COMPILED_INT): $(SRC) source.scm
+	# TODO: call ssc.scm to make the bytecode
+	sed "s/\[\[IPT\]\]/char *input=\"$(shell cat bench.scm)\";/g" vm.c > $(COMPILED_INTERMEDIARY)
+	$(GCC) $(GCC_DEFS) $(COMPILED_INTERMEDIARY) $(CFLAGS) $(COPT_SPACE) -DCPROG -o $(COMPILED_INT)
+
+$(COMPILED_OUT): $(COMPILED_INT)
+	$(OBJC) $(OBJCARGS) $(COMPILED_INT) $(COMPILED_OUT)

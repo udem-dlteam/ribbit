@@ -26,6 +26,7 @@
 #pragma clang diagnostic ignored "-Wunknown-pragmas"
 #pragma ide diagnostic ignored "ConstantFunctionResult"
 
+#ifndef CPROG
 char *input =
     "Bfer-gnirts,htgnel-gnirts,fi,!rdc-tes,!tes-gnirts,esrever,enifed,!tes-"
     "rotcev,=,cc/"
@@ -57,6 +58,9 @@ char *input =
     "9iS%]&j=!,i-!.i3!+#k`^{!/"
     "Rk!;9>'i$)bK^~Q^zz!1Av6]OAv5]$Av4!JAv3!9Av2!BAv1!5Av0!)Av/"
     "!S$Av.!S%Au]=At!4As!-Ar!3Aq!:Ap]>Ao!(Am!'Al!*#lk^zy";
+#else
+[[IPT]]
+#endif
 
 #ifndef NULL
 
