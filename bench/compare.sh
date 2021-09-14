@@ -181,6 +181,29 @@ siod() {
     popd > /dev/null 2>&1 
 }
 
+cchibi() {
+    rm -rf fchibi
+    rm -f chibi
+    rm -f lib
+    rm -f chibi.tar.gz
+}
+
+chibi() {
+    cchibi
+    wget http://synthcode.com/scheme/chibi/chibi-scheme-0.10.0.tgz -O chibi.tar.gz  > /dev/null 2>&1 
+    tar xvf chibi.tar.gz > /dev/null 2>&1 
+    mv chibi-scheme-0.10.0 fchibi > /dev/null 2>&1 
+    
+    pushd fchibi > /dev/null 2>&1 
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/$(pwd)/  > /dev/null 2>&1 
+    make clean > /dev/null 2>&1 
+    make -j4 > /dev/null 2>&1 
+    popd > /dev/null 2>&1 
+
+    ln -sf ./fchibi/chibi-scheme chibi > /dev/null 2>&1 
+    ln -sf ./fchibi/lib lib > /dev/null 2>&1 
+}
+
 clean() {
     rm *.zip
     rm *.csv
@@ -245,6 +268,7 @@ mitscm
 picobit
 minischeme
 siod
+chibi
 echo "==       READY       =="
 run rvm
 run rvm3
@@ -255,6 +279,7 @@ run bit.sh
 run pico.sh
 run rvm
 run mitscm
-run gsi
+# run gsi
 run tinyscheme
 run siod
+run chibi
