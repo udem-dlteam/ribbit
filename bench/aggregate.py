@@ -39,8 +39,24 @@ def build_map(scheme_and_files):
     return result_map
 
 
-def print_global_table(benchmarks, results):
-    schemes = sorted(results.keys())
+known = ["rvm", "rvm3", "minischeme", "tinyscheme", "mitscm", "bit", "gsi", "pico", "siod"]
+
+
+def existing_schemes(scheme):
+    """
+    Sort them in the order we want in the article.
+    If not in the known list, append last
+    :param scheme: the scheme impl name
+    :return: the index of the scheme in our table
+    """
+    if scheme in known:
+        return known.index(scheme)
+    else:
+        return len(known)
+
+
+def print_global_table(benchmarks, results, relative=False):
+    schemes = sorted(results.keys(), key=existing_schemes)
 
     printable_schemes = list(schemes)
     printable_schemes.insert(0, "")
@@ -62,11 +78,20 @@ def print_global_table(benchmarks, results):
             stddev = results[impl][bench][2]
             rsd = (stddev * 100) / mean
             total_l = int(max_len * 1.2)
-            plus_or_minus = " \pm "
+            plus_or_minus = "$\\pm$"
             printable_mean = f"{mean:0.2f}"
-            printable_rsd = f"{rsd:0.1f}%"
+            printable_rsd = f"{rsd:0.1f}\\%"
 
-            line += f"{printable_mean}{plus_or_minus}{printable_rsd}".rjust(total_l)
+            if relative:
+                if impl == "rvm3":
+                    relative_factor = f"1x"
+                else:
+                    mean_of_rvm3 = results["rvm3"][bench][1]
+                    factor = mean / mean_of_rvm3
+                    relative_factor = f"{factor:.2f}x"
+                line += f"{relative_factor}".rjust(total_l)
+            else:
+                line += f"{printable_mean}{plus_or_minus}{printable_rsd}".rjust(total_l)
         print(line)
 
     # print(printable_schemes)
@@ -94,6 +119,8 @@ def main():
     benchmarks = [file for file in glob.glob("*.scm")]
     result_map = build_map(scheme_and_files)
     print_global_table(benchmarks, result_map)
+    print()
+    print_global_table(benchmarks, result_map, relative=True)
 
     for benchmark in benchmarks:
         print()
