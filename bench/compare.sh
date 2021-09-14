@@ -161,15 +161,24 @@ minischeme() {
 }
 
 csiod() {
+    rm -rf siod
+    rm -rf libsiod
+    rm -rf fsiod
 }
 
 siod() {
     csiod
-    mkdir fsiod
-    pushd fsiod
-    wget http://people.delphiforums.com/gjc/siod.tgz -O siod.tgz
-    tar xvf siod.tgz
+    mkdir fsiod > /dev/null 2>&1 
+    pushd fsiod > /dev/null 2>&1 
+    wget http://people.delphiforums.com/gjc/siod.tgz -O siod.tgz > /dev/null 2>&1 
+    tar xvf siod.tgz > /dev/null 2>&1 
+    sed -i 's/-Xlinker $(LIBSIODDIR)/-Xlinker \./' makefile > /dev/null 2>&1 
+    make linux > /dev/null 2>&1 
 
+    cp siod .. > /dev/null 2>&1 
+    cp libsiod.so .. > /dev/null 2>&1 
+
+    popd > /dev/null 2>&1 
 }
 
 clean() {
@@ -229,21 +238,21 @@ if [[ "$1" == "--clean" ]]; then
 fi
 
 echo "== Preparing Schemes =="
-rvm
-tinyscheme
-bitscm
-mitscm
-picobit
-minischeme
+# rvm
+# tinyscheme
+# bitscm
+# mitscm
+# picobit
+# minischeme
 siod
 echo "==       READY       =="
-run rvm
-run rvm1
-run rvm3
-run minischeme
-run bit.sh
-run pico.sh
-run rvm
-run mitscm
-run gsi
-run tinyscheme
+# run rvm
+# run rvm1
+# run rvm3
+# run minischeme
+# run bit.sh
+# run pico.sh
+# run rvm
+# run mitscm
+# run gsi
+# run tinyscheme
