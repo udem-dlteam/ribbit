@@ -10,7 +10,7 @@ COMPILED_INT=vm.comp.o.unstripped
 
 COMPILED_INTERMEDIARY=vm.intermediary.c
 
-VM_SRC=vm.c
+VM_SRC=rvm.c
 SRC=$(VM_SRC) makefile
 
 ifeq ($(UNAME), Darwin)

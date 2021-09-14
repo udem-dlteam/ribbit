@@ -10,7 +10,7 @@ def scheme_name_of(file_name: str):
 
 def benchmark_name_of(command_line: str):
     chopped = command_line.split(" ")
-    return chopped[1]
+    return chopped[1].split(".")[0]
 
 
 def bench_triplet(benchmark_line: str):
@@ -39,7 +39,8 @@ def build_map(scheme_and_files):
     return result_map
 
 
-known = ["rvm", "rvm3", "minischeme", "tinyscheme", "mitscm", "bit", "gsi", "pico", "siod"]
+known = ["rvm", "rvm3", "minischeme", "tinyscheme",
+         "mitscm", "siod", "gsi", "bit", "pico"]
 
 
 def existing_schemes(scheme):
@@ -55,7 +56,7 @@ def existing_schemes(scheme):
         return len(known)
 
 
-def print_global_table(benchmarks, results, relative=False):
+def print_global_table(benchmarks, results):
     schemes = sorted(results.keys(), key=existing_schemes)
 
     printable_schemes = list(schemes)
@@ -78,20 +79,19 @@ def print_global_table(benchmarks, results, relative=False):
             stddev = results[impl][bench][2]
             rsd = (stddev * 100) / mean
             total_l = int(max_len * 1.2)
-            plus_or_minus = "$\\pm$"
+            plus_or_minus = "~$\\pm$"
             printable_mean = f"{mean:0.2f}"
             printable_rsd = f"{rsd:0.1f}\\%"
 
-            if relative:
-                if impl == "rvm3":
-                    relative_factor = f"1x"
-                else:
-                    mean_of_rvm3 = results["rvm3"][bench][1]
-                    factor = mean / mean_of_rvm3
-                    relative_factor = f"{factor:.2f}x"
-                line += f"{relative_factor}".rjust(total_l)
+            if impl == "rvm3" or impl == "pico" or impl == "bit":
+                line += f"{printable_mean}s{plus_or_minus}{printable_rsd}".rjust(
+                    total_l)
             else:
-                line += f"{printable_mean}{plus_or_minus}{printable_rsd}".rjust(total_l)
+                mean_of_rvm3 = results["rvm3"][bench][1]
+                factor = mean / mean_of_rvm3
+                relative_factor = f"${factor:.1f}\\times$"
+                line += f"{relative_factor}{plus_or_minus}{printable_rsd}".rjust(
+                    total_l)
         print(line)
 
     # print(printable_schemes)
@@ -116,16 +116,9 @@ def print_benchmark_table(benchmark: str, results):
 def main():
     csv_files = [file for file in glob.glob("*.csv")]
     scheme_and_files = list(map(lambda x: (scheme_name_of(x), x), csv_files))
-    benchmarks = [file for file in glob.glob("*.scm")]
+    benchmarks = [file.split(".")[0] for file in glob.glob("*.scm")]
     result_map = build_map(scheme_and_files)
     print_global_table(benchmarks, result_map)
-    print()
-    print_global_table(benchmarks, result_map, relative=True)
-
-    for benchmark in benchmarks:
-        print()
-        print()
-        print_benchmark_table(benchmark, result_map)
 
 
 if __name__ == '__main__':
