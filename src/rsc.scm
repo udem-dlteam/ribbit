@@ -838,7 +838,7 @@
 (define (string-from-file path)
   (call-with-input-file path (lambda (port) (read-line port #f))))
 
-(define (rsc-main src-path output-path target input-path lib-path verbosity)
+(define (rsc-main src-path output-path target input-path lib-path verbosity print-to-stdout?)
   (let* ((lib
           (read-from-file
            (if (equal? (path-extension lib-path) "")
@@ -887,22 +887,24 @@
                            (newline)))
                     (display vm-source))))
                (minified-output
-                (let ((port (open-process
-                             (list path:
-                                   (path-expand
-                                    (string-append "host/" target "/minify")
-                                    (root-dir))))))
-                  (display output port)
-                  (close-output-port port)
-                  (let ((out (read-line port #f)))
-                    (close-port port)
-                    out))))
+                 (let ((port (open-process
+                               (list path:
+                                     (path-expand
+                                       (string-append "host/" target "/minify")
+                                       (root-dir))))))
+                   (display output port)
+                   (close-output-port port)
+                   (let ((out (read-line port #f)))
+                     (close-port port)
+                     out))))
           (if (>= verbosity 1)
               (println "*** RVM code length: " (string-length input) " bytes"))
+          (if print-to-stdout?
+           (display encoded-program))
           (with-output-to-file
               output-path
             (lambda ()
-              (display minified-output))))))))
+              (display  minified-output))))))))
 
 (define (root-dir)
   (path-directory (or (script-file) (executable-path))))
@@ -912,6 +914,7 @@
         (target "scm")
         (input-path #f)
         (output-path #f)
+        (print-to-stdout? #f)
         (lib-path "default")
         (src-path #f))
 
@@ -924,6 +927,9 @@
                    (loop (cdr rest)))
                   ((and (pair? rest) (member arg '("-i" "--input")))
                    (set! input-path (car rest))
+                   (loop (cdr rest)))
+                  ((and (pair? rest) (member arg '("-p" "--print-program")))
+                   (set! print-to-stdout? #t)
                    (loop (cdr rest)))
                   ((and (pair? rest) (member arg '("-o" "--output")))
                    (set! output-path (car rest))
@@ -941,25 +947,26 @@
                    (set! verbosity (+ verbosity 3))
                    (loop rest))
                   (else
-                   (if (and (>= (string-length arg) 1)
-                            (string=? (substring arg 0 1) "-"))
-                       (begin
-                         (println "*** ignoring option " arg)
-                         (loop rest))
-                       (begin
-                         (set! src-path arg)
-                         (loop rest))))))))
+                    (if (and (>= (string-length arg) 1)
+                             (string=? (substring arg 0 1) "-"))
+                      (begin
+                        (println "*** ignoring option " arg)
+                        (loop rest))
+                      (begin
+                        (set! src-path arg)
+                        (loop rest))))))))
 
     (if (not src-path)
-        (begin
-          (println "*** a Scheme source file must be specified")
-          (exit 1))
-        (rsc-main src-path
-                  (or output-path
-                      (string-append src-path "." target))
-                  target
-                  input-path
-                  lib-path
-                  verbosity))))
+      (begin
+        (println "*** a Scheme source file must be specified")
+        (exit 1))
+      (rsc-main src-path
+                (or output-path
+                    (string-append src-path "." target))
+                target
+                input-path
+                lib-path
+                verbosity
+                print-to-stdout?))))
 
 ;;;----------------------------------------------------------------------------
