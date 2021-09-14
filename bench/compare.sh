@@ -247,7 +247,7 @@ minischeme
 siod
 echo "==       READY       =="
 run rvm
-run rvm1
+# run rvm1
 run rvm3
 run minischeme
 run bit.sh

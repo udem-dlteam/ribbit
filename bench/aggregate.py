@@ -58,8 +58,15 @@ def print_global_table(benchmarks, results):
 
         for impl in schemes:
             line += space
-            mean = f"{(results[impl][bench][1]):06f}"
-            line += mean.rjust(int(max_len * 1.2), " ")
+            mean = results[impl][bench][1]
+            stddev = results[impl][bench][2]
+            rsd = (stddev * 100) / mean
+            total_l = int(max_len * 1.2)
+            plus_or_minus = " \pm "
+            printable_mean = f"{mean:0.2f}"
+            printable_rsd = f"{rsd:0.1f}%"
+
+            line += f"{printable_mean}{plus_or_minus}{printable_rsd}".rjust(total_l)
         print(line)
 
     # print(printable_schemes)
