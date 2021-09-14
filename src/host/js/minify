@@ -1,40 +1,12 @@
 #!/bin/sh
 
 sed \
-  -e 's|.*/\*debug\*/.*||g' \
-  -e 's|.*/\*nodexxx\*/.*||g' \
-  -e 's|domdoc|A|g' \
-  -e 's|dombody|B|g' \
-  -e 's|selstart|C|g' \
-  -e 's|txtarea|D|g' \
-  -e 's|putchar|E|g' \
-  -e 's|getchar|F|g' \
-  -e 's|pos|G|g' \
-  -e 's|get_byte|H|g' \
-  -e 's|FALSE|I|g' \
-  -e 's|TRUE|J|g' \
-  -e 's|NIL|K|g' \
-  -e 's|boolean|L|g' \
-  -e 's|is_rib|M|g' \
-  -e 's|stack|N|g' \
-  -e 's|push|O|g' \
-  -e 's|pop|P|g' \
-  -e 's|prim1|Q|g' \
-  -e 's|prim2|R|g' \
-  -e 's|prim3|S|g' \
-  -e 's|primitives|T|g' \
-  -e 's|get_byte|U|g' \
-  -e 's|get_code|V|g' \
-  -e 's|get_int|W|g' \
-  -e 's|list_tail|X|g' \
-  -e 's|run|Z|g' \
-  -e 's|symtbl|q|g' \
-  -e 's|symbol_ref|r|g' \
-  -e 's|accum|s|g' \
-  -e 's|get_opnd|u|g' \
-  -e 's|get_cont|v|g' \
-  -e 's|set_global|w|g' \
-  -e 's|input|y|g' \
-  -e 's|pc|z|g' \
+  -e 's|.*//debug.*||g' \
+  -e 's|.*//nodeNOT.*||g' \
+| gsi `dirname "$0"`/../../minify.scm \
+--comment-char "/" --comment-char2 "/" \
+--ident-chars "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789" \
+"abstract" "await" "boolean" "break" "byte" "case" "catch" "char" "class" "const" "continue" "debugger" "default" "delete" "do" "double" "else" "enum" "export" "extends" "false" "final" "finally" "float" "for" "function" "goto" "if" "implements" "import" "in" "instanceof" "int" "interface" "let  " "long" "native" "new" "null" "package" "private" "protected" "public" "return" "short" "static" "super" "switch" "synchronized" "this" "throw" "throws" "transient" "true" "try" "typeof" "var" "void" "volatile" "while" "with" "yield" \
+"Buffer" "String" "addEventListener" "alloc" "appendChild" "body" "charCodeAt" "createElement" "document" "fromCharCode" "keyCode" "length" "preventDefault" "readSync" "require" "selectionStart" "slice" "style" "value" "window" "writeSync" \
 | npx google-closure-compiler --language_in=ECMASCRIPT_2020 --language_out=ECMASCRIPT_2020 \
 | sed -e s"|'use strict';||"

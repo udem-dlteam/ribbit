@@ -215,13 +215,25 @@
 
 ;;;----------------------------------------------------------------------------
 
-(define (comp-program exprs)
-  (if (pair? exprs)
-      (let ((first (car exprs)))
-        (if (and (pair? first) (eqv? (car first) 'export))
-            (comp-program* (cdr exprs) (exports->alist (cdr first)))
-            (comp-program* exprs #f)))
-      (comp-program* exprs #f)))
+(define (comp-program program)
+  (let* ((exprs-exports (extract-exports program))
+         (exprs (car exprs-exports))
+         (exports (cdr exprs-exports)))
+    (comp-program* (if (pair? exprs) exprs (list #f))
+                   (exports->alist exports))))
+
+(define (extract-exports program)
+  (let loop ((lst program) (rev-exprs '()) (exports '()))
+    (if (pair? lst)
+        (let ((first (car lst)))
+          (if (and (pair? first) (eqv? (car first) 'export))
+              (loop (cdr lst)
+                    rev-exprs
+                    (append (cdr first) exports))
+              (loop (cdr lst)
+                    (cons first rev-exprs)
+                    exports)))
+        (cons (reverse rev-exprs) exports))))
 
 (define (comp-program* exprs exports)
   (let ((expansion (expand-begin exprs)))
@@ -826,65 +838,71 @@
 (define (string-from-file path)
   (call-with-input-file path (lambda (port) (read-line port #f))))
 
-(define (rsc-main src-path output-path target input-path verbosity)
-  (let* ((lib (read-from-file (path-expand "lib.scm" (root-dir))))
-         (program (append lib (read-from-file src-path))))
-    (let ((prog-exports (comp-program program)))
-      (let ((proc (car prog-exports)))
-        (let ((exports (cdr prog-exports)))
-          (if (>= verbosity 2)
-              (begin
-                (println "*** RVM code:")
-                (pp proc)))
-          (if (>= verbosity 3)
-              (begin
-                (println "*** exports:")
-                (pp exports)))
-          (let ((encoded-program (encode proc exports)))
-;;            (println "*** RVM code encoding length: " (string-length encoded-program))
-;;            (pp encoded-program)
-;;            (exit)
-            (let* ((vm-source
-                    (string-from-file
-                     (path-expand (string-append "host/" target "/rvm." target)
-                                  (root-dir))))
-                   (input
-                    (string-append encoded-program
-                                   (if input-path
-                                       (string-from-file input-path)
-                                       "")))
-                   (output
-                    (with-output-to-string
-                      (lambda ()
-                        (cond ((equal? target "scm")
-                               (write `(define input ,input))
-                               (newline))
-                              (else
-                               (cond ((equal? target "c")
-                                      (display "char *")))
-                               (display "input = ")
-                               (write input)
-                               (cond ((not (equal? target "py"))
-                                      (display ";")))
-                               (newline)))
-                        (display vm-source))))
-                   (minified-output
-                    (let ((port (open-process
-                                 (list path:
-                                       (path-expand
-                                        (string-append "host/" target "/minify")
-                                        (root-dir))))))
-                      (display output port)
-                      (close-output-port port)
-                      (let ((out (read-line port #f)))
-                        (close-port port)
-                        out))))
-              (if (>= verbosity 1)
-                  (println "*** RVM code length: " (string-length input) " bytes"))
-              (with-output-to-file
-                  output-path
-                (lambda ()
-                  (display minified-output))))))))))
+(define (rsc-main src-path output-path target input-path lib-path verbosity)
+  (let* ((lib
+          (read-from-file
+           (if (equal? (path-extension lib-path) "")
+               (path-expand (string-append lib-path ".scm")
+                            (path-expand "lib" (root-dir)))
+               lib-path)))
+         (program
+          (append lib (read-from-file src-path))))
+    (let* ((prog-exports (comp-program program))
+           (proc (car prog-exports))
+           (exports (cdr prog-exports)))
+      (if (>= verbosity 2)
+          (begin
+            (println "*** RVM code:")
+            (pp proc)))
+      (if (>= verbosity 3)
+          (begin
+            (println "*** exports:")
+            (pp exports)))
+      (let ((encoded-program (encode proc exports)))
+;;        (println "*** RVM code encoding length: " (string-length encoded-program))
+;;        (pp encoded-program)
+;;        (exit)
+        (let* ((vm-source
+                (string-from-file
+                 (path-expand (string-append "host/" target "/rvm." target)
+                              (root-dir))))
+               (input
+                (string-append encoded-program
+                               (if input-path
+                                   (string-from-file input-path)
+                                   "")))
+               (output
+                (with-output-to-string
+                  (lambda ()
+                    (cond ((equal? target "scm")
+                           (write `(define input ,input))
+                           (newline))
+                          (else
+                           (cond ((equal? target "c")
+                                  (display "char *")))
+                           (display "input = ")
+                           (write input)
+                           (cond ((not (equal? target "py"))
+                                  (display ";")))
+                           (newline)))
+                    (display vm-source))))
+               (minified-output
+                (let ((port (open-process
+                             (list path:
+                                   (path-expand
+                                    (string-append "host/" target "/minify")
+                                    (root-dir))))))
+                  (display output port)
+                  (close-output-port port)
+                  (let ((out (read-line port #f)))
+                    (close-port port)
+                    out))))
+          (if (>= verbosity 1)
+              (println "*** RVM code length: " (string-length input) " bytes"))
+          (with-output-to-file
+              output-path
+            (lambda ()
+              (display minified-output))))))))
 
 (define (root-dir)
   (path-directory (or (script-file) (executable-path))))
@@ -894,6 +912,7 @@
         (target "scm")
         (input-path #f)
         (output-path #f)
+        (lib-path "default")
         (src-path #f))
 
     (let loop ((args args))
@@ -908,6 +927,9 @@
                    (loop (cdr rest)))
                   ((and (pair? rest) (member arg '("-o" "--output")))
                    (set! output-path (car rest))
+                   (loop (cdr rest)))
+                  ((and (pair? rest) (member arg '("-l" "--library")))
+                   (set! lib-path (car rest))
                    (loop (cdr rest)))
                   ((member arg '("-v" "--v"))
                    (set! verbosity (+ verbosity 1))
@@ -937,6 +959,7 @@
                       (string-append src-path "." target))
                   target
                   input-path
+                  lib-path
                   verbosity))))
 
 ;;;----------------------------------------------------------------------------

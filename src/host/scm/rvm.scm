@@ -11,17 +11,17 @@
 (define vector-type    4)
 (define singleton-type 5)
 
-(define (_rib? obj) (vector? obj))
-(define (_rib field0 field1 field2) (vector field0 field1 field2))
-(define (_field0 rib) (vector-ref rib 0))
-(define (_field1 rib) (vector-ref rib 1))
-(define (_field2 rib) (vector-ref rib 2))
-(define (_field0-set! rib x) (vector-set! rib 0 x))
-(define (_field1-set! rib x) (vector-set! rib 1 x))
-(define (_field2-set! rib x) (vector-set! rib 2 x))
+(define (_rib? x) (vector? x))
+(define (_rib x y z) (vector x y z))
+(define (_field0 x) (vector-ref x 0))
+(define (_field1 x) (vector-ref x 1))
+(define (_field2 x) (vector-ref x 2))
+(define (_field0-set! x y) (vector-set! x 0 y))
+(define (_field1-set! x y) (vector-set! x 1 y))
+(define (_field2-set! x y) (vector-set! x 2 y))
 
 (define (instance? type)
-  (lambda (obj) (and (_rib? obj) (eqv? (_field2 obj) type))))
+  (lambda (x) (and (_rib? x) (eqv? (_field2 x) type))))
 
 (define _pair? (instance? pair-type))
 (define (_cons car cdr) (_rib car cdr pair-type))
@@ -267,15 +267,7 @@
       ((4) ;; if
        (trace-instruction "if" #f stack)
        (run (if (eqv? (_car stack) _false) next opnd)
-            (_cdr stack)))
-
-      ((5) ;; halt
-       (trace-instruction "halt" #f stack))
-
-      (else
-       (display "*** unexpected instruction ")
-       (write instr)
-       (newline)))))
+            (_cdr stack))))))
 
 (define (prim0 f)
   (lambda (stack)
@@ -336,9 +328,6 @@
                    (write-char (integer->char x))
                    x))))
 
-(define (start)
-  (let ((main-proc (decode)))
-    (run (_field2 (_field0 main-proc)) ;; instruction stream of main procedure
-         (_rib 0 0 (_rib 5 0 0))))) ;; primordial continuation = halt
-
-(start)
+(let ((x (decode)))
+  (run (_field2 (_field0 x)) ;; instruction stream of main procedure
+       (_rib 0 0 (_rib 5 0 0)))) ;; primordial continuation = halt
