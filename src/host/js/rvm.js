@@ -1,54 +1,58 @@
-debug = false; /*debug*/
+debug = false; //debug
 
-nodejs = ((function () { return this !== this.window; })()); /*node*/
-if (nodejs) { // in nodejs? /*node*/
+lengthAttr = "length";
 
-  // Implement putchar/getchar to the terminal /*node*/
+nodejs = ((function () { return this !== this.window; })()); //node
+if (nodejs) { // in nodejs? //node
 
-  node_fs = require("fs"); /*node*/
+  // Implement putchar/getchar to the terminal //node
 
-  putchar = (c) => { /*node*/
-    let buffer = Buffer.alloc(1); /*node*/
-    buffer[0] = c; /*node*/
-    node_fs.writeSync(1, buffer, 0, 1); /*node*/
-    return c; /*node*/
-  }; /*node*/
+  node_fs = require("fs"); //node
 
-  getchar_sync = () => { /*node*/
-    let buffer = Buffer.alloc(1); /*node*/
-    if (node_fs.readSync(0, buffer, 0, 1)) /*node*/
-      return buffer[0]; /*node*/
-    return -1; /*node*/
-  }; /*node*/
+  putchar = (c) => { //node
+    let buffer = Buffer.alloc(1); //node
+    buffer[0] = c; //node
+    node_fs.writeSync(1, buffer, 0, 1); //node
+    return c; //node
+  }; //node
 
-  getchar = () => { /*node*/
-    push(pos<input.length ? get_byte() : getchar_sync()); /*node*/
-    return true; // indicate that no further waiting is necessary /*node*/
-  }; /*node*/
+  getchar_sync = () => { //node
+    let buffer = Buffer.alloc(1); //node
+    if (node_fs.readSync(0, buffer, 0, 1)) //node
+      return buffer[0]; //node
+    return -1; //node
+  }; //node
 
-  sym2str = (s) => chars2str(s[1][0]); /*node*/ /*debug*/
-  chars2str = (s) => (s===NIL) ? "" : (String.fromCharCode(s[0])+chars2str(s[1])); /*node*/ /*debug*/
-  show_opnd = (o) => is_rib(o) ? "sym " + sym2str(o) : "int " + o; /*node*/ /*debug*/
-  show_stack = () => { /*node*/ /*debug*/
-    let s = stack; /*node*/ /*debug*/
-    let r = []; /*node*/ /*debug*/
-    while (!s[2]) { r[r.length]=s[0]; s=s[1]; } /*node*/ /*debug*/
-    console.log(require("util").inspect(r, {showHidden: false, depth: 2})); /*node*/ /*debug*/
-  } /*node*/ /*debug*/
+  getchar = () => { //node
+    push(pos<input[lengthAttr] ? get_byte() : getchar_sync()); //node
+    return true; // indicate that no further waiting is necessary //node
+  }; //node
 
-} else { // in web browser /*node*/
+  sym2str = (s) => chars2str(s[1][0]); //node //debug
+  chars2str = (s) => (s===NIL) ? "" : (String.fromCharCode(s[0])+chars2str(s[1])); //node //debug
+  show_opnd = (o) => is_rib(o) ? "sym " + sym2str(o) : "int " + o; //node //debug
+  show_stack = () => { //node //debug
+    let s = stack; //node //debug
+    let r = []; //node //debug
+    while (!s[2]) { r[r[lengthAttr]]=s[0]; s=s[1]; } //node //debug
+    console.log(require("util").inspect(r, {showHidden: false, depth: 2})); //node //debug
+  } //node //debug
+
+} else { // in web browser //node
 
   // Implement a simple console as a textarea in the web page
 
   domdoc = document;
   selstart = 0;
+  addEventListenerAttr = "addEventListener";
+  selectionStartAttr = "selectionStart";
 
-  domdoc.addEventListener("DOMContentLoaded", () => {
+  domdoc[addEventListenerAttr]("DOMContentLoaded", () => {
     dombody = domdoc.body;
     txtarea = dombody.appendChild(domdoc.createElement("textarea"));
-    txtarea.style = "width:100%; height:50vh;";
-    dombody.addEventListener("keypress", (e) => {
-      let x = txtarea.selectionStart;
+    txtarea.style = "width:100%;height:50vh;";
+    dombody[addEventListenerAttr]("keypress", (e) => {
+      let x = txtarea[selectionStartAttr];
       if (x<selstart) selstart=x;
       if (e.keyCode==13) {
         e.preventDefault();
@@ -60,10 +64,10 @@ if (nodejs) { // in nodejs? /*node*/
     run();
   });
 
-  putchar = (c) => (selstart=txtarea.selectionStart=(txtarea.value += String.fromCharCode(c)).length, c);
+  putchar = (c) => (selstart=txtarea[selectionStartAttr]=(txtarea.value += String.fromCharCode(c))[lengthAttr], c);
 
-  getchar = () => pos<input.length && push(get_byte());
-} /*node*/
+  getchar = () => pos<input[lengthAttr] && push(get_byte());
+} //node
 
 pos = 0;
 get_byte = () => input[pos++].charCodeAt(0);
@@ -72,13 +76,13 @@ get_byte = () => input[pos++].charCodeAt(0);
 
 FALSE = [0,0,5]; TRUE = [0,0,5]; NIL = [0,0,5];
 
-boolean = (x) => x ? TRUE : FALSE;
-is_rib = (x) => x.length;
+to_bool = (x) => x ? TRUE : FALSE;
+is_rib = (x) => x[lengthAttr];
 
 stack = 0;
 
-push = (x) => { stack = [x,stack,0]; return true; }
-pop = () => { let x = stack[0]; stack = stack[1]; return x; }
+push = (x) => { stack = [x,stack,0]; return true; };
+pop = () => { let x = stack[0]; stack = stack[1]; return x; };
 
 prim1 = (f) => () => push(f(pop()));
 prim2 = (f) => () => push(f(pop(),pop()));
@@ -87,18 +91,18 @@ prim3 = (f) => () => push(f(pop(),pop(),pop()));
 primitives = [
   prim3((z, y, x) => [x, y, z]),
   prim1((x) => x),
-  () => { pop(); return true; },
-  () => { let x = pop(); pop(); return push(x); },
-  () => { let x = pop(); return push([x[0],stack,1]); },
-  prim1((x) => boolean(is_rib(x))),
+  () => (pop(), true),
+  () => { let y = pop(); pop(); return push(y); },
+  () => push([pop()[0],stack,1]),
+  prim1((x) => to_bool(is_rib(x))),
   prim1((x) => x[0]),
   prim1((x) => x[1]),
   prim1((x) => x[2]),
   prim2((y, x) => x[0]=y),
   prim2((y, x) => x[1]=y),
   prim2((y, x) => x[2]=y),
-  prim2((y, x) => boolean(x===y)),
-  prim2((y, x) => boolean(x<y)),
+  prim2((y, x) => to_bool(x===y)),
+  prim2((y, x) => to_bool(x<y)),
   prim2((y, x) => x+y),
   prim2((y, x) => x-y),
   prim2((y, x) => x*y),
@@ -130,7 +134,7 @@ while (1) {
 symtbl = [[0,[accum,n,3],2],symtbl,0];
 symbol_ref = (n) => list_tail(symtbl,n)[0];
 
-// decode the uVM instructions
+// decode the rVM instructions
 
 while (1) {
   x = get_code();
@@ -170,8 +174,10 @@ run = () => {
   while (1) {
     let o = pc[1];
     switch (pc[0]) {
+    case 5: // halt
+        return;
     case 0: // jump/call
-        if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } /*debug*/
+        if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } //debug
         o = get_opnd(o)[0];
         let c = o[0];
         if (is_rib(c)) {
@@ -201,31 +207,27 @@ run = () => {
                 c = pc;
             }
         }
-        pc = c[2];
+        pc = c;
         break;
     case 1: // set
-        if (debug) { console.log("--- set " + show_opnd(o)); show_stack(); } /*debug*/
+        if (debug) { console.log("--- set " + show_opnd(o)); show_stack(); } //debug
         get_opnd(o)[0] = pop();
-        pc = pc[2];
         break;
     case 2: // get
-        if (debug) { console.log("--- get " + show_opnd(o)); show_stack(); } /*debug*/
+        if (debug) { console.log("--- get " + show_opnd(o)); show_stack(); } //debug
         push(get_opnd(o)[0]);
-        pc = pc[2];
         break;
     case 3: // const
-        if (debug) { console.log("--- const " + o); show_stack(); } /*debug*/
+        if (debug) { console.log("--- const " + o); show_stack(); } //debug
         push(o);
-        pc = pc[2];
         break;
     case 4: // if
-        if (debug) { console.log("--- if"); show_stack(); } /*debug*/
-        pc = pc[pop() === FALSE ? 2 : 1];           
+        if (debug) { console.log("--- if"); show_stack(); } //debug
+        if (pop() !== FALSE) { pc = pc[1]; continue; }
         break;
-    default: // halt
-        return;
     }
+      pc = pc[2];
   }
-}
+};
 
-if (nodejs) run(); /*node*/
+if (nodejs) run(); //node
