@@ -10,7 +10,8 @@ COMPILED_INT=vm.comp.o.unstripped
 
 COMPILED_INTERMEDIARY=vm.intermediary.c
 
-SRC=vm.c makefile
+VM_SRC=vm.c
+SRC=$(VM_SRC) makefile
 
 ifeq ($(UNAME), Darwin)
 	LD=/usr/local/Cellar/x86_64-elf-binutils/2.36.1/bin/x86_64-elf-ld
@@ -60,14 +61,14 @@ $(OUT)3: $(INT)3
 	$(OBJC) $(OBJCARGS) $(INT)3 $(OUT)3
 
 $(INT): $(SRC) 
-	$(GCC) $(GCC_DEFS) vm.c $(CFLAGS) $(COPT_SPACE) -o $(INT)
+	$(GCC) $(GCC_DEFS) $(VM_SRC) $(CFLAGS) $(COPT_SPACE) -o $(INT)
 
 $(INT)3: $(SRC)
-	$(GCC) $(GCC_DEFS) vm.c $(CFLAGS) $(COPT_FAST3) -o $(INT)3
+	$(GCC) $(GCC_DEFS) $(VM_SRC) $(CFLAGS) $(COPT_FAST3) -o $(INT)3
 
 $(COMPILED_INT): $(SRC) source.scm
 	# TODO: call ssc.scm to make the bytecode
-	sed "s/\[\[IPT\]\]/char *input=\"$(shell cat bench.scm)\";/g" vm.c > $(COMPILED_INTERMEDIARY)
+	sed "s/\[\[IPT\]\]/char *input=\"$(shell cat bench.scm)\";/g" $(VM_SRC) > $(COMPILED_INTERMEDIARY)
 	$(GCC) $(GCC_DEFS) $(COMPILED_INTERMEDIARY) $(CFLAGS) $(COPT_SPACE) -DCPROG -o $(COMPILED_INT)
 
 $(COMPILED_OUT): $(COMPILED_INT)
