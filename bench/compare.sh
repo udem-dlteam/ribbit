@@ -238,21 +238,22 @@ if [[ "$1" == "--clean" ]]; then
 fi
 
 echo "== Preparing Schemes =="
-# rvm
-# tinyscheme
-# bitscm
-# mitscm
-# picobit
-# minischeme
+rvm
+tinyscheme
+bitscm
+mitscm
+picobit
+minischeme
 siod
 echo "==       READY       =="
-# run rvm
-# run rvm1
-# run rvm3
-# run minischeme
-# run bit.sh
-# run pico.sh
-# run rvm
-# run mitscm
-# run gsi
-# run tinyscheme
+run rvm
+run rvm1
+run rvm3
+run minischeme
+run bit.sh
+run pico.sh
+run rvm
+run mitscm
+run gsi
+run tinyscheme
+run siod
