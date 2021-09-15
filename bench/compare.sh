@@ -136,7 +136,7 @@ cpico() {
 picobit() {
     cpico
     
-    # {
+    {
     git clone git@github.com:SamuelYvon/picobit.git fpicobit
     pushd fpicobit
 
@@ -147,7 +147,7 @@ picobit() {
     cp picobit-vm ..
 
     popd 
-    # }  > /dev/null 2>&1
+    }  > /dev/null 2>&1
 
 }
 
@@ -309,7 +309,6 @@ compiledrvmclean() {
 }
 
 runcompiledrvm() {
-    compiledrvmclean
     ext="$1"
     exe="compiled_rvm$ext"
     header "compiled_rvm"
@@ -355,11 +354,11 @@ minischeme
 siod
 chibi
 echo "==       READY       =="
+runpico
 run rvm
 run rvm3
 run minischeme
 runbit
-runpico
 run rvm
 run mitscm
 run tinyscheme
