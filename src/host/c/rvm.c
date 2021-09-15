@@ -803,10 +803,7 @@ void init() {
 
 #ifndef NOSTART
 
-int main() {
-  *input = 'x';
-  init();
-}
+int main() { init(); }
 
 #endif
 
