@@ -243,6 +243,7 @@ run() {
 }
 
 runbit() {
+    cbitscm
     exe="bit"
     header "$exe"
 
@@ -269,6 +270,7 @@ runbit() {
 }
 
 runpico() {
+    cpico
     exe="pico"
     header "$exe"
 
@@ -292,7 +294,14 @@ runpico() {
     popd
 }
 
+compiledrvmclean() {
+    pushd "../src/host/c"
+    make clean
+    popd
+}
+
 runcompiledrvm() {
+    compiledrvmclean
     ext="$1"
     exe="compiled_rvm$ext"
     header "compiled_rvm"
@@ -306,6 +315,8 @@ runcompiledrvm() {
         pushd ../src
         gsi ./rsc.scm --target c "$test"
         cp "$filename.scm.c" ./host/c/
+        rm "$test"
+        rm "$filename.scm.c"
         pushd ./host/c/
         make "$filename.o$ext"
         popd
