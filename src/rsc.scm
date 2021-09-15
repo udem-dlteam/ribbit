@@ -1044,7 +1044,7 @@
                 (with-output-to-string
                   (lambda ()
                     (cond ((equal? target "none")
-                           (write input)
+                           (display input)
                            (newline))
                           ((equal? target "scm")
                            (write `(define input ,input))
