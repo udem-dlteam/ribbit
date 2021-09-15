@@ -39,8 +39,35 @@ def build_map(scheme_and_files):
     return result_map
 
 
-known = ["rvm3", "rvm", "minischeme", "tinyscheme",
-         "mitscm", "siod", "csi","chibi","compiled_rvm3", "compiled_rvm", "bit", "pico"]
+known = [
+    "rvm3",
+    "rvm",
+    "minischeme",
+    "tinyscheme",
+    "mitscm",
+    "siod",
+    "csi",
+    "chibi",
+    "compiled_rvm3",
+    "compiled_rvm",
+    "bit",
+    "pico"
+]
+
+relative = {
+    "rvm3": "rvm3",
+    "rvm": "rvm3",
+    "minischeme": "rvm3",
+    "tinyscheme": "rvm3",
+    "mitscm": "rvm3",
+    "siod": "rmv3",
+    "csi": "rvm3",
+    "chibi": "rvm3",
+    "compiled_rvm3": "compiled_rvm3",
+    "compiled_rvm": "compiled_rvm3",
+    "bit": "compiled_rvm3",
+    "pico": "compiled_rvm3"
+}
 
 
 def existing_schemes(scheme):
@@ -83,19 +110,17 @@ def print_global_table(benchmarks, results):
             printable_mean = f"{mean:0.2f}"
             printable_rsd = f"{rsd:0.1f}\\%"
 
-            if impl == "rvm3" or impl == "pico" or impl == "bit":
-                line += f"{printable_mean}s{plus_or_minus}{printable_rsd}".rjust(
-                    total_l)
+            relative_to = relative[impl]
+
+            if impl == relative_to[impl]:
+                line += f"{printable_mean}s{plus_or_minus}{printable_rsd}".rjust(total_l)
             else:
-                mean_of_rvm3 = results["rvm3"][bench][1]
+                mean_of_rvm3 = results[relative_to][bench][1]
                 factor = mean / mean_of_rvm3
                 relative_factor = f"${factor:.1f}\\times$"
                 line += f"{relative_factor}{plus_or_minus}{printable_rsd}".rjust(
                     total_l)
         print(line)
-
-    # print(printable_schemes)
-    # print(max_len)
 
 
 def print_benchmark_table(benchmark: str, results):
