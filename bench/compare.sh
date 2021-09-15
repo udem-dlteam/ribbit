@@ -15,8 +15,6 @@ rvm() {
     make clean >> /dev/null
     make >> /dev/null
     cp rVM ../../../bench/rvm
-    cp rVM1 ../../../bench/rvm1
-    cp rVM2 ../../../bench/rvm2
     cp rVM3 ../../../bench/rvm3
     popd
 }
