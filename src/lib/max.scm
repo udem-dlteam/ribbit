@@ -224,7 +224,7 @@
 (define (zero? x) (eqv? x 0))
 (define (positive? x) (>= x 0))
 (define (negative? x) (< x 0))
-(define (even? x) (eqv? (remainder x 2) 0))
+(define (even? x) (eqv? x (* 2 (quotient x 2))))
 (define (odd? x) (not (even? x)))
 
 (define (max x y) (if (< x y) y x))
@@ -233,8 +233,7 @@
 (define (abs x) (if (< x 0) (- 0 x) x))
 
 (define (remainder x y)
-  (let ((q (quotient x y)))
-    (- x (* y q))))
+  (- x (* y (quotient x y))))
 
 (define (modulo x y)
   (let ((q (quotient x y)))
