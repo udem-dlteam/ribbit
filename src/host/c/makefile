@@ -44,6 +44,9 @@ all: $(OUT) $(OUT)3
 
 clean:
 	rm -f *.o
+	rm -f *.o3
+	rm -f *.csv
+	rm -f *.scm.c
 	rm -f $(OUT)*
 	rm -f $(INT)*
 	rm -f $(COMPILED_INT)

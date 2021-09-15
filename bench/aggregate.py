@@ -40,7 +40,7 @@ def build_map(scheme_and_files):
 
 
 known = ["rvm", "rvm3", "minischeme", "tinyscheme",
-         "mitscm", "siod", "gsi", "bit", "pico"]
+         "mitscm", "siod", "chibi", "bit", "pico"]
 
 
 def existing_schemes(scheme):

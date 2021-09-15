@@ -218,41 +218,109 @@ clean() {
     cbitscm
 }
 
-run() {
+header() {
     space
     echo "=============================================="
-    exe="$1"
     echo "Testing $exe"
     echo "=============================================="
+}
 
-    if command -v hyperfine > /dev/null 2>&1; then
+run() {
+    exe="$1"
+    header "$exe"
 
-        benches=()
-        for test in $(echo "$tests")
-        do
-            if [[ -f "./$exe" ]]; then
-                benches=(${benches[@]} "cat $test | ./$exe")
-            else
-                benches=(${benches[@]} "cat $test | $exe")
-            fi
 
-        done
+    benches=()
+    for test in $(echo "$tests")
+    do
+        if [[ -f "./$exe" ]]; then
+            benches=(${benches[@]} "cat $test | ./$exe")
+        else
+            benches=(${benches[@]} "cat $test | $exe")
+        fi
 
-        hyperfine --min-runs 2 --max-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
-    else
-        for test in $tests
-        do
-            echo "$exe : $test"
+    done
 
-            if [[ -f "./$exe" ]]; then
-                cat "$test" | time -f "$TIME_FMT" "./$exe"
-            else
-                cat "$test" | time -f "$TIME_FMT" "$exe"
-            fi
+    hyperfine --min-runs 2 --max-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
+}
 
-            smallspace
-        done
-    fi
+runbit() {
+    exe="bit"
+    header "$exe"
+
+    benches=()
+    {
+    for test in $(echo "$tests")
+    do
+        filename="${test%.*}"
+        cp "$test" bit-scheme/"$test"
+        pushd bit-scheme
+        make "$filename.c"
+        make "$filename"
+        popd
+
+        benches=(${benches[@]} "echo $test && ./$filename")
+    done
+    } > /dev/null 2>&1
+
+    pushd bit-scheme
+    hyperfine --min-runs 2 --max-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
+    cp "bench-$exe.csv" ..
+    popd
+
+}
+
+runpico() {
+    exe="pico"
+    header "$exe"
+
+    benches=()
+    {
+    for test in $(echo "$tests")
+    do
+        filename="${test%.*}"
+        cp "$test" fpicobit/"$test"
+        pushd fpicobit
+        ./picobit "$test"
+        popd
+
+        benches=(${benches[@]} "echo $test && ./picobit-vm ./$filename.hex")
+    done
+    } > /dev/null 2>&1
+
+    pushd fpicobit
+    hyperfine --min-runs 2 --max-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
+    cp "bench-$exe.csv" ..
+    popd
+}
+
+runcompiledrvm() {
+    ext="$1"
+    exe="compiled_rvm$ext"
+    header "compiled_rvm"
+
+    benches=()
+    {
+    for test in $(echo "$tests")
+    do
+        filename="${test%.*}"
+        cp "$test" ../src/"$test"
+        pushd ../src
+        gsi ./rsc.scm --target c "$test"
+        cp "$filename.scm.c" ./host/c/
+        pushd ./host/c/
+        make "$filename.o$ext"
+        popd
+        popd
+
+        benches=(${benches[@]} "echo $test && ./$filename.o$ext")
+    done
+    } > /dev/null 2>&1
+
+    pushd ../src/host/c
+    hyperfine --min-runs 2 --max-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
+    cp "bench-$exe.csv" ./../../../bench/
+    popd
 }
 
 if [[ "$1" == "--clean" ]]; then
@@ -272,14 +340,16 @@ chibi
 echo "==       READY       =="
 run rvm
 run rvm3
-run crvm.sh
-run rrvm3.sh
 run minischeme
 run bit.sh
+runbit
 run pico.sh
+runpico
 run rvm
 run mitscm
-# run gsi
 run tinyscheme
 run siod
 run chibi
+run crvm.sh
+runcompiledrvm
+runcompiledrvm 3
