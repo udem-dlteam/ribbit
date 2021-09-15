@@ -350,15 +350,12 @@ echo "==       READY       =="
 run rvm
 run rvm3
 run minischeme
-# run bit.sh
 runbit
-# run pico.sh
 runpico
 run rvm
 run mitscm
 run tinyscheme
 run siod
 run chibi
-# run crvm.sh
 runcompiledrvm
 runcompiledrvm 3
