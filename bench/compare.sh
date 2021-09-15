@@ -2,7 +2,14 @@
 
 tests=$(ls *.scm)
 
+compiledrvmclean() {
+    pushd "../src/host/c"
+    make clean
+    popd
+}
+
 crvm() {
+    compiledrvmclean
     rm -rf rvm
     rm -rf rvm1
     rm -rf rvm2
@@ -128,16 +135,19 @@ cpico() {
 
 picobit() {
     cpico
-    git clone git@github.com:SamuelYvon/picobit.git fpicobit > /dev/null 2>&1
+    
+    # {
+    git clone git@github.com:SamuelYvon/picobit.git fpicobit
     pushd fpicobit
 
-    make clean > /dev/null 2>&1
-    make > /dev/null 2>&1
+    make clean 
+    make 
 
     cp picobit ..
     cp picobit-vm ..
 
     popd 
+    # }  > /dev/null 2>&1
 
 }
 
@@ -243,7 +253,6 @@ run() {
 }
 
 runbit() {
-    cbitscm
     exe="bit"
     header "$exe"
 
@@ -270,7 +279,6 @@ runbit() {
 }
 
 runpico() {
-    cpico
     exe="pico"
     header "$exe"
 
