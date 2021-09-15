@@ -1,6 +1,8 @@
 import sys
 
-putchar=lambda c:sys.stdout.write(chr(c))
+stdo=sys.stdout
+
+putchar=lambda c:[stdo.write(chr(c)),stdo.flush(),c][2]
 
 def getchar():
  c=sys.stdin.read(1)
@@ -30,7 +32,7 @@ FALSE=[0,0,5]
 TRUE=[0,0,5]
 NIL=[0,0,5]
 
-boolean=lambda x:TRUE if x else FALSE
+to_bool=lambda x:TRUE if x else FALSE
 is_rib=lambda x:type(x) is list
 
 stack=0
@@ -50,7 +52,7 @@ prim2=lambda f:lambda:push(f(pop(),pop()))
 prim3=lambda f:lambda:push(f(pop(),pop(),pop()))
 
 def arg2():x = pop();pop();push(x)
-def close():x = pop();push([x[0],stack,1])
+def close():push([pop()[0],stack,1])
 def f0s(y,x):x[0]=y;return y
 def f1s(y,x):x[1]=y;return y
 def f2s(y,x):x[2]=y;return y
@@ -61,15 +63,15 @@ primitives = [
  pop,
  arg2,
  close,
- prim1(lambda x:boolean(is_rib(x))),
+ prim1(lambda x:to_bool(is_rib(x))),
  prim1(lambda x:x[0]),
  prim1(lambda x:x[1]),
  prim1(lambda x:x[2]),
  prim2(f0s),
  prim2(f1s),
  prim2(f2s),
- prim2(lambda y,x:boolean(x is y if is_rib(x) or is_rib(y) else x==y)),
- prim2(lambda y,x:boolean(x<y)),
+ prim2(lambda y,x:to_bool(x is y if is_rib(x) or is_rib(y) else x==y)),
+ prim2(lambda y,x:to_bool(x<y)),
  prim2(lambda y,x:x+y),
  prim2(lambda y,x:x-y),
  prim2(lambda y,x:x*y),
@@ -111,7 +113,7 @@ while 1:
 symtbl=[[0,[accum,n,3],2],symtbl,0]
 symbol_ref=lambda n: list_tail(symtbl,n)[0]
 
-# decode the uVM instructions
+# decode the RVM instructions
 
 while 1:
  x=get_code()

@@ -4,6 +4,7 @@
 (define substitutions '())
 (define comment-char1 #f)
 (define comment-char2 #f)
+(define keep-spaces? #f)
 
 (define (minify)
 
@@ -45,16 +46,20 @@
             token))
 
       (define (skip-line)
-        (let ((c (read-char)))
+        (let ((c (peek-char)))
           (if (not (or (eof-object? c) (char=? c #\newline)))
-              (skip-line))))
+              (begin
+                (read-char)
+                (skip-line)))))
 
       (let ((c (peek-char)))
         (cond ((eof-object? c)
                (end-token))
               ((char<=? c #\space)
-               (read-char)
-               (loop (end-token)))
+               (let ((t (end-token)))
+                 (if keep-spaces? (output-text c))
+                 (read-char)
+                 (loop (if keep-spaces? #f t))))
               ((eqv? c comment-char1)
                (read-char)
                (if comment-char2
@@ -165,6 +170,9 @@
                 ((and (pair? rest) (member arg '("--comment-char2")))
                  (set! comment-char2 (string-ref (car rest) 0))
                  (loop (cdr rest)))
+                ((and (pair? rest) (member arg '("--keep-spaces")))
+                 (set! keep-spaces? #t)
+                 (loop rest))
                 (else
                  (let ((names
                         (call-with-input-string

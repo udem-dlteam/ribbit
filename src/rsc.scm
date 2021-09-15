@@ -6,6 +6,29 @@
 
 (define predefined '(rib false true nil)) ;; predefined symbols
 
+(define primitives '(
+(rib         . 0) ;; predefined by RVM (must be first and 0)
+(id          . 1)
+(arg1        . 2)
+(arg2        . 3)
+(close       . 4)
+(rib?        . 5)
+(field0      . 6)
+(field1      . 7)
+(field2      . 8)
+(field0-set! . 9)
+(field1-set! . 10)
+(field2-set! . 11)
+(eqv?        . 12)
+(<           . 13)
+(+           . 14)
+(-           . 15)
+(*           . 16)
+(quotient    . 17)
+(getchar     . 18)
+(putchar     . 19)
+))
+
 (define jump/call-op 'jump/call)
 (define set-op       'set)
 (define get-op       'get)
@@ -341,12 +364,21 @@
                  ((eqv? first 'or)
                   (expand (if (pair? (cdr expr))
                               (if (pair? (cddr expr))
-                                  (cons 'if
-                                        (cons (cadr expr)
-                                              (cons #t ;; not correct but OK
-                                                    (cons (cons 'or
-                                                                (cddr expr))
-                                                          '()))))
+                                  (cons
+                                   'let
+                                   (cons
+                                    (cons (cons '_
+                                                (cons (cadr expr)
+                                                      '()))
+                                          '())
+                                    (cons
+                                     (cons 'if
+                                           (cons '_
+                                                 (cons '_
+                                                       (cons (cons 'or
+                                                                   (cddr expr))
+                                                             '()))))
+                                     '())))
                                   (cadr expr))
                               #f)))
 
@@ -370,9 +402,9 @@
          (expand-constant expr))))
 
 (define (expand-constant x)
-  (cond ((eqv? x #f)  'false)
-        ((eqv? x #t)  'true)
-        ((eqv? x '()) 'nil)
+  (cond ;;((eqv? x #f)  'false)
+        ;;((eqv? x #t)  'true)
+        ;;((eqv? x '()) 'nil)
         (else         (cons 'quote (cons x '())))))
         
 (define (expand-begin exprs)
@@ -569,6 +601,124 @@
 
   (define syms (make-table))
 
+  (define built-constants '())
+
+  (define (build-constant o tail)
+    (cond ((or (memv o '(#f #t ()))
+               (assq o built-constants))
+           (let ((v (constant-global-var o)))
+             (rib get-op
+                  (scan-opnd v 1)
+                  tail)))
+          ((symbol? o)
+           (rib const-op
+                (scan-opnd o 2)
+                tail))
+          ((number? o)
+           (if (< o 0)
+               (rib const-op
+                    0
+                    (rib const-op
+                         (- 0 o)
+                         (rib jump/call-op
+                              (scan-opnd '- 0)
+                              tail)))
+               (rib const-op
+                    o
+                    tail)))
+          ((pair? o)
+           (build-constant (car o)
+                           (build-constant (cdr o)
+                                           (rib const-op
+                                                pair-type
+                                                (rib jump/call-op
+                                                     (scan-opnd 'rib 0)
+                                                     tail)))))
+          (else
+           (error "can't build constant" o))))
+
+  (define (build-constant-in-global-var o v)
+    (let ((code (build-constant o 0)))
+      (set! built-constants (cons (cons o (cons v code)) built-constants))
+      v))
+
+  (define (add-init-primitives tail)
+
+    (define (prim-code sym tail)
+      (rib const-op
+           (cdr (assq sym primitives)) ;; get index
+           (rib const-op
+                0
+                (rib const-op
+                     procedure-type
+                     (rib jump/call-op
+                          (scan-opnd 'rib 0)
+                          (rib set-op
+                               (scan-opnd sym 3)
+                               tail))))))
+
+    (let loop ((lst (cdr primitives)) ;; skip rib primitive that is predefined
+               (tail tail))
+      (if (pair? lst)
+          (loop (cdr lst)
+                (let* ((sym (car (car lst)))
+                       (descr (table-ref syms sym #f)))
+                  (if (and descr
+                           (or (< 0 (field0 descr))
+                               (< 0 (field1 descr))
+                               (< 0 (field2 descr))))
+                      (prim-code sym tail)
+                      tail)))
+          tail)))
+
+  (define (append-code code tail)
+    (if (eqv? code 0)
+        tail
+        (rib (field0 code) (field1 code) (append-code (field2 code) tail))))
+
+  (define (add-init-constants tail)
+    (let loop ((lst built-constants) (tail tail))
+      (if (pair? lst)
+          (let* ((x (car lst))
+                 (o (car x))
+                 (v (cadr x))
+                 (code (cddr x)))
+            (loop (cdr lst)
+                  (append-code code (rib set-op v tail))))
+          tail)))
+
+  (define (add-init-code! proc)
+    (let ((code (field0 proc)))
+      (field2-set! code
+                   (add-init-primitives
+                    (add-init-constants
+                     (field2 code))))))
+
+  (define constant-counter 0)
+
+  (define (constant-global-var o)
+    (cond ((eqv? o #f)
+           'false)
+          ((eqv? o #t)
+           'true)
+          ((eqv? o '())
+           'nil)
+          (else
+           (let ((x (assq o built-constants)))
+             (if x
+                 (cadr x)
+                 (let ((v (string->symbol
+                           (string-append "_"
+                                          (number->string constant-counter)))))
+                   (set! constant-counter (+ constant-counter 1))
+                   (build-constant-in-global-var o v)
+                   (scan-opnd v 3)
+                   v))))))
+
+  (define (use-in-call sym)
+    (scan-opnd sym 0)
+    sym)
+
   (define (scan-proc proc)
     (scan (next (procedure-code proc))))
 
@@ -586,21 +736,30 @@
                    ((= pos 2)
                     (field2-set! descr (+ 1 (field2 descr)))))))
           ((procedure2? o)
-           (scan-proc o))))
+           (scan-proc o)))
+    o)
 
   (define (scan code)
     (if (rib? code)
-        (let ((op (oper code)))
+        (let ((op (oper code))
+              (o (opnd code)))
           (cond ((eqv? op if-op)
-                 (scan (opnd code)))
+                 (scan o))
                 ((eqv? op jump/call-op)
-                 (scan-opnd (opnd code) 0)) ;; 0 = jump/call
+                 (scan-opnd o 0)) ;; 0 = jump/call
                 ((eqv? op get-op)
-                 (scan-opnd (opnd code) 1)) ;; 1 = get
+                 (scan-opnd o 1)) ;; 1 = get
                 ((eqv? op const-op)
-                 (scan-opnd (opnd code) 2)) ;; 2 = const
+                 (if (or (symbol? o)
+                         (procedure2? o)
+                         (and (number? o) (>= o 0)))
+                     (scan-opnd o 2) ;; 2 = const
+                     (let ((v (constant-global-var o)))
+                       (field0-set! code get-op)
+                       (field1-set! code v)
+                       (scan-opnd v 1)))) ;; 1 = get
                 ((eqv? op set-op)
-                 (scan-opnd (opnd code) 3))) ;; 3 = set
+                 (scan-opnd o 3))) ;; 3 = set
           (scan (next code)))))
 
   (define (encode-sym o)
@@ -755,6 +914,8 @@
 
   (scan-proc proc)
 
+  (add-init-code! proc)
+
   (let ((lst
          (list-sort
           (lambda (a b)
@@ -838,7 +999,13 @@
 (define (string-from-file path)
   (call-with-input-file path (lambda (port) (read-line port #f))))
 
-(define (rsc-main src-path output-path target input-path lib-path verbosity)
+(define (rsc-main src-path
+                  output-path
+                  target
+                  input-path
+                  lib-path
+                  minify?
+                  verbosity)
   (let* ((lib
           (read-from-file
            (if (equal? (path-extension lib-path) "")
@@ -887,16 +1054,18 @@
                            (newline)))
                     (display vm-source))))
                (minified-output
-                (let ((port (open-process
-                             (list path:
-                                   (path-expand
-                                    (string-append "host/" target "/minify")
-                                    (root-dir))))))
-                  (display output port)
-                  (close-output-port port)
-                  (let ((out (read-line port #f)))
-                    (close-port port)
-                    out))))
+                (if (not minify?)
+                    output
+                    (let ((port (open-process
+                                 (list path:
+                                       (path-expand
+                                        (string-append "host/" target "/minify")
+                                        (root-dir))))))
+                      (display output port)
+                      (close-output-port port)
+                      (let ((out (read-line port #f)))
+                        (close-port port)
+                        out)))))
           (if (>= verbosity 1)
               (println "*** RVM code length: " (string-length input) " bytes"))
           (with-output-to-file
@@ -913,7 +1082,8 @@
         (input-path #f)
         (output-path #f)
         (lib-path "default")
-        (src-path #f))
+        (src-path #f)
+        (minify? #f))
 
     (let loop ((args args))
       (if (pair? args)
@@ -931,6 +1101,9 @@
                   ((and (pair? rest) (member arg '("-l" "--library")))
                    (set! lib-path (car rest))
                    (loop (cdr rest)))
+                  ((and (pair? rest) (member arg '("-m" "--minify")))
+                   (set! minify? #t)
+                   (loop rest))
                   ((member arg '("-v" "--v"))
                    (set! verbosity (+ verbosity 1))
                    (loop rest))
@@ -960,6 +1133,7 @@
                   target
                   input-path
                   lib-path
+                  minify?
                   verbosity))))
 
 ;;;----------------------------------------------------------------------------

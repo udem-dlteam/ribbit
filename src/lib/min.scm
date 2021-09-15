@@ -1,6 +1,6 @@
 ;; Ribbit Scheme runtime library.
 
-;; This is the "max" version with most of the R4RS predefined procedures.
+;; This is the "min" version with only the core R4RS predefined procedures.
 
 ;;;----------------------------------------------------------------------------
 
@@ -21,13 +21,13 @@
 
 (define (not x) (eqv? x #f))
 
-(define (boolean? obj) (or (eqv? obj #t) (not obj)))
+;;(define (boolean? obj) (or (eqv? obj #t) (not obj)))
 
 ;;;----------------------------------------------------------------------------
 
 ;; Equivalence predicates (R4RS section 6.2).
 
-(define eq? eqv?)
+;;(define eq? eqv?)
 
 (define (equal? x y)
   (or (eqv? x y)
@@ -53,52 +53,52 @@
 (define (caddr pair) (cadr (field1 pair)))
 (define (cadddr pair) (caddr (field1 pair)))
 
-(define (caar pair) (field0 (field0 pair)))
+;;(define (caar pair) (field0 (field0 pair)))
 ;;(define (cadr pair) (field0 (field1 pair)))
-(define (cdar pair) (field1 (field0 pair)))
+;;(define (cdar pair) (field1 (field0 pair)))
 ;;(define (cddr pair) (field1 (field1 pair)))
 
-(define (caaar pair) (caar (field0 pair)))
-(define (caadr pair) (caar (field1 pair)))
-(define (cadar pair) (cadr (field0 pair)))
+;;(define (caaar pair) (caar (field0 pair)))
+;;(define (caadr pair) (caar (field1 pair)))
+;;(define (cadar pair) (cadr (field0 pair)))
 ;;(define (caddr pair) (cadr (field1 pair)))
-(define (cdaar pair) (cdar (field0 pair)))
-(define (cdadr pair) (cdar (field1 pair)))
-(define (cddar pair) (cddr (field0 pair)))
-(define (cdddr pair) (cddr (field1 pair)))
+;;(define (cdaar pair) (cdar (field0 pair)))
+;;(define (cdadr pair) (cdar (field1 pair)))
+;;(define (cddar pair) (cddr (field0 pair)))
+;;(define (cdddr pair) (cddr (field1 pair)))
 
-(define (caaaar pair) (caaar (field0 pair)))
-(define (caaadr pair) (caaar (field1 pair)))
-(define (caadar pair) (caadr (field0 pair)))
-(define (caaddr pair) (caadr (field1 pair)))
-(define (cadaar pair) (cadar (field0 pair)))
-(define (cadadr pair) (cadar (field1 pair)))
-(define (caddar pair) (caddr (field0 pair)))
+;;(define (caaaar pair) (caaar (field0 pair)))
+;;(define (caaadr pair) (caaar (field1 pair)))
+;;(define (caadar pair) (caadr (field0 pair)))
+;;(define (caaddr pair) (caadr (field1 pair)))
+;;(define (cadaar pair) (cadar (field0 pair)))
+;;(define (cadadr pair) (cadar (field1 pair)))
+;;(define (caddar pair) (caddr (field0 pair)))
 ;;(define (cadddr pair) (caddr (field1 pair)))
-(define (cdaaar pair) (cdaar (field0 pair)))
-(define (cdaadr pair) (cdaar (field1 pair)))
-(define (cdadar pair) (cdadr (field0 pair)))
-(define (cdaddr pair) (cdadr (field1 pair)))
-(define (cddaar pair) (cddar (field0 pair)))
-(define (cddadr pair) (cddar (field1 pair)))
-(define (cdddar pair) (cdddr (field0 pair)))
-(define (cddddr pair) (cdddr (field1 pair)))
+;;(define (cdaaar pair) (cdaar (field0 pair)))
+;;(define (cdaadr pair) (cdaar (field1 pair)))
+;;(define (cdadar pair) (cdadr (field0 pair)))
+;;(define (cdaddr pair) (cdadr (field1 pair)))
+;;(define (cddaar pair) (cddar (field0 pair)))
+;;(define (cddadr pair) (cddar (field1 pair)))
+;;(define (cdddar pair) (cdddr (field0 pair)))
+;;(define (cddddr pair) (cdddr (field1 pair)))
 
 (define (null? obj) (eqv? obj '()))
 
-(define (list? obj)
-  (list?-aux obj obj))
+;;(define (list? obj)
+;;  (list?-aux obj obj))
 
-(define (list?-aux fast slow)
-  (if (pair? fast)
-      (let ((fast (cdr fast)))
-        (cond ((eq? fast slow)
-               #f)
-              ((pair? fast)
-               (list?-aux (cdr fast) (cdr slow)))
-              (else
-               (null? fast))))
-      (null? fast)))
+;;(define (list?-aux fast slow)
+;;  (if (pair? fast)
+;;      (let ((fast (cdr fast)))
+;;        (cond ((eq? fast slow)
+;;               #f)
+;;              ((pair? fast)
+;;               (list?-aux (cdr fast) (cdr slow)))
+;;              (else
+;;               (null? fast))))
+;;      (null? fast)))
 
 ;;(define (list . args) args)
 
@@ -107,18 +107,18 @@
       (+ 1 (length (cdr lst)))
       0))
 
-(define (append lst1 lst2)
-  (if (pair? lst1)
-      (cons (car lst1) (append (cdr lst1) lst2))
-      lst2))
+;;(define (append lst1 lst2)
+;;  (if (pair? lst1)
+;;      (cons (car lst1) (append (cdr lst1) lst2))
+;;      lst2))
 
-(define (reverse lst)
-  (reverse-aux lst '()))
+;;(define (reverse lst)
+;;  (reverse-aux lst '()))
 
-(define (reverse-aux lst result)
-  (if (pair? lst)
-      (reverse-aux (cdr lst) (cons (car lst) result))
-      result))
+;;(define (reverse-aux lst result)
+;;  (if (pair? lst)
+;;      (reverse-aux (cdr lst) (cons (car lst) result))
+;;      result))
 
 (define (list-ref lst i)
   (car (list-tail lst i)))
@@ -131,39 +131,39 @@
       (list-tail (cdr lst) (- i 1))
       lst))
 
-(define (memv x lst)
-  (if (pair? lst)
-      (if (eqv? x (car lst))
-          lst
-          (memv x (cdr lst)))
-      #f))
+;;(define (memv x lst)
+;;  (if (pair? lst)
+;;      (if (eqv? x (car lst))
+;;          lst
+;;          (memv x (cdr lst)))
+;;      #f))
 
-(define memq memv)
+;;(define memq memv)
 
-(define (member x lst)
-  (if (pair? lst)
-      (if (equal? x (car lst))
-          lst
-          (member x (cdr lst)))
-      #f))
+;;(define (member x lst)
+;;  (if (pair? lst)
+;;      (if (equal? x (car lst))
+;;          lst
+;;          (member x (cdr lst)))
+;;      #f))
 
-(define (assv x lst)
-  (if (pair? lst)
-      (let ((couple (car lst)))
-        (if (eqv? x (car couple))
-            couple
-            (assv x (cdr lst))))
-      #f))
+;;(define (assv x lst)
+;;  (if (pair? lst)
+;;      (let ((couple (car lst)))
+;;        (if (eqv? x (car couple))
+;;            couple
+;;            (assv x (cdr lst))))
+;;      #f))
 
-(define assq assv)
+;;(define assq assv)
 
-(define (assoc x lst)
-  (if (pair? lst)
-      (let ((couple (car lst)))
-        (if (equal? x (car couple))
-            couple
-            (assoc x (cdr lst))))
-      #f))
+;;(define (assoc x lst)
+;;  (if (pair? lst)
+;;      (let ((couple (car lst)))
+;;        (if (equal? x (car couple))
+;;            couple
+;;            (assoc x (cdr lst))))
+;;      #f))
 
 (define (make-list k fill)
   (make-list-aux k fill '()))
@@ -206,7 +206,7 @@
 
 ;; Numbers (R4RS section 6.5).
 
-(define (integer? obj) (not (rib? obj)))
+;;(define (integer? obj) (not (rib? obj)))
 
 ;;(define rational? integer?)
 ;;(define real? rational?)
@@ -217,60 +217,60 @@
 ;;(define (inexact? obj) #f)
 
 (define = eqv?)
-(define (> x y) (< y x))
-(define (<= x y) (not (< y x)))
-(define (>= x y) (not (< x y)))
+;;(define (> x y) (< y x))
+;;(define (<= x y) (not (< y x)))
+;;(define (>= x y) (not (< x y)))
 
-(define (zero? x) (eqv? x 0))
-(define (positive? x) (>= x 0))
-(define (negative? x) (< x 0))
-(define (even? x) (eqv? (remainder x 2) 0))
-(define (odd? x) (not (even? x)))
+;;(define (zero? x) (eqv? x 0))
+;;(define (positive? x) (>= x 0))
+;;(define (negative? x) (< x 0))
+;;(define (even? x) (eqv? (remainder x 2) 0))
+;;(define (odd? x) (not (even? x)))
 
-(define (max x y) (if (< x y) y x))
-(define (min x y) (if (< x y) x y))
+;;(define (max x y) (if (< x y) y x))
+;;(define (min x y) (if (< x y) x y))
 
-(define (abs x) (if (< x 0) (- 0 x) x))
+;;(define (abs x) (if (< x 0) (- 0 x) x))
 
-(define (remainder x y)
-  (let ((q (quotient x y)))
-    (- x (* y q))))
+;;(define (remainder x y)
+;;  (let ((q (quotient x y)))
+;;    (- x (* y q))))
 
-(define (modulo x y)
-  (let ((q (quotient x y)))
-    (let ((r (- x (* y q))))
-      (if (eqv? r 0)
-          0
-          (if (eqv? (< x 0) (< y 0))
-              r
-              (+ r y))))))
+;;(define (modulo x y)
+;;  (let ((q (quotient x y)))
+;;    (let ((r (- x (* y q))))
+;;      (if (eqv? r 0)
+;;          0
+;;          (if (eqv? (< x 0) (< y 0))
+;;              r
+;;              (+ r y))))))
 
-(define (gcd x y)
-  (let ((ax (abs x)))
-    (let ((ay (abs y)))
-      (if (< ax ay)
-          (gcd-aux ax ay)
-          (gcd-aux ay ax)))))
+;;(define (gcd x y)
+;;  (let ((ax (abs x)))
+;;    (let ((ay (abs y)))
+;;      (if (< ax ay)
+;;          (gcd-aux ax ay)
+;;          (gcd-aux ay ax)))))
 
-(define (gcd-aux x y)
-  (if (eqv? x 0)
-      y
-      (gcd-aux (remainder y x) x)))
+;;(define (gcd-aux x y)
+;;  (if (eqv? x 0)
+;;      y
+;;      (gcd-aux (remainder y x) x)))
 
-(define (lcm x y)
-  (if (eqv? y 0)
-      0
-      (let ((ax (abs x)))
-        (let ((ay (abs y)))
-          (* (quotient ax (gcd ax ay)) ay)))))
+;;(define (lcm x y)
+;;  (if (eqv? y 0)
+;;      0
+;;      (let ((ax (abs x)))
+;;        (let ((ay (abs y)))
+;;          (* (quotient ax (gcd ax ay)) ay)))))
 
-(define numerator id)
-(define (denominator x) 1)
+;;(define numerator id)
+;;(define (denominator x) 1)
 
-(define floor id)
-(define ceiling id)
-(define truncate id)
-(define round id)
+;;(define floor id)
+;;(define ceiling id)
+;;(define truncate id)
+;;(define round id)
 
 ;;(define (rationalize x y) ...)
 ;;(define (exp x) ...)
@@ -284,13 +284,13 @@
 
 ;;(define (sqrt x) ...)
 
-(define (expt x y)
-  (if (eqv? y 0)
-      1
-      (let ((t (expt (* x x) (quotient y 2))))
-        (if (odd? y)
-            (* x t)
-            t))))
+;;(define (expt x y)
+;;  (if (eqv? y 0)
+;;      1
+;;      (let ((t (expt (* x x) (quotient y 2))))
+;;        (if (odd? y)
+;;            (* x t)
+;;            t))))
 
 ;;(define (make-rectangular x y) ...)
 ;;(define (make-polar x y) ...)
@@ -387,11 +387,11 @@
 
 ;;(define (string . args) ...)
 
-(define (string=? str1 str2) (eqv? (string-cmp str1 str2) 0))
-(define (string<? str1 str2) (< (string-cmp str1 str2) 0))
-(define (string>? str1 str2) (< 0 (string-cmp str1 str2)))
-(define (string<=? str1 str2) (not (string>? str1 str2)))
-(define (string>=? str1 str2) (not (string<? str1 str2)))
+;;(define (string=? str1 str2) (eqv? (string-cmp str1 str2) 0))
+;;(define (string<? str1 str2) (< (string-cmp str1 str2) 0))
+;;(define (string>? str1 str2) (< 0 (string-cmp str1 str2)))
+;;(define (string<=? str1 str2) (not (string>? str1 str2)))
+;;(define (string>=? str1 str2) (not (string<? str1 str2)))
 
 ;;(define string-ci=? string=?)
 ;;(define string-ci<? string<?)
@@ -399,42 +399,42 @@
 ;;(define string-ci<=? string<=?)
 ;;(define string-ci>=? string>=?)
 
-(define (string-cmp str1 str2)
-  (string-cmp-aux (string->list str1) (string->list str2)))
+;;(define (string-cmp str1 str2)
+;;  (string-cmp-aux (string->list str1) (string->list str2)))
 
-(define (string-cmp-aux lst1 lst2)
-  (if (pair? lst1)
-      (if (pair? lst2)
-          (let ((c1 (car lst1)))
-            (let ((c2 (car lst2)))
-              (if (< c1 c2)
-                  -1
-                  (if (> c1 c2)
-                      1
-                      (string-cmp-aux (cdr lst1) (cdr lst2))))))
-          1)
-      (if (pair? lst2)
-          -1
-          0)))
+;;(define (string-cmp-aux lst1 lst2)
+;;  (if (pair? lst1)
+;;      (if (pair? lst2)
+;;          (let ((c1 (car lst1)))
+;;            (let ((c2 (car lst2)))
+;;              (if (< c1 c2)
+;;                  -1
+;;                  (if (> c1 c2)
+;;                      1
+;;                      (string-cmp-aux (cdr lst1) (cdr lst2))))))
+;;          1)
+;;      (if (pair? lst2)
+;;          -1
+;;          0)))
 
-(define (substring str start end)
-  (substring-aux str start end '()))
+;;(define (substring str start end)
+;;  (substring-aux str start end '()))
 
-(define (substring-aux str start end tail)
-  (if (< start end)
-      (let ((i (- end 1)))
-        (substring-aux str start i (cons (string-ref str i) tail)))
-      (list->string tail)))
+;;(define (substring-aux str start end tail)
+;;  (if (< start end)
+;;      (let ((i (- end 1)))
+;;        (substring-aux str start i (cons (string-ref str i) tail)))
+;;      (list->string tail)))
 
-(define (string-append str1 str2)
-  (list->string (append (string->list str1)
-                        (string->list str2))))
+;;(define (string-append str1 str2)
+;;  (list->string (append (string->list str1)
+;;                        (string->list str2))))
 
-(define (string-copy str)
-  (list->string (append (string->list str) '())))
+;;(define (string-copy str)
+;;  (list->string (append (string->list str) '())))
 
-(define (string-fill! str fill)
-  (field0-set! str (make-list (field1 str) fill)))
+;;(define (string-fill! str fill)
+;;  (field0-set! str (make-list (field1 str) fill)))
 
 ;;;----------------------------------------------------------------------------
 
@@ -451,8 +451,8 @@
 
 ;;(define (vector . args) ...)
 
-(define (vector-fill! vect fill)
-  (field0-set! vect (make-list (field1 vect) fill)))
+;;(define (vector-fill! vect fill)
+;;  (field0-set! vect (make-list (field1 vect) fill)))
 
 ;;;----------------------------------------------------------------------------
 
@@ -465,17 +465,17 @@
 
 ;;(define (apply proc . args) ...)
 
-(define (map proc lst)
-  (if (pair? lst)
-      (cons (proc (car lst)) (map proc (cdr lst)))
-      '()))
+;;(define (map proc lst)
+;;  (if (pair? lst)
+;;      (cons (proc (car lst)) (map proc (cdr lst)))
+;;      '()))
 
-(define (for-each proc lst)
-  (if (pair? lst)
-      (begin
-        (proc (car lst))
-        (for-each proc (cdr lst)))
-      #f))
+;;(define (for-each proc lst)
+;;  (if (pair? lst)
+;;      (begin
+;;        (proc (car lst))
+;;        (for-each proc (cdr lst)))
+;;      #f))
 
 ;; First-class continuations.
 
@@ -563,9 +563,9 @@
           ((eqv? c 39) ;; #\'
            (read-char) ;; skip "'"
            (cons 'quote (cons (read) '())))
-          ((eqv? c 34) ;; #\"
-           (read-char) ;; skip """
-           (list->string (read-chars '())))
+;;          ((eqv? c 34) ;; #\"
+;;           (read-char) ;; skip """
+;;           (list->string (read-chars '())))
           (else
            (read-char) ;; skip first char
            (let ((s (list->string (cons c (read-symbol)))))
@@ -592,20 +592,20 @@
           (read-char)
           (cons c (read-symbol))))))
 
-(define (read-chars lst)
-  (let ((c (read-char)))
-    (cond ((eof-object? c)
-           '())
-          ((eqv? c 34) ;; #\"
-           (reverse lst))
-          ((eqv? c 92) ;; #\\
-           #; ;; no support for \n in strings
-           (read-chars (cons (read-char) lst))
-           ;#; ;; support for \n in strings
-           (let ((c2 (read-char)))
-             (read-chars (cons (if (eqv? c2 110) 10 c2) lst))))
-          (else
-           (read-chars (cons c lst))))))
+;;(define (read-chars lst)
+;;  (let ((c (read-char)))
+;;    (cond ((eof-object? c)
+;;           '())
+;;          ((eqv? c 34) ;; #\"
+;;           (reverse lst))
+;;          ((eqv? c 92) ;; #\\
+;;           #; ;; no support for \n in strings
+;;           (read-chars (cons (read-char) lst))
+;;           ;#; ;; support for \n in strings
+;;           (let ((c2 (read-char)))
+;;             (read-chars (cons (if (eqv? c2 110) 10 c2) lst))))
+;;          (else
+;;           (read-chars (cons c lst))))))
 
 (define (peek-char-non-whitespace)
   (let ((c (peek-char)))
@@ -654,10 +654,10 @@
         ((symbol? o)
          (display (symbol->string o)))
         ((string? o)
-         (write-chars (string->list o) #f))
-        ((vector? o)
-         (putchar 35) ;; #\#
-         (write (vector->list o)))
+         (write-chars (string->list o)))
+;;        ((vector? o)
+;;         (putchar 35) ;; #\#
+;;         (write (vector->list o)))
         ((procedure? o)
          (putchar2 35 112)) ;; #p
         (else
@@ -675,23 +675,30 @@
             #f)) ;; writing dotted pairs is not supported
       #f))
 
-(define (write-chars lst escape?)
+;;(define (write-chars lst escape?)
+;;  (if (pair? lst)
+;;      (let ((c (car lst)))
+;;        (putchar
+;;         (cond ((not escape?)
+;;                c)
+;;               ;#; ;; support for \n in strings
+;;               ((eqv? c 10) ;; #\newline
+;;                (putchar 92)
+;;                110)
+;;               ((or (eqv? c 34) ;; #\"
+;;                    (eqv? c 92)) ;; #\\
+;;                (putchar 92)
+;;                c)
+;;               (else
+;;                c)))
+;;        (write-chars (cdr lst) escape?))
+;;      #f))
+
+(define (write-chars lst)
   (if (pair? lst)
       (let ((c (car lst)))
-        (putchar
-         (cond ((not escape?)
-                c)
-               ;#; ;; support for \n in strings
-               ((eqv? c 10) ;; #\newline
-                (putchar 92)
-                110)
-               ((or (eqv? c 34) ;; #\"
-                    (eqv? c 92)) ;; #\\
-                (putchar 92)
-                c)
-               (else
-                c)))
-        (write-chars (cdr lst) escape?))
+        (putchar c)
+        (write-chars (cdr lst)))
       #f))
 
 (define (newline)
@@ -740,14 +747,14 @@
                          (make-procedure
                           (rib (length params)
                                0
-                               #; ;; support for single expression in body
+                               ;#; ;; support for single expression in body
                                (comp (extend params
                                              (cons #f
                                                    (cons #f
                                                          cte)))
                                      (caddr expr)
                                      tail)
-                               ;#; ;; support for multiple expressions in body
+                               #; ;; support for multiple expressions in body
                                (comp-begin (extend params
                                                    (cons #f
                                                          (cons #f
@@ -759,23 +766,23 @@
                              cont
                              (gen-call 'close cont)))))
 
-;#; ;; support for begin special form
+#; ;; support for begin special form
                  ((eqv? first 'begin)
                   (comp-begin cte (cdr expr) cont))
 
-;#; ;; support for single armed let special form
+#; ;; support for single armed let special form
                  ((eqv? first 'let)
                   (let ((binding (car (cadr expr))))
                     (comp-bind cte
                                (car binding)
                                (cadr binding)
-                               #; ;; support for single expression in body
+                               ;#; ;; support for single expression in body
                                (caddr expr)
-                               ;#; ;; support for multiple expressions in body
+                               #; ;; support for multiple expressions in body
                                (cddr expr)
                                cont)))
 
-;#; ;; support for and special form
+#; ;; support for and special form
                  ((eqv? first 'and)
                   (comp cte
                         (if (pair? (cdr expr))
@@ -788,7 +795,7 @@
                             #t)
                         cont))
 
-;#; ;; support for or special form
+#; ;; support for or special form
                  ((eqv? first 'or)
                   (comp cte
                         (if (pair? (cdr expr))
@@ -803,7 +810,7 @@
                             #f)
                         cont))
 
-;#; ;; support for cond special form
+#; ;; support for cond special form
                  ((eqv? first 'cond)
                   (comp cte
                         (if (pair? (cdr expr))
@@ -816,11 +823,11 @@
                         cont))
 
                  (else
-                  #; ;; support for calls with only variable in operator position
+                  ;#; ;; support for calls with only variable in operator position
                   (comp-call cte
                              (cdr expr)
                              (cons first cont))
-                  ;#; ;; support for calls with any expression in operator position
+                  #; ;; support for calls with any expression in operator position
                   (let ((args (cdr expr)))
                     (if (symbol? first)
                         (comp-call cte
@@ -829,9 +836,9 @@
                         (comp-bind cte
                                    '_
                                    first
-                                   #; ;; support for single expression in body
+                                   ;#; ;; support for single expression in body
                                    (cons '_ args)
-                                   ;#; ;; support for multiple expressions in body
+                                   #; ;; support for multiple expressions in body
                                    (cons (cons '_ args) '())
                                    cont)))))))
 
@@ -840,15 +847,15 @@
          (rib const-op expr cont))))
 
 ;#; ;; support for and, or, cond special forms
-(define (build-if a b c) (cons 'if (list3 a b c)))
-(define (list3 a b c) (cons a (list2 b c)))
-(define (list2 a b) (cons a (list1 b)))
-(define (list1 a) (cons a '()))
+;;(define (build-if a b c) (cons 'if (list3 a b c)))
+;;(define (list3 a b c) (cons a (list2 b c)))
+;;(define (list2 a b) (cons a (list1 b)))
+;;(define (list1 a) (cons a '()))
 
 (define (comp-bind cte var expr body cont)
   (comp cte
         expr
-        #; ;; support for single expression in body
+        ;#; ;; support for single expression in body
         (comp (cons var cte)
               body
               (if (eqv? cont tail)
@@ -856,7 +863,7 @@
                   (rib jump/call-op ;; call
                        'arg2
                        cont)))
-        ;#; ;; support for multiple expressions in body
+        #; ;; support for multiple expressions in body
         (comp-begin (cons var cte)
                     body
                     (if (eqv? cont tail)

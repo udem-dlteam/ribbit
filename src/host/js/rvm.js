@@ -134,7 +134,7 @@ while (1) {
 symtbl = [[0,[accum,n,3],2],symtbl,0];
 symbol_ref = (n) => list_tail(symtbl,n)[0];
 
-// decode the rVM instructions
+// decode the RVM instructions
 
 while (1) {
   x = get_code();

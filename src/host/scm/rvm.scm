@@ -298,7 +298,7 @@
   (vector (prim3 _rib)             ;; 0
           (prim1 (lambda (x) x))   ;; 1
           _cdr                     ;; 2
-          (prim2 (lambda (x y) x)) ;; 3
+          (prim2 (lambda (y x) x)) ;; 3
 
           (lambda (stack) ;; 4
             (let* ((x (_car stack)) (stack (_cdr stack)))
