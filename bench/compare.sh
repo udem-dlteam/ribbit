@@ -339,30 +339,66 @@ runcompiledrvm() {
     popd
 }
 
+runrvm() {
+    lang="$1"
+    exe="rvm$lang"
+    
+    if [[ "py" == "$lang" ]] ; then
+        runtime="python3"
+    elif [[ "js" == "$lang" ]]; then
+        runtime="node"
+    else
+        runtime="gsi"
+    fi
+
+
+    header "$exe"
+    benches=()
+    {
+    for test in $(echo "$tests")
+    do
+        filename="${test%.*}"
+        cp "$test" ../src/"$test"
+        pushd ../src
+        gsi ./rsc.scm --target "$lang" "$test"
+        popd
+        benches=(${benches[@]} "echo $test && "$runtime" ./$filename.scm.$lang")
+    done
+    } > /dev/null 2>&1
+
+    pushd ../src
+    hyperfine --min-runs 2 --max-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
+    cp "bench-$exe.csv" ./../bench/
+    popd
+}
+
 if [[ "$1" == "--clean" ]]; then
     clean
     exit 0
 fi
 
 echo "== Preparing Schemes =="
-rvm
-tinyscheme
-bitscm
-mitscm
-picobit
-minischeme
-siod
-chicken
+# rvm
+# tinyscheme
+# bitscm
+# mitscm
+# picobit
+# minischeme
+# siod
+# chicken
 echo "==       READY       =="
-runpico
-run rvm
-run rvm3
-run minischeme
-runbit
-run rvm
-run mitscm
-run tinyscheme
-run siod
-run csi
-runcompiledrvm
-runcompiledrvm 3
+# runpico
+# run rvm
+# run rvm3
+# run minischeme
+# runbit
+# run rvm
+# run mitscm
+# run tinyscheme
+# run siod
+# run csi
+# runcompiledrvm
+# runcompiledrvm 3
+runrvm scm
+runrvm js
+runrvm py

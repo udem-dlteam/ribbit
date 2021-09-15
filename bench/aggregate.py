@@ -50,6 +50,9 @@ known = [
     "chibi",
     "compiled_rvm3",
     "compiled_rvm",
+    "rvmscm",
+    "rvmpy",
+    "rvmjs",
     "bit",
     "pico"
 ]
@@ -66,7 +69,10 @@ relative = {
     "compiled_rvm3": "compiled_rvm3",
     "compiled_rvm": "compiled_rvm3",
     "bit": "compiled_rvm3",
-    "pico": "compiled_rvm3"
+    "pico": "compiled_rvm3",
+    "rvmscm": "compiled_rvm3",
+    "rvmjs": "compiled_rvm3",
+    "rvmpy": "compiled_rvm3"
 }
 
 
@@ -112,7 +118,8 @@ def print_global_table(benchmarks, results):
 
             relative_to = relative[impl]
             if impl == relative[impl]:
-                line += f"{printable_mean}s{plus_or_minus}{printable_rsd}".rjust(total_l)
+                line += f"{printable_mean}s{plus_or_minus}{printable_rsd}".rjust(
+                    total_l)
             else:
                 mean_of_rvm3 = results[relative_to][bench][1]
                 factor = mean / mean_of_rvm3
