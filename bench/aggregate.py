@@ -60,7 +60,7 @@ relative = {
     "minischeme": "rvm3",
     "tinyscheme": "rvm3",
     "mitscm": "rvm3",
-    "siod": "rmv3",
+    "siod": "rvm3",
     "csi": "rvm3",
     "chibi": "rvm3",
     "compiled_rvm3": "compiled_rvm3",
