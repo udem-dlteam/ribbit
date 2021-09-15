@@ -3,4 +3,4 @@ project(rvm C)
 
 set(CMAKE_C_STANDARD 99)
 
-add_executable(rvm vm.c)
+add_executable(rvm rvm.c)
