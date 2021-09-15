@@ -559,7 +559,7 @@ void run() {
     }
     case INSTR_AP: // call or jump
     {
-      bool jump = IS_NUM(TAG(pc)) && NUM(TAG(pc)) == 0;
+      bool jump = TAG(pc) == NUM_0;
 #ifdef DEBUG_I_CALL
       printf(jump ? "--- jump " : "--- call ");
       PRINTLN();
