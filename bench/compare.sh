@@ -352,7 +352,7 @@ mitscm
 picobit
 minischeme
 siod
-chibi
+chicken
 echo "==       READY       =="
 runpico
 run rvm
@@ -363,6 +363,6 @@ run rvm
 run mitscm
 run tinyscheme
 run siod
-run chibi
+run csi
 runcompiledrvm
 runcompiledrvm 3
