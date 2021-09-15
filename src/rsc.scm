@@ -1049,6 +1049,10 @@
                           ((equal? target "scm")
                            (write `(define input ,input))
                            (newline))
+                          ((equal? target "go")
+                           (display "const Input = ")
+                           (write input)
+                           (newline))
                           (else
                            (cond ((equal? target "c")
                                   (display "char *")))
