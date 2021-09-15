@@ -506,6 +506,9 @@ void prim(int no) {
     read &= 0xFF;
 #else
     read = getchar();
+    if (EOF == read) {
+      vm_exit(0);
+    }
 #endif
     push2(TAG_NUM(read), PAIR_TAG);
     break;
