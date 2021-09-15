@@ -378,27 +378,27 @@ if [[ "$1" == "--clean" ]]; then
 fi
 
 echo "== Preparing Schemes =="
-# rvm
-# tinyscheme
-# bitscm
-# mitscm
-# picobit
-# minischeme
-# siod
-# chicken
+rvm
+tinyscheme
+bitscm
+mitscm
+picobit
+minischeme
+siod
+chicken
 echo "==       READY       =="
-# runpico
-# run rvm
-# run rvm3
-# run minischeme
-# runbit
-# run rvm
-# run mitscm
-# run tinyscheme
-# run siod
-# run csi
-# runcompiledrvm
-# runcompiledrvm 3
+runpico
+run rvm
+run rvm3
+run minischeme
+runbit
+run rvm
+run mitscm
+run tinyscheme
+run siod
+run csi
+runcompiledrvm
+runcompiledrvm 3
 runrvm scm
 runrvm js
 runrvm py
