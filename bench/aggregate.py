@@ -111,8 +111,7 @@ def print_global_table(benchmarks, results):
             printable_rsd = f"{rsd:0.1f}\\%"
 
             relative_to = relative[impl]
-
-            if impl == relative_to[impl]:
+            if impl == relative[impl]:
                 line += f"{printable_mean}s{plus_or_minus}{printable_rsd}".rjust(total_l)
             else:
                 mean_of_rvm3 = results[relative_to][bench][1]
