@@ -4,12 +4,7 @@
 
 UNAME = $(shell uname)
 OUT=rVM
-COMPILED_OUT=compiled
 INT=vm.o.unstripped
-COMPILED_INT=vm.comp.o.unstripped
-
-COMPILED_INTERMEDIARY=vm.intermediary.c
-
 VM_SRC=rvm.c
 SRC=$(VM_SRC) makefile
 
@@ -49,6 +44,9 @@ all: $(OUT) $(OUT)3
 
 clean:
 	rm -f *.o
+	rm -f *.o3
+	rm -f *.csv
+	rm -f *.scm.c
 	rm -f $(OUT)*
 	rm -f $(INT)*
 	rm -f $(COMPILED_INT)
@@ -66,10 +64,14 @@ $(INT): $(SRC)
 $(INT)3: $(SRC)
 	$(GCC) $(GCC_DEFS) $(VM_SRC) $(CFLAGS) $(COPT_FAST3) -o $(INT)3
 
-$(COMPILED_INT): $(SRC) source.scm
-	# TODO: call ssc.scm to make the bytecode
-	sed "s/\[\[IPT\]\]/char *input=\"$(shell cat bench.scm)\";/g" $(VM_SRC) > $(COMPILED_INTERMEDIARY)
-	$(GCC) $(GCC_DEFS) $(COMPILED_INTERMEDIARY) $(CFLAGS) $(COPT_SPACE) -DCPROG -o $(COMPILED_INT)
+%.o.scm: %.scm.c
+	$(GCC) $(GCC_DEFS) $^ $(CFLAGS) $(COPT_SPACE) -DCPROG -o $*.o.scm
 
-$(COMPILED_OUT): $(COMPILED_INT)
-	$(OBJC) $(OBJCARGS) $(COMPILED_INT) $(COMPILED_OUT)
+%.o3.scm: %.scm.c
+	$(GCC) $(GCC_DEFS) $^ $(CFLAGS) $(COPT_FAST3) -DCPROG -o $*.o3.scm
+
+%.o: %.o.scm
+	$(OBJC) $(OBJCARGS) $^ $*.o
+
+%.o3: %.o3.scm
+	$(OBJC) $(OBJCARGS) $^ $*.o3

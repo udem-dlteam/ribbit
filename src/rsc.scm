@@ -1030,9 +1030,11 @@
 ;;        (pp encoded-program)
 ;;        (exit)
         (let* ((vm-source
-                (string-from-file
-                 (path-expand (string-append "host/" target "/rvm." target)
-                              (root-dir))))
+                (if (equal? target "none")
+                    ""
+                    (string-from-file
+                     (path-expand (string-append "host/" target "/rvm." target)
+                                  (root-dir)))))
                (input
                 (string-append encoded-program
                                (if input-path
@@ -1041,7 +1043,10 @@
                (output
                 (with-output-to-string
                   (lambda ()
-                    (cond ((equal? target "scm")
+                    (cond ((equal? target "none")
+                           (write input)
+                           (newline))
+                          ((equal? target "scm")
                            (write `(define input ,input))
                            (newline))
                           (else
@@ -1054,7 +1059,7 @@
                            (newline)))
                     (display vm-source))))
                (minified-output
-                (if (not minify?)
+                (if (or (not minify?) (equal? target "none"))
                     output
                     (let ((port (open-process
                                  (list path:
@@ -1068,17 +1073,19 @@
                         out)))))
           (if (>= verbosity 1)
               (println "*** RVM code length: " (string-length input) " bytes"))
-          (with-output-to-file
-              output-path
-            (lambda ()
-              (display minified-output))))))))
+          (if (equal? output-path "-")
+              (display minified-output)
+              (with-output-to-file
+                  output-path
+                (lambda ()
+                  (display minified-output)))))))))
 
 (define (root-dir)
   (path-directory (or (script-file) (executable-path))))
 
 (define (main . args)
   (let ((verbosity 0)
-        (target "scm")
+        (target "none")
         (input-path #f)
         (output-path #f)
         (lib-path "default")
@@ -1114,14 +1121,14 @@
                    (set! verbosity (+ verbosity 3))
                    (loop rest))
                   (else
-                   (if (and (>= (string-length arg) 1)
-                            (string=? (substring arg 0 1) "-"))
-                       (begin
-                         (println "*** ignoring option " arg)
-                         (loop rest))
-                       (begin
-                         (set! src-path arg)
-                         (loop rest))))))))
+                    (if (and (>= (string-length arg) 1)
+                             (string=? (substring arg 0 1) "-"))
+                      (begin
+                        (println "*** ignoring option " arg)
+                        (loop rest))
+                      (begin
+                        (set! src-path arg)
+                        (loop rest))))))))
 
     (if (not src-path)
         (begin
@@ -1129,7 +1136,9 @@
           (exit 1))
         (rsc-main src-path
                   (or output-path
-                      (string-append src-path "." target))
+                      (if (equal? target "none")
+                          "-"
+                          (string-append src-path "." target)))
                   target
                   input-path
                   lib-path

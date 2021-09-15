@@ -17,7 +17,7 @@
           (if (eqv? (car a) '*)
             (cons '* (cons a (cons '+ (my-map (lambda (a) (cons '/ (cons (deriv a) (cons a '())))) (cdr a))) ))
             (if (eqv? (car a) '/)
-              (cons '- (cons (cons '/ (cons (deriv (cadr a)) (cons (caddr a '()))))
+              (cons '- (cons (cons '/ (cons (deriv (cadr a)) (cons (caddr a) '())))
                              (cons '/ (cons (cadr a) (cons '* (cons (caddr a) (cons (caddr a) (cons (deriv (caddr a)) '()))))))))
               0)))))))
 

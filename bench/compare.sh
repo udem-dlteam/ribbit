@@ -2,7 +2,14 @@
 
 tests=$(ls *.scm)
 
+compiledrvmclean() {
+    pushd "../src/host/c"
+    make clean
+    popd
+}
+
 crvm() {
+    compiledrvmclean
     rm -rf rvm
     rm -rf rvm1
     rm -rf rvm2
@@ -15,8 +22,6 @@ rvm() {
     make clean >> /dev/null
     make >> /dev/null
     cp rVM ../../../bench/rvm
-    cp rVM1 ../../../bench/rvm1
-    cp rVM2 ../../../bench/rvm2
     cp rVM3 ../../../bench/rvm3
     popd
 }
@@ -130,16 +135,19 @@ cpico() {
 
 picobit() {
     cpico
-    git clone git@github.com:SamuelYvon/picobit.git fpicobit > /dev/null 2>&1
+    
+    {
+    git clone git@github.com:SamuelYvon/picobit.git fpicobit
     pushd fpicobit
 
-    make clean > /dev/null 2>&1
-    make > /dev/null 2>&1
+    make clean 
+    make 
 
     cp picobit ..
     cp picobit-vm ..
 
     popd 
+    }  > /dev/null 2>&1
 
 }
 
@@ -181,6 +189,29 @@ siod() {
     popd > /dev/null 2>&1 
 }
 
+cchibi() {
+    rm -rf fchibi
+    rm -f chibi
+    rm -f lib
+    rm -f chibi.tar.gz
+}
+
+chibi() {
+    cchibi
+    wget http://synthcode.com/scheme/chibi/chibi-scheme-0.10.0.tgz -O chibi.tar.gz  > /dev/null 2>&1 
+    tar xvf chibi.tar.gz > /dev/null 2>&1 
+    mv chibi-scheme-0.10.0 fchibi > /dev/null 2>&1 
+    
+    pushd fchibi > /dev/null 2>&1 
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/$(pwd)/  > /dev/null 2>&1 
+    make clean > /dev/null 2>&1 
+    make -j4 > /dev/null 2>&1 
+    popd > /dev/null 2>&1 
+
+    ln -sf ./fchibi/chibi-scheme chibi > /dev/null 2>&1 
+    ln -sf ./fchibi/lib lib > /dev/null 2>&1 
+}
+
 clean() {
     rm *.zip
     rm *.csv
@@ -195,41 +226,117 @@ clean() {
     cbitscm
 }
 
-run() {
+header() {
     space
     echo "=============================================="
-    exe="$1"
     echo "Testing $exe"
     echo "=============================================="
+}
 
-    if command -v hyperfine > /dev/null 2>&1; then
+run() {
+    exe="$1"
+    header "$exe"
 
-        benches=()
-        for test in $(echo "$tests")
-        do
-            if [[ -f "./$exe" ]]; then
-                benches=(${benches[@]} "cat $test | ./$exe")
-            else
-                benches=(${benches[@]} "cat $test | $exe")
-            fi
 
-        done
+    benches=()
+    for test in $(echo "$tests")
+    do
+        if [[ -f "./$exe" ]]; then
+            benches=(${benches[@]} "cat $test | ./$exe")
+        else
+            benches=(${benches[@]} "cat $test | $exe")
+        fi
 
-        hyperfine --min-runs 2 --max-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
-    else
-        for test in $tests
-        do
-            echo "$exe : $test"
+    done
 
-            if [[ -f "./$exe" ]]; then
-                cat "$test" | time -f "$TIME_FMT" "./$exe"
-            else
-                cat "$test" | time -f "$TIME_FMT" "$exe"
-            fi
+    hyperfine --min-runs 2 --max-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
+}
 
-            smallspace
-        done
-    fi
+runbit() {
+    exe="bit"
+    header "$exe"
+
+    benches=()
+    {
+    for test in $(echo "$tests")
+    do
+        filename="${test%.*}"
+        cp "$test" bit-scheme/"$test"
+        pushd bit-scheme
+        make "$filename.c"
+        make "$filename"
+        popd
+
+        benches=(${benches[@]} "echo $test && ./$filename")
+    done
+    } > /dev/null 2>&1
+
+    pushd bit-scheme
+    hyperfine --min-runs 2 --max-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
+    cp "bench-$exe.csv" ..
+    popd
+
+}
+
+runpico() {
+    exe="pico"
+    header "$exe"
+
+    benches=()
+    {
+    for test in $(echo "$tests")
+    do
+        filename="${test%.*}"
+        cp "$test" fpicobit/"$test"
+        pushd fpicobit
+        ./picobit "$test"
+        popd
+
+        benches=(${benches[@]} "echo $test && ./picobit-vm ./$filename.hex")
+    done
+    } > /dev/null 2>&1
+
+    pushd fpicobit
+    hyperfine --min-runs 2 --max-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
+    cp "bench-$exe.csv" ..
+    popd
+}
+
+compiledrvmclean() {
+    pushd "../src/host/c"
+    make clean
+    popd
+}
+
+runcompiledrvm() {
+    ext="$1"
+    exe="compiled_rvm$ext"
+    header "compiled_rvm"
+
+    benches=()
+    {
+    for test in $(echo "$tests")
+    do
+        filename="${test%.*}"
+        cp "$test" ../src/"$test"
+        pushd ../src
+        gsi ./rsc.scm --target c "$test"
+        cp "$filename.scm.c" ./host/c/
+        rm "$test"
+        rm "$filename.scm.c"
+        pushd ./host/c/
+        make "$filename.o$ext"
+        popd
+        popd
+
+        benches=(${benches[@]} "echo $test && ./$filename.o$ext")
+    done
+    } > /dev/null 2>&1
+
+    pushd ../src/host/c
+    hyperfine --min-runs 2 --max-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
+    cp "bench-$exe.csv" ./../../../bench/
+    popd
 }
 
 if [[ "$1" == "--clean" ]]; then
@@ -245,16 +352,17 @@ mitscm
 picobit
 minischeme
 siod
+chibi
 echo "==       READY       =="
+runpico
 run rvm
 run rvm3
-run crvm.sh
-run rrvm3.sh
 run minischeme
-run bit.sh
-run pico.sh
+runbit
 run rvm
 run mitscm
-run gsi
 run tinyscheme
 run siod
+run chibi
+runcompiledrvm
+runcompiledrvm 3
