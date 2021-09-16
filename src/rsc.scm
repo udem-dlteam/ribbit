@@ -39,6 +39,10 @@
 
 (define pair-type      0)
 (define procedure-type 1)
+(define symbol-type    2)
+(define string-type    3)
+(define vector-type    4)
+(define singleton-type 5)
 
 (define (instance? o type) (and (rib? o) (eqv? (field2 o) type)))
 
@@ -402,10 +406,7 @@
          (expand-constant expr))))
 
 (define (expand-constant x)
-  (cond ;;((eqv? x #f)  'false)
-        ;;((eqv? x #t)  'true)
-        ;;((eqv? x '()) 'nil)
-        (else         (cons 'quote (cons x '())))))
+  (cons 'quote (cons x '())))
         
 (define (expand-begin exprs)
   (let ((x (expand-begin* exprs '())))
@@ -634,6 +635,24 @@
                                                 (rib jump/call-op
                                                      (scan-opnd 'rib 0)
                                                      tail)))))
+          ((string? o)
+           (let ((chars (map char->integer (string->list o))))
+             (build-constant chars
+                             (build-constant (length chars)
+                                             (rib const-op
+                                                  string-type
+                                                  (rib jump/call-op
+                                                       (scan-opnd 'rib 0)
+                                                       tail))))))
+          ((vector? o)
+           (let ((elems (vector->list o)))
+             (build-constant elems
+                             (build-constant (length elems)
+                                             (rib const-op
+                                                  vector-type
+                                                  (rib jump/call-op
+                                                       (scan-opnd 'rib 0)
+                                                       tail))))))
           (else
            (error "can't build constant" o))))
 
