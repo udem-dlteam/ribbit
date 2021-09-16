@@ -344,11 +344,11 @@ runrvm() {
     exe="rvm$lang"
     
     if [[ "py" == "$lang" ]] ; then
-        runtime="python3"
+        runtime="pypy3"
     elif [[ "js" == "$lang" ]]; then
         runtime="node"
     else
-        runtime="gsi"
+        runtime=""
     fi
 
 
@@ -361,8 +361,16 @@ runrvm() {
         cp "$test" ../src/"$test"
         pushd ../src
         gsi ./rsc.scm --target "$lang" "$test"
+
+        if [[ "scm" == "$lang" ]]; then
+            echo "Compiling"
+            gsc -exe -o "$filename.scm.scm" "$filename.scm.scm"
+        fi
+        
         popd
+
         benches=(${benches[@]} "echo $test && "$runtime" ./$filename.scm.$lang")
+
     done
     } > /dev/null 2>&1
 
@@ -387,11 +395,9 @@ minischeme
 siod
 chicken
 echo "==       READY       =="
-runpico
 run rvm
 run rvm3
 run minischeme
-runbit
 run rvm
 run mitscm
 run tinyscheme
@@ -399,6 +405,8 @@ run siod
 run csi
 runcompiledrvm
 runcompiledrvm 3
-runrvm scm
+runpico
+runbit
 runrvm js
 runrvm py
+runrvm scm
