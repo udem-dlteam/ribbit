@@ -360,7 +360,7 @@ runrvm() {
         filename="${test%.*}"
         cp "$test" ../src/"$test"
         pushd ../src
-        gsi ./rsc.scm -m --target "$lang" "$test"
+        gsi ./rsc.scm -l min -m --target "$lang" "$test"
 
         if [[ "scm" == "$lang" ]]; then
             echo "Compiling"
