@@ -249,7 +249,7 @@ run() {
 
     done
 
-    hyperfine --min-runs 2 --max-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
+    hyperfine --min-runs 10 --max-runs 10 -i --export-csv "bench-$exe.csv" ${benches[@]}
 }
 
 runbit() {
@@ -272,7 +272,7 @@ runbit() {
     } > /dev/null 2>&1
 
     pushd bit-scheme
-    hyperfine --min-runs 2 --max-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
+    hyperfine --min-runs 10 --max-runs 10 -i --export-csv "bench-$exe.csv" ${benches[@]}
     cp "bench-$exe.csv" ..
     popd
 
@@ -297,7 +297,7 @@ runpico() {
     } > /dev/null 2>&1
 
     pushd fpicobit
-    hyperfine --min-runs 2 --max-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
+    hyperfine --min-runs 10 --max-runs 10 -i --export-csv "bench-$exe.csv" ${benches[@]}
     cp "bench-$exe.csv" ..
     popd
 }
@@ -334,7 +334,7 @@ runcompiledrvm() {
     } > /dev/null 2>&1
 
     pushd ../src/host/c
-    hyperfine --min-runs 2 --max-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
+    hyperfine --min-runs 10 --max-runs 10 -i --export-csv "bench-$exe.csv" ${benches[@]}
     cp "bench-$exe.csv" ./../../../bench/
     popd
 }
@@ -375,7 +375,7 @@ runrvm() {
     } > /dev/null 2>&1
 
     pushd ../src
-    hyperfine --min-runs 2 --max-runs 2 -i --export-csv "bench-$exe.csv" ${benches[@]}
+    hyperfine --min-runs 10 --max-runs 10 -i --export-csv "bench-$exe.csv" ${benches[@]}
     cp "bench-$exe.csv" ./../bench/
     popd
 }
