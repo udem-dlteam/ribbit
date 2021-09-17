@@ -1,5 +1,6 @@
-// debug instruction calls?
-
+/*
+ * The Ribbit VM implementation in C
+ */
 #ifdef DEBUG_I_CALL
 #define DEBUG
 #endif
@@ -89,7 +90,6 @@ typedef struct {
   obj fields[RIB_NB_FIELDS];
 } rib;
 
-#define EXIT_HEAP_OVERFLOW 5
 #define EXIT_ILLEGAL_INSTR 6
 #define EXIT_NO_MEMORY 7
 
@@ -538,7 +538,6 @@ void prim(int no) {
   }
   default: {
     vm_exit(EXIT_ILLEGAL_INSTR);
-    break;
   }
   }
 }
@@ -733,8 +732,6 @@ void decode() {
       if (!op) {
         push2(NUM_0, NUM_0);
       }
-
-      // not very readable, see generic.vm.js
 
       if (n >= d) {
         n = (n == d) ? TAG_NUM(get_int(0))
