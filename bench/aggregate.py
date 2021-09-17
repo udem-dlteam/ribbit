@@ -50,9 +50,9 @@ known = [
     "chibi",
     "compiled_rvm3",
     "compiled_rvm",
-    "rvmscm",
-    "rvmpy",
     "rvmjs",
+    "rvmpy",
+    "rvmscm",
     "bit",
     "pico"
 ]
@@ -70,9 +70,9 @@ relative = {
     "compiled_rvm": "compiled_rvm3",
     "bit": "compiled_rvm3",
     "pico": "compiled_rvm3",
-    "rvmscm": "compiled_rvm3",
     "rvmjs": "compiled_rvm3",
-    "rvmpy": "compiled_rvm3"
+    "rvmpy": "compiled_rvm3",
+    "rvmscm": "compiled_rvm3",
 }
 
 
