@@ -746,7 +746,7 @@ void decode() {
       if (op > 4) {
         n = TAG_RIB(
             alloc_rib(TAG_RIB(alloc_rib2(n, NUM_0, pop())), NIL, CLOSURE_TAG));
-        if (stack == NUM_0 || stack == NULL) {
+        if (stack == NUM_0) {
           break;
         }
         op = INSTR_CONST;
