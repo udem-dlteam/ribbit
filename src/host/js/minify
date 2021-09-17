@@ -2,7 +2,7 @@
 
 sed \
   -e 's|.*//debug.*||g' \
-  -e 's|.*//nodeNOT.*||g' \
+  -e 's|.*//node.*||g' \
 | gsi `dirname "$0"`/../../minify.scm \
 --comment-char "/" --comment-char2 "/" \
 --ident-chars "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789" \
@@ -10,4 +10,5 @@ sed \
 "Buffer" "String" "addEventListener" "alloc" "appendChild" "body" "charCodeAt" "createElement" "document" "fromCharCode" "keyCode" "length" "preventDefault" "readSync" "require" "selectionStart" "slice" "style" "value" "window" "writeSync" \
 | npx google-closure-compiler --language_in=ECMASCRIPT_2020 --language_out=ECMASCRIPT_2020 \
 | sed -e s"|'use strict';||" \
-| tr -d '\n'
+| tr -d '\n' \
+| sed -e '$s,;$,,'
