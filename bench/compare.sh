@@ -365,7 +365,7 @@ runrvm() {
 
         if [[ "scm" == "$lang" ]]; then
             echo "Compiling"
-            gsc -exe -o "$filename.scm.scm" "$filename.scm.scm"
+            gsc -exe -o "$filename.scm.scm" -prelude "(declare (standard-bindings) (block) (not safe))" "$filename.scm.scm"
         fi
         
         popd
