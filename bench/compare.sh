@@ -113,7 +113,7 @@ bitscm() {
     git clone git@github.com:melvinzhang/bit-scheme.git bit-scheme > /dev/null 2>&1 
     pushd bit-scheme 
     sed -i 's/csi/gsi/' Makefile > /dev/null 2>&1 
-    sed -i 's/gcc/gcc\ -Os/' Makefile > /dev/null 2>&1 
+    # sed -i 's/gcc/gcc\ -Os/' Makefile > /dev/null 2>&1 
     popd
 }
 
