@@ -224,7 +224,7 @@
 (define (>= x y) (not (< x y)))
 
 (define (zero? x) (eqv? x 0))
-(define (positive? x) (>= x 0))
+(define (positive? x) (< 0 x))
 (define (negative? x) (< x 0))
 (define (even? x) (eqv? x (* 2 (quotient x 2))))
 (define (odd? x) (not (even? x)))
@@ -410,7 +410,7 @@
             (let ((c2 (car lst2)))
               (if (< c1 c2)
                   -1
-                  (if (> c1 c2)
+                  (if (< c2 c1)
                       1
                       (string-cmp-aux (cdr lst1) (cdr lst2))))))
           1)
