@@ -5,6 +5,7 @@
 (define comment-char1 #f)
 (define comment-char2 #f)
 (define keep-spaces? #f)
+(define prefix "")
 
 (define (minify)
 
@@ -114,7 +115,7 @@
               s)))
 
       (set! i (+ i 1))
-      (index->string (- i 1)))
+      (string-append prefix (index->string (- i 1))))
 
     (for-each
      (lambda (cell)
@@ -173,6 +174,9 @@
                 ((and (pair? rest) (member arg '("--keep-spaces")))
                  (set! keep-spaces? #t)
                  (loop rest))
+                ((and (pair? rest) (member arg '("--prefix")))
+                 (set! prefix (car rest))
+                 (loop (cdr rest)))
                 (else
                  (let ((names
                         (call-with-input-string
