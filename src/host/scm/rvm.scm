@@ -95,13 +95,13 @@
         (_car (_list-tail symtbl n)))
 
       (define (add-instruction op opnd stack)
-;;        (pp (list (vector-ref #(jump/call set get const if) op) opnd))
+;;        (pp (list (vector-ref '#(jump/call set get const if) op) opnd))
         (_set-car! stack (_rib op opnd (_car stack)))
         (decode-loop stack))
 
       (let ((x (get-code)))
         (let loop ((op 0) (n x))
-          (let ((d (vector-ref #(20 30 0 10 11 4) op)))
+          (let ((d (vector-ref '#(20 30 0 10 11 4) op)))
             (if (< (+ 2 d) n)
                 (loop (+ op 1) (- n (+ d 3)))
                 (if (< 90 x)
@@ -183,7 +183,7 @@
             (list->vector (convert (_field0 obj))))
            (else
             '<unknown>)))
-           
+
    (define (show-stack stack)
      (if (_pair? stack)
          (cons (convert (_car stack))

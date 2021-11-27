@@ -27,7 +27,7 @@
 #pragma clang diagnostic ignored "-Wunknown-pragmas"
 #pragma ide diagnostic ignored "ConstantFunctionResult"
 
-#ifndef CPROG
+#ifdef DEFAULT_REPL_MIN
 
 char *input =
     "Detouq,htgnel-gnirts,fer-gnirts,fi,!rdc-tes,tsil>-rotcev,!tes-gnirts,"

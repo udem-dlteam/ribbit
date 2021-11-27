@@ -1,6 +1,289 @@
 #!/usr/bin/env gsi
 
+;;!#;; satisfy guile
+
 ;;; Ribbit Scheme compiler.
+
+;;;----------------------------------------------------------------------------
+
+;; Compatibility layer.
+
+;; Tested with Gambit v4.7.5 and above, Guile 3.0.7 and Chicken 5.2.0.
+
+(cond-expand
+
+  (gambit
+
+   (define (shell-cmd command)
+     (shell-command command))
+
+   (define (del-file path)
+     (delete-file path)))
+
+  (guile
+
+   (define (shell-cmd command)
+     (system command))
+
+   (define (del-file path)
+     (delete-file path)))
+
+  (chicken
+
+   (import (chicken process) (chicken file))
+
+   (define (shell-cmd command)
+     (system command))
+
+   (define (del-file path)
+     (delete-file path)))
+
+  (else
+
+   (define (shell-cmd command)
+     #f)
+
+   (define (del-file path)
+     #f)))
+
+(cond-expand
+
+  ((or gambit
+       guile
+       chicken)
+
+   (define (pipe-through program output)
+     (let ((tmpin  "rsc.tmpin")
+           (tmpout "rsc.tmpout"))
+       (call-with-output-file
+           tmpin
+         (lambda (port) (display output port)))
+       (shell-cmd (string-append program " < " tmpin " > " tmpout))
+       (let ((out
+              (call-with-input-file
+                  tmpout
+                (lambda (port) (read-line port #f)))))
+         (del-file tmpin)
+         (del-file tmpout)
+         out))))
+
+  (else
+
+   (define (pipe-through program output)
+     (println "*** Minification is not supported with this Scheme system")
+     (println "*** so the generated code was not minified.")
+     (println "*** You might want to try running " program " manually.")
+     output)))
+
+(cond-expand
+
+  (chicken
+
+   (import (chicken process-context))
+
+   (define (cmd-line)
+     (command-line-arguments))
+
+   (define (exit-program-normally)
+     (exit 0)))
+
+  (else
+
+   (define (cmd-line)
+     (command-line))
+
+   (define (exit-program-normally)
+     (exit 0))))
+
+(cond-expand
+
+  (gambit
+
+   (define (with-output-to-str thunk)
+     (with-output-to-string "" thunk)))
+
+  (chicken
+
+   (import (chicken port))
+
+   (define (with-output-to-str thunk)
+     (with-output-to-string thunk)))
+
+  (else
+
+   (define (with-output-to-str thunk)
+     (with-output-to-string thunk))))
+
+(cond-expand
+
+  (gambit
+
+   (define (symbol->str symbol)
+     (symbol->string symbol))
+
+   (define (str->uninterned-symbol string)
+     (string->uninterned-symbol string)))
+
+  (else
+
+   (define (make-table)
+     (vector '()))
+
+   (define (table-ref table key . default)
+     (let ((x (assoc key (vector-ref table 0))))
+       (if x
+           (cdr x)
+           (if (pair? default)
+               (car default)
+               (error "Unbound key")))))
+
+   (define (table-set! table key value)
+     (let ((x (assoc key (vector-ref table 0))))
+       (if x
+           (set-cdr! x value)
+           (vector-set! table
+                        0
+                        (cons (cons key value) (vector-ref table 0))))))
+
+   (define (table-length table)
+     (length (vector-ref table 0)))
+
+   (define (table->list table)
+     (vector-ref table 0))
+
+   (define uninterned-symbols (make-table))
+
+   (define (str->uninterned-symbol string)
+     (let* ((name
+             (string-append "@@@" ;; use a "unique" prefix
+                            (number->string
+                             (table-length uninterned-symbols))))
+            (sym
+             (string->symbol name)))
+       (table-set! uninterned-symbols sym string) ;; remember "real" name
+       sym))
+
+   (define (symbol->str symbol)
+     (table-ref uninterned-symbols symbol (symbol->string symbol)))
+
+   (define (path-extension path)
+     (let loop ((i (- (string-length path) 1)))
+       (if (< i 0)
+           ""
+           (if (char=? (string-ref path i) #\.)
+               (substring path i (string-length path))
+               (loop (- i 1))))))
+
+   (define (path-directory path)
+     (let loop ((i (- (string-length path) 1)))
+       (if (< i 0)
+           "./"
+           (if (char=? (string-ref path i) #\/)
+               (substring path 0 (+ i 1))
+               (loop (- i 1))))))
+
+   (define (path-expand path . dir)
+     (if (pair? dir)
+         (let ((d (car dir)))
+           (if (= (string-length d) 0)
+               path
+               (if (char=? (string-ref d (- (string-length d) 1)) #\/)
+                   (string-append d path)
+                   (string-append d "/" path))))
+         path))
+
+   (define (read-line port . separator)
+     (let ((sep (if (pair? separator) (car separator) #\newline)))
+       (let loop ((rev-chars '()))
+         (let ((c (read-char port)))
+           (if (or (not (char? c)) (eqv? c sep))
+               (list->string (reverse rev-chars))
+               (loop (cons c rev-chars)))))))
+
+   (define (println . rest)
+     (for-each display rest)
+     (newline))
+
+   (define (pp obj)
+     (write obj)
+     (newline))))
+
+(cond-expand
+
+  ((and gambit (or enable-bignum disable-bignum))) ;; recent Gambit?
+
+  (else
+
+   (define (list-sort! compare list)
+
+     ;; Stable mergesort algorithm
+
+     (define (sort list len)
+       (if (= len 1)
+           (begin
+             (set-cdr! list '())
+             list)
+           (let ((len1 (quotient len 2)))
+             (let loop ((n len1) (tail list))
+               (if (> n 0)
+                   (loop (- n 1) (cdr tail))
+                   (let ((x (sort tail (- len len1))))
+                     (merge (sort list len1) x)))))))
+
+     (define (merge list1 list2)
+       (if (pair? list1)
+           (if (pair? list2)
+               (let ((x1 (car list1))
+                     (x2 (car list2)))
+                 (if (compare x2 x1)
+                     (merge-loop list2 list2 list1 (cdr list2))
+                     (merge-loop list1 list1 (cdr list1) list2)))
+               list1)
+           list2))
+
+     (define (merge-loop result prev list1 list2)
+       (if (pair? list1)
+           (if (pair? list2)
+               (let ((x1 (car list1))
+                     (x2 (car list2)))
+                 (if (compare x2 x1)
+                     (begin
+                       (set-cdr! prev list2)
+                       (merge-loop result list2 list1 (cdr list2)))
+                     (begin
+                       (set-cdr! prev list1)
+                       (merge-loop result list1 (cdr list1) list2))))
+               (begin
+                 (set-cdr! prev list1)
+                 result))
+           (begin
+             (set-cdr! prev list2)
+             result)))
+
+     (let ((len (length list)))
+       (if (= 0 len)
+           '()
+           (sort list len))))
+
+   (define (list-sort compare list)
+     (list-sort! compare (append list '())))
+
+   (define (append-strings string-list . separator)
+     (if (pair? separator)
+         (if (pair? string-list)
+             (string-append
+              (car string-list)
+              (apply string-append
+                     (map (lambda (s) (string-append (car separator) s))
+                          (cdr string-list))))
+             "")
+         (apply string-append string-list)))
+
+   (define (script-file)
+     (car (cmd-line)))
+
+   (define (executable-path)
+     "")))
 
 ;;;----------------------------------------------------------------------------
 
@@ -169,14 +452,6 @@
          ;; self-evaluating
          (rib const-op expr cont))))
 
-(define (reverse lst)
-  (reverse-aux lst '()))
-
-(define (reverse-aux lst result)
-  (if (pair? lst)
-      (reverse-aux (cdr lst) (cons (car lst) result))
-      result))
-
 (define (gen-call v cont)
   (if (eqv? cont tail)
       (rib jump/call-op v 0)      ;; jump
@@ -294,7 +569,7 @@
 
 ;; Expansion of derived forms, like "define", "cond", "and", "or".
 
-(define (expand expr)
+(define (expand-expr expr)
 
   (cond ((symbol? expr)
          expr)
@@ -309,14 +584,14 @@
                   (let ((var (cadr expr)))
                     (cons 'set!
                           (cons var
-                                (cons (expand (caddr expr))
+                                (cons (expand-expr (caddr expr))
                                       '())))))
 
                  ((eqv? first 'if)
                   (cons 'if
-                        (cons (expand (cadr expr))
-                              (cons (expand (caddr expr))
-                                    (cons (expand (cadddr expr))
+                        (cons (expand-expr (cadr expr))
+                              (cons (expand-expr (caddr expr))
+                                    (cons (expand-expr (cadddr expr))
                                           '())))))
 
                  ((eqv? first 'lambda)
@@ -330,7 +605,7 @@
                   (let ((binding (car (cadr expr))))
                     (cons 'let
                           (cons (cons (cons (car binding)
-                                            (cons (expand (cadr binding))
+                                            (cons (expand-expr (cadr binding))
                                                   '()))
                                       '())
                                 (cons (expand-begin (cddr expr))
@@ -344,60 +619,64 @@
                     (if (pair? pattern)
                         (cons 'set!
                               (cons (car pattern)
-                                    (cons (expand (cons 'lambda
-                                                        (cons (cdr pattern)
-                                                              (cddr expr))))
+                                    (cons (expand-expr
+                                           (cons 'lambda
+                                                 (cons (cdr pattern)
+                                                       (cddr expr))))
                                           '())))
                         (cons 'set!
                               (cons pattern
-                                    (cons (expand (caddr expr))
+                                    (cons (expand-expr (caddr expr))
                                           '()))))))
 
                  ((eqv? first 'and)
-                  (expand (if (pair? (cdr expr))
-                              (if (pair? (cddr expr))
-                                  (cons 'if
-                                        (cons (cadr expr)
-                                              (cons (cons 'and
-                                                          (cddr expr))
-                                                    (cons #f
-                                                          '()))))
-                                  (cadr expr))
-                              #t)))
+                  (expand-expr
+                   (if (pair? (cdr expr))
+                       (if (pair? (cddr expr))
+                           (cons 'if
+                                 (cons (cadr expr)
+                                       (cons (cons 'and
+                                                   (cddr expr))
+                                             (cons #f
+                                                   '()))))
+                           (cadr expr))
+                       #t)))
 
                  ((eqv? first 'or)
-                  (expand (if (pair? (cdr expr))
-                              (if (pair? (cddr expr))
-                                  (cons
-                                   'let
-                                   (cons
-                                    (cons (cons '_
-                                                (cons (cadr expr)
-                                                      '()))
-                                          '())
-                                    (cons
-                                     (cons 'if
-                                           (cons '_
-                                                 (cons '_
-                                                       (cons (cons 'or
-                                                                   (cddr expr))
-                                                             '()))))
-                                     '())))
-                                  (cadr expr))
-                              #f)))
+                  (expand-expr
+                   (if (pair? (cdr expr))
+                       (if (pair? (cddr expr))
+                           (cons
+                            'let
+                            (cons
+                             (cons (cons '_
+                                         (cons (cadr expr)
+                                               '()))
+                                   '())
+                             (cons
+                              (cons 'if
+                                    (cons '_
+                                          (cons '_
+                                                (cons (cons 'or
+                                                            (cddr expr))
+                                                      '()))))
+                              '())))
+                           (cadr expr))
+                       #f)))
 
                  ((eqv? first 'cond)
-                  (expand (if (pair? (cdr expr))
-                              (if (eqv? 'else (car (cadr expr)))
-                                  (cons 'begin (cdr (cadr expr)))
-                                  (cons 'if
-                                        (cons (car (cadr expr))
-                                              (cons (cons 'begin
-                                                          (cdr (cadr expr)))
-                                                    (cons (cons 'cond
-                                                                (cddr expr))
-                                                          '())))))
-                              #f)))
+                  (expand-expr
+                   (if (pair? (cdr expr))
+                       (if (eqv? 'else (car (cadr expr)))
+                           (cons 'begin (cdr (cadr expr)))
+                           (cons 'if
+                                 (cons (car (cadr expr))
+                                       (cons (cons 'begin
+                                                   (cdr (cadr expr)))
+                                             (cons (cons 'cond
+                                                         (cddr expr))
+                                                   '())))))
+                       #f)))
 
                  (else
                   (expand-list expr)))))
@@ -407,7 +686,7 @@
 
 (define (expand-constant x)
   (cons 'quote (cons x '())))
-        
+
 (define (expand-begin exprs)
   (let ((x (expand-begin* exprs '())))
     (if (pair? x)
@@ -423,12 +702,12 @@
           (if (and (pair? expr)
                    (eqv? (car expr) 'begin))
               (expand-begin* (cdr expr) r)
-              (cons (expand expr) r))))
+              (cons (expand-expr expr) r))))
       rest))
 
 (define (expand-list exprs)
   (if (pair? exprs)
-      (cons (expand (car exprs))
+      (cons (expand-expr (car exprs))
             (expand-list (cdr exprs)))
       '()))
 
@@ -947,7 +1226,7 @@
             (let ((sym (car s)))
               (let ((descr (cdr s)))
                 (let ((x (assq sym exports)))
-                  (let ((symbol (if x (cdr x) (string->uninterned-symbol ""))))
+                  (let ((symbol (if x (cdr x) (str->uninterned-symbol ""))))
                     (field0-set! descr i)
                     (loop1 (+ i 1) (cdr lst) (cons symbol symbols)))))))
           (let loop2 ((i i) (lst2 lst) (symbols symbols))
@@ -968,13 +1247,13 @@
                           (let ((x (assq sym exports)))
                             (if x
                                 (loop3 i (cdr lst3) symbols)
-                                (let ((symbol (string->uninterned-symbol "")))
+                                (let ((symbol (str->uninterned-symbol "")))
                                   (let ((descr (cdr s)))
                                     (field0-set! descr i)
                                     (loop3 (+ i 1) (cdr lst3) (cons symbol symbols))))))))
                       (let loop4 ((symbols* symbols))
                         (if (and (pair? symbols*)
-                                 (string=? (symbol->string (car symbols*)) ""))
+                                 (string=? (symbol->str (car symbols*)) ""))
                             (loop4 (cdr symbols*))
 
                             (let ((stream
@@ -986,7 +1265,7 @@
                                           '()))
                                (append-strings
                                 (map (lambda (s)
-                                       (let ((str (symbol->string s)))
+                                       (let ((str (symbol->str s)))
                                          (list->string
                                           (reverse (string->list str)))))
                                      symbols*)
@@ -1060,7 +1339,7 @@
                                    (string-from-file input-path)
                                    "")))
                (output
-                (with-output-to-string
+                (with-output-to-str
                   (lambda ()
                     (cond ((equal? target "none")
                            (display input)
@@ -1084,16 +1363,11 @@
                (minified-output
                 (if (or (not minify?) (equal? target "none"))
                     output
-                    (let ((port (open-process
-                                 (list path:
-                                       (path-expand
-                                        (string-append "host/" target "/minify")
-                                        (root-dir))))))
-                      (display output port)
-                      (close-output-port port)
-                      (let ((out (read-line port #f)))
-                        (close-port port)
-                        out)))))
+                    (pipe-through
+                     (path-expand
+                      (string-append "host/" target "/minify")
+                      (root-dir))
+                     output))))
           (if (>= verbosity 1)
               (println "*** RVM code length: " (string-length input) " bytes"))
           (if (equal? output-path "-")
@@ -1106,7 +1380,7 @@
 (define (root-dir)
   (path-directory (or (script-file) (executable-path))))
 
-(define (main . args)
+(define (parse-cmd-line args)
   (let ((verbosity 0)
         (target "none")
         (input-path #f)
@@ -1143,6 +1417,8 @@
                   ((member arg '("-vvv" "--vvv"))
                    (set! verbosity (+ verbosity 3))
                    (loop rest))
+                  ((member arg '("-q")) ;; silently ignore Chicken's -q option
+                   (loop rest))
                   (else
                     (if (and (>= (string-length arg) 1)
                              (string=? (substring arg 0 1) "-"))
@@ -1167,5 +1443,9 @@
                   lib-path
                   minify?
                   verbosity))))
+
+(parse-cmd-line (cmd-line))
+
+(exit-program-normally)
 
 ;;;----------------------------------------------------------------------------

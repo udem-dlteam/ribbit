@@ -1,1 +1,1 @@
-max.scm
+max-tc.scm
