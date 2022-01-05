@@ -196,7 +196,7 @@
      (let ((sep (if (pair? separator) (car separator) #\newline)))
        (let loop ((rev-chars '()))
          (let ((c (read-char port)))
-           (if (or (not (char? c)) (eqv? c sep))
+           (if (or (eof-object? c) (eqv? c sep))
                (list->string (reverse rev-chars))
                (loop (cons c rev-chars)))))))
 
@@ -268,7 +268,20 @@
    (define (list-sort compare list)
      (list-sort! compare (append list '())))
 
-   (define (append-strings string-list . separator)
+   (define (script-file)
+     (car (cmd-line)))
+
+   (define (executable-path)
+     "")))
+
+(cond-expand
+
+  ((and gambit ;; hack to detect recent Gambit version
+        (or enable-sharp-dot disable-sharp-dot)))
+
+  (else
+
+   (define (string-concatenate string-list . separator)
      (if (pair? separator)
          (if (pair? string-list)
              (string-append
@@ -277,13 +290,7 @@
                      (map (lambda (s) (string-append (car separator) s))
                           (cdr string-list))))
              "")
-         (apply string-append string-list)))
-
-   (define (script-file)
-     (car (cmd-line)))
-
-   (define (executable-path)
-     "")))
+         (apply string-append string-list)))))
 
 ;;;----------------------------------------------------------------------------
 
@@ -517,13 +524,6 @@
 
 ;;;----------------------------------------------------------------------------
 
-(define (comp-program program)
-  (let* ((exprs-exports (extract-exports program))
-         (exprs (car exprs-exports))
-         (exports (cdr exprs-exports)))
-    (comp-program* (if (pair? exprs) exprs (list #f))
-                   (exports->alist exports))))
-
 (define (extract-exports program)
   (let loop ((lst program) (rev-exprs '()) (exports '()))
     (if (pair? lst)
@@ -537,25 +537,6 @@
                     exports)))
         (cons (reverse rev-exprs) exports))))
 
-(define (comp-program* exprs exports)
-  (let ((expansion (expand-begin exprs)))
-    (let ((live (liveness-analysis expansion exports)))
-;;      (pp `(***expansion: ,(uvm->host expansion)))
-;;      (pp `(live: ,live))(exit)
-      (cons
-       (make-procedure
-        (rib 0 ;; 0 parameters
-             0
-             (comp (make-ctx '() live exports)
-                   expansion
-                   tail))
-        '())
-       (or exports
-           (map (lambda (v)
-                  (let ((var (car v)))
-                    (cons var var)))
-                live))))))
-
 (define (exports->alist exports)
   (if (pair? exports)
       (let ((x (car exports)))
@@ -564,6 +545,44 @@
                   (cons (car x) (cadr x)))
               (exports->alist (cdr exports))))
       '()))
+
+(define (comp-exprs-with-exports exprs exports)
+  (let* ((expansion (expand-begin exprs))
+         (live (liveness-analysis expansion exports)))
+    (cons
+     (make-procedure
+      (rib 0 ;; 0 parameters
+           0
+           (comp (make-ctx '() live exports)
+                 expansion
+                 tail))
+      '())
+     (or exports
+         (map (lambda (v)
+                (let ((var (car v)))
+                  (cons var var)))
+              live)))))
+
+(define (compile-program verbosity program)
+  (let* ((exprs-and-exports
+          (extract-exports program))
+         (exprs
+          (car exprs-and-exports))
+         (exports
+          (cdr exprs-and-exports))
+         (proc-and-exports
+          (comp-exprs-with-exports
+           (if (pair? exprs) exprs (list #f))
+           (exports->alist exports))))
+    (if (>= verbosity 2)
+        (begin
+          (println "*** RVM code:")
+          (pp (car proc-and-exports))))
+    (if (>= verbosity 3)
+        (begin
+          (println "*** exports:")
+          (pp (cdr proc-and-exports))))
+    proc-and-exports))
 
 ;;;----------------------------------------------------------------------------
 
@@ -713,7 +732,7 @@
 
 ;;;----------------------------------------------------------------------------
 
-;; Analyse global variable liveness.
+;; Global variable liveness analysis.
 
 (define (liveness-analysis expr exports)
   (let ((live (liveness-analysis-aux expr '())))
@@ -842,6 +861,8 @@
   live-globals)
 
 ;;;----------------------------------------------------------------------------
+
+;; RVM code encoding.
 
 (define eb 92) ;; encoding base (strings have 92 characters that are not escaped and not space)
 ;;(define eb 256)
@@ -1263,7 +1284,7 @@
                                 (encode-n (- (length symbols)
                                              (length symbols*))
                                           '()))
-                               (append-strings
+                               (string-concatenate
                                 (map (lambda (s)
                                        (let ((str (symbol->str s)))
                                          (list->string
@@ -1282,103 +1303,125 @@
 
 ;;;----------------------------------------------------------------------------
 
-(define (read-program)
+;; Source code reading.
+
+(define (root-dir)
+  (path-directory (or (script-file) (executable-path))))
+
+(define (read-all)
   (let ((x (read)))
     (if (eof-object? x)
         '()
-        (cons x (read-program)))))
-
-(define (read-from-string str)
-  (with-input-from-string str read-program))
+        (cons x (read-all)))))
 
 (define (read-from-file path)
-  (with-input-from-file path read-program))
+  (with-input-from-file path read-all))
+
+(define (read-library lib-path)
+  (read-from-file
+   (if (equal? (path-extension lib-path) "")
+       (path-expand (string-append lib-path ".scm")
+                    (path-expand "lib" (root-dir)))
+       lib-path)))
+
+(define (read-program lib-path src-path)
+  (append (read-library lib-path)
+          (read-from-file src-path)))
+
+;;;----------------------------------------------------------------------------
+
+;; Target code generation.
 
 (define (string-from-file path)
   (call-with-input-file path (lambda (port) (read-line port #f))))
 
-(define (rsc-main src-path
-                  output-path
-                  target
-                  input-path
-                  lib-path
-                  minify?
-                  verbosity)
-  (let* ((lib
-          (read-from-file
-           (if (equal? (path-extension lib-path) "")
-               (path-expand (string-append lib-path ".scm")
-                            (path-expand "lib" (root-dir)))
-               lib-path)))
-         (program
-          (append lib (read-from-file src-path))))
-    (let* ((prog-exports (comp-program program))
-           (proc (car prog-exports))
-           (exports (cdr prog-exports)))
-      (if (>= verbosity 2)
-          (begin
-            (println "*** RVM code:")
-            (pp proc)))
-      (if (>= verbosity 3)
-          (begin
-            (println "*** exports:")
-            (pp exports)))
-      (let ((encoded-program (encode proc exports)))
-;;        (println "*** RVM code encoding length: " (string-length encoded-program))
-;;        (pp encoded-program)
-;;        (exit)
-        (let* ((vm-source
-                (if (equal? target "none")
-                    ""
-                    (string-from-file
-                     (path-expand (string-append "host/" target "/rvm." target)
-                                  (root-dir)))))
-               (input
-                (string-append encoded-program
-                               (if input-path
-                                   (string-from-file input-path)
-                                   "")))
-               (output
-                (with-output-to-str
-                  (lambda ()
-                    (cond ((equal? target "none")
-                           (display input)
-                           (newline))
-                          ((equal? target "scm")
-                           (write `(define input ,input))
-                           (newline))
-                          ((equal? target "go")
-                           (display "const Input = ")
-                           (write input)
-                           (newline))
-                          (else
-                           (cond ((equal? target "c")
-                                  (display "char *")))
-                           (display "input = ")
-                           (write input)
-                           (cond ((not (equal? target "py"))
-                                  (display ";")))
-                           (newline)))
-                    (display vm-source))))
-               (minified-output
-                (if (or (not minify?) (equal? target "none"))
-                    output
-                    (pipe-through
-                     (path-expand
-                      (string-append "host/" target "/minify")
-                      (root-dir))
-                     output))))
-          (if (>= verbosity 1)
-              (println "*** RVM code length: " (string-length input) " bytes"))
-          (if (equal? output-path "-")
-              (display minified-output)
-              (with-output-to-file
-                  output-path
-                (lambda ()
-                  (display minified-output)))))))))
+(define (generate-code target verbosity input-path minify? proc-and-exports)
+  (let* ((proc
+          (car proc-and-exports))
+         (exports
+          (cdr proc-and-exports))
+         (encoded-program
+          (encode proc exports))
+         (vm-source
+          (if (equal? target "none")
+              ""
+              (string-from-file
+               (path-expand (string-append "host/" target "/rvm." target)
+                            (root-dir)))))
+         (input
+          (string-append encoded-program
+                         (if input-path
+                             (string-from-file input-path)
+                             ""))))
 
-(define (root-dir)
-  (path-directory (or (script-file) (executable-path))))
+    (if (>= verbosity 1)
+        (println "*** RVM code length: " (string-length input) " bytes"))
+
+    (let* ((target-code-before-minification
+            (with-output-to-str
+             (lambda ()
+               (cond ((equal? target "none")
+                      (display input)
+                      (newline))
+                     ((equal? target "scm")
+                      (write `(define input ,input))
+                      (newline))
+                     ((equal? target "go")
+                      (display "const Input = ")
+                      (write input)
+                      (newline))
+                     (else
+                      (cond ((equal? target "c")
+                             (display "char *")))
+                      (display "input = ")
+                      (write input)
+                      (cond ((not (equal? target "py"))
+                             (display ";")))
+                      (newline)))
+               (display vm-source))))
+           (target-code
+            (if (or (not minify?) (equal? target "none"))
+                target-code-before-minification
+                (pipe-through
+                 (path-expand
+                  (string-append "host/" target "/minify")
+                  (root-dir))
+                 target-code-before-minification))))
+      target-code)))
+
+(define (write-target-code output-path target-code)
+  (if (equal? output-path "-")
+      (display target-code)
+      (with-output-to-file
+          output-path
+        (lambda ()
+          (display target-code)))))
+
+;;;----------------------------------------------------------------------------
+
+;; Compiler's main.
+
+(define (compiler-main src-path
+                       output-path
+                       target
+                       input-path
+                       lib-path
+                       minify?
+                       verbosity)
+  (write-target-code
+   output-path
+   (generate-code
+    target
+    verbosity
+    input-path
+    minify?
+    (compile-program
+     verbosity
+     (read-program lib-path src-path)))))
+
+;;;----------------------------------------------------------------------------
+
+;; Compiler's command line processing.
 
 (define (parse-cmd-line args)
   (let ((verbosity 0)
@@ -1389,7 +1432,7 @@
         (src-path #f)
         (minify? #f))
 
-    (let loop ((args args))
+    (let loop ((args (cdr args)))
       (if (pair? args)
           (let ((arg (car args))
                 (rest (cdr args)))
@@ -1430,19 +1473,21 @@
                         (loop rest))))))))
 
     (if (not src-path)
+
         (begin
           (println "*** a Scheme source file must be specified")
           (exit 1))
-        (rsc-main src-path
-                  (or output-path
-                      (if (equal? target "none")
-                          "-"
-                          (string-append src-path "." target)))
-                  target
-                  input-path
-                  lib-path
-                  minify?
-                  verbosity))))
+
+        (compiler-main src-path
+                       (or output-path
+                           (if (equal? target "none")
+                               "-"
+                               (string-append src-path "." target)))
+                       target
+                       input-path
+                       lib-path
+                       minify?
+                       verbosity))))
 
 (parse-cmd-line (cmd-line))
 
