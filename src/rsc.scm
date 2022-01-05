@@ -82,18 +82,26 @@
    (import (chicken process-context))
 
    (define (cmd-line)
-     (command-line-arguments))
-
-   (define (exit-program-normally)
-     (exit 0)))
+     (command-line-arguments)))
 
   (else
 
    (define (cmd-line)
-     (command-line))
+     (command-line))))
+
+(cond-expand
+
+  (else
+
+   ;; It seems "exit" is pretty universal but we put it in a
+   ;; cond-expand in case some Scheme implementation does it
+   ;; differently.
 
    (define (exit-program-normally)
-     (exit 0))))
+     (exit 0))
+
+   (define (exit-program-abnormally)
+     (exit 1))))
 
 (cond-expand
 
@@ -1420,15 +1428,21 @@
 
 ;;;----------------------------------------------------------------------------
 
-;; Compiler's main.
+;; Compiler entry points.
 
-(define (compiler-main src-path
-                       output-path
-                       target
-                       input-path
-                       lib-path
-                       minify?
-                       verbosity)
+(define (fancy-compiler src-path
+                        output-path
+                        target
+                        input-path
+                        lib-path
+                        minify?
+                        verbosity)
+
+  ;; This version of the compiler reads the program and runtime library
+  ;; source code from files and it supports various options.  It can
+  ;; merge the compacted RVM code with the implementation of the RVM
+  ;; for a specific target and minify the resulting target code.
+
   (write-target-code
    output-path
    (generate-code
@@ -1440,75 +1454,104 @@
      verbosity
      (read-program lib-path src-path)))))
 
+(define (pipeline-compiler)
+
+  ;; This version of the compiler reads the source code on stdin and
+  ;; outputs the compacted RVM code on stdout.  The program source
+  ;; code must be prefixed by the runtime library's source code.
+  ;;
+  ;; A typical use from the shell is:
+  ;;
+  ;;   $ cat lib/max.scm repl-max.scm | gsi rsc.scm > code.rvm
+  ;;   $ echo "input=\"`cat code.rvm`\";`cat host/py/rvm.py`" > repl-max.py
+  ;;   $ echo "(* 6 7)" | python3 repl-max.py
+  ;;   > 42
+  ;;   >
+
+  (display
+   (generate-code
+    "none" ;; target
+    0      ;; verbosity
+    #f     ;; input-path
+    #f     ;; minify?
+    (compile-program
+     0 ;; verbosity
+     (read-all)))))
+
 ;;;----------------------------------------------------------------------------
 
 ;; Compiler's command line processing.
 
 (define (parse-cmd-line args)
-  (let ((verbosity 0)
-        (target "none")
-        (input-path #f)
-        (output-path #f)
-        (lib-path "default")
-        (src-path #f)
-        (minify? #f))
+  (if (null? (cdr args))
 
-    (let loop ((args (cdr args)))
-      (if (pair? args)
-          (let ((arg (car args))
-                (rest (cdr args)))
-            (cond ((and (pair? rest) (member arg '("-t" "--target")))
-                   (set! target (car rest))
-                   (loop (cdr rest)))
-                  ((and (pair? rest) (member arg '("-i" "--input")))
-                   (set! input-path (car rest))
-                   (loop (cdr rest)))
-                  ((and (pair? rest) (member arg '("-o" "--output")))
-                   (set! output-path (car rest))
-                   (loop (cdr rest)))
-                  ((and (pair? rest) (member arg '("-l" "--library")))
-                   (set! lib-path (car rest))
-                   (loop (cdr rest)))
-                  ((and (pair? rest) (member arg '("-m" "--minify")))
-                   (set! minify? #t)
-                   (loop rest))
-                  ((member arg '("-v" "--v"))
-                   (set! verbosity (+ verbosity 1))
-                   (loop rest))
-                  ((member arg '("-vv" "--vv"))
-                   (set! verbosity (+ verbosity 2))
-                   (loop rest))
-                  ((member arg '("-vvv" "--vvv"))
-                   (set! verbosity (+ verbosity 3))
-                   (loop rest))
-                  ((member arg '("-q")) ;; silently ignore Chicken's -q option
-                   (loop rest))
-                  (else
-                    (if (and (>= (string-length arg) 1)
-                             (string=? (substring arg 0 1) "-"))
-                      (begin
-                        (println "*** ignoring option " arg)
-                        (loop rest))
-                      (begin
-                        (set! src-path arg)
-                        (loop rest))))))))
+      (pipeline-compiler)
 
-    (if (not src-path)
+      (let ((verbosity 0)
+            (target "none")
+            (input-path #f)
+            (output-path #f)
+            (lib-path "default")
+            (src-path #f)
+            (minify? #f))
 
-        (begin
-          (println "*** a Scheme source file must be specified")
-          (exit 1))
+        (let loop ((args (cdr args)))
+          (if (pair? args)
+              (let ((arg (car args))
+                    (rest (cdr args)))
+                (cond ((and (pair? rest) (member arg '("-t" "--target")))
+                       (set! target (car rest))
+                       (loop (cdr rest)))
+                      ((and (pair? rest) (member arg '("-i" "--input")))
+                       (set! input-path (car rest))
+                       (loop (cdr rest)))
+                      ((and (pair? rest) (member arg '("-o" "--output")))
+                       (set! output-path (car rest))
+                       (loop (cdr rest)))
+                      ((and (pair? rest) (member arg '("-l" "--library")))
+                       (set! lib-path (car rest))
+                       (loop (cdr rest)))
+                      ((and (pair? rest) (member arg '("-m" "--minify")))
+                       (set! minify? #t)
+                       (loop rest))
+                      ((member arg '("-v" "--v"))
+                       (set! verbosity (+ verbosity 1))
+                       (loop rest))
+                      ((member arg '("-vv" "--vv"))
+                       (set! verbosity (+ verbosity 2))
+                       (loop rest))
+                      ((member arg '("-vvv" "--vvv"))
+                       (set! verbosity (+ verbosity 3))
+                       (loop rest))
+                      ((member arg '("-q")) ;; silently ignore Chicken's -q option
+                       (loop rest))
+                      (else
+                       (if (and (>= (string-length arg) 1)
+                                (string=? (substring arg 0 1) "-"))
+                           (begin
+                             (println "*** ignoring option " arg)
+                             (loop rest))
+                           (begin
+                             (set! src-path arg)
+                             (loop rest))))))))
 
-        (compiler-main src-path
-                       (or output-path
-                           (if (equal? target "none")
-                               "-"
-                               (string-append src-path "." target)))
-                       target
-                       input-path
-                       lib-path
-                       minify?
-                       verbosity))))
+        (if (not src-path)
+
+            (begin
+              (println "*** a Scheme source file must be specified")
+              (exit-program-abnormally))
+
+            (fancy-compiler
+             src-path
+             (or output-path
+                 (if (equal? target "none")
+                     "-"
+                     (string-append src-path "." target)))
+             target
+             input-path
+             lib-path
+             minify?
+             verbosity)))))
 
 (parse-cmd-line (cmd-line))
 
