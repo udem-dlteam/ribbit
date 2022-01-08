@@ -1355,7 +1355,9 @@
 
 (define (read-program lib-path src-path)
   (append (read-library lib-path)
-          (read-from-file src-path)))
+          (if (equal? src-path "-")
+              (read-all)
+              (read-from-file src-path))))
 
 ;;;----------------------------------------------------------------------------
 
@@ -1526,7 +1528,7 @@
                       ((member arg '("-q")) ;; silently ignore Chicken's -q option
                        (loop rest))
                       (else
-                       (if (and (>= (string-length arg) 1)
+                       (if (and (>= (string-length arg) 2)
                                 (string=? (substring arg 0 1) "-"))
                            (begin
                              (println "*** ignoring option " arg)
@@ -1544,7 +1546,7 @@
             (fancy-compiler
              src-path
              (or output-path
-                 (if (equal? target "none")
+                 (if (or (equal? src-path "-") (equal? target "none"))
                      "-"
                      (string-append src-path "." target)))
              target
