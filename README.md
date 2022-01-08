@@ -18,12 +18,11 @@ The `-m` option causes a minification of the generated program. This requires a 
 
 The `-l` option allows selecting the Scheme runtime library (located in the `lib` subdirectory). The `min` library has the fewest procedures and a REPL that supports the core Scheme forms only. The `max` library has most of the R4RS predefined procedures, except for file I/O. The `max-tc` library is like `max` but with run time type checking. The default is the `max-tc` library.
 
-Here are a few examples:
+Here are a few examples (all assume that a `cd src` has been done first):
 
     Use Gambit to compile the minimal REPL to Python
     and execute with python3:
 
-      $ cd src
       $ gsi rsc.scm -t py -l min repl-min.scm
       $ echo "(define f (lambda (n) (if (< n 2) n (+ (f (- n 1)) (f (- n 2))))))(f 25)" | python3 repl-min.scm.py
       > 0
@@ -32,7 +31,6 @@ Here are a few examples:
 
     Do the same but with JavaScript:
 
-      $ cd src
       $ gsi rsc.scm -t js -l min repl-min.scm
       $ echo "(define f (lambda (n) (if (< n 2) n (+ (f (- n 1)) (f (- n 2))))))(f 25)" | node repl-min.scm.js
       > 0
@@ -42,7 +40,6 @@ Here are a few examples:
     Use Guile to compile the REPL with type checking to C
     and then compile RVM with gcc:
 
-      $ cd src
       $ guile -s rsc.scm -t c -l max-tc repl-max.scm
       $ gcc repl-max.scm.c
       $ echo "(+ 1 (* 2 3))(car 0)" | ./a.out
@@ -53,7 +50,6 @@ Here are a few examples:
     Use Chicken to compile the minimal REPL to minified Scheme
     and execute with Gambit:
 
-      $ cd src
       $ csi -q rsc.scm -t scm -l min -m repl-min.scm
       $ echo "(define twice (lambda (x) (* x 2)))(twice 21)" | gsi repl-min.scm.scm
       > 0
@@ -64,7 +60,6 @@ Here are a few examples:
     `(putchar 65) (putchar 10)` to the corresponding compacted RVM code
     (only 23 bytes of code):
 
-      $ cd src
       $ echo "(putchar 65) (putchar 10)" | gsi rsc.scm
       );'u?>vR6!(:lkm!':lkv6y
 
@@ -72,6 +67,5 @@ Here are a few examples:
     `(putchar 65) (putchar 10)` to compacted RVM code and combine
     it with the Python implementation of the RVM and execute it with python3:
 
-      $ cd src
       $ echo "(putchar 65) (putchar 10)" | gsi rsc.scm - -l empty -t py | python3
       A
