@@ -1388,28 +1388,18 @@
     (if (>= verbosity 1)
         (println "*** RVM code length: " (string-length input) " bytes"))
 
-    (let* ((target-code-before-minification
-            (with-output-to-str
-             (lambda ()
-               (cond ((equal? target "none")
-                      (display input)
-                      (newline))
-                     ((equal? target "scm")
-                      (write `(define input ,input))
-                      (newline))
-                     ((equal? target "go")
-                      (display "const Input = ")
-                      (write input)
-                      (newline))
-                     (else
-                      (cond ((equal? target "c")
-                             (display "char *")))
-                      (display "input = ")
-                      (write input)
-                      (cond ((not (equal? target "py"))
-                             (display ";")))
-                      (newline)))
-               (display vm-source))))
+    (let* ((sample
+            ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y") ;; RVM code that prints HELLO!
+           (target-code-before-minification
+            (if (equal? target "none")
+                input
+                (string-replace
+                 (string-replace
+                  vm-source
+                  "RVM code that prints HELLO!"
+                  "RVM code of the program")
+                 sample
+                 input)))
            (target-code
             (if (or (not minify?) (equal? target "none"))
                 target-code-before-minification
@@ -1419,6 +1409,25 @@
                   (root-dir))
                  target-code-before-minification))))
       target-code)))
+
+(define (string-replace str pattern replacement)
+  (let ((len-pattern (string-length pattern))
+        (len-replacement (string-length replacement)))
+    (let loop1 ((i 0) (j 0) (out '()))
+      (if (<= (+ j len-pattern) (string-length str))
+          (let loop2 ((k (- len-pattern 1)))
+            (if (< k 0)
+                (let ((end (+ j len-pattern)))
+                  (loop1 end
+                         end
+                         (cons replacement (cons (substring str i j) out))))
+                (if (char=? (string-ref str (+ j k)) (string-ref pattern k))
+                    (loop2 (- k 1))
+                    (loop1 i
+                           (+ j 1)
+                           out))))
+          (string-concatenate
+           (reverse (cons (substring str i (string-length str)) out)))))))
 
 (define (write-target-code output-path target-code)
   (if (equal? output-path "-")

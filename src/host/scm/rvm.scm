@@ -1,3 +1,5 @@
+(define input ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y") ;; RVM code that prints HELLO!
+
 (cond-expand
   (gambit
    ;;(define-cond-expand-feature debug)

@@ -1,3 +1,5 @@
+input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"; // RVM code that prints HELLO!
+
 debug = false; //debug
 
 lengthAttr = "length";
