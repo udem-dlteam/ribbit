@@ -635,7 +635,7 @@
 (define (write o)
   (cond ((string? o)
          (putchar 34)
-         (write-chars (string->list o) #t)
+         (write-chars (string->list o))
          (putchar 34))
         (else
          (display o))))
@@ -934,7 +934,7 @@
   (putchar2 62 32) ;; #\> and space
   (let ((expr (read)))
     (if (eof-object? expr)
-        #f
+        (newline)
         (begin
           (write (eval expr))
           (newline)

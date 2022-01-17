@@ -1,2 +1,2 @@
-#!/bin/bash
-cat /dev/stdin
+#!/bin/sh
+cat

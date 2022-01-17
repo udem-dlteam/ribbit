@@ -927,7 +927,7 @@
   (putchar2 62 32) ;; #\> and space
   (let ((expr (read)))
     (if (eof-object? expr)
-        #f
+        (newline)
         (begin
           (write (eval expr))
           (newline)

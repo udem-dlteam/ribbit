@@ -2,7 +2,7 @@
 
 sed \
   -e 's|.*//debug.*||g' \
-  -e 's|.*//node.*||g' \
+  -e 's|.*//nodeZZZ.*||g' \
 | gsi `dirname "$0"`/../../minify.scm \
 --comment-char "/" --comment-char2 "/" \
 --ident-chars "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789" \

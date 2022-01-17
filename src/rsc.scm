@@ -1330,6 +1330,9 @@
             (integer->char (if (= c 92) 33 c))))
         stream)))
 
+(define (string->codes string)
+  (map char->integer (string->list string)))
+
 ;;;----------------------------------------------------------------------------
 
 ;; Source code reading.
@@ -1395,11 +1398,17 @@
                 input
                 (string-replace
                  (string-replace
-                  vm-source
-                  "RVM code that prints HELLO!"
-                  "RVM code of the program")
-                 sample
-                 input)))
+                  (string-replace
+                   (string-replace
+                    vm-source
+                    sample
+                    input)
+                   (rvm-code-to-bytes sample " ")
+                   (rvm-code-to-bytes input " "))
+                  (rvm-code-to-bytes sample ",")
+                  (rvm-code-to-bytes input ","))
+                 "RVM code that prints HELLO!"
+                 "RVM code of the program")))
            (target-code
             (if (or (not minify?) (equal? target "none"))
                 target-code-before-minification
@@ -1409,6 +1418,12 @@
                   (root-dir))
                  target-code-before-minification))))
       target-code)))
+
+(define (rvm-code-to-bytes rvm-code sep)
+  (string-concatenate
+   (map (lambda (c) (number->string (char->integer c)))
+        (string->list rvm-code))
+   sep))
 
 (define (string-replace str pattern replacement)
   (let ((len-pattern (string-length pattern))
