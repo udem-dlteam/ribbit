@@ -10,7 +10,7 @@ end --debug--
 local FALSE=rib(0,0,5)
 local TRUE=rib(0,0,5)
 local NIL=rib(0,0,5)
-local function is_rib(x) return type(x) == 'table' end
+local function is_rib(x) return type(x) == "table" end
 -- local function is_rib(x) return type(x) == 'table' and x.class == 'rib' end --debug--
 
 -- Called from test wrapper.  In normal use, this code falls into the
@@ -91,6 +91,16 @@ local function f0s(x,y) x[1]=y; return y; end
 local function f1s(x,y) x[2]=y; return y; end
 local function f2s(x,y) x[3]=y; return y; end
 
+local function quotient(x, y)
+   local f = math.floor
+   local v = x/y
+   if v<0 then
+      return -f(-v)
+   else
+      return f(v)
+   end
+end
+
 local primitives = {
    prim3(rib), -- 0
    prim1(function(x) return x end), -- 1
@@ -109,7 +119,7 @@ local primitives = {
    prim2(function(x,y) return x + y end), -- 14
    prim2(function(x,y) return x - y end), -- 15
    prim2(function(x,y) return x * y end), -- 16
-   prim2(function(x,y) return math.floor(x / y) end),  -- 17  -- FIXME
+   prim2(quotient), -- 17
    getchar, -- 18
    prim1(putchar) -- 19
 }
@@ -306,12 +316,17 @@ end
 
 end --debug--
 
+-- https://stackoverflow.com/questions/49375638/how-to-determine-whether-my-code-is-running-in-a-lua-module
 -- Checks if there is anything in the 1st variable at the 4th level,
 -- which would be the caller of the current module (if required) or
 -- nothing in the case of the main script.
 if pcall(debug.getlocal, 4, 1) then --debug--
+   -- The debug code is part of lure luarocks package as
+   -- 'lure.rvm_debug'.  It will load this code as a module, so defer
+   -- exeuction here.
    return { test = test, is_rib = is_rib, rib = rib, FALSE = FALSE, TRUE = TRUE, NIL = NIL } --debug--
 else test(input) end --debug--
+
 
 
 
