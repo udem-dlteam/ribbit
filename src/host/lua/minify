@@ -1,0 +1,8 @@
+#!/bin/sh
+sed -e 's|.*--debug--.*||g' | \
+sed -e 's|[ \t]*--.*||g' | \
+sed -e 's|^[ \t]*||g' | \
+sed -e '/^[ \t]*$/d'
+
+
+
