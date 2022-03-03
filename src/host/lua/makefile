@@ -2,7 +2,7 @@ LUA=lua
 # LUA=lua5.1
 # LUA=lua5.3
 
-# MINIFY=--minify
+MINIFY=--minify
 
 all:
 

@@ -1,10 +1,14 @@
 local input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" -- RVM code that prints HELLO!
 
+-- All variables are named such that the 'local' declarations can be
+-- removed without causing clashes.  This rreduces the output Lua size
+-- after minification, but makes LuaJIT less effective.
+
 -- Functionality exposed to test wrapper.
-local function rib(a,b,c) return {a,b,c} end
-local function rib(a,b,c) --debug--
-   assert(a and b and c) --debug--
-   return { class = 'rib', [1]=a, [2]=b, [3]=c } --debug--
+local function rib(x,y,z) return {x,y,z} end
+local function rib(x,y,z) --debug--
+   assert(x and y and z) --debug--
+   return { class = 'rib', [1]=x, [2]=y, [3]=z } --debug--
 end --debug--
 
 local FALSE=rib(0,0,5)
@@ -21,11 +25,11 @@ local function test(input, dbg)  --debug--
 local trace_instruction = function(...) end --debug--
 if dbg then trace_instruction = dbg.trace_instruction end --debug--
 
-local function putchar(c)
-   local o=io.stdout
-   o:write(string.char(c))
-   o:flush()
-   return c
+local function putchar(x)
+   local a=io.stdout
+   a:write(string.char(x))
+   a:flush()
+   return x
 end
 
 local stack=0
@@ -41,8 +45,8 @@ end
 local pos=0
 local function get_byte()
    pos=pos+1
-   local i=input:byte(pos) or 0
-   return i
+   local a=input:byte(pos) or 0
+   return a
 end
 
 local function to_bool(x)
@@ -85,19 +89,34 @@ local function prim3(f)
    end
 end
 
-local function arg2() local x = pop(); pop(); push(x) end
-local function close() push(rib(pop()[1],stack,1)) end
-local function f0s(x,y) x[1]=y; return y; end
-local function f1s(x,y) x[2]=y; return y; end
-local function f2s(x,y) x[3]=y; return y; end
+local function arg2()
+      local a = pop()
+      pop()
+      push(a)
+end
+local function close()
+      push(rib(pop()[1],stack,1))
+end
+local function f0s(x,y)
+      x[1]=y
+      return y
+end
+local function f1s(x,y)
+      x[2]=y
+      return y
+end
+local function f2s(x,y)
+      x[3]=y
+      return y
+end
 
 local function quotient(x, y)
-   local f = math.floor
-   local v = x/y
-   if v<0 then
-      return -f(-v)
+   local b = math.floor
+   local a = x/y
+   if a<0 then
+      return -b(-a)
    else
-      return f(v)
+      return b(a)
    end
 end
 
@@ -125,51 +144,51 @@ local primitives = {
 }
 
 local function get_code()
-   local x = get_byte() - 35
-   if x<0 then
+   local a = get_byte() - 35
+   if a<0 then
       return 57
    else
+      return a
+   end
+end
+
+local function get_int(x)
+   local a = get_code()
+   x = x * 46
+   if a<46 then
+      return x+a
+   else
+      return get_int(x + a -46)
+   end
+end
+
+local function list_tail(x, y)
+   if y==0 then
       return x
-   end
-end
-
-local function get_int(n)
-   local x = get_code()
-   n = n * 46
-   if x<46 then
-      return n+x
    else
-      return get_int(n + x -46)
+      return list_tail(x[2],y-1)
    end
 end
 
-local function list_tail(lst, i)
-   if i==0 then
-      return lst
-   else
-      return list_tail(lst[2],i-1)
-   end
-end
-
-local symtbl
+local symtbl = NIL
 
 
-local function symbol_ref(n)
-   return list_tail(symtbl,n)[1]
+local function symbol_ref(x)
+   return list_tail(symtbl,x)[1]
 end
 
 
-local function set_global(val)
-   symtbl[1][1]=val
+local function set_global(x)
+   symtbl[1][1]=x
    symtbl=symtbl[2]
 end
 
--- This variable is used for a number of things, similar to the Python code.
-local n
-
 -- build symtbl
-symtbl = NIL
-n = get_int(0)
+
+-- Note that this variable is used to pass data between subsequent
+-- parts of the code, similar to the Python code.
+local n = get_int(0)
+
 while n>0 do
    n = n - 1
    symtbl = rib(rib(0,rib(NIL,0,3),2),symtbl,0)
@@ -190,6 +209,8 @@ while true do
 end
 symtbl=rib(rib(0,rib(accum,n,3),2),symtbl,0)
 
+-- n is unused
+
 -- decode
 while true do
    local x=get_code()
@@ -197,8 +218,8 @@ while true do
    local d=0
    local op=0
    while true do
-      local ds={20,30,0,10,11,4}
-      d=ds[op+1]
+      local a={20,30,0,10,11,4}
+      d=a[op+1]
       if n<=2+d then break end
       n=n-(d+3) ; op=op+1
    end
@@ -227,29 +248,29 @@ while true do
    stack[1]=rib(op-1,n,stack[1])
 end
 
+-- n contains main-proc, e.g. result of (decode) in hosts/scm/rvm.scm
+
 set_global(rib(0,symtbl,1)) -- procedure type, primitive 0
 set_global(FALSE)
 set_global(TRUE)
 set_global(NIL)
 
-local get_opnd = function(o)
+local function get_opnd(o)
    if is_rib(o) then return o
    else return list_tail(stack,o) end
 end
 
 local function get_cont()
-   local s = stack
-   while not is_rib(s[3]) do s = s[2] end
-   return s
+   local a = stack
+   while not is_rib(a[3]) do a = a[2] end
+   return a
 end
 
-local count = 0
 local pc = n[1][3]
 stack=rib(0,0,rib(5,0,0)) -- primordial continuation (executes halt instr.)
 
 -- run
 while true do
-   count = count + 1
    local o=pc[2]
    local i=pc[1]
    if i<1 then -- jump/call
