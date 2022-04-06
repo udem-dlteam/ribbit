@@ -1,0 +1,146 @@
+#!/bin/sh
+
+# This shell script is a convenient tool for executing the Ribbit
+# AOT compiler with command line arguments to specify the target
+# language, library, output file, etc.
+#
+# Here is a sample use:
+#
+#   $ echo '(display "hello!\n")' > h.scm
+#   $ ./rsc -t py -l max h.scm
+#   $ python3 h.scm.py
+#   hello!
+#
+# The various command line options are explained in the README file.
+#
+# The script is particular useful for bootstrapping the compiler with
+# itself.  For example:
+#
+#   $ ./rsc -t js -l max rsc.scm   # compile rsc.scm to rsc.scm.js
+#   $ ./rsc -t py -l max -c "node rsc.scm.js" h.scm # use bootstrapped compiler
+#   $ python3 h.scm.py
+#   hello!
+
+TARGET="rvm"
+INPUT=""
+OUTPUT=""
+LIBRARY=""
+MINIFY=""
+VERBOSITY=""
+COMPILER=""
+SOURCES=""
+LASTSOURCE=""
+
+while test "$#" != "0" ; do
+  case "$1" in
+    -t|--target) # target
+      shift
+      TARGET="$1"
+      ;;
+    -i|--input) # input
+      shift
+      INPUT="$1"
+      ;;
+    -o|--output) # output
+      shift
+      OUTPUT="$1"
+      ;;
+    -l|--library) # library
+      shift
+      LIBRARY="$1"
+      ;;
+    -m|--minify) # minify
+      MINIFY="minify"
+      ;;
+    -v|--v) # verbosity
+      VERBOSITY="v$VERBOSITY"
+      ;;
+    -vv|--vv) # verbosity
+      VERBOSITY="vv$VERBOSITY"
+      ;;
+    -vvv|--vvv) # verbosity
+      VERBOSITY="vvv$VERBOSITY"
+      ;;
+    -c|--compiler) # compiler
+      shift
+      COMPILER="$1"
+      ;;
+    -*) # other options
+      echo "*** unknown option: $1"
+      exit 1
+      ;;
+    *)
+      LASTSOURCE="$1"
+      SOURCES="$SOURCES $LASTSOURCE"
+      if test ! -e "$LASTSOURCE" ; then
+        echo "*** file does not exist: $LASTSOURCE"
+        exit 1
+      fi
+      ;;
+  esac
+  shift
+done
+
+if test "$LASTSOURCE" = "" ; then
+  echo "usage: $0 [-t target] [-c compiler] [-o output] [-l lib] [-m] file.scm ..."
+  echo "where"
+  echo "  target defaults to rvm and is otherwise one of js, py, scm, c, ..."
+  echo "  compiler defaults to \"gsi rsc.scm\" (rsc.scm executed with Gambit interpreter)"
+  echo "  output defaults to last file.scm suffixed with .<target>"
+  echo "  lib defaults to max-tc (library with type checking)"
+  echo "examples:"
+  echo "  $0 -t js prog.scm   ;; generates prog.scm.js"
+  echo "  $0 -t js rsc.scm    ;; generates rsc.scm.js"
+  echo "  $0 -t py -c \"node rsc.scm.js\" rsc.scm  ;; generates rsc.scm.py using rsc.scm.js"
+  exit 1
+fi
+
+ROOTDIR="`dirname $0`"
+OUTPUTBASE="`dirname $LASTSOURCE`/`basename $LASTSOURCE .scm`"
+RVM="$OUTPUTBASE.rvm"
+
+if test "$COMPILER" = "" ; then
+  COMPILER="gsi $ROOTDIR/rsc.scm"
+fi
+
+if test "$INPUT" = "" ; then
+  INPUT="/dev/null"
+fi
+
+if test ! -e "$INPUT" ; then
+  echo "*** file does not exist: $INPUT"
+  exit 1
+fi
+
+if test "$OUTPUT" = "" ; then
+  OUTPUT="$LASTSOURCE.$TARGET"
+fi
+
+if test "$LIBRARY" = "" ; then
+  LIBRARY="$ROOTDIR/lib/max-tc.scm"
+else
+  LIBRARY="$ROOTDIR/lib/$LIBRARY.scm"
+fi
+
+SAMPLE=");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=\!(:lkm\!':lkv6y"
+
+if sed -e '/^#!/d' $SOURCES | cat "$LIBRARY" - | $COMPILER | cat - "$INPUT" > "$RVM" ; then
+  if test "$TARGET" = "rvm" ; then
+    if test "$RVM" != "$OUTPUT" ; then
+      mv "$RVM" "$OUTPUT"
+    fi
+  else
+    sed "s $SAMPLE `sed "s & \\\\\\\\& g" "$RVM"` g" "$ROOTDIR/host/$TARGET/rvm.$TARGET" > "$OUTPUT.temp"
+    if test "$MINIFY" = "" ; then
+      mv "$OUTPUT.temp" "$OUTPUT"
+    else
+      cat "$OUTPUT.temp" | "$ROOTDIR/host/$TARGET/minify" > "$OUTPUT"
+      rm "$OUTPUT.temp"
+    fi
+  rm "$RVM"
+  fi
+else
+  echo "*** compilation error:"
+  cat "$RVM" # print errors
+  rm "$RVM"
+fi

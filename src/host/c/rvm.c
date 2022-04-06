@@ -541,6 +541,11 @@ void prim(int no) {
     push2(x, PAIR_TAG);
     break;
   }
+  case 20: { // exit
+    PRIM1();
+    vm_exit(NUM(x));
+    break;
+  }
   default: {
     vm_exit(EXIT_ILLEGAL_INSTR);
   }

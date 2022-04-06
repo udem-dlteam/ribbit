@@ -254,7 +254,7 @@
 (define (quotient x y)
   (if (and (integer? x) (integer? y))
       (if (eqv? y 0)
-          (error "*** divide by 0")
+          (error "*** divide by 0" x)
           (%quotient x y))
       (type-error)))
 
@@ -400,11 +400,11 @@
 
 ;;(define char? integer?)
 
-;;(define char=? eqv?)
-;;(define char<? <)
-;;(define char>? >)
-;;(define char<=? <=)
-;;(define char>=? >=)
+(define char=? eqv?)
+(define char<? <)
+(define char>? >)
+(define char<=? <=)
+(define char>=? >=)
 
 ;;(define char-ci=? eqv?)
 ;;(define char-ci<? <)
@@ -418,8 +418,8 @@
 ;;(define (char-upper-case? c) ...)
 ;;(define (char-lower-case? c) ...)
 
-;;(define char->integer id)
-;;(define integer->char id)
+(define char->integer id)
+(define integer->char id)
 
 ;;(define (char-upcase c) ...)
 ;;(define (char-downcase c) ...)
@@ -804,6 +804,11 @@
         (write-chars (cdr lst) escape?))
       #f))
 
+(define (write-char c)
+  (if (integer? c)
+      (putchar c)
+      (type-error)))
+
 (define (newline)
   (putchar 10))
 
@@ -1043,12 +1048,14 @@
           (repl)))))
 
 (define (type-error)
-  (error "*** type error"))
+  (error "*** type error" '()))
 
-(define (error msg)
+(define (error msg info)
   (unwind-and-call
    (lambda ()
      (display msg)
+     (display " ")
+     (write info)
      (newline)
      (repl))))
 

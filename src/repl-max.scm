@@ -88,6 +88,13 @@ round
 expt
 number->string
 string->number
+char=?
+char<?
+char>?
+char<=?
+char>=?
+char->integer
+integer->char
 string?
 list->string
 string->list
@@ -143,9 +150,12 @@ peek-char
 read
 write
 display
+write-char
 newline
 eval
 repl
+error
+exit
 
 quote set! define if lambda
 

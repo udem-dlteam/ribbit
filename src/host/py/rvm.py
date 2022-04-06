@@ -79,7 +79,8 @@ primitives = [
  prim2(lambda y,x:x*y),
  prim2(lambda y,x:x//y),
  getchar,
- prim1(putchar)
+ prim1(putchar),
+ prim1(exit)
 ]
 
 def get_code():

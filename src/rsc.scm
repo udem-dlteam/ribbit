@@ -58,7 +58,13 @@
        (call-with-output-file
            tmpin
          (lambda (port) (display output port)))
-       (shell-cmd (string-append program " < " tmpin " > " tmpout))
+       (shell-cmd (string-append
+                   program
+                   (string-append
+                    " < "
+                    (string-append
+                     tmpin
+                     (string-append " > " tmpout)))))
        (let ((out
               (call-with-input-file
                   tmpout
@@ -70,12 +76,19 @@
   (else
 
    (define (pipe-through program output)
-     (println "*** Minification is not supported with this Scheme system")
-     (println "*** so the generated code was not minified.")
-     (println "*** You might want to try running " program " manually.")
+     (display "*** Minification is not supported with this Scheme system\n")
+     (display "*** so the generated code was not minified.\n")
+     (display "*** You might want to try running ")
+     (display program)
+     (display " manually.\n")
      output)))
 
 (cond-expand
+
+  (ribbit
+
+   (define (cmd-line)
+     (cons "" '())))
 
   (chicken
 
@@ -135,29 +148,26 @@
   (else
 
    (define (make-table)
-     (vector '()))
+     (cons '() '()))
 
-   (define (table-ref table key . default)
-     (let ((x (assoc key (vector-ref table 0))))
+   (define (table-ref table key default)
+     (let ((x (assoc key (car table))))
        (if x
            (cdr x)
-           (if (pair? default)
-               (car default)
-               (error "Unbound key")))))
+           default)))
 
    (define (table-set! table key value)
-     (let ((x (assoc key (vector-ref table 0))))
+     (let ((x (assoc key (car table))))
        (if x
            (set-cdr! x value)
-           (vector-set! table
-                        0
-                        (cons (cons key value) (vector-ref table 0))))))
+           (set-car! table
+                     (cons (cons key value) (car table))))))
 
    (define (table-length table)
-     (length (vector-ref table 0)))
+     (length (car table)))
 
    (define (table->list table)
-     (vector-ref table 0))
+     (car table))
 
    (define uninterned-symbols (make-table))
 
@@ -178,7 +188,7 @@
      (let loop ((i (- (string-length path) 1)))
        (if (< i 0)
            ""
-           (if (char=? (string-ref path i) #\.)
+           (if (= (char->integer (string-ref path i)) 46) ;; #\.
                (substring path i (string-length path))
                (loop (- i 1))))))
 
@@ -186,31 +196,23 @@
      (let loop ((i (- (string-length path) 1)))
        (if (< i 0)
            "./"
-           (if (char=? (string-ref path i) #\/)
+           (if (= (char->integer (string-ref path i)) 47) ;; #\/
                (substring path 0 (+ i 1))
                (loop (- i 1))))))
 
-   (define (path-expand path . dir)
-     (if (pair? dir)
-         (let ((d (car dir)))
-           (if (= (string-length d) 0)
-               path
-               (if (char=? (string-ref d (- (string-length d) 1)) #\/)
-                   (string-append d path)
-                   (string-append d "/" path))))
-         path))
+   (define (path-expand path dir)
+     (if (= (string-length dir) 0)
+         path
+         (if (= (char->integer (string-ref dir (- (string-length dir) 1))) 47) ;; #\/
+             (string-append dir path)
+             (string-append dir (string-append "/" path)))))
 
-   (define (read-line port . separator)
-     (let ((sep (if (pair? separator) (car separator) #\newline)))
-       (let loop ((rev-chars '()))
-         (let ((c (read-char port)))
-           (if (or (eof-object? c) (eqv? c sep))
-               (list->string (reverse rev-chars))
-               (loop (cons c rev-chars)))))))
-
-   (define (println . rest)
-     (for-each display rest)
-     (newline))
+   (define (read-line port sep)
+     (let loop ((rev-chars '()))
+       (let ((c (read-char port)))
+         (if (or (eof-object? c) (eqv? c sep))
+             (list->string (reverse rev-chars))
+             (loop (cons c rev-chars))))))
 
    (define (pp obj)
      (write obj)
@@ -289,42 +291,59 @@
 
   (else
 
-   (define (string-concatenate string-list . separator)
-     (if (pair? separator)
-         (if (pair? string-list)
-             (string-append
-              (car string-list)
-              (apply string-append
-                     (map (lambda (s) (string-append (car separator) s))
-                          (cdr string-list))))
-             "")
-         (apply string-append string-list)))))
+   (define (string-concatenate string-list separator)
+     (if (pair? string-list)
+         (let ((rev-string-list (reverse string-list))
+               (sep (string->list separator)))
+           (let loop ((lst (cdr rev-string-list))
+                      (result (string->list (car rev-string-list))))
+             (if (pair? lst)
+                 (loop (cdr lst)
+                       (append (string->list (car lst))
+                               (append sep
+                                       result)))
+                 (list->string result))))
+         ""))))
+
+(cond-expand
+
+  (ribbit
+
+   (define (error msg info)
+     (display msg)
+     (newline)
+     (write info)
+     (newline)
+     '(let loop () (loop)))) ;; freeze
+
+  (else))
 
 ;;;----------------------------------------------------------------------------
 
 (define predefined '(rib false true nil)) ;; predefined symbols
 
 (define primitives '(
-(rib         . 0) ;; predefined by RVM (must be first and 0)
-(id          . 1)
-(arg1        . 2)
-(arg2        . 3)
-(close       . 4)
-(rib?        . 5)
-(field0      . 6)
-(field1      . 7)
-(field2      . 8)
-(field0-set! . 9)
-(field1-set! . 10)
-(field2-set! . 11)
-(eqv?        . 12)
-(<           . 13)
-(+           . 14)
-(-           . 15)
-(*           . 16)
-(quotient    . 17)
-(getchar     . 18)
-(putchar     . 19)
+(rib         0) ;; predefined by RVM (must be first and 0)
+(id          1)
+(arg1        2)
+(arg2        3)
+(close       4)
+(rib?        5)
+(field0      6)
+(field1      7)
+(field2      8)
+(field0-set! 9)
+(field1-set! 10)
+(field2-set! 11)
+(eqv?        12)
+(<           13)
+(+           14)
+(-           15)
+(*           16)
+(quotient    17)
+(getchar     18)
+(putchar     19)
+(exit        20)
 ))
 
 (define jump/call-op 'jump/call)
@@ -335,28 +354,42 @@
 
 ;;;----------------------------------------------------------------------------
 
-(define pair-type      0)
-(define procedure-type 1)
-(define symbol-type    2)
-(define string-type    3)
-(define vector-type    4)
-(define singleton-type 5)
+(cond-expand
 
-(define (instance? o type) (and (rib? o) (eqv? (field2 o) type)))
+  (ribbit
 
-(define (rib field0 field1 field2) (vector field0 field1 field2))
-(define (rib? o) (vector? o))
-(define (field0 o) (vector-ref o 0))
-(define (field1 o) (vector-ref o 1))
-(define (field2 o) (vector-ref o 2))
-(define (field0-set! o x) (vector-set! o 0 x) o)
-(define (field1-set! o x) (vector-set! o 1 x) o)
-(define (field2-set! o x) (vector-set! o 2 x) o)
+   (define procedure2? procedure?))
 
-(define (procedure2? o) (instance? o procedure-type))
-(define (make-procedure code env) (rib code env procedure-type))
-(define (procedure-code proc) (field0 proc))
-(define (procedure-env proc) (field1 proc))
+  (else
+
+   (define pair-type      0)
+   (define procedure-type 1)
+   (define symbol-type    2)
+   (define string-type    3)
+   (define vector-type    4)
+   (define singleton-type 5)
+
+   (define (instance? o type) (and (rib? o) (eqv? (field2 o) type)))
+
+   (define (rib field0 field1 field2)
+     (let ((r (make-vector 3)))
+       (vector-set! r 0 field0)
+       (vector-set! r 1 field1)
+       (vector-set! r 2 field2)
+       r))
+
+   (define (rib? o) (vector? o))
+   (define (field0 o) (vector-ref o 0))
+   (define (field1 o) (vector-ref o 1))
+   (define (field2 o) (vector-ref o 2))
+   (define (field0-set! o x) (vector-set! o 0 x) o)
+   (define (field1-set! o x) (vector-set! o 1 x) o)
+   (define (field2-set! o x) (vector-set! o 2 x) o)
+
+   (define (procedure2? o) (instance? o procedure-type))
+   (define (make-procedure code env) (rib code env procedure-type))
+   (define (procedure-code proc) (field0 proc))
+   (define (procedure-env proc) (field1 proc))))
 
 (define (oper pc) (field0 pc))
 (define (opnd pc) (field1 pc))
@@ -366,7 +399,7 @@
 
 ;; The compiler from Ribbit Scheme to RVM code.
 
-(define (make-ctx cte live exports) (rib cte (list live) exports))
+(define (make-ctx cte live exports) (rib cte (cons live '()) exports))
 
 (define (ctx-cte ctx) (field0 ctx))
 (define (ctx-live ctx) (car (field1 ctx)))
@@ -402,13 +435,13 @@
                               (if g
                                   (if (constant? g)
                                       (begin
-                                        '(pp `(*** constant propagation of ,var = ,(cadr g))
-                                             (current-error-port))
+;;                                        (pp `(*** constant propagation of ,var = ,(cadr g))
+;;                                             (current-error-port))
                                         (gen-noop cont))
                                       (comp ctx val (gen-assign v cont)))
                                   (begin
-                                    '(pp `(*** removed dead assignment to ,var)
-                                         (current-error-port))
+;;                                    (pp `(*** removed dead assignment to ,var)
+;;                                         (current-error-port))
                                     (gen-noop cont))))
                             (comp ctx val (gen-assign v cont)))))))
 
@@ -441,11 +474,11 @@
                   (comp-begin ctx (cdr expr) cont))
 
                  ((eqv? first 'let)
-                  (let ((binding (car (cadr expr))))
+                  (let ((bindings (cadr expr)))
                     (let ((body (cddr expr)))
                       (comp-bind ctx
-                                 (car binding)
-                                 (cadr binding)
+                                 (map car bindings)
+                                 (map cadr bindings)
                                  body
                                  cont))))
 
@@ -458,8 +491,8 @@
                                      (let ((v (lookup first (ctx-cte ctx) 0)))
                                        (gen-call v cont))))
                         (comp-bind ctx
-                                   '_
-                                   first
+                                   '(_)
+                                   (cons first '())
                                    (cons (cons '_ args) '())
                                    cont)))))))
 
@@ -483,16 +516,31 @@
       (field2 cont) ;; remove pop
       (rib const-op 0 cont))) ;; add dummy value for set!
 
-(define (comp-bind ctx var expr body cont)
-  (comp ctx
-        expr
-        (comp-begin (ctx-cte-set ctx (cons var (ctx-cte ctx)))
-                    body
-                    (if (eqv? cont tail)
-                        cont
-                        (rib jump/call-op ;; call
-                             (use-symbol ctx 'arg2)
-                             cont)))))
+(define (comp-bind ctx vars exprs body cont)
+  (comp-bind* ctx vars exprs ctx body cont))
+
+(define (comp-bind* ctx vars exprs body-ctx body cont)
+  (if (pair? vars)
+      (let ((var (car vars))
+            (expr (car exprs)))
+        (comp ctx
+              expr
+              (comp-bind* (ctx-cte-set ctx (cons #f (ctx-cte ctx)))
+                          (cdr vars)
+                          (cdr exprs)
+                          (ctx-cte-set body-ctx (cons var (ctx-cte body-ctx)))
+                          body
+                          (gen-unbind ctx cont))))
+      (comp-begin body-ctx
+                  body
+                  cont)))
+
+(define (gen-unbind ctx cont)
+  (if (eqv? cont tail)
+      cont
+      (rib jump/call-op ;; call
+           (use-symbol ctx 'arg2)
+           cont)))
 
 (define (use-symbol ctx sym)
   (ctx-live-set! ctx (add-live sym (ctx-live ctx)))
@@ -533,13 +581,15 @@
 ;;;----------------------------------------------------------------------------
 
 (define (extract-exports program)
-  (let loop ((lst program) (rev-exprs '()) (exports '()))
+  ;; By default all symbols are exported when the program contains
+  ;; no (export ...) form.
+  (let loop ((lst program) (rev-exprs '()) (exports #f))
     (if (pair? lst)
         (let ((first (car lst)))
           (if (and (pair? first) (eqv? (car first) 'export))
               (loop (cdr lst)
                     rev-exprs
-                    (append (cdr first) exports))
+                    (append (cdr first) (or exports '())))
               (loop (cdr lst)
                     (cons first rev-exprs)
                     exports)))
@@ -547,12 +597,12 @@
 
 (define (exports->alist exports)
   (if (pair? exports)
-      (let ((x (car exports)))
-        (cons (if (symbol? x)
-                  (cons x x)
-                  (cons (car x) (cadr x)))
-              (exports->alist (cdr exports))))
-      '()))
+      (map (lambda (x)
+             (if (symbol? x)
+                 (cons x x)
+                 (cons (car x) (cadr x))))
+           exports)
+      exports))
 
 (define (comp-exprs-with-exports exprs exports)
   (let* ((expansion (expand-begin exprs))
@@ -561,7 +611,7 @@
      (make-procedure
       (rib 0 ;; 0 parameters
            0
-           (comp (make-ctx '() live exports)
+           (comp (make-ctx '() live (or exports '()))
                  expansion
                  tail))
       '())
@@ -580,15 +630,15 @@
           (cdr exprs-and-exports))
          (proc-and-exports
           (comp-exprs-with-exports
-           (if (pair? exprs) exprs (list #f))
+           (if (pair? exprs) exprs (cons #f '()))
            (exports->alist exports))))
     (if (>= verbosity 2)
         (begin
-          (println "*** RVM code:")
+          (display "*** RVM code:\n")
           (pp (car proc-and-exports))))
     (if (>= verbosity 3)
         (begin
-          (println "*** exports:")
+          (display "*** exports:\n")
           (pp (cdr proc-and-exports))))
     proc-and-exports))
 
@@ -618,25 +668,75 @@
                   (cons 'if
                         (cons (expand-expr (cadr expr))
                               (cons (expand-expr (caddr expr))
-                                    (cons (expand-expr (cadddr expr))
+                                    (cons (if (pair? (cdddr expr))
+                                              (expand-expr (cadddr expr))
+                                              #f)
                                           '())))))
 
                  ((eqv? first 'lambda)
                   (let ((params (cadr expr)))
                     (cons 'lambda
                           (cons params
-                                (cons (expand-begin (cddr expr))
+                                (cons (expand-body (cddr expr))
                                       '())))))
 
                  ((eqv? first 'let)
-                  (let ((binding (car (cadr expr))))
-                    (cons 'let
-                          (cons (cons (cons (car binding)
-                                            (cons (expand-expr (cadr binding))
-                                                  '()))
-                                      '())
-                                (cons (expand-begin (cddr expr))
-                                      '())))))
+                  (let ((x (cadr expr)))
+                    (if (symbol? x) ;; named let?
+                        (expand-expr
+                         (let ((bindings (caddr expr)))
+                           (cons
+                            (cons
+                             'letrec
+                             (cons (cons
+                                    (cons x
+                                          (cons (cons 'lambda
+                                                      (cons (map car bindings)
+                                                            (cdddr expr)))
+                                                '()))
+                                    '())
+                                   (cons x
+                                         '())))
+                            (map cadr bindings))))
+                        (let ((bindings x))
+                          (if (pair? bindings)
+                              (cons 'let
+                                    (cons (map (lambda (binding)
+                                                 (cons (car binding)
+                                                       (cons (expand-expr
+                                                              (cadr binding))
+                                                             '())))
+                                               bindings)
+                                          (cons (expand-body (cddr expr))
+                                                '())))
+                              (expand-body (cddr expr)))))))
+
+                 ((eqv? first 'let*)
+                  (let ((bindings (cadr expr)))
+                    (expand-expr
+                     (cons 'let
+                           (if (and (pair? bindings) (pair? (cdr bindings)))
+                               (cons (cons (car bindings) '())
+                                     (cons (cons 'let*
+                                                 (cons (cdr bindings)
+                                                       (cddr expr)))
+                                           '()))
+                               (cdr expr))))))
+
+                 ((eqv? first 'letrec)
+                  (let ((bindings (cadr expr)))
+                    (expand-expr
+                     (cons 'let
+                           (cons (map (lambda (binding)
+                                        (cons (car binding) (cons #f '())))
+                                      bindings)
+                                 (append (map (lambda (binding)
+                                                (cons 'set!
+                                                      (cons (car binding)
+                                                            (cons (cadr binding)
+                                                                  '()))))
+                                              bindings)
+                                         (cddr expr)))))))
 
                  ((eqv? first 'begin)
                   (expand-begin (cdr expr)))
@@ -713,6 +813,35 @@
 
 (define (expand-constant x)
   (cons 'quote (cons x '())))
+
+(define (expand-body exprs)
+  (let loop ((exprs exprs) (defs '()))
+    (if (pair? exprs)
+        (let ((expr (car exprs)))
+          (if (and (pair? expr) (eqv? 'define (car expr)) (pair? (cdr expr)))
+              (let ((pattern (cadr expr)))
+                (if (pair? pattern)
+                    (loop (cdr exprs)
+                          (cons (cons (car pattern)
+                                      (cons (cons 'lambda
+                                                  (cons (cdr pattern)
+                                                        (cddr expr)))
+                                            '()))
+                                defs))
+                    (loop (cdr exprs)
+                          (cons (cons pattern
+                                      (cddr expr))
+                                defs))))
+              (expand-body-done defs exprs)))
+        (expand-body-done defs '(0)))))
+
+(define (expand-body-done defs exprs)
+  (if (pair? defs)
+      (expand-expr
+       (cons 'letrec
+             (cons (reverse defs)
+                   exprs)))
+      (expand-begin exprs)))
 
 (define (expand-begin exprs)
   (let ((x (expand-begin* exprs '())))
@@ -825,6 +954,15 @@
   (define (add var)
     (set! live-globals (add-live var live-globals)))
 
+  (define (add-val val)
+    (cond ((symbol? val)
+           (add val))
+          ((pair? val)
+           (add-val (car val))
+           (add-val (cdr val)))
+          ((vector? val)
+           (for-each add-val (vector->list val)))))
+
   (define (liveness expr cte top?)
 
     (cond ((symbol? expr)
@@ -837,9 +975,7 @@
 
              (cond ((eqv? first 'quote)
                     (let ((val (cadr expr)))
-                      (if (symbol? val)
-                          (add val))
-                      #f))
+                      (add-val val)))
 
                    ((eqv? first 'set!)
                     (let ((var (cadr expr)))
@@ -861,9 +997,9 @@
                     (liveness (cadddr expr) cte #f))
 
                    ((eqv? first 'let)
-                    (let ((binding (car (cadr expr))))
-                      (liveness (cadr binding) cte #f)
-                      (liveness (caddr expr) (cons (car binding) cte) #f)))
+                    (let ((bindings (cadr expr)))
+                      (liveness-list (map cadr bindings) cte)
+                      (liveness (caddr expr) (append (map car bindings) cte) #f)))
 
                    ((eqv? first 'begin)
                     (liveness-list (cdr expr) cte))
@@ -994,7 +1130,7 @@
 
     (define (prim-code sym tail)
       (rib const-op
-           (cdr (assq sym primitives)) ;; get index
+           (cadr (assq sym primitives)) ;; get index
            (rib const-op
                 0
                 (rib const-op
@@ -1071,6 +1207,10 @@
     (scan (next (procedure-code proc))))
 
   (define (scan-opnd o pos)
+    (scan-opnd-aux o pos)
+    o)
+
+  (define (scan-opnd-aux o pos)
     (cond ((symbol? o)
            (let ((descr
                   (or (table-ref syms o #f)
@@ -1084,34 +1224,37 @@
                    ((= pos 2)
                     (field2-set! descr (+ 1 (field2 descr)))))))
           ((procedure2? o)
-           (scan-proc o)))
-    o)
+           (scan-proc o))))
 
   (define (scan code)
     (if (rib? code)
-        (let ((op (oper code))
-              (o (opnd code)))
-          (cond ((eqv? op if-op)
-                 (scan o))
-                ((eqv? op jump/call-op)
-                 (scan-opnd o 0)) ;; 0 = jump/call
-                ((eqv? op get-op)
-                 (scan-opnd o 1)) ;; 1 = get
-                ((eqv? op const-op)
-                 (if (or (symbol? o)
-                         (procedure2? o)
-                         (and (number? o) (>= o 0)))
-                     (scan-opnd o 2) ;; 2 = const
-                     (let ((v (constant-global-var o)))
-                       (field0-set! code get-op)
-                       (field1-set! code v)
-                       (scan-opnd v 1)))) ;; 1 = get
-                ((eqv? op set-op)
-                 (scan-opnd o 3))) ;; 3 = set
+        (begin
+          (scan-instr code)
           (scan (next code)))))
 
+  (define (scan-instr code)
+    (let ((op (oper code))
+          (o (opnd code)))
+      (cond ((eqv? op if-op)
+             (scan o))
+            ((eqv? op jump/call-op)
+             (scan-opnd o 0)) ;; 0 = jump/call
+            ((eqv? op get-op)
+             (scan-opnd o 1)) ;; 1 = get
+            ((eqv? op const-op)
+             (if (or (symbol? o)
+                     (procedure2? o)
+                     (and (number? o) (>= o 0)))
+                 (scan-opnd o 2) ;; 2 = const
+                 (let ((v (constant-global-var o)))
+                   (field0-set! code get-op)
+                   (field1-set! code v)
+                   (scan-opnd v 1)))) ;; 1 = get
+            ((eqv? op set-op)
+             (scan-opnd o 3))))) ;; 3 = set
+
   (define (encode-sym o)
-    (let ((descr (table-ref syms o)))
+    (let ((descr (table-ref syms o #f)))
       (field0 descr)))
 
   (define (encode-long1 code n stream)
@@ -1248,7 +1391,7 @@
 
                 (else
                  (error "unknown op" op))))
-        (error "rib expected")))
+        (error "rib expected" '())))
 
   (define (ordering sym-descr)
     (let ((sym (car sym-descr)))
@@ -1313,15 +1456,17 @@
                                 (encode-n (- (length symbols)
                                              (length symbols*))
                                           '()))
-                               (string-concatenate
-                                (map (lambda (s)
-                                       (let ((str (symbol->str s)))
-                                         (list->string
-                                          (reverse (string->list str)))))
-                                     symbols*)
-                                ",")
-                               ";"
-                               (stream->string stream)))))))))))))
+                               (string-append
+                                (string-concatenate
+                                 (map (lambda (s)
+                                        (let ((str (symbol->str s)))
+                                          (list->string
+                                           (reverse (string->list str)))))
+                                      symbols*)
+                                 ",")
+                                (string-append
+                                 ";"
+                                 (stream->string stream)))))))))))))))
 
 (define (stream->string stream)
   (list->string
@@ -1377,10 +1522,14 @@
          (encoded-program
           (encode proc exports))
          (vm-source
-          (if (equal? target "none")
+          (if (equal? target "rvm")
               ""
               (string-from-file
-               (path-expand (string-append "host/" target "/rvm." target)
+               (path-expand (string-append
+                             "host/"
+                             (string-append
+                              target
+                              (string-append "/rvm." target)))
                             (root-dir)))))
          (input
           (string-append encoded-program
@@ -1389,32 +1538,37 @@
                              ""))))
 
     (if (>= verbosity 1)
-        (println "*** RVM code length: " (string-length input) " bytes"))
+        (begin
+          (display "*** RVM code length: ")
+          (display (string-length input))
+          (display " bytes\n")))
 
-    (let* ((sample
-            ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y") ;; RVM code that prints HELLO!
-           (target-code-before-minification
-            (if (equal? target "none")
+    (let* ((target-code-before-minification
+            (if (equal? target "rvm")
                 input
-                (string-replace
-                 (string-replace
+                (let ((sample
+                       ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y")) ;; RVM code that prints HELLO!
                   (string-replace
                    (string-replace
-                    vm-source
-                    sample
-                    input)
-                   (rvm-code-to-bytes sample " ")
-                   (rvm-code-to-bytes input " "))
-                  (rvm-code-to-bytes sample ",")
-                  (rvm-code-to-bytes input ","))
-                 "RVM code that prints HELLO!"
-                 "RVM code of the program")))
+                    (string-replace
+                     (string-replace
+                      vm-source
+                      sample
+                      input)
+                     (rvm-code-to-bytes sample " ")
+                     (rvm-code-to-bytes input " "))
+                    (rvm-code-to-bytes sample ",")
+                    (rvm-code-to-bytes input ","))
+                   "RVM code that prints HELLO!"
+                   "RVM code of the program"))))
            (target-code
-            (if (or (not minify?) (equal? target "none"))
+            (if (or (not minify?) (equal? target "rvm"))
                 target-code-before-minification
                 (pipe-through
                  (path-expand
-                  (string-append "host/" target "/minify")
+                  (string-append
+                   "host/"
+                   (string-append target "/minify"))
                   (root-dir))
                  target-code-before-minification))))
       target-code)))
@@ -1442,7 +1596,8 @@
                            (+ j 1)
                            out))))
           (string-concatenate
-           (reverse (cons (substring str i (string-length str)) out)))))))
+           (reverse (cons (substring str i (string-length str)) out))
+           "")))))
 
 (define (write-target-code output-path target-code)
   (if (equal? output-path "-")
@@ -1456,47 +1611,28 @@
 
 ;; Compiler entry points.
 
-(define (fancy-compiler src-path
-                        output-path
-                        target
-                        input-path
-                        lib-path
-                        minify?
-                        verbosity)
-
-  ;; This version of the compiler reads the program and runtime library
-  ;; source code from files and it supports various options.  It can
-  ;; merge the compacted RVM code with the implementation of the RVM
-  ;; for a specific target and minify the resulting target code.
-
-  (write-target-code
-   output-path
-   (generate-code
-    target
-    verbosity
-    input-path
-    minify?
-    (compile-program
-     verbosity
-     (read-program lib-path src-path)))))
-
 (define (pipeline-compiler)
 
   ;; This version of the compiler reads the source code on stdin and
   ;; outputs the compacted RVM code on stdout.  The program source
   ;; code must be prefixed by the runtime library's source code.
   ;;
-  ;; A typical use from the shell is:
+  ;; A Scheme file can be combined with the library and compiled to
+  ;; RVM code with this command:
   ;;
-  ;;   $ cat lib/max.scm repl-max.scm | gsi rsc.scm > code.rvm
-  ;;   $ echo "input=\"`cat code.rvm`\";`cat host/py/rvm.py`" > repl-max.py
-  ;;   $ echo "(* 6 7)" | python3 repl-max.py
-  ;;   > 42
-  ;;   >
+  ;;   $ echo '(display "hello!\n")' > hello.scm
+  ;;   $ cat lib/max.scm hello.scm | gsi rsc.scm > code.rvm
+  ;;
+  ;; Alternatively, the rsc shell script can be used to automate
+  ;; the creation of a complete executable target program:
+  ;;
+  ;;   $ ./rsc -t py -l max hello.scm
+  ;;   $ python3 hello.scm.py
+  ;;   hello!
 
   (display
    (generate-code
-    "none" ;; target
+    "rvm"  ;; target
     0      ;; verbosity
     #f     ;; input-path
     #f     ;; minify?
@@ -1504,83 +1640,115 @@
      0 ;; verbosity
      (read-all)))))
 
-;;;----------------------------------------------------------------------------
+(cond-expand
 
-;; Compiler's command line processing.
+  (ribbit  ;; Ribbit does not have access to the command line...
 
-(define (parse-cmd-line args)
-  (if (null? (cdr args))
+   (pipeline-compiler))
 
-      (pipeline-compiler)
+  (else
 
-      (let ((verbosity 0)
-            (target "none")
-            (input-path #f)
-            (output-path #f)
-            (lib-path "default")
-            (src-path #f)
-            (minify? #f))
+   (define (fancy-compiler src-path
+                           output-path
+                           target
+                           input-path
+                           lib-path
+                           minify?
+                           verbosity)
 
-        (let loop ((args (cdr args)))
-          (if (pair? args)
-              (let ((arg (car args))
-                    (rest (cdr args)))
-                (cond ((and (pair? rest) (member arg '("-t" "--target")))
-                       (set! target (car rest))
-                       (loop (cdr rest)))
-                      ((and (pair? rest) (member arg '("-i" "--input")))
-                       (set! input-path (car rest))
-                       (loop (cdr rest)))
-                      ((and (pair? rest) (member arg '("-o" "--output")))
-                       (set! output-path (car rest))
-                       (loop (cdr rest)))
-                      ((and (pair? rest) (member arg '("-l" "--library")))
-                       (set! lib-path (car rest))
-                       (loop (cdr rest)))
-                      ((and (pair? rest) (member arg '("-m" "--minify")))
-                       (set! minify? #t)
-                       (loop rest))
-                      ((member arg '("-v" "--v"))
-                       (set! verbosity (+ verbosity 1))
-                       (loop rest))
-                      ((member arg '("-vv" "--vv"))
-                       (set! verbosity (+ verbosity 2))
-                       (loop rest))
-                      ((member arg '("-vvv" "--vvv"))
-                       (set! verbosity (+ verbosity 3))
-                       (loop rest))
-                      ((member arg '("-q")) ;; silently ignore Chicken's -q option
-                       (loop rest))
-                      (else
-                       (if (and (>= (string-length arg) 2)
-                                (string=? (substring arg 0 1) "-"))
-                           (begin
-                             (println "*** ignoring option " arg)
-                             (loop rest))
-                           (begin
-                             (set! src-path arg)
-                             (loop rest))))))))
+     ;; This version of the compiler reads the program and runtime library
+     ;; source code from files and it supports various options.  It can
+     ;; merge the compacted RVM code with the implementation of the RVM
+     ;; for a specific target and minify the resulting target code.
 
-        (if (not src-path)
+     (write-target-code
+      output-path
+      (generate-code
+       target
+       verbosity
+       input-path
+       minify?
+       (compile-program
+        verbosity
+        (read-program lib-path src-path)))))
 
-            (begin
-              (println "*** a Scheme source file must be specified")
-              (exit-program-abnormally))
+   (define (parse-cmd-line args)
+     (if (null? (cdr args))
 
-            (fancy-compiler
-             src-path
-             (or output-path
-                 (if (or (equal? src-path "-") (equal? target "none"))
-                     "-"
-                     (string-append src-path "." target)))
-             target
-             input-path
-             lib-path
-             minify?
-             verbosity)))))
+         (pipeline-compiler)
 
-(parse-cmd-line (cmd-line))
+         (let ((verbosity 0)
+               (target "rvm")
+               (input-path #f)
+               (output-path #f)
+               (lib-path "default")
+               (src-path #f)
+               (minify? #f))
 
-(exit-program-normally)
+           (let loop ((args (cdr args)))
+             (if (pair? args)
+                 (let ((arg (car args))
+                       (rest (cdr args)))
+                   (cond ((and (pair? rest) (member arg '("-t" "--target")))
+                          (set! target (car rest))
+                          (loop (cdr rest)))
+                         ((and (pair? rest) (member arg '("-i" "--input")))
+                          (set! input-path (car rest))
+                          (loop (cdr rest)))
+                         ((and (pair? rest) (member arg '("-o" "--output")))
+                          (set! output-path (car rest))
+                          (loop (cdr rest)))
+                         ((and (pair? rest) (member arg '("-l" "--library")))
+                          (set! lib-path (car rest))
+                          (loop (cdr rest)))
+                         ((and (pair? rest) (member arg '("-m" "--minify")))
+                          (set! minify? #t)
+                          (loop rest))
+                         ((member arg '("-v" "--v"))
+                          (set! verbosity (+ verbosity 1))
+                          (loop rest))
+                         ((member arg '("-vv" "--vv"))
+                          (set! verbosity (+ verbosity 2))
+                          (loop rest))
+                         ((member arg '("-vvv" "--vvv"))
+                          (set! verbosity (+ verbosity 3))
+                          (loop rest))
+                         ((member arg '("-q")) ;; silently ignore Chicken's -q option
+                          (loop rest))
+                         (else
+                          (if (and (>= (string-length arg) 2)
+                                   (string=? (substring arg 0 1) "-"))
+                              (begin
+                                (display "*** ignoring option ")
+                                (display arg)
+                                (newline)
+                                (loop rest))
+                              (begin
+                                (set! src-path arg)
+                                (loop rest))))))))
+
+           (if (not src-path)
+
+               (begin
+                 (display "*** a Scheme source file must be specified\n")
+                 (exit-program-abnormally))
+
+               (fancy-compiler
+                src-path
+                (or output-path
+                    (if (or (equal? src-path "-") (equal? target "rvm"))
+                        "-"
+                        (string-append
+                         src-path
+                         (string-append "." target))))
+                target
+                input-path
+                lib-path
+                minify?
+                verbosity)))))
+
+   (parse-cmd-line (cmd-line))
+
+   (exit-program-normally)))
 
 ;;;----------------------------------------------------------------------------

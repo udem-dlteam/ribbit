@@ -349,11 +349,11 @@
 
 ;;(define char? integer?)
 
-;;(define char=? eqv?)
-;;(define char<? <)
-;;(define char>? >)
-;;(define char<=? <=)
-;;(define char>=? >=)
+(define char=? eqv?)
+(define char<? <)
+(define char>? >)
+(define char<=? <=)
+(define char>=? >=)
 
 ;;(define char-ci=? eqv?)
 ;;(define char-ci<? <)
@@ -367,8 +367,8 @@
 ;;(define (char-upper-case? c) ...)
 ;;(define (char-lower-case? c) ...)
 
-;;(define char->integer id)
-;;(define integer->char id)
+(define char->integer id)
+(define integer->char id)
 
 ;;(define (char-upcase c) ...)
 ;;(define (char-downcase c) ...)
@@ -701,6 +701,9 @@
         (putchar c)
         (write-chars (cdr lst)))
       #f))
+
+(define (write-char c)
+  (putchar c))
 
 (define (newline)
   (putchar 10))

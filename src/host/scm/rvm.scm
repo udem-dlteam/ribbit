@@ -328,7 +328,10 @@
 
           (prim1 (lambda (x) ;; 19
                    (write-char (integer->char x))
-                   x))))
+                   x))
+
+          (prim1 (lambda (x) ;; 20
+                   (exit x)))))
 
 (let ((x (decode)))
   (run (_field2 (_field0 x)) ;; instruction stream of main procedure

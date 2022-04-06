@@ -170,7 +170,8 @@ primitives = [
   prim2((y, x) => x*y),
   prim2((y, x) => x/y|0),
   getchar,
-  prim1(putchar)
+  prim1(putchar),
+  () => pop() && halt() // will crash with error on != 0
 ];
 
 run = () => {
