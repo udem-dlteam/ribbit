@@ -147,7 +147,7 @@ size_t pos = 0;
 rib *heap_start;
 
 // GC
-#define MAX_NB_OBJS 30000
+#define MAX_NB_OBJS 100000 // 48000 is minimum for bootstrap
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
 #define heap_mid (heap_bot + (SPACE_SZ))
@@ -376,7 +376,7 @@ obj get_cont() {
 #ifdef DEBUG
 
 void chars2str(obj o) {
-  if (o != TAG_RIB(&NIL)) {
+  if (o != NIL) {
     printf("%c", (char)(NUM(RIB(o)->fields[0]) % 256));
     chars2str(RIB(o)->fields[1]);
   }
@@ -387,7 +387,7 @@ void sym2str(rib *c) { chars2str(RIB(c->fields[1])->fields[0]); }
 void show_operand(obj o) {
   if (IS_NUM(o)) {
     printf("int %ld", NUM(o));
-  } else {
+  } else if (TAG(o) == SYMBOL_TAG) {
     printf("sym ");
     sym2str(RIB(o));
   }
@@ -413,12 +413,11 @@ void prim(int no) {
     push2(x, PAIR_TAG);
     break;
   }
-  case 2: { // pop
+  case 2: { // arg1
     pop();
-    true;
     break;
   }
-  case 3: { // skip
+  case 3: { // arg2
     obj x = pop();
     pop();
     push2(x, PAIR_TAG);
@@ -465,14 +464,14 @@ void prim(int no) {
     push2(TAG(x) = y, PAIR_TAG);
     break;
   }
-  case 12: { // eq
+  case 12: { // eqv?
     PRIM2();
     push2(boolean(x == y), PAIR_TAG);
     break;
   }
   case 13: { // lt
     PRIM2();
-    push2(boolean(x < y), PAIR_TAG);
+    push2(boolean(NUM(x) < NUM(y)), PAIR_TAG);
     break;
   }
   case 14: { // add
@@ -511,9 +510,7 @@ void prim(int no) {
     read &= 0xFF;
 #else
     read = getchar();
-    if (EOF == read) {
-      vm_exit(0);
-    }
+    if (EOF == read) read = -1;
 #endif
     push2(TAG_NUM(read), PAIR_TAG);
     break;
@@ -571,6 +568,7 @@ void run() {
       bool jump = TAG(pc) == NUM_0;
 #ifdef DEBUG_I_CALL
       printf(jump ? "--- jump " : "--- call ");
+      show_operand(CDR(pc));
       PRINTLN();
 #endif
 #define proc (get_opnd(CDR(pc)))
@@ -621,17 +619,20 @@ void run() {
     case INSTR_SET: { // set
 #ifdef DEBUG_I_CALL
       printf("--- set ");
+      show_operand(CDR(pc));
       PRINTLN();
 #endif
-      obj x = pop();
+      obj x = CAR(stack);
       ((IS_NUM(CDR(pc))) ? list_tail(RIB(stack), NUM(CDR(pc))) : RIB(CDR(pc)))
           ->fields[0] = x;
+      stack = CDR(stack);
       ADVANCE_PC();
       break;
     }
     case INSTR_GET: { // get
 #ifdef DEBUG_I_CALL
       printf("--- get ");
+      show_operand(CDR(pc));
       PRINTLN();
 #endif
       push2(get_opnd(CDR(pc)), PAIR_TAG);
@@ -641,6 +642,7 @@ void run() {
     case INSTR_CONST: { // const
 #ifdef DEBUG_I_CALL
       printf("--- const ");
+      show_operand(CDR(pc));
       PRINTLN();
 #endif
       push2(CDR(pc), PAIR_TAG);
