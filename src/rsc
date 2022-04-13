@@ -103,15 +103,6 @@ if test "$COMPILER" = "" ; then
   COMPILER="gsi $ROOTDIR/rsc.scm"
 fi
 
-if test "$INPUT" = "" ; then
-  INPUT="/dev/null"
-fi
-
-if test ! -e "$INPUT" ; then
-  echo "*** file does not exist: $INPUT"
-  exit 1
-fi
-
 if test "$OUTPUT" = "" ; then
   OUTPUT="$LASTSOURCE.$TARGET"
 fi
@@ -122,7 +113,19 @@ else
   LIBRARY="$ROOTDIR/lib/$LIBRARY.scm"
 fi
 
-if sed -e '/^#!/d' $SOURCES | cat "$LIBRARY" - | $COMPILER | cat - "$INPUT" > "$RVM" ; then
+if cat "$LIBRARY" $SOURCES | sed -e 's/^#!/;;#!/g' | $COMPILER > "$RVM.temp" ; then
+
+  if test "$INPUT" = "" ; then
+    mv "$RVM.temp" "$RVM"
+  else
+    if test ! -e "$INPUT" ; then
+      echo "*** file does not exist: $INPUT"
+      exit 1
+    fi
+    cat "$INPUT" "$RVM.temp" > "$RVM"
+    rm "$RVM.temp"
+  fi
+
   if test "$TARGET" = "rvm" ; then
     if test "$RVM" != "$OUTPUT" ; then
       mv "$RVM" "$OUTPUT"
@@ -138,8 +141,12 @@ if sed -e '/^#!/d' $SOURCES | cat "$LIBRARY" - | $COMPILER | cat - "$INPUT" > "$
     fi
   rm "$RVM"
   fi
+
 else
+
   echo "*** compilation error:"
-  cat "$RVM" # print errors
-  rm "$RVM"
+  cat "$RVM.temp" # print errors
+  rm "$RVM.temp"
+  exit 1
+
 fi

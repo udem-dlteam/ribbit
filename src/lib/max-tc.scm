@@ -818,77 +818,75 @@
 
 ;;;----------------------------------------------------------------------------
 
-;; Compiler from Ribbit Scheme to RVM code.
+;; Closure compiler.
 
-(define jump/call-op 0)
-(define set-op       1)
-(define get-op       2)
-(define const-op     3)
-(define if-op        4)
-
-(define (comp cte expr cont)
+(define (comp cte expr)
 
   (cond ((symbol? expr)
-         (rib get-op (lookup expr cte 0) cont))
+         (let ((i (lookup expr cte 0)))
+           (cond ((rib? i)   (lambda (rte) (field0 i)))
+                 ((eqv? i 0) car)
+                 ((eqv? i 1) cadr)
+                 ((eqv? i 2) caddr)
+                 ((eqv? i 3) cadddr)
+                 (else       (lambda (rte) (list-ref rte i))))))
 
         ((pair? expr)
          (let ((first (car expr)))
            (cond ((eqv? first 'quote)
-                  (rib const-op (cadr expr) cont))
+                  (let ((val (cadr expr)))
+                    (lambda (rte) val)))
 
                  ((or (eqv? first 'set!) (eqv? first 'define))
-                  (comp cte
-                        (caddr expr)
-                        (gen-assign (lookup (cadr expr) cte 1)
-                                    cont)))
+                  (let* ((i (lookup (cadr expr) cte 0))
+                         (val (comp cte (caddr expr))))
+                    (if (rib? i)
+                        (lambda (rte) (field0-set! i (val rte)))
+                        (lambda (rte) (list-set! rte i (val rte))))))
 
                  ((eqv? first 'if)
-                  (comp cte
-                        (cadr expr)
-                        (rib if-op
-                             (comp cte (caddr expr) cont)
-                             (comp cte (cadddr expr) cont))))
+                  (let* ((test  (comp cte (cadr expr)))
+                         (true  (comp cte (caddr expr)))
+                         (false (comp cte (cadddr expr))))
+                    (lambda (rte)
+                      (if (test rte) (true rte) (false rte)))))
 
                  ((eqv? first 'lambda)
-                  (let ((params (cadr expr)))
-                    (rib const-op
-                         (make-procedure
-                          (rib (length params)
-                               0
-                               #; ;; support for single expression in body
-                               (comp (extend params
-                                             (cons #f
-                                                   (cons #f
-                                                         cte)))
-                                     (caddr expr)
-                                     tail)
-                               ;#; ;; support for multiple expressions in body
-                               (comp-begin (extend params
-                                                   (cons #f
-                                                         (cons #f
-                                                               cte)))
-                                           (cddr expr)
-                                           tail))
-                          '())
-                         (if (null? cte)
-                             cont
-                             (gen-call 'close cont)))))
+                  (let* ((params (cadr expr))
+                         (cte* (append params cte))
+                         (body (comp-begin cte* (cddr expr)))
+                         (nparams (length params)))
+                    (cond ((eqv? 0 nparams)
+                           (lambda (rte)
+                             (lambda ()
+                               (body rte))))
+                          ((eqv? 1 nparams)
+                           (lambda (rte)
+                             (lambda (a)
+                               (body (cons a rte)))))
+                          ((eqv? 2 nparams)
+                           (lambda (rte)
+                             (lambda (a b)
+                               (body (cons a (cons b rte))))))
+                          ((eqv? 3 nparams)
+                           (lambda (rte)
+                             (lambda (a b c)
+                               (body (cons a (cons b (cons c rte)))))))
+                          (else
+                           (error "too many parameters" expr)))))
 
 ;#; ;; support for begin special form
                  ((eqv? first 'begin)
-                  (comp-begin cte (cdr expr) cont))
+                  (comp-begin cte (cdr expr)))
 
 ;#; ;; support for single armed let special form
                  ((eqv? first 'let)
-                  (let ((binding (car (cadr expr))))
-                    (comp-bind cte
-                               (car binding)
-                               (cadr binding)
-                               #; ;; support for single expression in body
-                               (caddr expr)
-                               ;#; ;; support for multiple expressions in body
-                               (cddr expr)
-                               cont)))
+                  (let* ((binding (car (cadr expr)))
+                         (val (comp cte (cadr binding)))
+                         (cte* (cons (car binding) cte))
+                         (body (comp-begin cte* (cddr expr))))
+                    (lambda (rte)
+                      (body (cons (val rte) rte)))))
 
 ;#; ;; support for and special form
                  ((eqv? first 'and)
@@ -900,8 +898,7 @@
                                             (cons 'and (cddr expr))
                                             #f)
                                   second))
-                            #t)
-                        cont))
+                            #t)))
 
 ;#; ;; support for or special form
                  ((eqv? first 'or)
@@ -910,13 +907,12 @@
                             (let ((second (cadr expr)))
                               (if (pair? (cddr expr))
                                   (list3 'let
-                                         (list1 (list2 '_ second))
-                                         (build-if '_
-                                                   '_
+                                         (list1 (list2 '$ second))
+                                         (build-if '$
+                                                   '$
                                                    (cons 'or (cddr expr))))
                                   second))
-                            #f)
-                        cont))
+                            #f)))
 
 ;#; ;; support for cond special form
                  ((eqv? first 'cond)
@@ -927,32 +923,36 @@
                                 (build-if (car (cadr expr))
                                           (cons 'begin (cdr (cadr expr)))
                                           (cons 'cond (cddr expr))))
-                            #f)
-                        cont))
+                            #f)))
 
                  (else
-                  #; ;; support for calls with only variable in operator position
-                  (comp-call cte
-                             (cdr expr)
-                             (cons first cont))
-                  ;#; ;; support for calls with any expression in operator position
-                  (let ((args (cdr expr)))
-                    (if (symbol? first)
-                        (comp-call cte
-                                   args
-                                   (cons first cont))
-                        (comp-bind cte
-                                   '_
-                                   first
-                                   #; ;; support for single expression in body
-                                   (cons '_ args)
-                                   ;#; ;; support for multiple expressions in body
-                                   (cons (cons '_ args) '())
-                                   cont)))))))
+                  (let* ((oper (comp cte first))
+                         (args (map (lambda (x) (comp cte x)) (cdr expr)))
+                         (nargs (length args)))
+                    (cond ((eqv? 0 nargs)
+                           (lambda (rte)
+                             ((oper rte))))
+                          ((eqv? 1 nargs)
+                           (let ((arg1 (car args)))
+                             (lambda (rte)
+                               ((oper rte) (arg1 rte)))))
+                          ((eqv? 2 nargs)
+                           (let ((arg1 (car args))
+                                 (arg2 (cadr args)))
+                             (lambda (rte)
+                               ((oper rte) (arg1 rte) (arg2 rte)))))
+                          ((eqv? 3 nargs)
+                           (let ((arg1 (car args))
+                                 (arg2 (cadr args))
+                                 (arg3 (caddr args)))
+                             (lambda (rte)
+                               ((oper rte) (arg1 rte) (arg2 rte) (arg3 rte)))))
+                          (else
+                           (error "too many arguments" expr))))))))
 
         (else
          ;; self-evaluating
-         (rib const-op expr cont))))
+         (lambda (rte) expr))))
 
 ;#; ;; support for and, or, cond special forms
 (define (build-if a b c) (cons 'if (list3 a b c)))
@@ -960,79 +960,23 @@
 (define (list2 a b) (cons a (list1 b)))
 (define (list1 a) (cons a '()))
 
-(define (comp-bind cte var expr body cont)
-  (comp cte
-        expr
-        #; ;; support for single expression in body
-        (comp (cons var cte)
-              body
-              (if (eqv? cont tail)
-                  cont
-                  (rib jump/call-op ;; call
-                       'arg2
-                       cont)))
-        ;#; ;; support for multiple expressions in body
-        (comp-begin (cons var cte)
-                    body
-                    (if (eqv? cont tail)
-                        cont
-                        (rib jump/call-op ;; call
-                             'arg2
-                             cont)))))
-
-(define (comp-begin cte exprs cont)
-  (comp cte
-        (car exprs)
-        (if (pair? (cdr exprs))
-            (rib jump/call-op ;; call
-                 'arg1
-                 (comp-begin cte (cdr exprs) cont))
-            cont)))
-
-(define (gen-call v cont)
-  (if (eqv? cont tail)
-      (rib jump/call-op v 0)      ;; jump
-      (rib jump/call-op v cont))) ;; call
-
-(define (gen-assign v cont)
-  (rib set-op v (gen-noop cont)))
-
-(define (gen-noop cont)
-  (if (and (rib? cont) ;; starts with pop?
-           (eqv? (field0 cont) jump/call-op) ;; call?
-           (eqv? (field1 cont) 'arg1)
-           (rib? (field2 cont)))
-      (field2 cont) ;; remove pop
-      (rib const-op 0 cont))) ;; add dummy value for set!
-
-(define (comp-call cte exprs var-cont)
-  (if (pair? exprs)
-      (comp cte
-            (car exprs)
-            (comp-call (cons #f cte)
-                       (cdr exprs)
-                       var-cont))
-      (let ((var (car var-cont)))
-        (let ((cont (cdr var-cont)))
-          (let ((v (lookup var cte 0)))
-            (gen-call v cont))))))
+(define (comp-begin cte exprs)
+  (let ((first (comp cte (car exprs))))
+    (if (pair? (cdr exprs))
+        (let ((rest (comp-begin cte (cdr exprs))))
+          (lambda (rte) (first rte) (rest rte)))
+        first)))
 
 (define (lookup var cte i)
   (if (pair? cte)
       (if (eqv? (car cte) var)
           i
-          (lookup var (cdr cte) (%+ i 1)))
+          (lookup var (cdr cte) (+ i 1)))
       var))
 
-(define (extend vars cte)
-  (if (pair? vars)
-      (cons (car vars) (extend (cdr vars) cte))
-      cte))
-
-(define tail (rib jump/call-op 'id 0)) ;; jump
-
 (define (compile expr) ;; converts an s-expression to a procedure
-  (make-procedure (rib 0 0 (comp '() expr tail)) '()))
+  (let ((val (comp '() expr)))
+    (lambda () (val '()))))
 
 (define (eval expr)
   ((compile expr)))
@@ -1051,19 +995,11 @@
   (error "*** type error" '()))
 
 (define (error msg info)
-  (unwind-and-call
-   (lambda ()
-     (display msg)
-     (display " ")
-     (write info)
-     (newline)
-     (repl))))
-
-(define unwind-and-call #f)
-
-((call/cc
-  (lambda (k)
-    (set! unwind-and-call k)
-    repl)))
+  (display msg)
+  (display " ")
+  (write info)
+  (newline)
+  (repl)
+  (exit 1))
 
 ;;;----------------------------------------------------------------------------
