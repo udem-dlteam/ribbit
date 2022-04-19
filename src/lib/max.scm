@@ -624,8 +624,8 @@
           ((eqv? c 34) ;; #\"
            (reverse lst))
           ((eqv? c 92) ;; #\\
-           #; ;; no support for \n in strings
-           (read-chars (cons (read-char) lst))
+;;           #; ;; no support for \n in strings
+;;           (read-chars (cons (read-char) lst))
            ;#; ;; support for \n in strings
            (let ((c2 (read-char)))
              (read-chars
