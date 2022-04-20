@@ -76,7 +76,7 @@ Here are a few examples (all assume that a `cd src` has been done first):
       $ echo "(putchar 65) (putchar 10)" | gsi rsc.scm - -l empty -t py | python3
       A
 
-    Bootstrap the Ribbit AOT compiler using itself to get a JavaScript
+    Compile the Ribbit AOT compiler using itself to get a JavaScript
     version of the compiler and use it to compile a program:
 
       $ ./rsc -t js -l max rsc.scm   # compile rsc.scm to rsc.scm.js

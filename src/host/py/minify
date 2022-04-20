@@ -1,7 +1,6 @@
 #!/bin/sh
 
-sed \
-  -e 's|.*#debug#.*||g' \
+sed -e '/.*# DEBUG.*/d' \
 | gsi `dirname "$0"`/../../minify.scm \
 --keep-spaces --comment-char "#" \
 --ident-chars "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789" \

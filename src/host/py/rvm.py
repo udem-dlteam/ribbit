@@ -10,17 +10,86 @@ def getchar():
  c=sys.stdin.read(1)
  push(ord(c) if len(c) else -1)
 
-debug = False #debug#
-
-sym2str = lambda s:chars2str(s[1][0]) #debug#
-chars2str = lambda s:"" if s is NIL else chr(s[0])+chars2str(s[1]) #debug#
-show_opnd = lambda o:"sym "+sym2str(o) if is_rib(o) else "int "+str(o) #debug#
-
-def show_stack(): #debug#
- s = stack #debug#
- r = [] #debug#
- while not s[2]: r.append(s[0]); s=s[1] #debug#
- print(r) #debug#
+debug = False                                                           # DEBUG
+tracing = False                                                         # DEBUG
+step_count = 0                                                          # DEBUG
+start_tracing = 0                                                       # DEBUG
+next_stamp = 0                                                          # DEBUG
+                                                                        # DEBUG
+def show(obj):                                                          # DEBUG
+ if not is_rib(obj): return str(obj)                                    # DEBUG
+ type = obj[2]                                                          # DEBUG
+ if type == 4: return "#" + show(obj[0])                                # DEBUG
+ result = ""                                                            # DEBUG
+ if type == 0:                                                          # DEBUG
+  n = 1                                                                 # DEBUG
+  result += "(" + show(obj[0])                                          # DEBUG
+  obj = obj[1]                                                          # DEBUG
+  while is_rib(obj) and obj[2] == 0:                                    # DEBUG
+   if n > 4:                                                            # DEBUG
+    result += " ..."                                                    # DEBUG
+    obj = NIL                                                           # DEBUG
+    break                                                               # DEBUG
+   result += " " + show(obj[0])                                         # DEBUG
+   obj = obj[1]                                                         # DEBUG
+   n += 1                                                               # DEBUG
+  if obj is not NIL:                                                    # DEBUG
+   result += " . " + show(obj)                                          # DEBUG
+  result += ")"                                                         # DEBUG
+ elif type == 1:                                                        # DEBUG
+  if is_rib(obj[0]):                                                    # DEBUG
+   result += "#<procedure nparams=" + str(obj[0][0]) + ">"              # DEBUG
+  else:                                                                 # DEBUG
+   result += "#<primitive " + str(obj[0]) + ">"                         # DEBUG
+ elif type == 2:                                                        # DEBUG
+  obj = obj[1]                                                          # DEBUG
+  if is_rib(obj) and obj[2] == 3 and obj[1] > 0:                        # DEBUG
+   obj = obj[0]                                                         # DEBUG
+   while is_rib(obj) and obj[2] == 0:                                   # DEBUG
+    result += chr(obj[0])                                               # DEBUG
+    obj = obj[1]                                                        # DEBUG
+  else:                                                                 # DEBUG
+   result += "#<symbol " + show(obj) + ">"                              # DEBUG
+ elif type == 3:                                                        # DEBUG
+  result += "\""                                                        # DEBUG
+  obj = obj[0]                                                          # DEBUG
+  while is_rib(obj) and obj[2] == 0:                                    # DEBUG
+   c = chr(obj[0])                                                      # DEBUG
+   if c == "\n": c = "n"; result += "\\"                                # DEBUG
+   elif c == "\r": c = "r"; result += "\\"                              # DEBUG
+   elif c == "\t": c = "t"; result += "\\"                              # DEBUG
+   elif c == "\\" or c == "\"": result += "\\"                          # DEBUG
+   result += c                                                          # DEBUG
+   obj = obj[1]                                                         # DEBUG
+  result += "\""                                                        # DEBUG
+ elif type == 5:                                                        # DEBUG
+  if obj is FALSE:                                                      # DEBUG
+   result += "#f"                                                       # DEBUG
+  elif obj is TRUE:                                                     # DEBUG
+   result += "#t"                                                       # DEBUG
+  elif obj is NIL:                                                      # DEBUG
+   result += "()"                                                       # DEBUG
+  else:                                                                 # DEBUG
+   result += "["+show(obj[0])+","+show(obj[1])+","+show(obj[2])+"]"     # DEBUG
+ else:                                                                  # DEBUG
+  result += "["+show(obj[0])+","+show(obj[1])+","+show(obj[2])+"]"      # DEBUG
+ return result                                                          # DEBUG
+                                                                        # DEBUG
+def start_step():                                                       # DEBUG
+ global step_count, tracing, next_stamp                                 # DEBUG
+ step_count += 1                                                        # DEBUG
+ if step_count >= start_tracing: tracing = True                         # DEBUG
+ if not tracing:                                                        # DEBUG
+  if step_count >= next_stamp:                                          # DEBUG
+   next_stamp = int(next_stamp * 1.01 + 1)                              # DEBUG
+   print("@" + str(step_count))                                         # DEBUG
+  return                                                                # DEBUG
+ s = stack                                                              # DEBUG
+ result = "@" + str(step_count) + " STACK = ("                          # DEBUG
+ sep = ""                                                               # DEBUG
+ while s[2]==0: result += sep + show(s[0]); sep = " "; s=s[1]           # DEBUG
+ result += ")"                                                          # DEBUG
+ print(result)                                                          # DEBUG
 
 pos=-1
 def get_byte():
@@ -100,20 +169,20 @@ symtbl=NIL
 n=get_int(0)
 while n>0:
  n-=1
- symtbl=[[0,[NIL,0,3],2],symtbl,0]
+ symtbl=[[FALSE,[NIL,0,3],2],symtbl,0]
 
 accum=NIL
 n=0
 while 1:
  c=get_byte()
  if c==44:
-  symtbl=[[0,[accum,n,3],2],symtbl,0]; accum=NIL; n=0
+  symtbl=[[FALSE,[accum,n,3],2],symtbl,0]; accum=NIL; n=0
  else:
   if c==59: break
   accum=[c,accum,0]
   n+=1
 
-symtbl=[[0,[accum,n,3],2],symtbl,0]
+symtbl=[[FALSE,[accum,n,3],2],symtbl,0]
 symbol_ref=lambda n: list_tail(symtbl,n)[0]
 
 # decode the RVM instructions
@@ -133,7 +202,7 @@ while 1:
   if op==0:stack=[0,stack,0];op+=1
   n = get_int(0)if n==d else symbol_ref(get_int(n-d-1))if n>=d else symbol_ref(n)if op<3 else n
   if 4<op:
-   n=[[n,0,pop()],0,1]
+   n=[[n,0,pop()],NIL,1]
    if not stack:break
    op=4
  stack[0]=[op-1,n,stack[0]]
@@ -160,10 +229,11 @@ set_global(NIL)
 stack=[0,0,[5,0,0]] # primordial continuation (executes halt instr.)
 
 while 1:
+ if debug: start_step() # DEBUG
  o=pc[1]
  i=pc[0]
  if i<1: # jump/call
-  if debug: print(("--- call " if is_rib(pc[2]) else "--- jump ") + show_opnd(o)); show_stack() #debug#
+  if tracing: print(("call " if is_rib(pc[2]) else "jump ") + show(o)) # DEBUG
   o=get_opnd(o)[0]
   c=o[0]
   if is_rib(c):
@@ -188,20 +258,20 @@ while 1:
     stack[1]=c[0]
   pc=c[2]
  elif i<2: # set
-  if debug: print("--- set " + show_opnd(o)); show_stack() #debug#
-  x=pop()
-  get_opnd(o)[0]=x
+  if tracing: print("set " + show(o)) # DEBUG
+  get_opnd(o)[0]=stack[0]; stack = stack[1]
   pc=pc[2]
  elif i<3: # get
-  if debug: print("--- get " + show_opnd(o)); show_stack() #debug#
+  if tracing: print("get " + show(o)) # DEBUG
   push(get_opnd(o)[0])
   pc=pc[2]
  elif i<4: # const
-  if debug: print("--- const " + str(o)); show_stack() #debug#
+  if tracing: print("const " + show(o)) # DEBUG
   push(o)
   pc=pc[2]
  elif i<5: # if
-  if debug: print("--- if"); show_stack() #debug#
+  if tracing: print("if") # DEBUG
   pc=pc[2 if pop()is FALSE else 1]
  else: # halt
+  if tracing: print("halt") # DEBUG
   break
