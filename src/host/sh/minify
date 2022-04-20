@@ -1,0 +1,3 @@
+#!/bin/sh
+
+sed -e '/.*# DEBUG.*/d'

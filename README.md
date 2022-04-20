@@ -14,7 +14,7 @@ The Ribbit AOT compiler is written in Scheme and can be executed with Gambit, Gu
 
 The AOT compiler's source code is in a single file: `src/rsc.scm` . This Scheme file can be executed as a program with the Gambit, Guile or Chicken interpreters. Alternatively the AOT compiler can be executed using the `src/rsc` shell script, which has the additional `-c` option to select a specific build of the Ribbit AOT compiler which is useful for bootstrapping Ribbit.
 
-Ribbit currently supports the target languages C, JavaScript, Python and Scheme which are selectable with the compiler's `-t` option with `c`, `js`, `py`, and `scm` respectively.  The compacted RVM code can be obtained with the target `rvm` which is the default.
+Ribbit currently supports the target languages C, JavaScript, Python, Scheme, and POSIX shell which are selectable with the compiler's `-t` option with `c`, `js`, `py`, `scm` and `sh` respectively.  The compacted RVM code can be obtained with the target `rvm` which is the default.
 
 The `-m` option causes a minification of the generated program. This requires a recent version of Gambit.
 
@@ -83,4 +83,15 @@ Here are a few examples (all assume that a `cd src` has been done first):
       $ echo '(display "hello!\n")' > h.scm
       $ ./rsc -t py -l max -c "node rsc.scm.js" h.scm # use bootstrapped compiler
       $ python3 h.scm.py
+      hello!
+
+    Bootstrap the Ribbit AOT compiler using a POSIX shell (note
+    that with ksh this takes over 5 hours on a fast computer and it
+    can take substantially more with other POSIX shells):
+
+      $ ./rsc -t sh -l max -o rsc-bootstrap1.sh rsc.scm
+      $ ./rsc -t sh -l max -c "ksh rsc-bootstrap1.sh" -o rsc-bootstrap2.sh rsc.scm
+      $ echo '(display "hello!\n")' > h.scm
+      $ ./rsc -t sh -l max -m -c "ksh rsc-bootstrap2.sh" h.scm
+      $ ksh h.scm.sh
       hello!
