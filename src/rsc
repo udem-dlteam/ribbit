@@ -31,7 +31,7 @@ COMPILER=""
 SOURCES=""
 LASTSOURCE=""
 
-while test "$#" != "0" ; do
+while [ "$#" != "0" ]; do
   case "$1" in
     -t|--target) # target
       shift
@@ -72,7 +72,7 @@ while test "$#" != "0" ; do
     *)
       LASTSOURCE="$1"
       SOURCES="$SOURCES $LASTSOURCE"
-      if test ! -e "$LASTSOURCE" ; then
+      if [ ! -e "$LASTSOURCE" ]; then
         echo "*** file does not exist: $LASTSOURCE"
         exit 1
       fi
@@ -81,7 +81,7 @@ while test "$#" != "0" ; do
   shift
 done
 
-if test "$LASTSOURCE" = "" ; then
+if [ "$LASTSOURCE" = "" ]; then
   echo "usage: $0 [-t target] [-c compiler] [-o output] [-l lib] [-m] file.scm ..."
   echo "where"
   echo "  target defaults to rvm and is otherwise one of js, py, scm, c, ..."
@@ -99,47 +99,71 @@ ROOTDIR="`dirname $0`"
 OUTPUTBASE="`dirname $LASTSOURCE`/`basename $LASTSOURCE .scm`"
 RVM="$OUTPUTBASE.rvm"
 
-if test "$COMPILER" = "" ; then
+if [ "$COMPILER" = "" ]; then
   COMPILER="gsi $ROOTDIR/rsc.scm"
 fi
 
-if test "$INPUT" = "" ; then
-  INPUT="/dev/null"
-fi
-
-if test ! -e "$INPUT" ; then
-  echo "*** file does not exist: $INPUT"
-  exit 1
-fi
-
-if test "$OUTPUT" = "" ; then
+if [ "$OUTPUT" = "" ]; then
   OUTPUT="$LASTSOURCE.$TARGET"
 fi
 
-if test "$LIBRARY" = "" ; then
+if [ "$LIBRARY" = "" ]; then
   LIBRARY="$ROOTDIR/lib/max-tc.scm"
 else
   LIBRARY="$ROOTDIR/lib/$LIBRARY.scm"
 fi
 
-if sed -e '/^#!/d' $SOURCES | cat "$LIBRARY" - | $COMPILER | cat - "$INPUT" > "$RVM" ; then
-  if test "$TARGET" = "rvm" ; then
-    if test "$RVM" != "$OUTPUT" ; then
+if cat "$LIBRARY" $SOURCES | sed -e 's/^#!/;;#!/g' | $COMPILER > "$RVM.temp" ; then
+
+  if [ "$INPUT" = "" ]; then
+    mv "$RVM.temp" "$RVM"
+  else
+    if [ ! -e "$INPUT" ]; then
+      echo "*** file does not exist: $INPUT"
+      exit 1
+    fi
+    cat "$INPUT" "$RVM.temp" > "$RVM"
+    rm "$RVM.temp"
+  fi
+
+  if [ "$TARGET" = "rvm" ]; then
+
+    if [ "$RVM" != "$OUTPUT" ]; then
       mv "$RVM" "$OUTPUT"
     fi
+
   else
-    SAMPLE=");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"
-    gsi -e "(define B\"$SAMPLE\")(define D\"$ROOTDIR/host/$TARGET/rvm.$TARGET\")(define(A b c)(let((o(string-length b))(h(string-length c)))(let q((j 0)(d 0)(k(list)))(if(<(+ d h)o)(let x((i 0))(if(< i h)(if(char=?(string-ref b(+ d i))(string-ref c i))(x(+ i 1))(q j(+ d 1)k))(q(+ d h)(+ d h)(cons(substring b j d)k))))(reverse(cons(substring b j o)k))))))(define(z m c)(if(pair? m)(let((n(reverse m))(c(string->list c)))(let f((a(cdr n))(t(string->list(car n))))(if(pair? a)(f(cdr a)(append(string->list(car a))(append c t)))(list->string t))))(string)))(define C'((9 116)(10 110)(13 114)(34 34)(39 39)(92 92)))(define(v b)(let f((a(reverse(string->list b)))(e(list)))(if(pair? a)(f(cdr a)(let*((g(char->integer(car a)))(s(assoc g C)))(if s(cons 92(cons(cadr s)e))(cons g e))))(list->string(map integer->char e)))))(define(r u)(let f((e(list)))(let((g(read-char u)))(if(char? g)(f(cons g e))(list->string(reverse e))))))(define(w y)(call-with-input-file y r))(define p(r(current-input-port)))(define l(A(w D)B))(display(if(null?(cdr l))(string-append(car l)p)(z l(v p))))" < "$RVM" > "$OUTPUT.temp"
-    if test "$MINIFY" = "" ; then
+
+    SAMPLE="41 59 39 117 63 62 118 68 63 62 118 82 68 63 62 118 82 65 63 62 118 82 65 63 62 118 82 58 63 62 118 82 61 33 40 58 108 107 109 33 39 58 108 107 118 54 121"
+
+    if grep "$SAMPLE" "$ROOTDIR/host/$TARGET/rvm.$TARGET" > "$OUTPUT.temp" ; then
+
+      set 0 `od -v -A n -t u1 "$RVM"`
+      shift
+      sed -e "s/$SAMPLE/$*/g" "$ROOTDIR/host/$TARGET/rvm.$TARGET" > "$OUTPUT.temp"
+
+    else
+
+      SAMPLE=");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"
+      gsi -e "(define B\"$SAMPLE\")(define D\"$ROOTDIR/host/$TARGET/rvm.$TARGET\")(define(A b c)(let((o(string-length b))(h(string-length c)))(let q((j 0)(d 0)(k(list)))(if(<(+ d h)o)(let x((i 0))(if(< i h)(if(char=?(string-ref b(+ d i))(string-ref c i))(x(+ i 1))(q j(+ d 1)k))(q(+ d h)(+ d h)(cons(substring b j d)k))))(reverse(cons(substring b j o)k))))))(define(z m c)(if(pair? m)(let((n(reverse m))(c(string->list c)))(let f((a(cdr n))(t(string->list(car n))))(if(pair? a)(f(cdr a)(append(string->list(car a))(append c t)))(list->string t))))(string)))(define C'((9 116)(10 110)(13 114)(34 34)(39 39)(92 92)))(define(v b)(let f((a(reverse(string->list b)))(e(list)))(if(pair? a)(f(cdr a)(let*((g(char->integer(car a)))(s(assoc g C)))(if s(cons 92(cons(cadr s)e))(cons g e))))(list->string(map integer->char e)))))(define(r u)(let f((e(list)))(let((g(read-char u)))(if(char? g)(f(cons g e))(list->string(reverse e))))))(define(w y)(call-with-input-file y r))(define p(r(current-input-port)))(define l(A(w D)B))(display(if(null?(cdr l))(string-append(car l)p)(z l(v p))))" < "$RVM" > "$OUTPUT.temp"
+
+    fi
+
+    if [ "$MINIFY" = "" ]; then
       mv "$OUTPUT.temp" "$OUTPUT"
     else
       cat "$OUTPUT.temp" | "$ROOTDIR/host/$TARGET/minify" > "$OUTPUT"
       rm "$OUTPUT.temp"
     fi
-  rm "$RVM"
+    rm "$RVM"
+
   fi
+
 else
+
   echo "*** compilation error:"
-  cat "$RVM" # print errors
-  rm "$RVM"
+  cat "$RVM.temp" # print errors
+  rm "$RVM.temp"
+  exit 1
+
 fi
