@@ -559,6 +559,14 @@
                    ((eqv? c 116) ;; #\t
                     (read-char) ;; skip "t"
                     #t)
+                   ((or (eqv? c 120) (eqv? c 88)) ;; #\x or #\X
+                    (read-char) ;; skip "x"
+                    (let ((c (peek-char)))
+                      (if (eqv? c 45)
+                          (begin
+                            (read-char)
+                            (read-hex 0))
+                          (- 0 (read-hex 0)))))
                    (else ;; assume it is #\(
                     (list->vector (read))))))
           ((eqv? c 39) ;; #\'
@@ -573,6 +581,22 @@
              (let ((n (string->number s)))
                (or n
                    (string->symbol s))))))))
+
+(define (read-hex accu)
+  (let ((c (peek-char)))
+    (if (and (< 47 c) (< c 58))
+        (begin
+          (read-char)
+          (read-hex (- (* 16 accu) (- c 48))))
+        (if (and (< 64 c) (< c 71))
+            (begin
+              (read-char)
+              (read-hex (- (* 16 accu) (- c 55))))
+            (if (and (< 96 c) (< c 103))
+                (begin
+                  (read-char)
+                  (read-hex (- (* 16 accu) (- c 87))))
+                accu)))))
 
 (define (read-list)
   (let ((c (peek-char-non-whitespace)))
@@ -600,11 +624,20 @@
           ((eqv? c 34) ;; #\"
            (reverse lst))
           ((eqv? c 92) ;; #\\
-           #; ;; no support for \n in strings
-           (read-chars (cons (read-char) lst))
+;;           #; ;; no support for \n in strings
+;;           (read-chars (cons (read-char) lst))
            ;#; ;; support for \n in strings
            (let ((c2 (read-char)))
-             (read-chars (cons (if (eqv? c2 110) 10 c2) lst))))
+             (read-chars
+              (cons (cond
+                     ;#; ;; support for \n in strings
+                     ((eqv? c2 110) 10) ;; #\n
+                     ;#; ;; support for \r in strings
+                     ((eqv? c2 114) 13) ;; #\r
+                     ;#; ;; support for \t in strings
+                     ((eqv? c2 116) 9)  ;; #\t
+                     (else          c2))
+                    lst))))
           (else
            (read-chars (cons c lst))))))
 
@@ -684,11 +717,19 @@
                 c)
                ;#; ;; support for \n in strings
                ((eqv? c 10) ;; #\newline
-                (putchar 92)
-                110)
+                (putchar 92) ;; #\\
+                110)         ;; #\n
+               ;#; ;; support for \r in strings
+               ((eqv? c 13) ;; #\return
+                (putchar 92) ;; #\\
+                114)         ;; #\r
+               ;#; ;; support for \t in strings
+               ((eqv? c 9) ;; #\tab
+                (putchar 92) ;; #\\
+                116)         ;; #\t
                ((or (eqv? c 34) ;; #\"
                     (eqv? c 92)) ;; #\\
-                (putchar 92)
+                (putchar 92) ;; #\\
                 c)
                (else
                 c)))
@@ -743,13 +784,13 @@
                          (make-procedure
                           (rib (length params)
                                0
-                               #; ;; support for single expression in body
-                               (comp (extend params
-                                             (cons #f
-                                                   (cons #f
-                                                         cte)))
-                                     (caddr expr)
-                                     tail)
+;;                               #; ;; support for single expression in body
+;;                               (comp (extend params
+;;                                             (cons #f
+;;                                                   (cons #f
+;;                                                         cte)))
+;;                                     (caddr expr)
+;;                                     tail)
                                ;#; ;; support for multiple expressions in body
                                (comp-begin (extend params
                                                    (cons #f
@@ -772,8 +813,8 @@
                     (comp-bind cte
                                (car binding)
                                (cadr binding)
-                               #; ;; support for single expression in body
-                               (caddr expr)
+;;                               #; ;; support for single expression in body
+;;                               (caddr expr)
                                ;#; ;; support for multiple expressions in body
                                (cddr expr)
                                cont)))
@@ -819,10 +860,10 @@
                         cont))
 
                  (else
-                  #; ;; support for calls with only variable in operator position
-                  (comp-call cte
-                             (cdr expr)
-                             (cons first cont))
+;;                  #; ;; support for calls with only variable in operator position
+;;                  (comp-call cte
+;;                             (cdr expr)
+;;                             (cons first cont))
                   ;#; ;; support for calls with any expression in operator position
                   (let ((args (cdr expr)))
                     (if (symbol? first)
@@ -832,8 +873,8 @@
                         (comp-bind cte
                                    '_
                                    first
-                                   #; ;; support for single expression in body
-                                   (cons '_ args)
+;;                                   #; ;; support for single expression in body
+;;                                   (cons '_ args)
                                    ;#; ;; support for multiple expressions in body
                                    (cons (cons '_ args) '())
                                    cont)))))))
@@ -851,14 +892,14 @@
 (define (comp-bind cte var expr body cont)
   (comp cte
         expr
-        #; ;; support for single expression in body
-        (comp (cons var cte)
-              body
-              (if (eqv? cont tail)
-                  cont
-                  (rib jump/call-op ;; call
-                       'arg2
-                       cont)))
+;;        #; ;; support for single expression in body
+;;        (comp (cons var cte)
+;;              body
+;;              (if (eqv? cont tail)
+;;                  cont
+;;                  (rib jump/call-op ;; call
+;;                       'arg2
+;;                       cont)))
         ;#; ;; support for multiple expressions in body
         (comp-begin (cons var cte)
                     body

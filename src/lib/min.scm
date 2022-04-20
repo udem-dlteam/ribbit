@@ -758,93 +758,95 @@
                                                          cte)))
                                      (caddr expr)
                                      tail)
-                               #; ;; support for multiple expressions in body
-                               (comp-begin (extend params
-                                                   (cons #f
-                                                         (cons #f
-                                                               cte)))
-                                           (cddr expr)
-                                           tail))
+;;                               #; ;; support for multiple expressions in body
+;;                               (comp-begin (extend params
+;;                                                   (cons #f
+;;                                                         (cons #f
+;;                                                               cte)))
+;;                                           (cddr expr)
+;;                                           tail)
+)
                           '())
                          (if (null? cte)
                              cont
                              (gen-call 'close cont)))))
 
-#; ;; support for begin special form
-                 ((eqv? first 'begin)
-                  (comp-begin cte (cdr expr) cont))
-
-#; ;; support for single armed let special form
-                 ((eqv? first 'let)
-                  (let ((binding (car (cadr expr))))
-                    (comp-bind cte
-                               (car binding)
-                               (cadr binding)
-                               ;#; ;; support for single expression in body
-                               (caddr expr)
-                               #; ;; support for multiple expressions in body
-                               (cddr expr)
-                               cont)))
-
-#; ;; support for and special form
-                 ((eqv? first 'and)
-                  (comp cte
-                        (if (pair? (cdr expr))
-                            (let ((second (cadr expr)))
-                              (if (pair? (cddr expr))
-                                  (build-if second
-                                            (cons 'and (cddr expr))
-                                            #f)
-                                  second))
-                            #t)
-                        cont))
-
-#; ;; support for or special form
-                 ((eqv? first 'or)
-                  (comp cte
-                        (if (pair? (cdr expr))
-                            (let ((second (cadr expr)))
-                              (if (pair? (cddr expr))
-                                  (list3 'let
-                                         (list1 (list2 '_ second))
-                                         (build-if '_
-                                                   '_
-                                                   (cons 'or (cddr expr))))
-                                  second))
-                            #f)
-                        cont))
-
-#; ;; support for cond special form
-                 ((eqv? first 'cond)
-                  (comp cte
-                        (if (pair? (cdr expr))
-                            (if (eqv? 'else (car (cadr expr)))
-                                (cons 'begin (cdr (cadr expr)))
-                                (build-if (car (cadr expr))
-                                          (cons 'begin (cdr (cadr expr)))
-                                          (cons 'cond (cddr expr))))
-                            #f)
-                        cont))
+;;#; ;; support for begin special form
+;;                 ((eqv? first 'begin)
+;;                  (comp-begin cte (cdr expr) cont))
+;;
+;;#; ;; support for single armed let special form
+;;                 ((eqv? first 'let)
+;;                  (let ((binding (car (cadr expr))))
+;;                    (comp-bind cte
+;;                               (car binding)
+;;                               (cadr binding)
+;;                               ;#; ;; support for single expression in body
+;;                               (caddr expr)
+;;                               #; ;; support for multiple expressions in body
+;;                               (cddr expr)
+;;                               cont)))
+;;
+;;#; ;; support for and special form
+;;                 ((eqv? first 'and)
+;;                  (comp cte
+;;                        (if (pair? (cdr expr))
+;;                            (let ((second (cadr expr)))
+;;                              (if (pair? (cddr expr))
+;;                                  (build-if second
+;;                                            (cons 'and (cddr expr))
+;;                                            #f)
+;;                                  second))
+;;                            #t)
+;;                        cont))
+;;
+;;#; ;; support for or special form
+;;                 ((eqv? first 'or)
+;;                  (comp cte
+;;                        (if (pair? (cdr expr))
+;;                            (let ((second (cadr expr)))
+;;                              (if (pair? (cddr expr))
+;;                                  (list3 'let
+;;                                         (list1 (list2 '_ second))
+;;                                         (build-if '_
+;;                                                   '_
+;;                                                   (cons 'or (cddr expr))))
+;;                                  second))
+;;                            #f)
+;;                        cont))
+;;
+;;#; ;; support for cond special form
+;;                 ((eqv? first 'cond)
+;;                  (comp cte
+;;                        (if (pair? (cdr expr))
+;;                            (if (eqv? 'else (car (cadr expr)))
+;;                                (cons 'begin (cdr (cadr expr)))
+;;                                (build-if (car (cadr expr))
+;;                                          (cons 'begin (cdr (cadr expr)))
+;;                                          (cons 'cond (cddr expr))))
+;;                            #f)
+;;                        cont))
 
                  (else
                   ;#; ;; support for calls with only variable in operator position
                   (comp-call cte
                              (cdr expr)
                              (cons first cont))
-                  #; ;; support for calls with any expression in operator position
-                  (let ((args (cdr expr)))
-                    (if (symbol? first)
-                        (comp-call cte
-                                   args
-                                   (cons first cont))
-                        (comp-bind cte
-                                   '_
-                                   first
-                                   ;#; ;; support for single expression in body
-                                   (cons '_ args)
-                                   #; ;; support for multiple expressions in body
-                                   (cons (cons '_ args) '())
-                                   cont)))))))
+;;                  #; ;; support for calls with any expression in operator position
+;;                  (let ((args (cdr expr)))
+;;                    (if (symbol? first)
+;;                        (comp-call cte
+;;                                   args
+;;                                   (cons first cont))
+;;                        (comp-bind cte
+;;                                   '_
+;;                                   first
+;;                                   ;#; ;; support for single expression in body
+;;                                   (cons '_ args)
+;;                                   #; ;; support for multiple expressions in body
+;;                                   (cons (cons '_ args) '())
+;;                                   cont)))
+))))
 
         (else
          ;; self-evaluating
@@ -867,14 +869,15 @@
                   (rib jump/call-op ;; call
                        'arg2
                        cont)))
-        #; ;; support for multiple expressions in body
-        (comp-begin (cons var cte)
-                    body
-                    (if (eqv? cont tail)
-                        cont
-                        (rib jump/call-op ;; call
-                             'arg2
-                             cont)))))
+;;        #; ;; support for multiple expressions in body
+;;        (comp-begin (cons var cte)
+;;                    body
+;;                    (if (eqv? cont tail)
+;;                        cont
+;;                        (rib jump/call-op ;; call
+;;                             'arg2
+;;                             cont)))
+))
 
 (define (comp-begin cte exprs cont)
   (comp cte
