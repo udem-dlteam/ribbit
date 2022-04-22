@@ -305,19 +305,6 @@
                  (list->string result))))
          ""))))
 
-(cond-expand
-
-  (ribbit
-
-   (define (error msg info)
-     (display msg)
-     (newline)
-     (write info)
-     (newline)
-     '(let loop () (loop)))) ;; freeze
-
-  (else))
-
 ;;;----------------------------------------------------------------------------
 
 (define predefined '(rib false true nil)) ;; predefined symbols

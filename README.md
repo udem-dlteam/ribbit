@@ -12,7 +12,9 @@ Please note that currently the incremental compiler used by the REPL only suppor
 
 The Ribbit AOT compiler is written in Scheme and can be executed with Gambit, Guile or Chicken. It has been tested with Gambit v4.7.5 and above. For the best experience install Gambit from https://github.com/gambit/gambit .
 
-The AOT compiler's source code is in a single file: `src/rsc.scm` . This Scheme file can be executed as a program with the Gambit, Guile or Chicken interpreters. Alternatively the AOT compiler can be executed using the `src/rsc` shell script, which has the additional `-c` option to select a specific build of the Ribbit AOT compiler which is useful for bootstrapping Ribbit.
+There are also prebuilt versions of the Ribbit AOT compiler in the `prebuilt` directory, allowing the AOT compiler to be executed using another language interpreter, such as nodejs, CPython, and even just a POSIX shell.
+
+The AOT compiler's source code is in a single file: `src/rsc.scm` . This Scheme file can be executed as a program with the Gambit, Guile or Chicken interpreters. Alternatively the AOT compiler can be executed using the `src/rsc` shell script, which has the additional `-c` option to select a specific build of the Ribbit AOT compiler which is useful for bootstrapping Ribbit or to execute one of the prebuilt versions.
 
 Ribbit currently supports the target languages C, JavaScript, Python, Scheme, and POSIX shell which are selectable with the compiler's `-t` option with `c`, `js`, `py`, `scm` and `sh` respectively.  The compacted RVM code can be obtained with the target `rvm` which is the default.
 
@@ -35,31 +37,27 @@ Here are a few examples (all assume that a `cd src` has been done first):
 
       $ ./rsc -t py -l min repl-min.scm
 
-    Do the same but with JavaScript:
+    Alternatively one of the prebuilt versions can be used to achieve the
+    same result:
+
+      $ ./rsc -t py -l min -c "node prebuilt/rsc.js"    repl-min.scm
+      $ ./rsc -t py -l min -c "python3 prebuilt/rsc.py" repl-min.scm
+      $ ./rsc -t py -l min -c "ksh prebuilt/rsc.sh"     repl-min.scm
+      $ gcc -o rsc.exe prebuilt/rsc.c
+      $ ./rsc -t py -l min -c ./rsc.exe                 repl-min.scm
+
+    Do the same but generating a JavaScript program:
 
       $ ./rsc -t js -l min repl-min.scm
-      $ echo "(define f (lambda (n) (if (< n 2) n (+ (f (- n 1)) (f (- n 2))))))(f 25)" | node repl-min.scm.js
-      > 0
-      > 75025
-      > 
 
     Use Guile to compile the REPL with type checking to C
     and then compile RVM with gcc:
 
-      $ guile -s rsc.scm -t c -l max-tc repl-max.scm
+      $ RSC_SCHEME_INTERPRETER=guile ./rsc -t c -l max-tc repl-max.scm
       $ gcc repl-max.scm.c
       $ echo "(+ 1 (* 2 3))(car 0)" | ./a.out
       > 7
       > *** type error ()
-      > 
-
-    Use Chicken to compile the minimal REPL to minified Scheme
-    and execute with Gambit:
-
-      $ csi -q rsc.scm -t scm -l min -m repl-min.scm
-      $ echo "(define twice (lambda (x) (* x 2)))(twice 21)" | gsi repl-min.scm.scm
-      > 0
-      > 42
       > 
 
     Use Ribbit as a pipeline compiler to compile the trivial program

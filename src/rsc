@@ -21,6 +21,8 @@
 #   $ python3 h.scm.py
 #   hello!
 
+ROOTDIR="`dirname $0`"
+
 TARGET="rvm"
 INPUT=""
 OUTPUT=""
@@ -84,23 +86,33 @@ done
 if [ "$LASTSOURCE" = "" ]; then
   echo "usage: $0 [-t target] [-c compiler] [-o output] [-l lib] [-m] file.scm ..."
   echo "where"
-  echo "  target defaults to rvm and is otherwise one of js, py, scm, c, ..."
-  echo "  compiler defaults to \"gsi rsc.scm\" (rsc.scm executed with Gambit interpreter)"
-  echo "  output defaults to last file.scm suffixed with .<target>"
+  echo "  target defaults to rvm and is otherwise one of js, py, sh, c, ..."
+  echo "  compiler defaults to \$RSC_COMPILER which defaults to"
+  echo "    \"\$RSC_SCHEME_INTERPRETER $ROOTDIR/rsc.scm\" where"
+  echo "    \$RSC_SCHEME_INTERPRETER defaults to \"gsi\" (the Gambit interpreter)"
+  echo "  output defaults to last file.scm suffixed with .target"
   echo "  lib defaults to max-tc (library with type checking)"
   echo "examples:"
-  echo "  $0 -t js prog.scm   ;; generates prog.scm.js"
-  echo "  $0 -t js rsc.scm    ;; generates rsc.scm.js"
-  echo "  $0 -t py -c \"node rsc.scm.js\" rsc.scm  ;; generates rsc.scm.py using rsc.scm.js"
+  echo "  $0 -t js prog.scm   # generates prog.scm.js using Gambit interpreter"
+  echo "  RSC_SCHEME_INTERPRETER=guile $0 -t js prog.scm # same using Guile"
+  echo "  $0 -t js -l max rsc.scm    # generates rsc.scm.js"
+  echo "  $0 -t py -l max -c \"node rsc.scm.js\" rsc.scm  # generates rsc.scm.py using nodejs running rsc.scm.js"
+  echo "  RSC_COMPILER=\"node rsc.scm.js\" $0 -t py -l max rsc.scm # same with environment variable"
   exit 1
 fi
 
-ROOTDIR="`dirname $0`"
 OUTPUTBASE="`dirname $LASTSOURCE`/`basename $LASTSOURCE .scm`"
 RVM="$OUTPUTBASE.rvm"
 
 if [ "$COMPILER" = "" ]; then
-  COMPILER="gsi $ROOTDIR/rsc.scm"
+  if [ "$RSC_COMPILER" = "" ]; then
+    if [ "$RSC_SCHEME_INTERPRETER" = "" ]; then
+      RSC_SCHEME_INTERPRETER="gsi"
+    fi
+    COMPILER="$RSC_SCHEME_INTERPRETER $ROOTDIR/rsc.scm"
+  else
+    COMPILER="$RSC_COMPILER"
+  fi
 fi
 
 if [ "$OUTPUT" = "" ]; then
