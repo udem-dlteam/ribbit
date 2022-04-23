@@ -1,2 +1,39 @@
 #!/bin/sh
-cat
+
+sed 's/ }/}/g' \
+| sed 's/{ /{/g' \
+| sed 's/, /,/g' \
+| sed 's/ = /=/g' \
+| sed 's/=\\/= \\/g' \
+| sed 's/ >>= />>=/g' \
+| sed 's/>>=\\/>>= \\/g' \
+| sed 's/ :: /::/g' \
+| sed 's/::\!/:: \!/g' \
+| sed 's/ >> />>/g' \
+| sed 's/ << /<</g' \
+| sed 's/ =<< /=<</g' \
+| sed 's/ -> /->/g' \
+| sed 's/ <- /<-/g' \
+| sed 's/ <\*> /<\*>/g' \
+| sed 's/ <$> /<$>/g' \
+| sed 's/\r//' \
+| sed  '/^$/d' \
+| sed -e '/^[ \t]*--/d' \
+| sed -e 's/--.*$//g' \
+| sed 's/[[:blank:]]*$//' \
+| gsi `dirname "$0"`/../../minify.scm \
+--keep-spaces --keep-identifier-case \
+--ident-chars "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789" \
+"LANGUAGE" "LambdaCase" "TupleSections" "NoMonomorphismRestriction" "Strict" \
+"OPTIONS_GHC" "-Wno-incomplete-patterns" "module" "where" "import" \
+"IORef" "newIORef" "readIORef" "writeIORef" "Control" "Environment" "Monad" "IO" "Class" "Data" \
+"ord" "chr" "Foldable" "foldrM" "GHC" "unsafePerformIO" "Char" "Prelude" \
+"System" "Error" "pure" "Functor" "instance" \
+"Applicative" "where" "do" "fmap" "MonadFail" "liftIO" "Int" \
+"deriving" "Eq" "data" "Show" "class" "String" "Int" \
+"zipWith" "void" "Main" "Exception" "newtype" "case" "of" "let" \
+"in" "if" "then" "else" "MonadIO" "fail" "show" "NOINLINE" "type" "main" \
+"error" "length" "drop" "span" "const" "div" "putChar" "getChar" "replicate" \
+"mapM" "reverse" "min" "flip" "eofHandler" "isEOFError" "catchAny" "return" "UNPACK" \
+"liftIO" "uncurry" "join" "getArgs" "readFile" "hiding" "hSetBuffering" "stdout" \
+"NoBuffering" "ap"
