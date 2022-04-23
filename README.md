@@ -16,7 +16,7 @@ There are also prebuilt versions of the Ribbit AOT compiler in the `prebuilt` di
 
 The AOT compiler's source code is in a single file: `src/rsc.scm` . This Scheme file can be executed as a program with the Gambit, Guile or Chicken interpreters. Alternatively the AOT compiler can be executed using the `src/rsc` shell script, which has the additional `-c` option to select a specific build of the Ribbit AOT compiler which is useful for bootstrapping Ribbit or to execute one of the prebuilt versions.
 
-Ribbit currently supports the target languages C, JavaScript, Python, Scheme, and POSIX shell which are selectable with the compiler's `-t` option with `c`, `js`, `py`, `scm` and `sh` respectively.  The compacted RVM code can be obtained with the target `rvm` which is the default.
+Ribbit currently supports the target languages C, JavaScript, Python, Scheme, Haskell, and POSIX shell which are selectable with the compiler's `-t` option with `c`, `js`, `py`, `scm`, `hs`, and `sh` respectively.  The compacted RVM code can be obtained with the target `rvm` which is the default.
 
 The `-m` option causes a minification of the generated program. This requires a recent version of Gambit.
 
@@ -40,11 +40,12 @@ Here are a few examples (all assume that a `cd src` has been done first):
     Alternatively one of the prebuilt versions can be used to achieve the
     same result:
 
-      $ ./rsc -t py -l min -c "node prebuilt/rsc.js"    repl-min.scm
-      $ ./rsc -t py -l min -c "python3 prebuilt/rsc.py" repl-min.scm
-      $ ./rsc -t py -l min -c "ksh prebuilt/rsc.sh"     repl-min.scm
+      $ ./rsc -t py -l min -c "node prebuilt/rsc.js"       repl-min.scm
+      $ ./rsc -t py -l min -c "python3 prebuilt/rsc.py"    repl-min.scm
+      $ ./rsc -t py -l min -c "runhaskell prebuilt/rsc.hs" repl-min.scm
+      $ ./rsc -t py -l min -c "ksh prebuilt/rsc.sh"        repl-min.scm
       $ gcc -o rsc.exe prebuilt/rsc.c
-      $ ./rsc -t py -l min -c ./rsc.exe                 repl-min.scm
+      $ ./rsc -t py -l min -c ./rsc.exe                    repl-min.scm
 
     Do the same but generating a JavaScript program:
 

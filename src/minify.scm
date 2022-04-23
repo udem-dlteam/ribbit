@@ -5,6 +5,7 @@
 (define comment-char1 #f)
 (define comment-char2 #f)
 (define keep-spaces? #f)
+(define keep-ident-case? #f)
 (define prefix "")
 
 (define (minify)
@@ -105,17 +106,32 @@
 
     (define i 0)
 
-    (define (next-short-name)
+    (define (next-short-name name)
 
-      (define (index->string i)
-        (let* ((n (vector-length valid-identifier-chars))
-               (s (string (vector-ref valid-identifier-chars (modulo i n)))))
+      (define (index->string i initial?)
+        (let* ((chars
+                (if initial?
+                    (if keep-ident-case?
+                        lowercase-letters
+                        valid-initial-identifier-chars)
+                    valid-next-identifier-chars))
+               (n
+                (vector-length chars))
+               (c
+                (vector-ref chars (modulo i n)))
+               (s
+                (string
+                 (if (and initial?
+                          keep-ident-case?
+                          (char-upper-case? (string-ref name 0)))
+                     (char-upcase c)
+                     c))))
           (if (>= i n)
-              (string-append (index->string (quotient (- i n) n)) s)
+              (string-append s (index->string (quotient (- i n) n) #f))
               s)))
 
       (set! i (+ i 1))
-      (string-append prefix (index->string (- i 1))))
+      (string-append prefix (index->string (- i 1) #t)))
 
     (for-each
      (lambda (cell)
@@ -133,7 +149,7 @@
                         cdr)
                        (else
                         (let loop ()
-                          (let ((short-name (next-short-name)))
+                          (let ((short-name (next-short-name name)))
                             (if (member short-name taken)
                                 (loop)
                                 short-name))))))))))
@@ -200,12 +216,26 @@
 (define (list-sort compare list)
   (list-sort! compare (append list '())))
 
-(define valid-identifier-chars '#(
+(define lowercase-letters '#(
+#\a #\b #\c #\d #\e #\f #\g #\h #\i #\j #\k #\l #\m
+#\n #\o #\p #\q #\r #\s #\t #\u #\v #\w #\x #\y #\z
+))
+
+(define valid-initial-identifier-chars '#(
 #\a #\b #\c #\d #\e #\f #\g #\h #\i #\j #\k #\l #\m
 #\n #\o #\p #\q #\r #\s #\t #\u #\v #\w #\x #\y #\z
 #\A #\B #\C #\D #\E #\F #\G #\H #\I #\J #\K #\L #\M
 #\N #\O #\P #\Q #\R #\S #\T #\U #\V #\W #\X #\Y #\Z
 #\_
+))
+
+(define valid-next-identifier-chars '#(
+#\a #\b #\c #\d #\e #\f #\g #\h #\i #\j #\k #\l #\m
+#\n #\o #\p #\q #\r #\s #\t #\u #\v #\w #\x #\y #\z
+#\A #\B #\C #\D #\E #\F #\G #\H #\I #\J #\K #\L #\M
+#\N #\O #\P #\Q #\R #\S #\T #\U #\V #\W #\X #\Y #\Z
+#\_
+#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9
 ;;#\= #\< #\> #\+ #\- #\* #\/ #\~ #\! #\$ #\% #\^ #\& #\? #\@
 ))
 
@@ -227,6 +257,9 @@
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("--keep-spaces")))
                  (set! keep-spaces? #t)
+                 (loop rest))
+                ((and (pair? rest) (member arg '("--keep-ident-case")))
+                 (set! keep-ident-case? #t)
                  (loop rest))
                 ((and (pair? rest) (member arg '("--prefix")))
                  (set! prefix (car rest))

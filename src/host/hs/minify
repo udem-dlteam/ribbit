@@ -19,10 +19,10 @@ sed 's/ }/}/g' \
 | sed 's/\r//' \
 | sed  '/^$/d' \
 | sed -e '/^[ \t]*--/d' \
-| sed -e 's/--.*$//g' \
 | sed 's/[[:blank:]]*$//' \
 | gsi `dirname "$0"`/../../minify.scm \
---keep-spaces --keep-identifier-case \
+--comment-char "-" --comment-char2 "-" \
+--keep-spaces --keep-ident-case \
 --ident-chars "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789" \
 "LANGUAGE" "LambdaCase" "TupleSections" "NoMonomorphismRestriction" "Strict" \
 "OPTIONS_GHC" "-Wno-incomplete-patterns" "module" "where" "import" \
@@ -30,7 +30,7 @@ sed 's/ }/}/g' \
 "ord" "chr" "Foldable" "foldrM" "GHC" "unsafePerformIO" "Char" "Prelude" \
 "System" "Error" "pure" "Functor" "instance" \
 "Applicative" "where" "do" "fmap" "MonadFail" "liftIO" "Int" \
-"deriving" "Eq" "data" "Show" "class" "String" "Int" \
+"deriving" "Eq" "data" "Show" "class" "String" \
 "zipWith" "void" "Main" "Exception" "newtype" "case" "of" "let" \
 "in" "if" "then" "else" "MonadIO" "fail" "show" "NOINLINE" "type" "main" \
 "error" "length" "drop" "span" "const" "div" "putChar" "getChar" "replicate" \
