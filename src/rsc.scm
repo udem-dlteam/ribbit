@@ -95,7 +95,7 @@
    (import (chicken process-context))
 
    (define (cmd-line)
-     (command-line-arguments)))
+     (cons (program-name) (command-line-arguments))))
 
   (else
 
