@@ -10,11 +10,11 @@ Please note that currently the incremental compiler used by the REPL only suppor
 
 ### Usage
 
-The Ribbit AOT compiler is written in Scheme and can be executed with Gambit, Guile or Chicken. It has been tested with Gambit v4.7.5 and above. For the best experience install Gambit from https://github.com/gambit/gambit .
+The Ribbit AOT compiler is written in Scheme and can be executed with Gambit, Guile, Chicken and Kawa. It has been tested with Gambit v4.7.5 and above. For the best experience install Gambit from https://github.com/gambit/gambit .
 
 There are also prebuilt versions of the Ribbit AOT compiler in the `prebuilt` directory, allowing the AOT compiler to be executed using another language interpreter, such as nodejs, CPython, and even just a POSIX shell.
 
-The AOT compiler's source code is in a single file: `src/rsc.scm` . This Scheme file can be executed as a program with the Gambit, Guile or Chicken interpreters. Alternatively the AOT compiler can be executed using the `src/rsc` shell script, which has the additional `-c` option to select a specific build of the Ribbit AOT compiler which is useful for bootstrapping Ribbit or to execute one of the prebuilt versions.
+The AOT compiler's source code is in a single file: `src/rsc.scm` . This Scheme file can be executed as a program with the Gambit, Guile, Chicken or Kawa interpreters. Alternatively the AOT compiler can be executed using the `src/rsc` shell script, which has the additional `-c` option to select a specific build of the Ribbit AOT compiler which is useful for bootstrapping Ribbit or to execute one of the prebuilt versions.
 
 Ribbit currently supports the target languages C, JavaScript, Python, Scheme, Haskell, and POSIX shell which are selectable with the compiler's `-t` option with `c`, `js`, `py`, `scm`, `hs`, and `sh` respectively.  The compacted RVM code can be obtained with the target `rvm` which is the default.
 
@@ -31,7 +31,7 @@ Here are a few examples (all assume that a `cd src` has been done first):
       $ echo "(define f (lambda (n) (if (< n 2) n (+ (f (- n 1)) (f (- n 2))))))(f 25)" | python3 repl-min.scm.py
       > 0
       > 75025
-      > 
+      >
 
     The same result can be obtained by calling the rsc shell script with:
 
@@ -59,7 +59,10 @@ Here are a few examples (all assume that a `cd src` has been done first):
       $ echo "(+ 1 (* 2 3))(car 0)" | ./a.out
       > 7
       > *** type error ()
-      > 
+      >
+
+    You can also use RSC_SCHEME_INTERPRETER=csi or RSC_SCHEME_INTERPRETER=kawa
+    to use Chicken or Kawa scheme.
 
     Use Ribbit as a pipeline compiler to compile the trivial program
     `(putchar 65) (putchar 10)` to the corresponding compacted RVM code
