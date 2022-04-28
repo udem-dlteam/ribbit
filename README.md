@@ -97,3 +97,19 @@ Here are a few examples (all assume that a `cd src` has been done first):
       $ ./rsc -t sh -l max -m -c "ksh rsc-bootstrap2.sh" h.scm
       $ ksh h.scm.sh
       hello!
+
+The makefile in the `src` directory has these make targets:
+
+      $ make check                     # check proper operation for all hosts
+
+      $ HOST=c make check              # check proper operation for specific host
+
+      $ HOST=py PY_HOST_INTERPRETER=pypy make check  # check proper operation for specific host and interpreter
+
+      $ make check-bootstrap           # check that rsc bootstraps
+
+      $ HOST=py make check-bootstrap   # check that rsc bootstraps with specific host
+
+      $ HOST=sh SH_HOST_INTERPRETER=ksh make check-bootstrap # check that rsc bootstraps with specific host and interpreter
+
+      $ make prebuilt                  # creates prebuilt artifacts for all hosts

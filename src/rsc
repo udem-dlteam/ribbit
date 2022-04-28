@@ -104,11 +104,12 @@ fi
 OUTPUTBASE="`dirname $LASTSOURCE`/`basename $LASTSOURCE .scm`"
 RVM="$OUTPUTBASE.rvm"
 
+if [ "$RSC_SCHEME_INTERPRETER" = "" ]; then
+  RSC_SCHEME_INTERPRETER="gsi"
+fi
+
 if [ "$COMPILER" = "" ]; then
   if [ "$RSC_COMPILER" = "" ]; then
-    if [ "$RSC_SCHEME_INTERPRETER" = "" ]; then
-      RSC_SCHEME_INTERPRETER="gsi"
-    fi
     COMPILER="$RSC_SCHEME_INTERPRETER $ROOTDIR/rsc.scm"
   else
     COMPILER="$RSC_COMPILER"

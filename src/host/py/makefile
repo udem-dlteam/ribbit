@@ -1,3 +1,3 @@
 HOST = py
-HOST_INTERP = python3
+HOST_INTERPRETER = $${PY_HOST_INTERPRETER:-python3}
 include ../../makefile-common.mk
