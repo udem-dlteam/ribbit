@@ -140,7 +140,8 @@ local primitives = {
    prim2(function(x,y) return x * y end), -- 16
    prim2(quotient), -- 17
    getchar, -- 18
-   prim1(putchar) -- 19
+   prim1(putchar), -- 19
+   prim1(os.exit) -- 20
 }
 
 local function get_code()
@@ -347,7 +348,3 @@ if pcall(debug.getlocal, 4, 1) then --debug--
    -- exeuction here.
    return { test = test, is_rib = is_rib, rib = rib, FALSE = FALSE, TRUE = TRUE, NIL = NIL } --debug--
 else test(input) end --debug--
-
-
-
-

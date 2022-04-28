@@ -3,17 +3,12 @@
 # Note that leaving in the he 'local' declarations makes the code
 # faster in LuaJIT, but makes the output Lua code larger.
 
-sed -e 's|local||g' | \
-sed -e 's|.*--debug--.*||g' | \
-sed -e 's|[ \t]*--.*||g' | \
+sed -e 's|local ||g' | \
+sed -e 's|.* --debug--.*||g' | \
+sed -e 's|[ \t][ \t]*--.*||g' | \
+sed -e 's|^[ \t]*--.*||g' | \
 sed -e 's|^[ \t]*||g' | \
 sed -e '/^[ \t]*$/d' | \
 gsi `dirname "$0"`/../../minify.scm \
 --ident-chars "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789" \
-"local" "function" "end" "break" "while" "=" "return" "if" "then" "else" "elseif" "type" "'table'" "io" "stdout" "write" "string" "char" "flush" "not" "byte" "stdin" "read" "true" "do" "or" "math" "floor"
-
-
-
-
-
-
+"local" "function" "end" "break" "while" "=" "return" "if" "then" "else" "elseif" "type" "'table'" "io" "stdout" "write" "string" "char" "flush" "not" "byte" "stdin" "read" "true" "do" "or" "math" "floor" "os" "exit"
