@@ -12,6 +12,17 @@
 
 (cond-expand
 
+ ((and chicken compiling)
+
+  (declare
+   (block)
+   (fixnum-arithmetic)
+   (usual-integrations)))
+
+ (else))
+
+(cond-expand
+
   (gambit
 
    (define (shell-cmd command)
@@ -104,7 +115,7 @@
    (import (chicken process-context))
 
    (define (cmd-line)
-     (command-line-arguments)))
+     (cons (program-name) (command-line-arguments))))
 
   (else
 
@@ -202,7 +213,7 @@
 
 (cond-expand
 
-  (gambit
+  ((or gambit chicken)
 
    (define (symbol->str symbol)
      (symbol->string symbol))
@@ -237,20 +248,37 @@
 
 (cond-expand
 
- (gambit (begin))
+ (gambit
+
+  (define (rsc-path-extension path)
+    (path-extension path))
+
+  (define (rsc-path-directory path)
+    (path-directory path)))
+
+ (chicken
+
+  (import (chicken pathname))
+
+  (define (rsc-path-extension path)
+    (let ((ext (pathname-extension path)))
+      (if ext (string-append "." ext) "")))
+
+  (define (rsc-path-directory path)
+    (let ((dir (pathname-directory path)))
+      (if dir dir "")))
+
+  (define (path-expand path dir)
+    (make-pathname dir path)))
 
  (kawa
 
-  (define (path-extension path::String)
-    (let ((dot (path:lastIndexOf 46))) ;; #\.
-      (if (= dot -1)
-          ""
-          (string-drop path dot))))
+  (define (rsc-path-extension path)
+    (let ((ext (path-extension path)))
+      (if ext (string-append "." ext) "")))
 
-  (define (path-directory path::string)
-    (let* ((p (java.nio.file.Path:of path))
-           (p2 (p:getParent)))
-      (p2:toString)))
+  (define (rsc-path-directory path)
+    (path-directory path))
 
   (define (path-expand path::string dir::string)
     (if (= (string-length dir) 0)
@@ -260,7 +288,7 @@
 
  (else
 
-   (define (path-extension path)
+   (define (rsc-path-extension path)
      (let loop ((i (- (string-length path) 1)))
        (if (< i 0)
            ""
@@ -268,7 +296,7 @@
                (substring path i (string-length path))
                (loop (- i 1))))))
 
-   (define (path-directory path)
+   (define (rsc-path-directory path)
      (let loop ((i (- (string-length path) 1)))
        (if (< i 0)
            "./"
@@ -303,6 +331,16 @@
 (cond-expand
 
   ((and gambit (or enable-bignum disable-bignum))) ;; recent Gambit?
+
+  (chicken
+
+   (import (chicken sort))
+
+   (define (list-sort! compare list)
+     (sort! list compare))
+
+   (define (list-sort compare list)
+     (sort list compare)))
 
   (else
 
@@ -364,6 +402,14 @@
 
  (gambit (begin))
 
+ (chicken
+
+  (define (script-file)
+    (program-name))
+
+  (define (executable-path)
+    (executable-pathname)))
+
  (else
    (define (script-file)
      (car (cmd-line)))
@@ -375,6 +421,13 @@
 
   ((and gambit ;; hack to detect recent Gambit version
         (or enable-sharp-dot disable-sharp-dot)))
+
+  (chicken
+
+   (import (chicken string))
+
+   (define (string-concatenate string-list separator)
+     (string-intersperse string-list separator)))
 
   (kawa
 
@@ -1562,7 +1615,7 @@
 ;; Source code reading.
 
 (define (root-dir)
-  (path-directory (or (script-file) (executable-path))))
+  (rsc-path-directory (or (script-file) (executable-path))))
 
 (define (read-all)
   (let ((x (read)))
@@ -1575,7 +1628,7 @@
 
 (define (read-library lib-path)
   (read-from-file
-   (if (equal? (path-extension lib-path) "")
+   (if (equal? (rsc-path-extension lib-path) "")
        (path-expand (string-append lib-path ".scm")
                     (path-expand "lib" (root-dir)))
        lib-path)))
