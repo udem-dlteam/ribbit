@@ -63,22 +63,12 @@ Here are a few examples (all assume that a `cd src` has been done first):
 
     Use chicken to compile the AOT compiler and then use it:
 
-      $ csc -o rsc.chicken -O2 rsc.scm
-      $ RSC_SCHEME_INTERPRETER=csi ./rsc -t c -c ./rsc.chicken repl-max.scm
+      $ csc -o rsc-chicken.exe -O2 rsc.scm
+      $ ./rsc -t c -c ./rsc-chicken.exe repl-max.scm
 
     Use chicken to interpret the AOT compiler:
 
-    Directly:
-
-      $ csi -s rsc.scm -t c repl-max.scm
-
-    With the rsc driver:
-
-      $ RSC_SCHEME_INTERPRETER=csi ./rsc -t c -c "csi -s rsc.scm" repl-max.scm
-
-    (You have to specifiy the -c argument as "csi -s rsc.scm" because
-    otherwise there will be errors about the command line, and if those
-    weren't present, the chicken REPL will run after executing rsc.scm)
+      $ ./rsc -t c -c "csi -s rsc.scm" repl-max.scm
 
     You can also use RSC_SCHEME_INTERPRETER=kawa to use Kawa scheme.
 
