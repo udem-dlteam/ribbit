@@ -24,18 +24,14 @@ The `-l` option allows selecting the Scheme runtime library (located in the `lib
 
 Here are a few examples (all assume that a `cd src` has been done first):
 
-    Use Gambit to compile the minimal REPL to Python
+    Use the Gambit interpreter to compile the minimal REPL to Python
     and execute with python3:
 
-      $ gsi rsc.scm -t py -l min repl-min.scm
+      $ ./rsc -t py -l min repl-min.scm
       $ echo "(define f (lambda (n) (if (< n 2) n (+ (f (- n 1)) (f (- n 2))))))(f 25)" | python3 repl-min.scm.py
       > 0
       > 75025
       >
-
-    The same result can be obtained by calling the rsc shell script with:
-
-      $ ./rsc -t py -l min repl-min.scm
 
     Alternatively one of the prebuilt versions can be used to achieve the
     same result:
@@ -51,7 +47,7 @@ Here are a few examples (all assume that a `cd src` has been done first):
 
       $ ./rsc -t js -l min repl-min.scm
 
-    Use Guile to compile the REPL with type checking to C
+    Use Guile instead of Gambit to compile the REPL with type checking to C
     and then compile RVM with gcc:
 
       $ RSC_SCHEME_INTERPRETER=guile ./rsc -t c -l max-tc repl-max.scm
@@ -61,16 +57,18 @@ Here are a few examples (all assume that a `cd src` has been done first):
       > *** type error ()
       >
 
-    Use chicken to compile the AOT compiler and then use it:
+    You can also use RSC_SCHEME_INTERPRETER=kawa to use Kawa Scheme or
+    RSC_SCHEME_INTERPRETER="csi -s" to use Chicken Scheme.
+
+    Use the Gambit compiler to compile the AOT compiler and then use it:
+
+      $ gsc -exe -o rsc-gambit.exe rsc.scm
+      $ ./rsc -t c -c ./rsc-gambit.exe repl-max.scm
+
+    Use the Chicken compiler to compile the AOT compiler and then use it:
 
       $ csc -o rsc-chicken.exe -O2 rsc.scm
       $ ./rsc -t c -c ./rsc-chicken.exe repl-max.scm
-
-    Use chicken to interpret the AOT compiler:
-
-      $ ./rsc -t c -c "csi -s rsc.scm" repl-max.scm
-
-    You can also use RSC_SCHEME_INTERPRETER=kawa to use Kawa scheme.
 
     Use Ribbit as a pipeline compiler to compile the trivial program
     `(putchar 65) (putchar 10)` to the corresponding compacted RVM code
@@ -83,7 +81,7 @@ Here are a few examples (all assume that a `cd src` has been done first):
     `(putchar 65) (putchar 10)` to compacted RVM code and combine
     it with the Python implementation of the RVM and execute it with python3:
 
-      $ echo "(putchar 65) (putchar 10)" | gsi rsc.scm - -l empty -t py | python3
+      $ echo "(putchar 65) (putchar 10)" | ./rsc -l empty -t py - | python3
       A
 
     Compile the Ribbit AOT compiler using itself to get a JavaScript
