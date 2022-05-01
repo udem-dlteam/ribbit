@@ -81,7 +81,7 @@ Here are a few examples (all assume that a `cd src` has been done first):
     `(putchar 65) (putchar 10)` to compacted RVM code and combine
     it with the Python implementation of the RVM and execute it with python3:
 
-      $ echo "(putchar 65) (putchar 10)" | ./rsc -l empty -t py - | python3
+      $ echo "(putchar 65) (putchar 10)" | ./rsc -l empty -t py | python3
       A
 
     Compile the Ribbit AOT compiler using itself to get a JavaScript
