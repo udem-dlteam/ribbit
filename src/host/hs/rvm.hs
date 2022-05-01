@@ -174,7 +174,7 @@ primitives =
  , prim2 $ onInt (+)                                 -- add
  , prim2 $ onInt (-)                                 -- sub
  , prim2 $ onInt (*)                                 -- mult
- , prim2 $ onInt div                                 -- quotient
+ , prim2 $ onInt quot                                -- quotient
  , safeGetChar >>= push . RibInt                       -- getChar
  , prim1 (\r@(RibInt v) -> putChar (chr v) >> pure r)            -- putChar
  ]

@@ -146,7 +146,7 @@ primitives = [
  prim2(lambda y,x:x+y),
  prim2(lambda y,x:x-y),
  prim2(lambda y,x:x*y),
- prim2(lambda y,x:x//y),
+ prim2(lambda y,x:int(x/y)),
  getchar,
  prim1(putchar),
  prim1(exit)
