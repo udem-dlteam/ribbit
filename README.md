@@ -61,8 +61,16 @@ Here are a few examples (all assume that a `cd src` has been done first):
       > *** type error ()
       >
 
-    You can also use RSC_SCHEME_INTERPRETER=csi or RSC_SCHEME_INTERPRETER=kawa
-    to use Chicken or Kawa scheme.
+    Use chicken to compile the AOT compiler and then use it:
+
+      $ csc -o rsc-chicken.exe -O2 rsc.scm
+      $ ./rsc -t c -c ./rsc-chicken.exe repl-max.scm
+
+    Use chicken to interpret the AOT compiler:
+
+      $ ./rsc -t c -c "csi -s rsc.scm" repl-max.scm
+
+    You can also use RSC_SCHEME_INTERPRETER=kawa to use Kawa scheme.
 
     Use Ribbit as a pipeline compiler to compile the trivial program
     `(putchar 65) (putchar 10)` to the corresponding compacted RVM code
