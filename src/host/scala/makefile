@@ -7,7 +7,7 @@ check:
 	  echo "---------------------- $$prog [options:$$options]"; \
 	  rm -f test.scala*; \
 	  gsi ../../rsc.scm -t scala $$options -o test.scala $$prog; \
-	  sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | scala test.scala > test.scala.out; \
+	  sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | scala3 test.scala > test.scala.out; \
 	  sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - test.scala.out; \
 	done
 
