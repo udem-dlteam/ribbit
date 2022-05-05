@@ -16,7 +16,7 @@ There are also prebuilt versions of the Ribbit AOT compiler in the `prebuilt` di
 
 The AOT compiler's source code is in a single file: `src/rsc.scm` . This Scheme file can be executed as a program with the Gambit, Guile, Chicken or Kawa interpreters. Alternatively the AOT compiler can be executed using the `src/rsc` shell script, which has the additional `-c` option to select a specific build of the Ribbit AOT compiler which is useful for bootstrapping Ribbit or to execute one of the prebuilt versions.
 
-Ribbit currently supports the target languages C, JavaScript, Python, Scheme, Haskell, and POSIX shell which are selectable with the compiler's `-t` option with `c`, `js`, `py`, `scm`, `hs`, and `sh` respectively.  The compacted RVM code can be obtained with the target `rvm` which is the default.
+Ribbit currently supports the target languages C, JavaScript, Python, Scheme, Haskell, Lua, Scala, and POSIX shell which are selectable with the compiler's `-t` option with `c`, `js`, `py`, `scm`, `hs`, `lua`, `scala`, and `sh` respectively.  The compacted RVM code can be obtained with the target `rvm` which is the default.
 
 The `-m` option causes a minification of the generated program. This requires a recent version of Gambit.
 
@@ -39,6 +39,8 @@ Here are a few examples (all assume that a `cd src` has been done first):
       $ ./rsc -t py -l min -c "node prebuilt/rsc.js"       repl-min.scm
       $ ./rsc -t py -l min -c "python3 prebuilt/rsc.py"    repl-min.scm
       $ ./rsc -t py -l min -c "runhaskell prebuilt/rsc.hs" repl-min.scm
+      $ ./rsc -t py -l min -c "lua prebuilt/rsc.lua"       repl-min.scm
+      $ ./rsc -t py -l min -c "scala prebuilt/rsc.scala"   repl-min.scm
       $ ./rsc -t py -l min -c "ksh prebuilt/rsc.sh"        repl-min.scm
       $ gcc -o rsc.exe prebuilt/rsc.c
       $ ./rsc -t py -l min -c ./rsc.exe                    repl-min.scm

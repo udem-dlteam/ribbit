@@ -21,7 +21,7 @@ def O():m([g()[0],d,1])
 def V(c,a):a[0]=c;return c
 def U(c,a):a[1]=c;return c
 def Q(c,a):a[2]=c;return c
-R=[S(lambda P,c,a:[a,c,P]),n(lambda a:a),g,N,O,n(lambda a:z(o(a))),n(lambda a:a[0]),n(lambda a:a[1]),n(lambda a:a[2]),j(V),j(U),j(Q),j(lambda c,a:z(a is c if o(a)or o(c)else a==c)),j(lambda c,a:z(a<c)),j(lambda c,a:a+c),j(lambda c,a:a-c),j(lambda c,a:a*c),j(lambda c,a:a//c),W,n(T),n(exit)]
+R=[S(lambda P,c,a:[a,c,P]),n(lambda a:a),g,N,O,n(lambda a:z(o(a))),n(lambda a:a[0]),n(lambda a:a[1]),n(lambda a:a[2]),j(V),j(U),j(Q),j(lambda c,a:z(a is c if o(a)or o(c)else a==c)),j(lambda c,a:z(a<c)),j(lambda c,a:a+c),j(lambda c,a:a-c),j(lambda c,a:a*c),j(lambda c,a:int(a/c)),W,n(T),n(exit)]
 def K():A=I()-35;return 57 if A<0 else A
 def x(b):A=K();b*=46;return b+A if A<46 else x(b+A-46)
 C=lambda L,l:L if l==0 else C(L[1],l-1)

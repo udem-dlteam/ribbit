@@ -197,7 +197,7 @@ if cat "$LIBRARY" $SOURCES | sed -e 's/^#!/;;#!/g' | $COMPILER > "$RVM.temp" ; t
 
   fi
 
-  if [ "$OUTPUT" = "" ]; then
+  if [ "$OUTPUT" = "" -a "$LASTSOURCE" = "-" ]; then
     cat "$OUTPUTFILE"
     rm "$OUTPUTFILE"
   fi

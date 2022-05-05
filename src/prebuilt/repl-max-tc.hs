@@ -31,7 +31,7 @@ pa=u (A 0)
 sb=u (A 1)
 oc=u (A 2)
 cd=u (A 3)
-fd=u (A 4)
+gd=u (A 4)
 jb=u (A 5) (A 0) (A 0) 
 {-# NOINLINE ma #-}
 ma=unsafePerformIO (e=<<jb)
@@ -73,7 +73,7 @@ wc =
  ,p $ na (+)                                 
  ,p $ na (-)                                 
  ,p $ na (*)                                 
- ,p $ na div                                 
+ ,p $ na fd                                
  ,ic>>=x . A                       
  ,fa (\c@(A f)->putChar (chr f)>>pure c)            
  ]
