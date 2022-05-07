@@ -16,8 +16,3 @@ Debugging and stack tracing can be enabled by setting the
 with `-g` if doing so):
 
     $ RIBBIT_DEBUG=1 ./repl_max
-
-You can run the ocaml RVM implementation against the test suite from
-the `src` directory with
-
-    $ host/ml/runtests.sh
