@@ -547,10 +547,12 @@
 
   (cond ((symbol? expr)
          (let ((v (lookup expr (ctx-cte ctx) 0)))
-           (let ((g (live? expr (ctx-live ctx))))
-             (if (and g (constant? g)) ;; constant propagated?
-                 (rib const-op (cadr (cadr g)) cont)
-                 (rib get-op v cont)))))
+           (if (eqv? v expr) ;; global?
+               (let ((g (live? expr (ctx-live ctx))))
+                 (if (and g (constant? g)) ;; constant propagated?
+                     (rib const-op (cadr (cadr g)) cont)
+                     (rib get-op v cont)))
+               (rib get-op v cont))))
 
         ((pair? expr)
          (let ((first (car expr)))
