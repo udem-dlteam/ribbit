@@ -567,7 +567,8 @@
                         (if (eqv? v var) ;; global?
                             (let ((g (live? var (ctx-live ctx))))
                               (if g
-                                  (if (constant? g)
+                                  (if (and (constant? g)
+                                           (not (assoc var (ctx-exports ctx))))
                                       (begin
 ;;                                        (pp `(*** constant propagation of ,var = ,(cadr g))
 ;;                                             (current-error-port))
@@ -739,21 +740,25 @@
       exports))
 
 (define (comp-exprs-with-exports exprs exports)
-  (let* ((expansion (expand-begin exprs))
-         (live (liveness-analysis expansion exports)))
+  (let* ((expansion
+          (expand-begin exprs))
+         (live
+          (liveness-analysis expansion exports))
+         (exports
+          (or exports
+              (map (lambda (v)
+                     (let ((var (car v)))
+                       (cons var var)))
+                   live))))
     (cons
      (make-procedure
       (rib 0 ;; 0 parameters
            0
-           (comp (make-ctx '() live (or exports '()))
+           (comp (make-ctx '() live exports)
                  expansion
                  tail))
       '())
-     (or exports
-         (map (lambda (v)
-                (let ((var (car v)))
-                  (cons var var)))
-              live)))))
+     exports)))
 
 (define (compile-program verbosity program)
   (let* ((exprs-and-exports
