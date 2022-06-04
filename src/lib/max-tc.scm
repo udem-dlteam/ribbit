@@ -1098,13 +1098,14 @@
      (display " ")
      (write info)
      (newline)
-     (repl))))
+     (repl)
+     (exit 0)))) ;; exit program when REPL exited
 
 (define unwind-and-call #f)
 
 ((call/cc
   (lambda (k)
     (set! unwind-and-call k)
-    repl)))
+    (lambda () #f))))
 
 ;;;----------------------------------------------------------------------------
