@@ -400,9 +400,9 @@ obj boolean(bool x) { return x ? CAR(FALSE) : FALSE; }
 void prim(int no) {
   switch (no) {
     // @(set-default-replace "case " %INDEX% ":{")
-  // @@(rvm-prim-generator-setup (replace "case " %INDEX% ": {"))@@
+  // @@(primitive-generator-setup (replace "case " %INDEX% ": {"))@@
 
-  case 0: { // @@(rvm-prim (rib a b c) @@
+  case 0: { // @@(primitive (rib a b c) @@
     obj new_rib = TAG_RIB(alloc_rib(NUM_0, NUM_0, NUM_0));
     PRIM3();
     CAR(new_rib) = x;
@@ -412,93 +412,93 @@ void prim(int no) {
     break;
     
   } // @@)@@
-  case 1: { // @@(rvm-prim (id x)@@
+  case 1: { // @@(primitive (id x)@@
     PRIM1();
     push2(x, PAIR_TAG);
     break;
   } // @@)@@
-  case 2: { // @@(rvm-prim (arg1 rib)@@
+  case 2: { // @@(primitive (arg1 x y)@@
     pop();
     break;
   } // @@)@@
-  case 3: { // @@(rvm-prim (arg2 rib)@@
+  case 3: { // @@(primitive (arg2 x y)@@
     obj x = pop();
     pop();
     push2(x, PAIR_TAG);
     break;
   } //@@)@@
-  case 4: { // @@(rvm-prim (close)@@
+  case 4: { // @@(primitive (close rib)@@
     obj x = CAR(TOS);
     obj y = CDR(stack);
     TOS = TAG_RIB(alloc_rib(x, y, CLOSURE_TAG));
     break;
   } //@@)@@
-  case 5: { // @@(rvm-prim (rib? rib)@@
+  case 5: { // @@(primitive (rib? rib)@@
     PRIM1();
     push2(boolean(IS_RIB(x)), PAIR_TAG);
     break;
   } //@@)@@
-  case 6: { // @@(rvm-prim (field0 rib)@@
+  case 6: { // @@(primitive (field0 rib)@@
     PRIM1();
     push2(CAR(x), PAIR_TAG);
     break;
   } //@@)@@
-  case 7: { // @@(rvm-prim (field1 rib)@@
+  case 7: { // @@(primitive (field1 rib)@@
     PRIM1();
     push2(CDR(x), PAIR_TAG);
     break;
   } //@@)@@
-  case 8: { // @@(rvm-prim (field2 rib)@@
+  case 8: { // @@(primitive (field2 rib)@@
     PRIM1();
     push2(TAG(x), PAIR_TAG);
     break;
   } //@@)@@
-  case 9: { // @@(rvm-prim (field0-set! rib x)@@
+  case 9: { // @@(primitive (field0-set! rib x)@@
     PRIM2();
     push2(CAR(x) = y, PAIR_TAG);
     break;
   } //@@)@@
-  case 10: { // @@(rvm-prim (field1-set! rib x)@@
+  case 10: { // @@(primitive (field1-set! rib x)@@
     PRIM2();
     push2(CDR(x) = y, PAIR_TAG);
     break;
   } //@@)@@
-  case 11: { // @@(rvm-prim (field2-set! rib x)@@
+  case 11: { // @@(primitive (field2-set! rib x)@@
     PRIM2();
     push2(TAG(x) = y, PAIR_TAG);
     break;
   } // @@)@@
-  case 12: { // @@(rvm-prim (eqv? rib1 rib2)@@
+  case 12: { // @@(primitive (eqv? rib1 rib2)@@
     PRIM2();
     push2(boolean(x == y), PAIR_TAG);
     break;
   } //@@)@@
-  case 13: { // @@(rvm-prim (lt x y)@@
+  case 13: { // @@(primitive (lt x y)@@
     PRIM2();
     push2(boolean(NUM(x) < NUM(y)), PAIR_TAG);
     break;
   } //@@)@@
-  case 14: { // @@(rvm-prim (add x y)@@
+  case 14: { // @@(primitive (add x y)@@
     PRIM2();
     push2(x + y - 1, PAIR_TAG);
     break;
   } //@@)@@
-  case 15: { // @@(rvm-prim (sub x y)@@
+  case 15: { // @@(primitive (sub x y)@@
     PRIM2();
     push2(x - y + 1, PAIR_TAG);
     break;
   } //@@)@@
-  case 16: { // @@(rvm-prim (mul x y)@@
+  case 16: { // @@(primitive (mul x y)@@
     PRIM2();
     push2(TAG_NUM((NUM(x) * NUM(y))), PAIR_TAG);
     break;
   } // @@)@@
-  case 17: { // @@(rvm-prim (div x y)@@
+  case 17: { // @@(primitive (div x y)@@
     PRIM2();
     push2(TAG_NUM((NUM(x) / NUM(y))), PAIR_TAG);
     break;
   } // @@)@@
-  case 18: { // @@(rvm-prim (getchar)@@
+  case 18: { // @@(primitive (getchar)@@
     int read;
 #ifdef NO_STD
     asm volatile("push %%eax\n"
@@ -519,7 +519,7 @@ void prim(int no) {
     push2(TAG_NUM(read), PAIR_TAG);
     break;
   } // @@)@@
-  case 19: { // @@(rvm-prim (putchar c)@@
+  case 19: { // @@(primitive (putchar c)@@
     PRIM1();
 #ifdef NO_STD
     {
@@ -542,7 +542,7 @@ void prim(int no) {
     push2(x, PAIR_TAG);
     break;
   } // @@)@@
-  case 20: { // @@(rvm-prim (exit)@@
+  case 20: { // @@(primitive (exit n)@@
     PRIM1();
     vm_exit(NUM(x));
     break;

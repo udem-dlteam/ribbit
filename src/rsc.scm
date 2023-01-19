@@ -1757,7 +1757,7 @@
          (extract-prims-for-each
            (lambda (expr)
              (case (car expr)
-               ((rvm-prim) 
+               ((primitive) 
                 (set! result 
                   (append
                     result
@@ -1765,7 +1765,7 @@
                       (cons (cadr expr)   ;;signature of primitive
                             (caddr expr))
                       '())))) ;; code
-               ((rvm-prim-generator-setup)
+               ((primitive-generator-setup)
                 (for-each 
                   (lambda (pair)
                     (if (pair? pair)
@@ -1773,12 +1773,12 @@
                         ((prefix) (set! prefix-first-value (cadr pair))
                                   (set! prefix-rest-value  (caddr pair)))
                         ((replace) (set! replace-value (cadr pair)))
-                        (else (error "Unexpected keyword argument in (rvm-prim-generator-setup ...) in host file" (car pair))))))
+                        (else (error "Unexpected keyword argument in (primitive-generator-setup ...) in host file" (car pair))))))
                   (cdr expr)))
                ((string) (begin #f))
                (else 
                  (error 
-                   "Invalid expression while evaluating parsed host document. Currently accepted are rvm-prim and rvm-prim-generator-setup." 
+                   "Invalid expression while evaluating parsed host document. Currently accepted are primitive and primitive-generator-setup." 
                    expr))))))
     (map extract-prims-for-each parsed-file)
     result))
@@ -1891,7 +1891,7 @@
         generated-file
         (let ((expr (car parsed-file)))
           (case (car expr) 
-            ((rvm-prim) 
+            ((primitive) 
              (if first-rvm-prim
                (begin
                  (set! generated-file
@@ -1901,20 +1901,20 @@
                             (map (lambda (x) (apply-modifs (car x) (cdr x)))
                                  prims-with-numbers))))
                  (set! first-rvm-prim #f))))
-            ((rvm-prim-generator-setup)
+            ((primitive-generator-setup)
              (for-each 
                (lambda (pair)
                  (if (pair? pair)
                    (case (car pair)
-                     ((prefix) (set! prefix-first-value (cadr pair))
+                     #;((prefix) (set! prefix-first-value (cadr pair))
                                (set! prefix-rest-value  (caddr pair)))
                      ((replace) (set! replace-value (cdr pair)))
-                     (else (error "Unexpected keyword argument in (define-prim-generator ...) in host file" (car pair))))))
+                     (else (error "Unexpected keyword argument in (primitive-generator-setup ...) in host file" (car pair))))))
                (cdr expr)))
 
             ((string)
              (if (or first-rvm-prim
-                     (not (assq 'rvm-prims parsed-file)))
+                     (not (assq 'primitive parsed-file)))
                (set! generated-file (string-append generated-file (cadr expr)))))
             (else (error "Invalid expression while evaluating parsed host document" expr)))
           (loop (cdr parsed-file)))))))
