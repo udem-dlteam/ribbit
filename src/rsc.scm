@@ -1930,7 +1930,7 @@
 (define (string-from-file path)
   (call-with-input-file path (lambda (port) (read-line port #f))))
 
-(define (transform-host-file host-file-str input)
+(define (transform-host-file host-file-str input primitives)
   (let* ((sample ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y")
          (host-str (string-replace
                      (string-replace
@@ -1949,15 +1949,21 @@
                         (open-input-string (parse-host-file host-str))))
          (current-prims (extract-prims parsed-file))
          (prims-simplified (map (lambda (x) (cons (caar x) (cdr x))) current-prims) ) ;; remove signature of primitives to have '((rib . code) ...)
-         (show-this '(rib rib? putchar getchar eqv? add)))
-    (generate-file parsed-file 
-                   (map
+         )
+    (if primitives
+      (generate-file parsed-file 
+                     (map
                        (lambda (x)
-                         (cdr (assq x prims-simplified)))
-                       show-this))))
+                         (let ((prim (assq x prims-simplified)))
+                           (if prim
+                             (cdr prim)
+                             (error "Cannot find primitive " x ". Only found " (map car prims-simplified)))))
+                       primitives))
+      host-str
+      )))
 
 
-(define (generate-code target verbosity input-path minify? proc-and-exports)
+(define (generate-code target verbosity input-path minify? primitives proc-and-exports)
   (let* ((proc
           (car proc-and-exports))
          (exports
@@ -1989,7 +1995,7 @@
     (let* ((target-code-before-minification
             (if (equal? target "rvm")
                 input
-                (transform-host-file vm-source input)))
+                (transform-host-file vm-source input primitives)))
            (target-code
             (if (or (not minify?) (equal? target "rvm"))
                 target-code-before-minification
@@ -2065,6 +2071,7 @@
     0      ;; verbosity
     #f     ;; input-path
     #f     ;; minify?
+    #f
     (compile-program
      0 ;; verbosity
      (read-all)))))
@@ -2083,7 +2090,8 @@
                            input-path
                            lib-path
                            minify?
-                           verbosity)
+                           verbosity
+                           primitives)
 
      ;; This version of the compiler reads the program and runtime library
      ;; source code from files and it supports various options.  It can
@@ -2097,6 +2105,7 @@
        verbosity
        input-path
        minify?
+       primitives
        (compile-program
         verbosity
         (read-program lib-path src-path)))))
@@ -2112,7 +2121,8 @@
                (output-path #f)
                (lib-path "default")
                (src-path #f)
-               (minify? #f))
+               (minify? #f)
+               (primitives #f))
 
            (let loop ((args (cdr args)))
              (if (pair? args)
@@ -2133,6 +2143,9 @@
                          ((and (pair? rest) (member arg '("-m" "--minify")))
                           (set! minify? #t)
                           (loop rest))
+                         ((and (pair? rest) (member arg '("-p" "--primitives")))
+                          (set! primitives (read (open-input-string (car rest))))
+                          (loop (cdr rest)))
                          ((member arg '("-v" "--v"))
                           (set! verbosity (+ verbosity 1))
                           (loop rest))
@@ -2174,7 +2187,8 @@
                 input-path
                 lib-path
                 minify?
-                verbosity)))))
+                verbosity
+                primitives)))))
 
    (parse-cmd-line (cmd-line))
 
