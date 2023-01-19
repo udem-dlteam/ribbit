@@ -1870,7 +1870,7 @@
       (error "Cannot find pattern in code" replace-value prim-code))))
 
 (define (generate-file parsed-file prims)
-  (let* ((replace-value "")
+  (let* ((replace-value #f)
          (prefix-first-value "")
          (prefix-rest-value "")
          (first-rvm-prim #t)
@@ -1882,12 +1882,10 @@
                '())))
          (apply-modifs 
            (lambda (prim-code index) 
-             (let ((prim-code (replace-pattern replace-value prim-code index)))
+             (let ((prim-code (if replace-value (replace-pattern replace-value prim-code index) prim-code)))
                (if (= index 0) 
                  (string-append prefix-first-value prim-code)
-                 (string-append prefix-rest-value  prim-code)))))
-         
-         )
+                 (string-append prefix-rest-value  prim-code))))))
     (let loop ((parsed-file parsed-file))
       (if (not (pair? parsed-file))
         generated-file
@@ -1952,7 +1950,8 @@
          (current-prims (extract-prims parsed-file))
          (prims-simplified (map (lambda (x) (cons (caar x) (cdr x))) current-prims) ) ;; remove signature of primitives to have '((rib . code) ...)
          (show-this '(rib rib? putchar getchar eqv? add)))
-    (generate-file parsed-file (map
+    (generate-file parsed-file 
+                   (map
                        (lambda (x)
                          (cdr (assq x prims-simplified)))
                        show-this))))
