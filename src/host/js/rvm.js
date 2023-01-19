@@ -149,6 +149,7 @@ get_cont = () => { let s = stack; while (!s[2]) s = s[1]; return s; };
 prim1 = (f) => () => push(f(pop()));
 prim2 = (f) => () => push(f(pop(),pop()));
 prim3 = (f) => () => push(f(pop(),pop(),pop()));
+// @@(rvm-prim-generator-setup (prefix " " ","))@@
 
 primitives = [
   prim3((z, y, x) => [x, y, z]),                   // @@(rvm-prim  (rib a b c))@@
@@ -169,8 +170,8 @@ primitives = [
   prim2((y, x) => x-y),                            // @@(rvm-prim  (sub x y))@@
   prim2((y, x) => x*y),                            // @@(rvm-prim  (mul x y))@@
   prim2((y, x) => x/y|0),                          // @@(rvm-prim  (div x y))@@
-  getchar,                                         // @@(rvm-prim  (get-char))@@
-  prim1(putchar),                                  // @@(rvm-prim  (put-char c))@@
+  getchar,                                         // @@(rvm-prim  (getchar))@@
+  prim1(putchar),                                  // @@(rvm-prim  (putchar c))@@
   () => pop() && halt()//will crash with error on != 0 @@(rvm-prim (exit n))@@
 ];
 
