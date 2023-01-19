@@ -151,27 +151,27 @@ prim2 = (f) => () => push(f(pop(),pop()));
 prim3 = (f) => () => push(f(pop(),pop(),pop()));
 
 primitives = [
-  prim3((z, y, x) => [x, y, z]),
-  prim1((x) => x),
-  () => (pop(), true),
-  () => { let y = pop(); pop(); return push(y); },
-  () => push([pop()[0],stack,1]),
-  prim1((x) => to_bool(is_rib(x))),
-  prim1((x) => x[0]),
-  prim1((x) => x[1]),
-  prim1((x) => x[2]),
-  prim2((y, x) => x[0]=y),
-  prim2((y, x) => x[1]=y),
-  prim2((y, x) => x[2]=y),
-  prim2((y, x) => to_bool(x===y)),
-  prim2((y, x) => to_bool(x<y)),
-  prim2((y, x) => x+y),
-  prim2((y, x) => x-y),
-  prim2((y, x) => x*y),
-  prim2((y, x) => x/y|0),
-  getchar,
-  prim1(putchar),
-  () => pop() && halt() // will crash with error on != 0
+  prim3((z, y, x) => [x, y, z]),                   // @@(rvm-prim  (rib a b c))@@
+  prim1((x) => x),                                 // @@(rvm-prim  (id x))@@
+  () => (pop(), true),                             // @@(rvm-prim  (arg1 x y))@@
+  () => { let y = pop(); pop(); return push(y); }, // @@(rvm-prim  (arg2 x y))@@
+  () => push([pop()[0],stack,1]),                  // @@(rvm-prim  (close rib))@@
+  prim1((x) => to_bool(is_rib(x))),                // @@(rvm-prim  (rib? rib))@@
+  prim1((x) => x[0]),                              // @@(rvm-prim  (field0 rib))@@
+  prim1((x) => x[1]),                              // @@(rvm-prim  (field1 rib))@@
+  prim1((x) => x[2]),                              // @@(rvm-prim  (field2 rib))@@
+  prim2((y, x) => x[0]=y),                         // @@(rvm-prim  (field0-set! rib))@@
+  prim2((y, x) => x[1]=y),                         // @@(rvm-prim  (field1-set! rib))@@
+  prim2((y, x) => x[2]=y),                         // @@(rvm-prim  (field2-set! rib))@@
+  prim2((y, x) => to_bool(x===y)),                 // @@(rvm-prim  (eqv? x y))@@
+  prim2((y, x) => to_bool(x<y)),                   // @@(rvm-prim  (lt x y))@@
+  prim2((y, x) => x+y),                            // @@(rvm-prim  (add x y))@@
+  prim2((y, x) => x-y),                            // @@(rvm-prim  (sub x y))@@
+  prim2((y, x) => x*y),                            // @@(rvm-prim  (mul x y))@@
+  prim2((y, x) => x/y|0),                          // @@(rvm-prim  (div x y))@@
+  getchar,                                         // @@(rvm-prim  (get-char))@@
+  prim1(putchar),                                  // @@(rvm-prim  (put-char c))@@
+  () => pop() && halt()//will crash with error on != 0 @@(rvm-prim (exit n))@@
 ];
 
 run = () => {
