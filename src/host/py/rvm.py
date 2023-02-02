@@ -128,34 +128,37 @@ def f0s(y,x):x[0]=y;return y
 def f1s(y,x):x[1]=y;return y
 def f2s(y,x):x[2]=y;return y
 
+
 primitives = [
- prim3(lambda z,y,x:[x,y,z]),
- prim1(lambda x:x),
- pop,
- arg2,
- close,
- prim1(lambda x:to_bool(is_rib(x))),
- prim1(lambda x:x[0]),
- prim1(lambda x:x[1]),
- prim1(lambda x:x[2]),
- prim2(f0s),
- prim2(f1s),
- prim2(f2s),
- prim2(lambda y,x:to_bool(x is y if is_rib(x) or is_rib(y) else x==y)),
- prim2(lambda y,x:to_bool(x<y)),
- prim2(lambda y,x:x+y),
- prim2(lambda y,x:x-y),
- prim2(lambda y,x:x*y),
- prim2(lambda y,x:int(x/y)),
- getchar,
- prim1(putchar),
- prim1(exit)
+ # @@(primitives (gen head)@@
+ prim3(lambda z,y,x:[x,y,z]),                                            # @@(primitive (rib a b c))@@
+ prim1(lambda x:x),                                                      # @@(primitive (id x))@@
+ pop,                                                                    # @@(primitive (arg1 x y))@@
+ arg2,                                                                   # @@(primitive (arg2 x y))@@
+ close,                                                                  # @@(primitive (close rib))@@
+ prim1(lambda x:to_bool(is_rib(x))),                                     # @@(primitive (rib? rib))@@
+ prim1(lambda x:x[0]),                                                   # @@(primitive (field0 rib))@@
+ prim1(lambda x:x[1]),                                                   # @@(primitive (field1 rib))@@
+ prim1(lambda x:x[2]),                                                   # @@(primitive (field2 rib))@@
+ prim2(f0s),                                                             # @@(primitive (field0-set! rib x))@@
+ prim2(f1s),                                                             # @@(primitive (field1-set! rib x))@@
+ prim2(f2s),                                                             # @@(primitive (field2-set! rib x))@@
+ prim2(lambda y,x:to_bool(x is y if is_rib(x) or is_rib(y) else x==y)),  # @@(primitive (eqv? x y))@@
+ prim2(lambda y,x:to_bool(x<y)),                                         # @@(primitive (lt a b))@@
+ prim2(lambda y,x:x+y),                                                  # @@(primitive (add a b))@@
+ prim2(lambda y,x:x-y),                                                  # @@(primitive (sub a b))@@
+ prim2(lambda y,x:x*y),                                                  # @@(primitive (mul a b))@@
+ prim2(lambda y,x:int(x/y)),                                             # @@(primitive (div a b))@@
+ getchar,                                                                # @@(primitive (getchar))@@
+ prim1(putchar),                                                         # @@(primitive (putchar c))@@
+ prim1(exit),                                                            # @@(primitive (exit a))@@
+ # @@)@@
 ]
 
 def get_code():
  x=get_byte()-35
  return 57 if x<0 else x
- 
+
 def get_int(n):
  x=get_code()
  n*=46

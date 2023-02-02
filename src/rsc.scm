@@ -1663,7 +1663,10 @@
     (lambda (prim acc rec)
       (case (car prim)
         ((primitive)
-         (append acc (cons (cons 'prim (cons (cadr prim) (cons (cons 'body (cons (rec) '())) '()))) '())))
+         (let ((body (rec))
+               (head (apply substring (cons str-file (cdr (soft-assoc 'head prim))))))
+           (append acc (cons (cons 'prim (cons (cadr prim) (cons (cons 'body (cons (if (pair? body) body head) '())) 
+                                                                 (cons (cons 'head (cons head '())) '())))) '()))))
         ((%str)
          (substring str-file (cadr prim) (caddr prim)))))
     prims
@@ -1840,14 +1843,15 @@
           ((primitives)
            (let* ((gen (cdr (soft-assoc 'gen prim)))
                   (generate-one 
-                    (lambda (i body)
+                    (lambda (i body head)  
                       (let loop ((gen gen))
                         (if (pair? gen)
                           (string-append 
                               (begin
                                 (cond ((string? (car gen)) (car gen))
                                     ((eq? (car gen) 'index) (number->string i))
-                                    ((eq? (car gen) 'body) body)))
+                                    ((eq? (car gen) 'body) body)
+                                    ((eq? (car gen) 'head) head)))
                               (loop (cdr gen)))
                           "")))))
              (string-append 
@@ -1856,11 +1860,12 @@
                  (fold 
                    (lambda (x acc)
                      (let* ((i (car acc))
-                            (body (soft-assoc 'body x)))
+                            (body (soft-assoc 'body x))
+                            (head (soft-assoc 'head x)))
                        (cons (+ i 1)
                              (string-append 
                                (cdr acc)
-                               (generate-one i (cadr body))))))
+                               (generate-one i (cadr body) (cadr head))))))
                    (cons 0 "")
                    included-prims)))))
           ((primitive)
