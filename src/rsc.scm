@@ -1734,7 +1734,7 @@
                (= current-char MACRO_CHAR)
                (= next-char    MACRO_CHAR)
                (= next-next-char 41))
-             (cons (cons (+ 2 i) last-new-line) 
+             (cons (cons (+ 3 i) last-new-line) 
                    (append parsed-file 
                            (cons (cons '%str 
                                        (cons 
@@ -1746,7 +1746,6 @@
                 (= current-char MACRO_CHAR)
                 (= next-char MACRO_CHAR))
               (let* ((num-parents 1)
-                     #;(_ (pp current-macro))
                      (macro-start (+ 2 (caddr (assq 'head current-macro))))
                      (macro-string (substring file-str macro-start i))
                      (p (open-input-string 
@@ -1900,11 +1899,12 @@
          (current-prims 
            (extract-predicate 
              (lambda (p)
-               (and (eq? (car p) 'primitives)
+               (and (eq? (car p) 'primitive)
                     (memq (caadr p) primitives))) 
              parsed-file))
          (features (extract-features parsed-file))
          (used-features (needed-features features (map (lambda (x) (cdr x)) current-prims))))
+    (pp parsed-file)
     (if primitives
       (generate-file 
         used-features

@@ -401,7 +401,7 @@
 
 (let* ((str-file (string-from-file "host/c/rvm.c"))
        (parsed-file (parse-host-file str-file))
-       (show-this '(rib rib? putchar getchar eqv? add))
+       (show-this '(rib rib? ))
        (prims (extract-predicate (lambda (p) (and (eq? (car p) 'primitive) (memq (caadr p) show-this))) parsed-file))
        (features (extract-features parsed-file))
        (nfeatures (needed-features features (map (lambda (x) (cdr x)) prims)))
