@@ -51,7 +51,7 @@
                                       (string-append (substring str start i)
                                                      "\"")))))))
 
-(define (escape-string str)
+#;(define (escape-string str)
   (let ((p (open-output-string)))
     (write str p)
     (get-output-string p)))
@@ -141,7 +141,7 @@
                      last-new-line
                      current-macro
                      parsed-file))))
-          (append parsed-file (cons (cons '%str (cons start (cons i '()))) '()))))))
+          (append parsed-file (cons (cons '%str (cons start (cons (+ 2 i) '()))) '()))))))
 
 #;(define (extract-primitives parsed-file)
   (let* ((primitives (assoc 'primitives parsed-file))
@@ -169,6 +169,11 @@
       (find predicate (cdr lst)))
     #f))
 
+(define (find-all predicate lst)
+  (fold (lambda (x acc) (if (predicate x) (cons x acc) acc))
+        lst
+        '()))
+
 (define (soft-assoc sym lst)
   (find (lambda (e) (and (pair? e) (eq? (car e) sym)))
         lst))
@@ -181,10 +186,10 @@
   (extract-predicate (lambda (prim) (eq? (car prim) 'feature)) parsed-file))
 
 (define (extract-predicate predicate parsed-file)
-  (extract (lambda (prim acc)
+  (extract (lambda (prim acc rec)
              (if (predicate prim)
-               (cons prim acc)
-               acc))
+               (append (append (rec) acc) (cons prim '()))
+               (append (rec) acc)))
            parsed-file
            '()))
 
@@ -193,122 +198,53 @@
              (lambda (prim acc)
                (let* ((name (car prim))
                       (body (soft-assoc 'body (cdr prim)))
-                      (rec (if body 
-                             (fold func base (cadr body))
-                             base)))
-                 (walker prim (append acc rec))))))
+                      (rec (lambda ()
+                             (if body 
+                               (fold func base (cadr body))
+                               base))))
+                 (walker prim acc rec)))))
     (fold
       func
       base
       parsed-file)))
 
+(define (unique-aux lst1 lst2)
+  (if (pair? lst1)
+    (if (memq (car lst1) lst2)
+      (unique-aux (cdr lst1) lst2)
+      (unique-aux (cdr lst1) (cons (car lst1) lst2)))
+    lst2))
+
+(define (unique lst)
+  (unique-aux lst '()))
 
 (define (needed-features features activated-prims)
-  
-  (let loop ((used-features (fold (lambda (prim acc) 
-                               (let ((uses (soft-assoc 'uses prim)))
-                                 (if uses
-                                   (append (cdr uses) acc)
-                                   acc)))
-                             '()
-                             activated-prims))
+  (let loop ((to-process (unique
+                           (fold (lambda (prim acc) 
+                                   (let ((uses (soft-assoc 'uses prim)))
+                                     (if uses
+                                       (append (cdr uses) acc)
+                                       acc)))
+                                 '()
+                                 activated-prims)))
              (needed-features '()))
-    (let* ((current (car used-features))
-           (current-used (find (lambda (feature) (eq? feature current))
-                               features)))
+    (if (pair? to-process)
 
-      
-      )))
-
-#;(define (needed-features wanted-prims all-prims-and-features)
-  
-  
-  )
-
-
-
-#;(define (parse-host-file file-str)
-  (define MACRO_CHAR 64) ;#\@
-
-  (let ((str-len (string-length file-str)))
-    (let loop ((i 0) 
-               (start 0)
-               (inside-macro #f)
-               (enclose-code? #f) ; code read is enclosed inside an sexp
-               (last-new-line 0)
-               (current-str "(")) ;; start of list
-
-      (if (< i (- str-len 2))
-        (let* ((current-char      (char->integer (string-ref file-str i)))
-               (next-char         (char->integer (string-ref file-str (+ i 1))))
-               (next-next-char    (char->integer (string-ref file-str (+ i 2))))
-               (last-new-line     (if (= current-char 10) i last-new-line)))
-
-          (if (not inside-macro)
-            (cond 
-              ((and (= current-char MACRO_CHAR)  ;; #\@
-                    (= next-char    MACRO_CHAR)
-                    (or (= next-next-char    40)
-                        (= next-next-char    41))) ;; #\(
-               (loop (+ 3 i)
-                     (+ 2 i)
-                     #t
-                     enclose-code?
-                     last-new-line
-                     (if enclose-code?
-                       (string-append current-str 
-                                      (escape-string (substring file-str start i)))
-                       (string-append current-str
-                                      (string-append "(string "
-                                                     (string-append (escape-string (substring file-str start last-new-line))
-                                                                    ")")))))) 
-
-              (else
-                (loop (+ 1 i)
-                      start
-                      inside-macro
-                      enclose-code?
-                      last-new-line
-                      current-str)))
-            (if (and (= current-char MACRO_CHAR)
-                     (= next-char    MACRO_CHAR)) ;; #\@
-              (let* ((num-parents 2)
-                     (input-string 
-                       (string-append current-str
-                                      (substring file-str start i)))
-                     (p (open-input-string 
-                          (string-append input-string (make-string num-parents (integer->char 41)))))
-                     (last-char (begin (read p) (read-char p)))
-                     (last-char-int (if (eq? last-char #!eof) -1 (char->integer last-char)))
-                     (new-enclose-code? (not (= last-char-int 41)))) ; #\)
-                (loop (+ 2 i)
-                      (if new-enclose-code?
-                        last-new-line
-                        (+ 2 i))
-                      #f
-                      new-enclose-code?
-                      last-new-line
-                      (if (and (not new-enclose-code?) (not enclose-code?)) ; happen when same line expression
-                        (string-append 
-                            current-str
-                            (string-append 
-                              (substring file-str start (- i 1))
-                              (string-append 
-                                (escape-string (substring file-str last-new-line i))
-                                ")")))
-                        input-string)
-
-                      ))
-              (loop (+ 1 i)
-                    start
-                    inside-macro
-                    enclose-code?
-                    last-new-line
-                    current-str))))
-        (string-append current-str 
-                       (string-append "(string "
-                                      (string-append (escape-string (substring file-str start (+ i 2)))
-                                                     "))")))))))
+      (let* ((current (car to-process))
+             (current-feature (find (lambda (feature) (eq? (car feature) current))
+                                    features))
+             (current-used (soft-assoc 'used current-feature))
+             (current-used (if current-used (cdr current-used) '())))
+        (loop 
+          (fold (lambda (x acc) 
+                  (if (not (and (memq x to-process)
+                                (memq x (needed-features))))
+                    (cons x acc)
+                    acc))
+                (cdr to-process)
+                current-used)
+          (cons current needed-features)))
+      needed-features)))
 
 
 (define (extract-prims parsed-file)
@@ -389,8 +325,7 @@
             (else
               (error "Unknown pattern " x))))
   '()
-  lst)
-  )
+  lst))
 
 
 (define (test-find-pattern)
@@ -407,65 +342,79 @@
   ;(test-pattern '() "hello world" #f)
   (test-pattern '("case " %INDEX% " :") "gad case 0 :" '(4 . 11)))
 
-(test-find-pattern)
+#;(test-find-pattern)
 
-(define (generate-file parsed-file prims)
-  (let* ((replace-value "")
-         (prefix-first-value "")
-         (prefix-rest-value "")
-         (first-rvm-prim #t)
-         (generated-file "")
-         (apply-modifs 
-           (lambda (prim-code first?) 
-             (let ((prim-code (replace replace-value prim-code)))
-               (if first? 
-                 (string-append prefix-first-value prim-code)
-                 (string-append prefix-rest-value  prim-code))))))
-    (let loop ((parsed-file parsed-file))
-      (if (not (pair? parsed-file))
-        generated-file
-        (let ((expr (car parsed-file)))
-          (case (car expr) 
-            ((rvm-prim) 
-             (if first-rvm-prim
-               (begin
-                 (set! generated-file
-                   (string-append
-                     generated-file
-                     (apply string-append 
-                            (cons (apply-modifs (car prims) #t)
-                                  (map 
-                                    (lambda (prim) 
-                                      (apply-modifs prim #f) ) (cdr prims))))))
-                 (set! first-rvm-prim #f))))
-            ((rvm-prim-generator-setup)
-             (for-each 
-               (lambda (pair)
-                 (if (pair? pair)
-                   (case (car pair)
-                     ((prefix) (set! prefix-first-value (cadr pair))
-                               (set! prefix-rest-value  (caddr pair)))
-                     ((replace) (set! replace-value (cadr pair)))
-                     (else (error "Unexpected keyword argument in (define-prim-generator ...) in host file" (car pair))))))
-               (cdr expr)))
+(define (get-bodies prims str-file)
+  (extract
+    (lambda (prim acc rec)
+      (case (car prim)
+        ((primitive)
+         (append acc (cons (cons 'prim (cons (cadr prim) (cons (cons 'body (cons (rec) '())) '()))) '())))
+        ((%str)
+         (substring str-file (cadr prim) (caddr prim)))))
+    prims
+    '()))
 
-            ((string)
-             (if (or first-rvm-prim
-                     (not (assq 'rvm-prims parsed-file)))
-               (set! generated-file (string-append generated-file (cadr expr)))))
-            (else (error "Invalid expression while evaluating parsed host document" expr)))
-          (loop (cdr parsed-file)))))))
+(define (generate-file nfeatures included-prims parsed-file str-file)
+  (extract
+    (lambda (prim acc rec)
+        (case (car prim)
+          ((%str)
+           (string-append acc (substring str-file (cadr prim) (caddr prim))))
+          ((feature)
+           (let ((name (cadr prim)))
+             (if (memq name nfeatures)
+               (string-append acc (rec))
+               acc)))
+          ((primitives)
+           (let* ((gen (cdr (soft-assoc 'gen prim)))
+                  (generate-one 
+                    (lambda (i body)
+                      (let loop ((gen gen))
+                        (if (pair? gen)
+                          (string-append 
+                              (begin
+                                (cond ((string? (car gen)) (car gen))
+                                    ((eq? (car gen) 'index) (number->string i))
+                                    ((eq? (car gen) 'body) body)))
+                              (loop (cdr gen)))
+                          "")))))
+             (string-append 
+               acc 
+               (cdr
+                 (fold 
+                   (lambda (x acc)
+                     (let* ((i (car acc))
+                            (body (soft-assoc 'body x)))
+                       (cons (+ i 1)
+                             (string-append 
+                               (cdr acc)
+                               (generate-one i (cadr body))))))
+                   (cons 0 "")
+                   included-prims)))))
+          ((primitive)
+           acc) 
+          (else
+            acc)))
+    parsed-file
+    ""))
 
-
-(let* ((r (parse-host-file (string-from-file "host/c/rvm.c")))
+(let* ((str-file (string-from-file "host/c/rvm.c"))
+       (parsed-file (parse-host-file str-file))
        (show-this '(rib rib? putchar getchar eqv? add))
-       (prims (extract-primitives r))
-       (features (extract-features r))
+       (prims (extract-predicate (lambda (p) (and (eq? (car p) 'primitive) (memq (caadr p) show-this))) parsed-file))
+       (features (extract-features parsed-file))
+       (nfeatures (needed-features features (map (lambda (x) (cdr x)) prims)))
+       (generated (generate-file nfeatures (get-bodies prims str-file) parsed-file str-file))
        #;(prims-simplified 
          (map (lambda (x) (cons (caar x) (cdr x)))
-              prims)))
-  
-  (pp prims)
-  (pp features))
+              prims))
+  )
+  #;(pp parsed-file)
+  #;(pp (get-bodies prims str-file))
+  (print generated)
+  #;(pp nfeatures)
+  #;(pp prims)
+  #;(pp features))
 
 
