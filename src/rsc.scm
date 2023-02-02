@@ -1202,7 +1202,7 @@
 (define const-proc-start (+ const-sym-start 2))
 (define if-start         (+ const-proc-start (+ const-proc-short 1)))
 
-(define (encode proc exports)
+(define (encode proc exports primitives)
 
   (define syms (make-table))
 
@@ -1894,33 +1894,38 @@
                        (rvm-code-to-bytes sample ",")
                        (rvm-code-to-bytes input ","))
                      "RVM code that prints HELLO!"
-                     "RVM code of the program"))
-         (parsed-file (parse-host-file host-str))
-         (current-prims 
-           (extract-predicate 
-             (lambda (p)
-               (and (eq? (car p) 'primitive)
-                    (memq (caadr p) primitives))) 
-             parsed-file))
-         (features (extract-features parsed-file))
-         (used-features (needed-features features (map (lambda (x) (cdr x)) current-prims))))
-    (pp parsed-file)
+                     "RVM code of the program")))
     (if primitives
-      (generate-file 
-        used-features
-        (get-bodies current-prims host-str)
-        parsed-file
-        host-str)
+      (let* ((parsed-file (parse-host-file host-str))
+             (current-prims (extract-primitives parsed-file))
+             (current-prims (map
+                              (lambda (p)
+                                (find (lambda (x) (eq? (caadr x) p))
+                                      current-prims))
+                              primitives))
+             (features (extract-features parsed-file))
+             (used-features (needed-features 
+                              features 
+                              current-prims)))
+        (generate-file 
+          used-features
+          (get-bodies current-prims host-str)
+          parsed-file
+          host-str))
       host-str)))
 
 
-(define (generate-code target verbosity input-path minify? primitives proc-and-exports)
+(define (generate-code target verbosity input-path minify? injected-primitives proc-and-exports)
   (let* ((proc
           (car proc-and-exports))
          (exports
           (cdr proc-and-exports))
+         (primitives (if 
+                       injected-primitives 
+                       (map list injected-primitives (iota (length injected-primitives)))
+                       primitives))
          (encoded-program
-          (encode proc exports))
+          (encode proc exports primitives))
          (vm-source
           (if (equal? target "rvm")
               ""
@@ -1946,7 +1951,7 @@
     (let* ((target-code-before-minification
             (if (equal? target "rvm")
                 input
-                (transform-host-file vm-source input primitives)))
+                (transform-host-file vm-source input injected-primitives)))
            (target-code
             (if (or (not minify?) (equal? target "rvm"))
                 target-code-before-minification
