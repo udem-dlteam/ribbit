@@ -744,6 +744,7 @@
           (expand-begin exprs))
          (live
           (liveness-analysis expansion exports))
+         
          (exports
           (or exports
               (map (lambda (v)
@@ -1658,7 +1659,7 @@
       (find predicate (cdr lst)))
     #f))
 
-(define (get-bodies prims str-file)
+(define (populate-prims prims str-file)
   (extract
     (lambda (prim acc rec)
       (case (car prim)
@@ -1755,7 +1756,7 @@
                           (string-append macro-string (make-string num-parents (integer->char 41)))))
                      (macro-sexp (read p))
                      (last-char (read-char p))
-                     (macro-ended (not (eq? last-char #!eof))))
+                     (macro-ended (not (eof-object? last-char))))
                 (if macro-ended
                   (loop (+ i 2)
                         (+ i 2)
@@ -1914,19 +1915,18 @@
                               current-prims)))
         (generate-file 
           used-features
-          (get-bodies current-prims host-str)
+          (populate-prims current-prims host-str)
           parsed-file
           host-str))
       host-str)))
 
 
-(define (generate-code target verbosity input-path minify? injected-primitives proc-and-exports)
+(define (generate-code target verbosity input-path rvm-path minify? injected-primitives proc-and-exports)
   (let* ((proc
           (car proc-and-exports))
          (exports
           (cdr proc-and-exports))
-         (primitives (if 
-                       injected-primitives 
+         (primitives (if injected-primitives 
                        (map list injected-primitives (iota (length injected-primitives)))
                        primitives))
          (encoded-program
@@ -1935,11 +1935,7 @@
           (if (equal? target "rvm")
               ""
               (string-from-file
-               (path-expand (string-append
-                             "host/"
-                             (string-append
-                              target
-                              (string-append "/rvm." target)))
+               (path-expand rvm-path
                             (root-dir)))))
          (input
           (string-append encoded-program
@@ -2031,8 +2027,9 @@
     "rvm"  ;; target
     0      ;; verbosity
     #f     ;; input-path
+    #f     ;; rvm-path
     #f     ;; minify?
-    #f
+    #f     ;; primitives
     (compile-program
      0 ;; verbosity
      (read-all)))))
@@ -2047,6 +2044,7 @@
 
    (define (fancy-compiler src-path
                            output-path
+                           rvm-path
                            target
                            input-path
                            lib-path
@@ -2065,6 +2063,7 @@
        target
        verbosity
        input-path
+       rvm-path
        minify?
        primitives
        (compile-program
@@ -2083,7 +2082,8 @@
                (lib-path "default")
                (src-path #f)
                (minify? #f)
-               (primitives #f))
+               (primitives #f)
+               (rvm-path #f))
 
            (let loop ((args (cdr args)))
              (if (pair? args)
@@ -2106,6 +2106,9 @@
                           (loop rest))
                          ((and (pair? rest) (member arg '("-p" "--primitives")))
                           (set! primitives (read (open-input-string (car rest))))
+                          (loop (cdr rest)))
+                         ((and (pair? rest) (member arg '("-r" "--rvm")))
+                          (set! rvm (cdr rest))
                           (loop (cdr rest)))
                          ((member arg '("-v" "--v"))
                           (set! verbosity (+ verbosity 1))
@@ -2137,19 +2140,25 @@
                  (exit-program-abnormally))
 
                (fancy-compiler
-                src-path
-                (or output-path
-                    (if (or (equal? src-path "-") (equal? target "rvm"))
-                        "-"
-                        (string-append
+                 src-path
+                 (or output-path
+                     (if (or (equal? src-path "-") (equal? target "rvm"))
+                       "-"
+                       (string-append
                          src-path
                          (string-append "." target))))
-                target
-                input-path
-                lib-path
-                minify?
-                verbosity
-                primitives)))))
+                 (or rvm-path
+                     (string-append
+                       "host/"
+                       (string-append
+                         target
+                         (string-append "/rvm." target))))
+                 target
+                 input-path
+                 lib-path
+                 minify?
+                 verbosity
+                 primitives)))))
 
    (parse-cmd-line (cmd-line))
 
