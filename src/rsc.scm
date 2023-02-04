@@ -743,12 +743,10 @@
   (let* ((primitive-names (map caadr primitives))
          (live-primitives 
            (fold (lambda (l acc) 
-                   (if (or (pair? (cdr l)) (eq? (car l) 'rib)) ;; ignore rib
+                   (if (or (eq? (car l) 'rib) ;; ignore rib
+                           (not (memq (car l) primitive-names))) ;; not in primitive 
                      acc
-                     (begin
-                       (if (not (memq (car l) primitive-names))
-                         (error "Primitive is used in program but not defined in host RVM" (symbol->string (car l))))
-                       (cons (car l) acc))))
+                     (cons (car l) acc)))
                  '()
                  live)))
     (cons 'rib live-primitives))) ;; force rib at first index
@@ -758,13 +756,12 @@
           (expand-begin exprs))
          (live
           (liveness-analysis expansion exports))
-         (live-primitives
-           (if primitives (used-primitives primitives live)))
          (prims
            (if primitives
-             (map list live-primitives (iota (length live-primitives)))
+             (let ((live-primitives (used-primitives primitives live)))
+               (map list live-primitives (iota (length live-primitives))))
              default-primitives))
-         (_ (pp prims))
+         (_ (pp primitives))
          (exports
           (or exports
               (map (lambda (v)
