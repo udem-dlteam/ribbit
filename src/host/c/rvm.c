@@ -486,31 +486,31 @@ void prim(int no) {
     push2(boolean(x == y), PAIR_TAG);
     break;
   } //@@)@@
-  case 13:  // @@(primitive (lt x y) (uses boolean)@@
+  case 13:  // @@(primitive (< x y) (uses boolean)@@
   {
     PRIM2();
     push2(boolean(NUM(x) < NUM(y)), PAIR_TAG);
     break;
   } //@@)@@
-  case 14:  // @@(primitive (add x y)@@
+  case 14:  // @@(primitive (+ x y)@@
   {
     PRIM2();
     push2(x + y - 1, PAIR_TAG);
     break;
   } //@@)@@
-  case 15:  // @@(primitive (sub x y)@@
+  case 15:  // @@(primitive (- x y)@@
   {
     PRIM2();
     push2(x - y + 1, PAIR_TAG);
     break;
   } //@@)@@
-  case 16:  // @@(primitive (mul x y)@@
+  case 16:  // @@(primitive (* x y)@@
   {
     PRIM2();
     push2(TAG_NUM((NUM(x) * NUM(y))), PAIR_TAG);
     break;
   } // @@)@@
-  case 17:  // @@(primitive (div x y)@@
+  case 17:  // @@(primitive (quotient x y)@@
   {
     PRIM2();
     push2(TAG_NUM((NUM(x) / NUM(y))), PAIR_TAG);
