@@ -454,7 +454,7 @@
 
 (define predefined '(rib false true nil)) ;; predefined symbols
 
-(define primitives '(
+(define default-primitives '(
 (rib         0) ;; predefined by RVM (must be first and 0)
 (id          1)
 (arg1        2)
@@ -739,12 +739,32 @@
            exports)
       exports))
 
-(define (comp-exprs-with-exports exprs exports)
+(define (used-primitives primitives live)
+  (let* ((primitive-names (map caadr primitives))
+         (live-primitives 
+           (fold (lambda (l acc) 
+                   (if (or (pair? (cdr l)) (eq? (car l) 'rib)) ;; ignore rib
+                     acc
+                     (begin
+                       (if (not (memq (car l) primitive-names))
+                         (error "Primitive is used in program but not defined in host RVM" (symbol->string (car l))))
+                       (cons (car l) acc))))
+                 '()
+                 live)))
+    (cons 'rib live-primitives))) ;; force rib at first index
+
+(define (comp-exprs-with-exports-and-prims exprs primitives exports)
   (let* ((expansion
           (expand-begin exprs))
          (live
           (liveness-analysis expansion exports))
-         
+         (live-primitives
+           (if primitives (used-primitives primitives live)))
+         (prims
+           (if primitives
+             (map list live-primitives (iota (length live-primitives)))
+             default-primitives))
+         (_ (pp prims))
          (exports
           (or exports
               (map (lambda (v)
@@ -759,28 +779,34 @@
                  expansion
                  tail))
       '())
-     exports)))
+     (cons exports
+           prims))))
 
-(define (compile-program verbosity program)
+(define (compile-program verbosity parsed-vm program)
   (let* ((exprs-and-exports
           (extract-exports program))
          (exprs
           (car exprs-and-exports))
          (exports
           (cdr exprs-and-exports))
-         (proc-and-exports
-          (comp-exprs-with-exports
+         (proc-exports-and-prims
+          (comp-exprs-with-exports-and-prims
            (if (pair? exprs) exprs (cons #f '()))
+           (extract-primitives parsed-vm)
            (exports->alist exports))))
     (if (>= verbosity 2)
         (begin
           (display "*** RVM code:\n")
-          (pp (car proc-and-exports))))
+          (pp (car proc-exports-and-prims))))
     (if (>= verbosity 3)
         (begin
           (display "*** exports:\n")
-          (pp (cdr proc-and-exports))))
-    proc-and-exports))
+          (pp (cdr proc-exports-and-prims))))
+    (if (>= verbosity 2)
+        (begin
+          (display "*** Live primitives:\n")
+          (pp (cddr proc-exports-and-prims))))
+    proc-exports-and-prims))
 
 ;;;----------------------------------------------------------------------------
 
@@ -1904,6 +1930,7 @@
     (if primitives
       (let* ((parsed-file (parse-host-file host-str))
              (current-prims (extract-primitives parsed-file))
+             (primitives (map car primitives)) ;; assume primitive is in the right order
              (current-prims (map
                               (lambda (p)
                                 (find (lambda (x) (eq? (caadr x) p))
@@ -1921,27 +1948,23 @@
       host-str)))
 
 
-(define (generate-code target verbosity input-path rvm-path minify? injected-primitives proc-and-exports)
+(define (generate-code target verbosity input-path rvm-path minify? injected-primitives vm-source proc-exports-and-prims)
   (let* ((proc
-          (car proc-and-exports))
+           (car proc-exports-and-prims))
          (exports
-          (cdr proc-and-exports))
+           (cadr proc-exports-and-prims))
+         (prims
+           (cddr proc-exports-and-prims))
          (primitives (if injected-primitives 
                        (map list injected-primitives (iota (length injected-primitives)))
-                       primitives))
+                       prims))
          (encoded-program
-          (encode proc exports primitives))
-         (vm-source
-          (if (equal? target "rvm")
-              ""
-              (string-from-file
-               (path-expand rvm-path
-                            (root-dir)))))
+           (encode proc exports primitives))
          (input
-          (string-append encoded-program
-                         (if input-path
-                             (string-from-file input-path)
-                             ""))))
+           (string-append encoded-program
+                          (if input-path
+                            (string-from-file input-path)
+                            ""))))
 
     (if (>= verbosity 1)
         (begin
@@ -1952,7 +1975,7 @@
     (let* ((target-code-before-minification
             (if (equal? target "rvm")
                 input
-                (transform-host-file vm-source input injected-primitives)))
+                (transform-host-file vm-source input primitives)))
            (target-code
             (if (or (not minify?) (equal? target "rvm"))
                 target-code-before-minification
@@ -2057,18 +2080,28 @@
      ;; merge the compacted RVM code with the implementation of the RVM
      ;; for a specific target and minify the resulting target code.
 
-     (write-target-code
-      output-path
-      (generate-code
-       target
-       verbosity
-       input-path
-       rvm-path
-       minify?
-       primitives
-       (compile-program
-        verbosity
-        (read-program lib-path src-path)))))
+
+     (let ((vm-source 
+             (if (equal? target "rvm")
+               #f
+               (string-from-file
+                 (path-expand rvm-path
+                              (root-dir))))))
+
+       (write-target-code
+         output-path
+         (generate-code
+           target
+           verbosity
+           input-path
+           rvm-path
+           minify?
+           primitives
+           vm-source
+           (compile-program
+             verbosity
+             (and vm-source (parse-host-file vm-source))
+             (read-program lib-path src-path))))))
 
    (define (parse-cmd-line args)
      (if (null? (cdr args))
