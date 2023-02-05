@@ -130,7 +130,7 @@ def f2s(y,x):x[2]=y;return y
 
 
 primitives = [
- # @@(primitives (gen head)@@
+ # @@(primitives (gen body)@@
  prim3(lambda z,y,x:[x,y,z]),                                            # @@(primitive (rib a b c))@@
  prim1(lambda x:x),                                                      # @@(primitive (id x))@@
  pop,                                                                    # @@(primitive (arg1 x y))@@
@@ -152,7 +152,7 @@ primitives = [
  getchar,                                                                # @@(primitive (getchar))@@
  prim1(putchar),                                                         # @@(primitive (putchar c))@@
  prim1(exit),                                                            # @@(primitive (exit a))@@
- # @@)@@
+ # @@)
 ]
 
 def get_code():

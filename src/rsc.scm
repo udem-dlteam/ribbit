@@ -740,7 +740,7 @@
       exports))
 
 (define (used-primitives primitives live)
-  (let* ((primitive-names (map caadr primitives))
+  (let* ((primitive-names (map caaddr primitives))
          (live-primitives 
            (fold (lambda (l acc) 
                    (if (or (eq? (car l) 'rib) ;; ignore rib
@@ -751,17 +751,35 @@
                  live)))
     (cons 'rib live-primitives))) ;; force rib at first index
 
+(define (set-primitive-order live-primitive prims)
+  (let loop ((prims prims) (i 0) (result '()))
+    (if (pair? prims)
+      (let ((prim (car prims)))
+        (if (memq (car prim) live-primitive)
+          (begin
+            (cond 
+              ((pair? (cadr prim))
+               (set-car! (cadr prim) (cons 'quote (cons i '())))  ;; set back in the code the index chosen
+               (set-car! (cdr prim) (cons i '()))) 
+              ((eqv? (cadr prim) 'tbd)
+               (set-car! (cdr prim) i)))
+            (loop (cdr prims)
+                  (+ i 1)
+                  (cons prim result)))
+          (loop (cdr prims) i result)))
+      (reverse result))))
+
 (define (comp-exprs-with-exports-and-prims exprs primitives exports)
+  (set! current-primitives primitives)
   (let* ((expansion
           (expand-begin exprs))
          (live
           (liveness-analysis expansion exports))
          (prims
-           (if primitives
-             (let ((live-primitives (used-primitives primitives live)))
-               (map list live-primitives (iota (length live-primitives))))
-             default-primitives))
-         (_ (pp primitives))
+           (if current-primitives
+             (let ((live-primitives (used-primitives current-primitives live)))
+               (set-primitive-order live-primitives current-primitives))
+             #f))
          (exports
           (or exports
               (map (lambda (v)
@@ -779,7 +797,7 @@
      (cons exports
            prims))))
 
-(define (compile-program verbosity parsed-vm program)
+(define (compile-program verbosity parsed-vm vm-source program)
   (let* ((exprs-and-exports
           (extract-exports program))
          (exprs
@@ -789,7 +807,7 @@
          (proc-exports-and-prims
           (comp-exprs-with-exports-and-prims
            (if (pair? exprs) exprs (cons #f '()))
-           (extract-primitives parsed-vm)
+           (populate-prims (extract-primitives parsed-vm) vm-source)
            (exports->alist exports))))
     (if (>= verbosity 2)
         (begin
@@ -798,7 +816,7 @@
     (if (>= verbosity 3)
         (begin
           (display "*** exports:\n")
-          (pp (cdr proc-exports-and-prims))))
+          (pp (cadr proc-exports-and-prims))))
     (if (>= verbosity 2)
         (begin
           (display "*** Live primitives:\n")
@@ -808,6 +826,8 @@
 ;;;----------------------------------------------------------------------------
 
 ;; Expansion of derived forms, like "define", "cond", "and", "or".
+
+(define current-primitives #f) ;; used as parameters for expand-functions
 
 (define (expand-expr expr)
 
@@ -918,6 +938,31 @@
                               (cons pattern
                                     (cons (expand-expr (caddr expr))
                                           '()))))))
+
+
+                ((eqv? (car expr) 'define-primitive)
+                 (if (not current-primitives)
+                   (error "Cannot use define-primitive while target a non-modifiable host")
+                   (let* ((prim-num (cons 'tbd 
+                                          (cons (cons 'quote (cons 0 '())) 
+                                                (cons (cons 'quote (cons 1 '())) '())))) ;; creating cell that will be set later on
+                          (signature (cadr expr))
+                          (use (and (pair? (caddr expr)) (eqv? 'use (caaddr expr)) (caddr expr)))
+                          (code (if use (cadddr expr) (caddr expr))))
+                     (set! current-primitives 
+                       (append current-primitives
+                               (cons (cons (car signature)
+                                           (cons prim-num
+                                                 (cons signature
+                                                       (cons use
+                                                             (cons (cons 'body (cons code '()))
+                                                                   '())))))
+                                     '())))
+                     (cons 'set!
+                           (cons (car signature)
+                                 (cons (cons 'rib prim-num)
+                                       '()))))))
+
 
                  ((eqv? first 'and)
                   (expand-expr
@@ -1292,17 +1337,20 @@
   (define (add-init-primitives tail)
 
     (define (prim-code sym tail)
-      (rib const-op
-           (cadr (assq sym primitives)) ;; get index
-           (rib const-op
-                0
-                (rib const-op
-                     procedure-type
-                     (rib jump/call-op
-                          (scan-opnd 'rib 0)
-                          (rib set-op
-                               (scan-opnd sym 3)
-                               tail))))))
+      (let ((index (cadr (assq sym primitives))))
+        (if (number? index) ;; if not a number, the primitive is already set in code as (set! p (rib index 0 1))
+          (rib const-op
+               index
+               (rib const-op
+                    0
+                    (rib const-op
+                         procedure-type
+                         (rib jump/call-op
+                              (scan-opnd 'rib 0)
+                              (rib set-op
+                                   (scan-opnd sym 3)
+                                   tail)))))
+          tail)))
 
     (let loop ((lst (cdr primitives)) ;; skip rib primitive that is predefined
                (tail tail))
@@ -1688,9 +1736,12 @@
       (case (car prim)
         ((primitive)
          (let ((body (rec ""))
-               (head (apply substring (cons str-file (cdr (soft-assoc 'head prim))))))
-           (append acc (cons (cons 'prim (cons (cadr prim) (cons (cons 'body (cons (if (eqv? (string-length body) 0) head body) '())) 
-                                                                 (cons (cons 'head (cons head '())) '())))) '()))))
+               (head (apply substring (cons str-file (cdr (soft-assoc 'head prim)))))
+               (use (soft-assoc 'use prims)))
+           (append acc (cons (cons (caadr prim) 
+                                   (cons 'tbd (cons (cadr prim) (cons (cons 'body (cons (if (eqv? (string-length body) 0) head body) '())) 
+                                                                      (cons (cons 'head (cons head '())) 
+                                                                            (or use '())))))) '()))))
         ((%str)
          (substring str-file (cadr prim) (caddr prim)))))
     prims
@@ -1867,31 +1918,23 @@
           ((primitives)
            (let* ((gen (cdr (soft-assoc 'gen prim)))
                   (generate-one 
-                    (lambda (i body head)  
-                      (let loop ((gen gen))
-                        (if (pair? gen)
-                          (string-append 
-                              (begin
-                                (cond ((string? (car gen)) (car gen))
-                                    ((eq? (car gen) 'index) (number->string i))
-                                    ((eq? (car gen) 'body) body)
-                                    ((eq? (car gen) 'head) head)))
+                    (lambda (prim)
+                      (let ((index (cadr prim))
+                            (body  (soft-assoc 'body prim))
+                            (head  (soft-assoc 'head prim)))
+                        (let loop ((gen gen))
+                          (if (pair? gen)
+                            (string-append 
+                              (cond ((string? (car gen)) (car gen))
+                                      ((eq? (car gen) 'index) (if (pair? index) (number->string (car index)) (number->string index)))
+                                      ((eq? (car gen) 'body) (cadr body))
+                                      ((eq? (car gen) 'head) (cadr head)))
                               (loop (cdr gen)))
-                          "")))))
+                            ""))))))
              (string-append 
                acc 
-               (cdr
-                 (fold 
-                   (lambda (x acc)
-                     (let* ((i (car acc))
-                            (body (soft-assoc 'body x))
-                            (head (soft-assoc 'head x)))
-                       (cons (+ i 1)
-                             (string-append 
-                               (cdr acc)
-                               (generate-one i (cadr body) (cadr head))))))
-                   (cons 0 "")
-                   included-prims)))))
+               (apply string-append
+                      (map generate-one included-prims)))))
           ((primitive)
            acc) 
           (else
@@ -1926,20 +1969,13 @@
                      "RVM code of the program")))
     (if primitives
       (let* ((parsed-file (parse-host-file host-str))
-             (current-prims (extract-primitives parsed-file))
-             (primitives (map car primitives)) ;; assume primitive is in the right order
-             (current-prims (map
-                              (lambda (p)
-                                (find (lambda (x) (eq? (caadr x) p))
-                                      current-prims))
-                              primitives))
              (features (extract-features parsed-file))
              (used-features (needed-features 
                               features 
-                              current-prims)))
+                              primitives)))
         (generate-file 
           used-features
-          (populate-prims current-prims host-str)
+          primitives
           parsed-file
           host-str))
       host-str)))
@@ -1950,11 +1986,8 @@
            (car proc-exports-and-prims))
          (exports
            (cadr proc-exports-and-prims))
-         (prims
+         (primitives
            (cddr proc-exports-and-prims))
-         (primitives (if injected-primitives 
-                       (map list injected-primitives (iota (length injected-primitives)))
-                       prims))
          (encoded-program
            (encode proc exports primitives))
          (input
@@ -2098,6 +2131,7 @@
            (compile-program
              verbosity
              (and vm-source (parse-host-file vm-source))
+             vm-source
              (read-program lib-path src-path))))))
 
    (define (parse-cmd-line args)
