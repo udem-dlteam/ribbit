@@ -1,7 +1,7 @@
 /*
  * The Ribbit VM implementation in C
  */
-#ifdef DEBUG_I_CALL // @@(same-line "hey")@@
+#ifdef DEBUG_I_CALL
 #define DEBUG
 #endif
 
@@ -395,9 +395,9 @@ void show_operand(obj o) {
 
 #endif
 
-// @@(feature boolean@@
+// @(feature boolean@
 obj boolean(bool x) { return x ? CAR(FALSE) : FALSE; }
-// @@)@@
+// @)@
 
 void prim(int no) {
   switch (no) { 

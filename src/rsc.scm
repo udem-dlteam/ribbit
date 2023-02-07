@@ -797,17 +797,19 @@
      (cons exports
            prims))))
 
-(define (compile-program verbosity parsed-vm vm-source program)
+(define (compile-program verbosity parsed-vm program)
   (let* ((exprs-and-exports
           (extract-exports program))
          (exprs
           (car exprs-and-exports))
          (exports
           (cdr exprs-and-exports))
+         (primitives
+           (and parsed-vm (extract-primitives parsed-vm)))
          (proc-exports-and-prims
           (comp-exprs-with-exports-and-prims
            (if (pair? exprs) exprs (cons #f '()))
-           (populate-prims (extract-primitives parsed-vm) vm-source)
+           primitives
            (exports->alist exports))))
     (if (>= verbosity 2)
         (begin
@@ -1730,7 +1732,7 @@
       (find predicate (cdr lst)))
     #f))
 
-(define (populate-prims prims str-file)
+#;(define (populate-prims prims str-file)
   (extract
     (lambda (prim acc rec)
       (case (car prim)
@@ -1742,8 +1744,8 @@
                                    (cons 'tbd (cons (cadr prim) (cons (cons 'body (cons (if (eqv? (string-length body) 0) head body) '())) 
                                                                       (cons (cons 'head (cons head '())) 
                                                                             (or use '())))))) '()))))
-        ((%str)
-         (substring str-file (cadr prim) (caddr prim)))))
+        ((str)
+         (cadr ))))
     prims
     '()))
 
@@ -1751,8 +1753,28 @@
   (find (lambda (e) (and (pair? e) (eq? (car e) sym)))
         lst))
 
+(define (extract-primitives-body parsed-file)
+  (define primitives-body (cadr (soft-assoc 'body (soft-assoc 'primitives parsed-file))))
+  (filter (lambda (x) (eq? (car x) 'primitive)) primitives-body))
+
 (define (extract-primitives parsed-file)
-  (extract-predicate (lambda (prim) (eq? (car prim) 'primitive)) parsed-file))
+  (extract
+    (lambda (prim acc rec)
+      (case (car prim)
+        ((primitive)
+         (let ((body (rec ""))
+               (head (cadr (soft-assoc 'head prim)))
+               (use (soft-assoc 'use prim)))
+           (append acc (cons (cons (caadr prim) 
+                                   (cons 'tbd (cons (cadr prim) (cons (cons 'body (cons (if (eqv? (string-length body) 0) head body) '())) 
+                                                                      (cons (cons 'head (cons head '())) 
+                                                                            (or use '())))))) '()))))
+        ((str)
+         (cadr prim))))
+    (extract-primitives-body parsed-file)
+    
+    '())
+  #;(extract-predicate (lambda (prim) (eq? (car prim) 'primitive)) parsed-file))
 
 (define (extract-features parsed-file)
   (extract-predicate (lambda (prim) (eq? (car prim) 'feature)) parsed-file))
@@ -1780,7 +1802,87 @@
       base
       parsed-file)))
 
-(define (parse-host-file file-str)
+(define (next-line last-new-line)
+  (let loop ((cur last-new-line) (len 0))
+    (if (or (not (pair? cur)) (eqv? (car cur) 10)) ;; new line
+      (begin
+        ;(pp (list->string* last-new-line (+ 1 len)) )
+        (cons (and (pair? cur) (cdr cur)) (+ 1 len)))
+      (loop (cdr cur) (+ len 1)))))
+
+(define (detect-macro line len)
+  (let loop ((cur line) (cur-next (cdr line)) (len len) (start #f) (macro-len 0))
+    (if (<= len 1)
+      (cons #f #f)
+      (if (and (eqv? (car cur) 64) (eqv? (cadr cur) 64))
+        (if start
+          (cons start (+ 2 macro-len))
+          (loop (cdr cur-next) (cddr cur-next) (- len 1) cur 2))
+        (begin
+          (loop cur-next 
+              (cdr cur-next)
+              (- len 1)
+              start
+              (if start (+ macro-len 1) macro-len)))))))
+
+
+;; Can be redefined by ribbit to make this function really fast. It would only be (rib lst len string-type)
+(define (list->string* lst len)
+  (let ((str (make-string len #\0)))
+    (let loop ((lst lst) (i 0))
+      (if (< i len)
+        (begin
+          (string-set! str i (integer->char (car lst)))
+          (loop (cdr lst) (+ i 1)))
+        str))))
+
+(define (string->list* str)
+  (map char->integer (string->list str)))
+
+(define (parse-host-file cur-line)
+  (let loop ((cur-line cur-line)
+             (parsed-file '())
+             (start-len 0)
+             (start-line cur-line))
+    (if (pair? cur-line)
+      (let* ((next-line-pair (next-line cur-line))
+             (cur-end (car next-line-pair))
+             (cur-len (cdr next-line-pair))
+             (macro-pair (detect-macro cur-line cur-len))
+             (macro (car macro-pair))
+             (macro-len (cdr macro-pair))
+             #;(_ (if macro (pp (list->string* macro macro-len)))))
+        (cond 
+          ((and (eqv? macro-len 5)
+                (eqv? (caddr macro) 41))
+
+           (cons cur-end
+                 (reverse (cons (cons 'str (cons (list->string* start-line (+ cur-len start-len)) '())) parsed-file))))
+          (macro 
+            (let* ((parsed-file (if (eqv? start-len 0) parsed-file (cons (cons 'str (cons (list->string* start-line start-len) '())) parsed-file)))
+                   (macro-string (list->string* (cddr macro) (- macro-len 4)))
+                   (p (open-input-string (string-append macro-string (make-string 1 (integer->char 41)))))
+                   (macro-sexp (read p))
+                   (last-char (read-char p))
+                   (macro-ended (not (eof-object? last-char))))
+              (if macro-ended
+                (loop
+                  cur-end
+                  (cons (append macro-sexp (cons (cons 'head (cons (list->string* cur-line cur-len) '())) '())) parsed-file)
+                  0
+                  cur-end)
+                (let* ((body-pair (parse-host-file cur-end))
+                       (body-cur-end (car body-pair))
+                       (body-parsed (cdr body-pair)))
+                  (loop body-cur-end
+                        (cons (append macro-sexp (cons (cons 'head (cons (list->string* cur-line cur-len) '())) (cons (cons 'body (cons body-parsed '())) '()))) parsed-file)
+                        0
+                        body-cur-end)))))
+          (else
+            (loop cur-end parsed-file (+ cur-len start-len) start-line))))
+      (reverse (cons (cons 'str (cons (list->string* start-line start-len) '())) parsed-file)))))
+
+#;(define (parse-host-file file-str)
   (define MACRO_CHAR 64) ;#\@
 
   (let ((str-len (string-length file-str)))
@@ -1908,8 +2010,8 @@
   (extract
     (lambda (prim acc rec)
         (case (car prim)
-          ((%str)
-           (string-append acc (substring str-file (cadr prim) (caddr prim))))
+          ((str)
+           (string-append acc (cadr prim)))
           ((feature)
            (let ((name (cadr prim)))
              (if (memq name nfeatures)
@@ -1938,6 +2040,7 @@
           ((primitive)
            acc) 
           (else
+            
             acc)))
     parsed-file
     ""))
@@ -1968,7 +2071,7 @@
                      "RVM code that prints HELLO!"
                      "RVM code of the program")))
     (if primitives
-      (let* ((parsed-file (parse-host-file host-str))
+      (let* ((parsed-file (parse-host-file (string->list* host-str)))
              (features (extract-features parsed-file))
              (used-features (needed-features 
                               features 
@@ -1981,7 +2084,7 @@
       host-str)))
 
 
-(define (generate-code target verbosity input-path rvm-path minify? injected-primitives vm-source proc-exports-and-prims)
+(define (generate-code target verbosity input-path rvm-path minify? injected-primitives source-vm proc-exports-and-prims)
   (let* ((proc
            (car proc-exports-and-prims))
          (exports
@@ -2005,7 +2108,7 @@
     (let* ((target-code-before-minification
             (if (equal? target "rvm")
                 input
-                (transform-host-file vm-source input primitives)))
+                (transform-host-file source-vm input primitives)))
            (target-code
             (if (or (not minify?) (equal? target "rvm"))
                 target-code-before-minification
@@ -2111,12 +2214,15 @@
      ;; for a specific target and minify the resulting target code.
 
 
-     (let ((vm-source 
-             (if (equal? target "rvm")
-               #f
-               (string-from-file
-                 (path-expand rvm-path
-                              (root-dir))))))
+     (let* ((vm-source (string-from-file
+                         (path-expand rvm-path
+                                      (root-dir))))
+            (parsed-file 
+              (if (equal? target "rvm")
+                #f
+                (parse-host-file 
+                  (string->list* vm-source
+                    )))))
 
        (write-target-code
          output-path
@@ -2130,8 +2236,7 @@
            vm-source
            (compile-program
              verbosity
-             (and vm-source (parse-host-file vm-source))
-             vm-source
+             parsed-file
              (read-program lib-path src-path))))))
 
    (define (parse-cmd-line args)

@@ -1103,7 +1103,7 @@
 
 (define unwind-and-call #f)
 
-((call/cc
+#;((call/cc
   (lambda (k)
     (set! unwind-and-call k)
     (lambda () #f))))

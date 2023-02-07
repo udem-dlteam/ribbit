@@ -144,15 +144,15 @@ primitives = [
  prim2(f1s),                                                             # @@(primitive (field1-set! rib x))@@
  prim2(f2s),                                                             # @@(primitive (field2-set! rib x))@@
  prim2(lambda y,x:to_bool(x is y if is_rib(x) or is_rib(y) else x==y)),  # @@(primitive (eqv? x y))@@
- prim2(lambda y,x:to_bool(x<y)),                                         # @@(primitive (lt a b))@@
- prim2(lambda y,x:x+y),                                                  # @@(primitive (add a b))@@
- prim2(lambda y,x:x-y),                                                  # @@(primitive (sub a b))@@
- prim2(lambda y,x:x*y),                                                  # @@(primitive (mul a b))@@
- prim2(lambda y,x:int(x/y)),                                             # @@(primitive (div a b))@@
+ prim2(lambda y,x:to_bool(x<y)),                                         # @@(primitive (< a b))@@
+ prim2(lambda y,x:x+y),                                                  # @@(primitive (+ a b))@@
+ prim2(lambda y,x:x-y),                                                  # @@(primitive (- a b))@@
+ prim2(lambda y,x:x*y),                                                  # @@(primitive (* a b))@@
+ prim2(lambda y,x:int(x/y)),                                             # @@(primitive (quotient a b))@@
  getchar,                                                                # @@(primitive (getchar))@@
  prim1(putchar),                                                         # @@(primitive (putchar c))@@
  prim1(exit),                                                            # @@(primitive (exit a))@@
- # @@)
+ # @@)@@
 ]
 
 def get_code():

@@ -399,20 +399,100 @@
     parsed-file
     ""))
 
+(define (next-line last-new-line)
+  (let loop ((cur last-new-line) (len 0))
+    (if (or (not (pair? cur)) (eqv? (car cur) 10)) ;; new line
+      (begin
+        ;(pp (list->string* last-new-line (+ 1 len)) )
+        (cons (and (pair? cur) (cdr cur)) (+ 1 len)))
+      (loop (cdr cur) (+ len 1)))))
+
+(define (detect-macro line len)
+  (let loop ((cur line) (cur-next (cdr line)) (len len) (start #f) (macro-len 0))
+    (if (<= len 1)
+      (cons #f #f)
+      (if (and (eqv? (car cur) 64) (eqv? (cadr cur) 64))
+        (if start
+          (cons start (+ 2 macro-len))
+          (loop (cdr cur-next) (cddr cur-next) (- len 1) cur 2))
+        (begin
+          (loop cur-next 
+              (cdr cur-next)
+              (- len 1)
+              start
+              (if start (+ macro-len 1) macro-len)))))))
+
+
+;; Can be redefined by ribbit to make this function really fast. It would only be (rib lst len string-type)
+(define (list->string* lst len)
+  (let ((str (make-string len #\0)))
+    (let loop ((lst lst) (i 0))
+      (if (< i len)
+        (begin
+          (string-set! str i (integer->char (car lst)))
+          (loop (cdr lst) (+ i 1)))
+        str))))
+
+(define (string->list* str)
+  (map char->integer (string->list str)))
+
+(define (parse-host-file cur-line)
+  (let loop ((cur-line cur-line)
+             (parsed-file '())
+             (start-len 0)
+             (start-line cur-line))
+    (if (pair? cur-line)
+      (let* ((next-line-pair (next-line cur-line))
+             (cur-end (car next-line-pair))
+             (cur-len (cdr next-line-pair))
+             (macro-pair (detect-macro cur-line cur-len))
+             (macro (car macro-pair))
+             (macro-len (cdr macro-pair))
+             #;(_ (if macro (pp (list->string* macro macro-len)))))
+        (cond 
+          ((and (eqv? macro-len 5)
+                (eqv? (caddr macro) 41))
+
+           (cons cur-end
+                 (reverse (cons (cons 'str (cons (list->string* start-line (+ cur-len start-len)) '())) parsed-file))))
+          (macro 
+            (let* ((parsed-file (if (eqv? start-len 0) parsed-file (cons (cons 'str (list->string* start-line start-len)) parsed-file)))
+                   (macro-string (list->string* (cddr macro) (- macro-len 4)))
+                   (p (open-input-string (string-append macro-string (make-string 1 (integer->char 41)))))
+                   (macro-sexp (read p))
+                   (last-char (read-char p))
+                   (macro-ended (not (eof-object? last-char))))
+              (if macro-ended
+                (loop
+                  cur-end
+                  (cons (append macro-sexp (cons (cons 'head (cons (list->string* cur-line cur-len) '())) '())) parsed-file)
+                  0
+                  cur-end)
+                (let* ((body-pair (parse-host-file cur-end))
+                       (body-cur-end (car body-pair))
+                       (body-parsed (cdr body-pair)))
+                  (loop body-cur-end
+                        (cons (append macro-sexp (cons (cons 'head (cons (list->string* cur-line cur-len) '())) (cons (cons 'body (cons body-parsed '())) '()))) parsed-file)
+                        0
+                        body-cur-end)))))
+          (else
+            (loop cur-end parsed-file (+ cur-len start-len) start-line))))
+      (reverse (cons (cons 'str (list->string* start-line start-len)) parsed-file)))))
+
 (let* ((str-file (string-from-file "host/c/rvm.c"))
-       (parsed-file (parse-host-file str-file))
-       (show-this '(rib rib? ))
-       (prims (extract-predicate (lambda (p) (and (eq? (car p) 'primitive) (memq (caadr p) show-this))) parsed-file))
-       (features (extract-features parsed-file))
-       (nfeatures (needed-features features (map (lambda (x) (cdr x)) prims)))
-       (generated (generate-file nfeatures (get-bodies prims str-file) parsed-file str-file))
+       (parsed-file (parse-host-file (string->list* str-file)))
+       ;(show-this '(rib rib? ))
+       ;(prims (extract-predicate (lambda (p) (and (eq? (car p) 'primitive) (memq (caadr p) show-this))) parsed-file))
+       ;(features (extract-features parsed-file))
+       ;(nfeatures (needed-features features (map (lambda (x) (cdr x)) prims)))
+       ;(generated (generate-file nfeatures (get-bodies prims str-file) parsed-file str-file))
        #;(prims-simplified 
          (map (lambda (x) (cons (caar x) (cdr x)))
               prims))
   )
   #;(pp parsed-file)
   #;(pp (get-bodies prims str-file))
-  (print generated)
+  (pp parsed-file)
   #;(pp nfeatures)
   #;(pp prims)
   #;(pp features))
