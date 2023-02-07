@@ -395,9 +395,9 @@ void show_operand(obj o) {
 
 #endif
 
-// @(feature boolean@
+// @@(feature boolean@@
 obj boolean(bool x) { return x ? CAR(FALSE) : FALSE; }
-// @)@
+// @@)@@
 
 void prim(int no) {
   switch (no) { 

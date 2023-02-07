@@ -165,11 +165,11 @@ primitives = [
   prim2((y, x) => x[1]=y),                          //  @@(primitive (field1-set! rib))@@
   prim2((y, x) => x[2]=y),                          //  @@(primitive (field2-set! rib))@@
   prim2((y, x) => to_bool(x===y)),                  //  @@(primitive (eqv? x y))@@
-  prim2((y, x) => to_bool(x<y)),                    //  @@(primitive (lt x y))@@
-  prim2((y, x) => x+y),                             //  @@(primitive (add x y))@@
-  prim2((y, x) => x-y),                             //  @@(primitive (sub x y))@@
-  prim2((y, x) => x*y),                             //  @@(primitive (mul x y))@@
-  prim2((y, x) => x/y|0),                           //  @@(primitive (div x y))@@
+  prim2((y, x) => to_bool(x<y)),                    //  @@(primitive (< x y))@@
+  prim2((y, x) => x+y),                             //  @@(primitive (+ x y))@@
+  prim2((y, x) => x-y),                             //  @@(primitive (- x y))@@
+  prim2((y, x) => x*y),                             //  @@(primitive (* x y))@@
+  prim2((y, x) => x/y|0),                           //  @@(primitive (quotient x y))@@
   getchar,                                          //  @@(primitive (getchar))@@
   prim1(putchar),                                   //  @@(primitive (putchar c))@@
   () => pop() && halt(),//will crash with error on != 0 @@(primitive (exit n))@@

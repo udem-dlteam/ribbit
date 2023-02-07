@@ -1080,6 +1080,8 @@
          (not (memv #f (map cond-expand-eval (cdr expr)))))
         ((and (pair? expr) (eqv? (car expr) 'or))
          (not (not (memv #t (map cond-expand-eval (cdr expr))))))
+        ((and (pair? expr) (eqv? (car expr) 'host))
+         (eqv? (cadr expr) (string->symbol target)))
         (else
          (eqv? expr 'ribbit))))
 
@@ -2190,6 +2192,7 @@
      0 ;; verbosity
      (read-all)))))
 
+(define target "rvm")
 (cond-expand
 
   (ribbit  ;; Ribbit does not have access to the command line...
@@ -2201,7 +2204,7 @@
    (define (fancy-compiler src-path
                            output-path
                            rvm-path
-                           target
+                           _target
                            input-path
                            lib-path
                            minify?
@@ -2218,16 +2221,17 @@
                          (path-expand rvm-path
                                       (root-dir))))
             (parsed-file 
-              (if (equal? target "rvm")
+              (if (equal? _target "rvm")
                 #f
                 (parse-host-file 
                   (string->list* vm-source
                     )))))
+       (set! target _target)
 
        (write-target-code
          output-path
          (generate-code
-           target
+           _target
            verbosity
            input-path
            rvm-path
