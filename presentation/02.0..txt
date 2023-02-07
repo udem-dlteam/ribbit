@@ -1,0 +1,17 @@
+
+
+Deux composantes : 
+
+- `rsc` le compilateur vers du bytecode RVM
+- `rvm` les différents hosts
+
+Par exemple, on peut exécuter : 
+
+$ ./rsc -t js -l max tests/50-repl.scm -o repl.js
+$ node repl.js
+
+Ou pour les amateurs de languages typés : 
+
+$ ./rsc -t hs -l max tests/50-repl.scm -o repl.hs
+$ ghc repl && ./repl
+
