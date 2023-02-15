@@ -769,7 +769,7 @@
           (loop (cdr prims) i result)))
       (reverse result))))
 
-(define (comp-exprs-with-exports-and-prims exprs primitives exports)
+#;(define (comp-exprs-with-exports-and-prims exprs primitives exports)
   (set! current-primitives primitives)
   (let* ((expansion
           (expand-begin exprs))
@@ -799,30 +799,56 @@
 
 (define (compile-program verbosity parsed-vm program)
   (let* ((exprs-and-exports
-          (extract-exports program))
+           (extract-exports program))
          (exprs
-          (car exprs-and-exports))
+           (car exprs-and-exports))
+         (exprs 
+           (if (pair? exprs) exprs (cons #f '())))
          (exports
-          (cdr exprs-and-exports))
+           (exports->alist (cdr exprs-and-exports)))
          (primitives
            (and parsed-vm (extract-primitives parsed-vm)))
+         (_ (set! current-primitives primitives)) ;; hack to propagate the current-primitives to expand-begin
+         (expansion
+           (expand-begin exprs))
+         (live
+           (liveness-analysis expansion exports))
+         (prims
+           (if current-primitives
+             (let ((live-primitives (used-primitives current-primitives live)))
+               (set-primitive-order live-primitives current-primitives))
+             #f))
+         (exports
+           (or exports
+               (map (lambda (v)
+                      (let ((var (car v)))
+                        (cons var var)))
+                    live)))
          (proc-exports-and-prims
-          (comp-exprs-with-exports-and-prims
-           (if (pair? exprs) exprs (cons #f '()))
-           primitives
-           (exports->alist exports))))
+           (cons
+             (make-procedure
+               (rib 0 ;; 0 parameters
+                    0
+                    (comp (make-ctx '() live exports)
+                          expansion
+                          tail))
+               '())
+             (cons exports
+                   prims)))
+
+         )
     (if (>= verbosity 2)
-        (begin
-          (display "*** RVM code:\n")
-          (pp (car proc-exports-and-prims))))
+      (begin
+        (display "*** RVM code:\n")
+        (pp (car proc-exports-and-prims))))
     (if (>= verbosity 3)
-        (begin
-          (display "*** exports:\n")
-          (pp (cadr proc-exports-and-prims))))
+      (begin
+        (display "*** exports:\n")
+        (pp (cadr proc-exports-and-prims))))
     (if (>= verbosity 2)
-        (begin
-          (display "*** Live primitives:\n")
-          (pp (cddr proc-exports-and-prims))))
+      (begin
+        (display "*** Live primitives:\n")
+        (pp (cddr proc-exports-and-prims))))
     proc-exports-and-prims))
 
 ;;;----------------------------------------------------------------------------
