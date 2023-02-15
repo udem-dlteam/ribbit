@@ -769,34 +769,6 @@
           (loop (cdr prims) i result)))
       (reverse result))))
 
-#;(define (comp-exprs-with-exports-and-prims exprs primitives exports)
-  (set! current-primitives primitives)
-  (let* ((expansion
-          (expand-begin exprs))
-         (live
-          (liveness-analysis expansion exports))
-         (prims
-           (if current-primitives
-             (let ((live-primitives (used-primitives current-primitives live)))
-               (set-primitive-order live-primitives current-primitives))
-             #f))
-         (exports
-          (or exports
-              (map (lambda (v)
-                     (let ((var (car v)))
-                       (cons var var)))
-                   live))))
-    (cons
-     (make-procedure
-      (rib 0 ;; 0 parameters
-           0
-           (comp (make-ctx '() live exports)
-                 expansion
-                 tail))
-      '())
-     (cons exports
-           prims))))
-
 (define (compile-program verbosity parsed-vm program)
   (let* ((exprs-and-exports
            (extract-exports program))
@@ -834,9 +806,7 @@
                           tail))
                '())
              (cons exports
-                   prims)))
-
-         )
+                   prims))))
     (if (>= verbosity 2)
       (begin
         (display "*** RVM code:\n")
