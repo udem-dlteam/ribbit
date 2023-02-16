@@ -1755,23 +1755,26 @@
   (define primitives-body (cadr (soft-assoc 'body (soft-assoc 'primitives parsed-file))))
   (filter (lambda (x) (eq? (car x) 'primitive)) primitives-body))
 
+(define (pp-return x)
+  (pp x)
+  x)
+
 (define (extract-primitives parsed-file)
-  (extract
-    (lambda (prim acc rec)
-      (case (car prim)
-        ((primitive)
-         (let ((body (rec ""))
-               (head (cadr (soft-assoc 'head prim)))
-               (use (soft-assoc 'use prim)))
-           (append acc (cons (cons (caadr prim) 
-                                   (cons 'tbd (cons (cadr prim) (cons (cons 'body (cons (if (eqv? (string-length body) 0) head body) '())) 
-                                                                      (cons (cons 'head (cons head '())) 
-                                                                            (or use '())))))) '()))))
-        ((str)
-         (cadr prim))))
-    (extract-primitives-body parsed-file)
-    
-    '())
+  (pp-return (reverse
+    (extract
+      (lambda (prim acc rec)
+        (case (car prim)
+          ((primitive)
+           (let ((body (rec ""))
+                 (new-prim (filter (lambda (x) (and (pair? x) (not (eq? (car x) 'body)))) prim))) ;;remove body clause
+             (cons (cons (caadr prim) 
+                         (cons 'tbd
+                               (append new-prim (cons (cons 'body (cons body '())) '())))) acc)))
+          ((str)
+           (cadr prim))))
+      (extract-primitives-body parsed-file)
+
+      '())))
   #;(extract-predicate (lambda (prim) (eq? (car prim) 'primitive)) parsed-file))
 
 (define (extract-features parsed-file)
@@ -1809,10 +1812,45 @@
       (loop (cdr cur) (+ len 1)))))
 
 (define (detect-macro line len)
-  (let loop ((cur line) (cur-next (cdr line)) (len len) (start #f) (macro-len 0))
-    (if (<= len 1)
-      (cons #f #f)
-      (if (and (eqv? (car cur) 64) (eqv? (cadr cur) 64))
+  (let loop ((cur line) (len len) (start #f) (macro-len 0))
+    (if (<= len 2)
+      (if start
+        (cons 
+          'start
+          (cons start
+                (+ 1 macro-len)))
+        (cons 'none '()))
+      (cond
+        ((and (eqv? (car cur) 64)     ;; #\@
+              (eqv? (cadr cur) 64)    ;; #\@
+              (eqv? (caddr cur) 40))  ;; #\(
+         (if start
+           (error "cannot start 2 @@\\( on the same line")
+           (loop (cdddr cur)
+                 (- len 3)
+                 cur
+                 3)))
+        ((and (eqv? (car cur)  41)    ;; #\)
+              (eqv? (cadr cur) 64)    ;; #\@
+              (eqv? (cadr cur) 64))   ;; #\@
+         (if start
+           (cons
+             'start-end ;; type
+             (cons 
+               start
+               (+ 3 macro-len)))
+           (cons 
+             'end ;; type
+             '())))
+        (else
+          (loop (cdr cur)
+                (- len 1)
+                start
+                (if start (+ macro-len 1) macro-len)))))))
+
+      #;(if (and (eqv? (car cur) 64)    ;; @
+               (eqv? (cadr cur) 64)   ;; @
+               (eqv? (caddr cur) 40)) ;; #\
         (if start
           (cons start (+ 2 macro-len))
           (loop (cdr cur-next) (cddr cur-next) (- len 1) cur 2))
@@ -1821,8 +1859,7 @@
               (cdr cur-next)
               (- len 1)
               start
-              (if start (+ macro-len 1) macro-len)))))))
-
+              (if start (+ macro-len 1) macro-len))))
 
 ;; Can be redefined by ribbit to make this function really fast. It would only be (rib lst len string-type)
 (define (list->string* lst len)
@@ -1847,124 +1884,58 @@
              (cur-end (car next-line-pair))
              (cur-len (cdr next-line-pair))
              (macro-pair (detect-macro cur-line cur-len))
-             (macro (car macro-pair))
-             (macro-len (cdr macro-pair))
-             #;(_ (if macro (pp (list->string* macro macro-len)))))
-        (cond 
-          ((and (eqv? macro-len 5)
-                (eqv? (caddr macro) 41))
+             (macro-type (car macro-pair))
+             (macro-args (cdr macro-pair))
+             (parsed-file 
+               (cond
+                 ((eqv? macro-type 'end) ;; include last line
+                  (cons (cons 'str (cons (list->string* start-line (+ cur-len start-len)) '())) parsed-file))
+                 ((eqv? start-len 0)
+                  parsed-file)
+                 ((or (eqv? macro-type 'start) 
+                      (eqv? macro-type 'start-end))
+                  (cons (cons 'str (cons (list->string* start-line start-len) '())) parsed-file))
+                 (else
+                   parsed-file)))
+             #;(_ (if macro (pp (list->string* macro macro-len))))
+             )
 
+        (cond 
+          ((eqv? macro-type 'end)
            (cons cur-end
-                 (reverse (cons (cons 'str (cons (list->string* start-line (+ cur-len start-len)) '())) parsed-file))))
-          (macro 
-            (let* ((parsed-file (if (eqv? start-len 0) parsed-file (cons (cons 'str (cons (list->string* start-line start-len) '())) parsed-file)))
-                   (macro-string (list->string* (cddr macro) (- macro-len 4)))
-                   (p (open-input-string (string-append macro-string (make-string 1 (integer->char 41)))))
-                   (macro-sexp (read p))
-                   (last-char (read-char p))
-                   (macro-ended (not (eof-object? last-char))))
-              (if macro-ended
-                (loop
-                  cur-end
-                  (cons (append macro-sexp (cons (cons 'head (cons (list->string* cur-line cur-len) '())) '())) parsed-file)
-                  0
-                  cur-end)
-                (let* ((body-pair (parse-host-file cur-end))
-                       (body-cur-end (car body-pair))
-                       (body-parsed (cdr body-pair)))
-                  (loop body-cur-end
-                        (cons (append macro-sexp (cons (cons 'head (cons (list->string* cur-line cur-len) '())) (cons (cons 'body (cons body-parsed '())) '()))) parsed-file)
-                        0
-                        body-cur-end)))))
-          (else
-            (loop cur-end parsed-file (+ cur-len start-len) start-line))))
+                 (reverse parsed-file)))
+          ((eqv? macro-type 'none)
+           (loop cur-end parsed-file (+ cur-len start-len) start-line))
+          ((eqv? macro-type 'start)
+           (let* ((macro (car macro-args))
+                  (macro-len (cdr macro-args))
+                  (macro-string (list->string* (cddr macro) (- macro-len 2)))
+                  (macro-sexp (read (open-input-string (string-append macro-string ")"))))
+                  (body-pair (parse-host-file cur-end))
+                  (body-cur-end (car body-pair))
+                  (body-parsed  (cdr body-pair))
+                  (head (cons 'head (cons (list->string* cur-line cur-len) '())))
+                  (body (cons 'body (cons body-parsed '()))))
+             (loop body-cur-end
+                   (cons (append macro-sexp (cons head (cons body '()))) parsed-file)
+                   0
+                   body-cur-end)))
+          ((eqv? macro-type 'start-end)
+           (let* ((macro (car macro-args))
+                  (macro-len (cdr macro-args))
+                  (macro-string (list->string* (cddr macro) (- macro-len 4)))
+                  (macro-sexp (read (open-input-string macro-string)))
+                  (head-parsed (list->string* cur-line cur-len))
+                  (body (cons 'body (cons (cons (cons 'str (cons head-parsed '())) '()) '())))
+                  (head (cons 'head (cons head-parsed '()))))
+             (loop
+               cur-end
+               (cons (append macro-sexp (cons head (cons body '()))) parsed-file)
+               0
+               cur-end)))
+          (else (error "Unknown macro-type"))))
       (reverse (cons (cons 'str (cons (list->string* start-line start-len) '())) parsed-file)))))
 
-#;(define (parse-host-file file-str)
-  (define MACRO_CHAR 64) ;#\@
-
-  (let ((str-len (string-length file-str)))
-    (let loop ((i 0) 
-               (start 0)
-               (last-new-line 0)
-               (current-macro #f)
-               (parsed-file '()))
-
-      (if (< i (- str-len 2))
-        (let* ((current-char      (char->integer (string-ref file-str i)))
-               (next-char         (char->integer (string-ref file-str (+ i 1))))
-               (next-next-char    (char->integer (string-ref file-str (+ i 2))))
-               (last-new-line     (if (= current-char 10) i last-new-line)))
-          (cond 
-            ((and 
-               (not current-macro)
-               (= current-char MACRO_CHAR)
-               (= next-char    MACRO_CHAR)
-               (= next-next-char 40))
-             (loop (+ 2 i)
-                   start
-                   last-new-line
-                   (cons (cons 'head (cons last-new-line (cons i '()))) '()) ;; '((head ,last-new-line ,i))
-                   (append parsed-file (cons (cons '%str (cons start (cons i '()))) '()))))
-
-            ((and 
-               (not current-macro)
-               (= current-char MACRO_CHAR)
-               (= next-char    MACRO_CHAR)
-               (= next-next-char 41))
-             (cons (cons (+ 3 i) last-new-line) 
-                   (append parsed-file 
-                           (cons (cons '%str 
-                                       (cons 
-                                         start
-                                         (cons i '()))) 
-                                 '()))))
-             ((and
-                current-macro
-                (= current-char MACRO_CHAR)
-                (= next-char MACRO_CHAR))
-              (let* ((num-parents 1)
-                     (macro-start (+ 2 (caddr (assq 'head current-macro))))
-                     (macro-string (substring file-str macro-start i))
-                     (p (open-input-string 
-                          (string-append macro-string (make-string num-parents (integer->char 41)))))
-                     (macro-sexp (read p))
-                     (last-char (read-char p))
-                     (macro-ended (not (eof-object? last-char))))
-                (if macro-ended
-                  (loop (+ i 2)
-                        (+ i 2)
-                        last-new-line
-                        #f
-                        (append
-                          parsed-file
-                          (cons
-                            (append macro-sexp current-macro)
-                            '())))
-                  (let* ((body-pair
-                           (loop (+ i 2)
-                                 (+ i 2)
-                                 last-new-line
-                                 #f
-                                 '()))
-                         (body-i (caar body-pair))
-                         (body-last-new-line (cdar body-pair))
-                         (body (cdr body-pair)))
-                    (loop body-i
-                          body-i
-                          body-last-new-line
-                          #f
-                          (append 
-                            parsed-file
-                            (cons (append macro-sexp (append current-macro (cons (cons 'body (cons body '())) '()))) '())))))))
-
-             (else
-               (loop (+ i 1)
-                     start
-                     last-new-line
-                     current-macro
-                     parsed-file))))
-          (append parsed-file (cons (cons '%str (cons start (cons (+ 2 i) '()))) '()))))))
 
 (define (unique-aux lst1 lst2)
   (if (pair? lst1)
