@@ -46,9 +46,11 @@ fun setGlobal(value: Any) {
     symbolTable = symbolTable.asRib()[1]
 }
 
+// @@(feature boolean
 fun toBool(x: Boolean): Rib {
     return if (x) TRUE else FALSE
 }
+// )@@
 
 fun getByte(): Int = CODE[pos++].code
 
@@ -136,6 +138,7 @@ fun listTail(rib: Rib, index: Int): Rib =
     }
 
 var PRIMITIVES = arrayOf(
+    // @@(primitives (gen body ",")
     prim3 { z, y, x -> rib(x, y, z) },  // @@(primitive (rib z y x))@@
     prim1 { it },                       // @@(primitive (id x))@@
     ::pop,                              // @@(primitive (pop))@@
@@ -156,7 +159,8 @@ var PRIMITIVES = arrayOf(
     prim2 { y, x -> (x as Int) / y as Int }, // @@(primitive (/ x y))@@
     ::getCar,                            // @@(primitive (get-char))@@
     prim1(::putChar),                    // @@(primitive (put-char c))@@
-    prim1 { exitProcess(0) },       // @@(primitive (exit))@@
+    prim1 { exitProcess(0) },      // @@(primitive (exit))@@
+    // )@@
 )
 
 var pos = 0
