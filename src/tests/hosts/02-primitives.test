@@ -1,0 +1,20 @@
+// @@(use-feature prim1 prim2)@@
+
+visible
+// @@(primitives (gen body)
+hidden
+// @@(primitive (prim0 x y)
+hidden
+// )@@
+hidden
+// @@(primitive (prim1) (other prop)
+visible
+// )@@
+hidden
+// @@(primitive (prim2) (hey there)
+visible
+// )@@
+hidden
+// )@@
+visible
+
