@@ -787,7 +787,12 @@
            (liveness-analysis expansion exports))
          (prims
            (if current-primitives
-             (let ((live-primitives (used-primitives current-primitives live)))
+             (let ((live-primitives 
+                     (used-primitives 
+                       current-primitives 
+                       (append 
+                         (map (lambda (x) (cons x #f)) (extract-use-feature parsed-vm '()))
+                         live))))
                (set-primitive-order live-primitives current-primitives))
              default-primitives))
          (exports
@@ -1790,7 +1795,7 @@
         ((primitives)
          (append (rec '()) acc))
         ((primitive)
-         (let ((is-used (assoc (caadr prim) used-primitives))
+         (let ((is-used (memq (caadr prim) used-primitives))
                (use (soft-assoc 'use prim)))
            (if (and is-used use)
              (append (cdr use) acc)
