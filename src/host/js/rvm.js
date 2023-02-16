@@ -140,7 +140,33 @@ pc = n[0][2];
 stack = [0,0,[5,0,0]]; // primordial continuation (executes halt instr.)
 
 push = (x) => ((stack = [x,stack,0]), true);
-to_bool = (x) => x ? TRUE : FALSE;
+// @@(feature debug
+log_return = (s) => {console.log(s); return s;}
+// )@@
+// @@(feature bool_to_rib
+bool_to_rib = (x) => x ? TRUE : FALSE;
+// )@@
+// @@(feature str_to_rib
+str_to_rib = (s) => {
+    let l = s.length
+    let i = l
+    let a = NIL
+    while (i) a=[s.charCodeAt(--i),a,0];
+    return [a,l,3]
+}
+// )@@
+// @@(feature rib_to_str
+rib_to_str = (r) => {
+    let f = (c) => (c===NIL?"":String.fromCharCode(c[0])+f(c[1]))
+    return f(r[0])
+}
+// )@@
+// @@(feature any_to_rib (use list_to_rib str_to_rib bool_to_rib)
+any_to_rib = (v) => ({"number":(x)=>x,"boolean":bool_to_rib,"string":str_to_rib,"object":list_to_rib}[typeof v](v))
+// )@@
+// @@(feature list_to_rib (use any_to_rib)
+list_to_rib = (l,i=0) => (i<l.length?[any_to_rib(l[i]),list_to_rib(l,i+1),0]:NIL)
+// )@@
 is_rib = (x) => x[lengthAttr];
 
 get_opnd = (o) => is_rib(o) ? o : list_tail(stack,o);
@@ -157,15 +183,15 @@ primitives = [
   () => (pop(), true),                              //  @@(primitive (arg1 x y))@@
   () => { let y = pop(); pop(); return push(y); },  //  @@(primitive (arg2 x y))@@
   () => push([pop()[0],stack,1]),                   //  @@(primitive (close rib))@@
-  prim1((x) => to_bool(is_rib(x))),                 //  @@(primitive (rib? rib))@@
+  prim1((x) => bool_to_rib(is_rib(x))),             //  @@(primitive (rib? rib) (use bool_to_rib))@@
   prim1((x) => x[0]),                               //  @@(primitive (field0 rib))@@
   prim1((x) => x[1]),                               //  @@(primitive (field1 rib))@@
   prim1((x) => x[2]),                               //  @@(primitive (field2 rib))@@
   prim2((y, x) => x[0]=y),                          //  @@(primitive (field0-set! rib))@@
   prim2((y, x) => x[1]=y),                          //  @@(primitive (field1-set! rib))@@
   prim2((y, x) => x[2]=y),                          //  @@(primitive (field2-set! rib))@@
-  prim2((y, x) => to_bool(x===y)),                  //  @@(primitive (eqv? x y))@@
-  prim2((y, x) => to_bool(x<y)),                    //  @@(primitive (< x y))@@
+  prim2((y, x) => bool_to_rib(x===y)),              //  @@(primitive (eqv? x y) (use bool_to_rib))@@
+  prim2((y, x) => bool_to_rib(x<y)),                //  @@(primitive (< x y) (use bool_to_rib))@@
   prim2((y, x) => x+y),                             //  @@(primitive (+ x y))@@
   prim2((y, x) => x-y),                             //  @@(primitive (- x y))@@
   prim2((y, x) => x*y),                             //  @@(primitive (* x y))@@
