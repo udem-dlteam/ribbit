@@ -789,7 +789,7 @@
            (if current-primitives
              (let ((live-primitives (used-primitives current-primitives live)))
                (set-primitive-order live-primitives current-primitives))
-             #f))
+             default-primitives))
          (exports
            (or exports
                (map (lambda (v)
@@ -940,7 +940,7 @@
 
                 ((eqv? (car expr) 'define-primitive)
                  (if (not current-primitives)
-                   (error "Cannot use define-primitive while target a non-modifiable host")
+                   (error "Cannot use define-primitive while targeting a non-modifiable host")
                    (let* ((prim-num (cons 'tbd 
                                           (cons (cons 'quote (cons 0 '())) 
                                                 (cons (cons 'quote (cons 1 '())) '())))) ;; creating cell that will be set later on
@@ -1760,21 +1760,22 @@
   x)
 
 (define (extract-primitives parsed-file)
-  (pp-return (reverse
-    (extract
-      (lambda (prim acc rec)
-        (case (car prim)
-          ((primitive)
-           (let ((body (rec ""))
-                 (new-prim (filter (lambda (x) (and (pair? x) (not (eq? (car x) 'body)))) prim))) ;;remove body clause
-             (cons (cons (caadr prim) 
-                         (cons 'tbd
-                               (append new-prim (cons (cons 'body (cons body '())) '())))) acc)))
-          ((str)
-           (cadr prim))))
-      (extract-primitives-body parsed-file)
-
-      '())))
+  (and
+    (soft-assoc 'primitives parsed-file) ;; check if body is present in primitives
+    (reverse
+      (extract
+        (lambda (prim acc rec)
+          (case (car prim)
+            ((primitive)
+             (let ((body (rec ""))
+                   (new-prim (filter (lambda (x) (and (pair? x) (not (eq? (car x) 'body)))) prim))) ;;remove body clause
+               (cons (cons (caadr prim) 
+                           (cons 'tbd
+                                 (append new-prim (cons (cons 'body (cons body '())) '())))) acc)))
+            ((str)
+             (cadr prim))))
+        (extract-primitives-body parsed-file)
+        '())))
   #;(extract-predicate (lambda (prim) (eq? (car prim) 'primitive)) parsed-file))
 
 (define (extract-features parsed-file)
