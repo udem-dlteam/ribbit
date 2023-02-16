@@ -1781,6 +1781,25 @@
 (define (extract-features parsed-file)
   (extract-predicate (lambda (prim) (eq? (car prim) 'feature)) parsed-file))
 
+(define (extract-use-feature parsed-file used-primitives)
+  (extract
+    (lambda (prim acc rec)
+      (case (car prim)
+        ((use-feature)
+         (append (filter symbol? (cdr prim)) acc))
+        ((primitives)
+         (append (rec '()) acc))
+        ((primitive)
+         (let ((is-used (assoc (caadr prim) used-primitives))
+               (use (soft-assoc 'use prim)))
+           (if (and is-used use)
+             (append (cdr use) acc)
+             acc)))
+        (else
+          acc)))
+    parsed-file
+    '()))
+
 (define (extract-predicate predicate parsed-file)
   (extract (lambda (prim acc rec)
              (if (predicate prim)
@@ -1948,15 +1967,8 @@
 (define (unique lst)
   (unique-aux lst '()))
 
-(define (needed-features features activated-prims)
-  (let loop ((to-process (unique
-                           (fold (lambda (prim acc) 
-                                   (let ((uses (soft-assoc 'uses prim)))
-                                     (if uses
-                                       (append (cdr uses) acc)
-                                       acc)))
-                                 '()
-                                 activated-prims)))
+(define (needed-features features activated-features)
+  (let loop ((to-process activated-features)
              (needed-features '()))
     (if (pair? to-process)
 
@@ -2043,9 +2055,11 @@
     (if primitives
       (let* ((parsed-file (parse-host-file (string->list* host-str)))
              (features (extract-features parsed-file))
+             (used-primitives (map car primitives))
+             (activated-features (unique (append (extract-use-feature parsed-file used-primitives) used-primitives)))
              (used-features (needed-features 
                               features 
-                              primitives)))
+                              activated-features)))
         (generate-file 
           used-features
           primitives
