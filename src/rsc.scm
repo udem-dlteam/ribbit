@@ -2024,10 +2024,11 @@
                acc 
                (apply string-append
                       (map generate-one included-prims)))))
+          ((use-feature)
+           (string-append acc (rec "")))
           ((primitive)
            acc) 
           (else
-            
             acc)))
     parsed-file
     ""))
