@@ -783,6 +783,7 @@
          (_ (set! current-primitives primitives)) ;; hack to propagate the current-primitives to expand-begin
          (expansion
            (expand-begin exprs))
+         (_ (pp current-primitives))
          (live
            (liveness-analysis expansion exports))
          (prims
@@ -1980,18 +1981,17 @@
       (let* ((current (car to-process))
              (current-feature (find (lambda (feature) (eq? (car feature) current))
                                     features))
-             (current-used (soft-assoc 'used current-feature))
+             (current-used (soft-assoc 'use current-feature))
              (current-used (if current-used (cdr current-used) '())))
         (loop 
           (fold (lambda (x acc) 
-                  (if (not (and (memq x to-process)
-                                (memq x (needed-features))))
-                    (cons x acc)
-                    acc))
+                  (if (memq x (append needed-features to-process))
+                    acc
+                    (cons x acc)))
                 (cdr to-process)
                 current-used)
           (cons current needed-features)))
-      needed-features)))
+      (unique needed-features))))
 
 (define (generate-file nfeatures included-prims parsed-file str-file)
   (extract
@@ -2062,9 +2062,9 @@
       (let* ((parsed-file (parse-host-file (string->list* host-str)))
              (features (extract-features parsed-file))
              (used-primitives (map car primitives))
-             (activated-features (unique (append (extract-use-feature parsed-file used-primitives) used-primitives)))
+             (activated-features used-primitives)
              (used-features (needed-features 
-                              features 
+                              (append primitives (map cdr features)) 
                               activated-features)))
         (generate-file 
           used-features
