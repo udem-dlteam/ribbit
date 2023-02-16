@@ -395,8 +395,8 @@ void show_operand(obj o) {
 
 #endif
 
-// @@(feature boolean
-obj boolean(bool x) { return x ? CAR(FALSE) : FALSE; }
+// @@(feature to_bool
+obj rvm_to_bool(bool x) { return x ? CAR(FALSE) : FALSE; }
 // )@@
 
 void prim(int no) {
@@ -438,10 +438,10 @@ void prim(int no) {
     TOS = TAG_RIB(alloc_rib(x, y, CLOSURE_TAG));
     break;
   } //)@@
-  case 5: // @@(primitive (rib? rib) (uses boolean)
+  case 5: // @@(primitive (rib? rib) (uses to_bool)
   {
     PRIM1();
-    push2(boolean(IS_RIB(x)), PAIR_TAG);
+    push2(rvm_to_bool(IS_RIB(x)), PAIR_TAG);
     break;
   } //)@@
   case 6: // @@(primitive (field0 rib)
@@ -480,16 +480,16 @@ void prim(int no) {
     push2(TAG(x) = y, PAIR_TAG);
     break;
   } // )@@
-  case 12:  // @@(primitive (eqv? rib1 rib2) (uses boolean)
+  case 12:  // @@(primitive (eqv? rib1 rib2) (uses to_bool)
   {
     PRIM2();
-    push2(boolean(x == y), PAIR_TAG);
+    push2(rvm_to_bool(x == y), PAIR_TAG);
     break;
   } //)@@
-  case 13:  // @@(primitive (< x y) (uses boolean)
+  case 13:  // @@(primitive (< x y) (uses to_bool)
   {
     PRIM2();
-    push2(boolean(NUM(x) < NUM(y)), PAIR_TAG);
+    push2(rvm_to_bool(NUM(x) < NUM(y)), PAIR_TAG);
     break;
   } //)@@
   case 14:  // @@(primitive (+ x y)

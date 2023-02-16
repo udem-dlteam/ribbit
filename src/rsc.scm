@@ -783,7 +783,6 @@
          (_ (set! current-primitives primitives)) ;; hack to propagate the current-primitives to expand-begin
          (expansion
            (expand-begin exprs))
-         (_ (pp current-primitives))
          (live
            (liveness-analysis expansion exports))
          (prims
@@ -1709,7 +1708,15 @@
         (cons x (read-all)))))
 
 (define (read-from-file path)
-  (with-input-from-file path read-all))
+  (let* ((file-str (string-from-file path))
+         (port (open-input-string file-str)))
+
+    (if (and (eqv? (char->integer (string-ref file-str 0)) 35) ; #\#
+             (eqv? (char->integer (string-ref file-str 1)) 33)) ; #\!
+      (read-line port)) ;; skip line
+    (read port))
+
+  #;(with-input-from-file path read-all))
 
 (define (read-library lib-path)
   (read-from-file
@@ -1889,7 +1896,7 @@
 
 ;; Can be redefined by ribbit to make this function really fast. It would only be (rib lst len string-type)
 (define (list->string* lst len)
-  (let ((str (make-string len #\0)))
+  (let ((str (make-string len (integer->char 48))))
     (let loop ((lst lst) (i 0))
       (if (< i len)
         (begin
@@ -2176,8 +2183,10 @@
     #f     ;; rvm-path
     #f     ;; minify?
     #f     ;; primitives
+    #f     ;; vm-source
     (compile-program
      0 ;; verbosity
+     #f ;; vm-source
      (read-all)))))
 
 (define target "rvm")
