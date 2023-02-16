@@ -2171,7 +2171,7 @@
    (define (fancy-compiler src-path
                            output-path
                            rvm-path
-                           _target
+                           _target 
                            input-path
                            lib-path
                            minify?
@@ -2248,7 +2248,7 @@
                           (set! primitives (read (open-input-string (car rest))))
                           (loop (cdr rest)))
                          ((and (pair? rest) (member arg '("-r" "--rvm")))
-                          (set! rvm (cdr rest))
+                          (set! rvm-path (car rest))
                           (loop (cdr rest)))
                          ((member arg '("-v" "--v"))
                           (set! verbosity (+ verbosity 1))
