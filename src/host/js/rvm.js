@@ -151,7 +151,7 @@ prim2 = (f) => () => push(f(pop(),pop()));
 prim3 = (f) => () => push(f(pop(),pop(),pop()));
 
 primitives = [
-// @@(primitives (gen body)@@
+// @@(primitives (gen body)
   prim3((z, y, x) => [x, y, z]),                    //  @@(primitive (rib a b c))@@
   prim1((x) => x),                                  //  @@(primitive (id x))@@
   () => (pop(), true),                              //  @@(primitive (arg1 x y))@@
@@ -173,7 +173,7 @@ primitives = [
   getchar,                                          //  @@(primitive (getchar))@@
   prim1(putchar),                                   //  @@(primitive (putchar c))@@
   () => pop() && halt(),//will crash with error on != 0 @@(primitive (exit n))@@
-// @@)@@
+// )@@
 ];
 
 run = () => {
