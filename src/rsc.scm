@@ -1701,6 +1701,8 @@
 (define (root-dir)
   (rsc-path-directory (or (script-file) (executable-path))))
 
+(define %read-all read-all)
+
 (define (read-all)
   (let ((x (read)))
     (if (eof-object? x)
@@ -1714,9 +1716,7 @@
     (if (and (eqv? (char->integer (string-ref file-str 0)) 35) ; #\#
              (eqv? (char->integer (string-ref file-str 1)) 33)) ; #\!
       (read-line port)) ;; skip line
-    (read port))
-
-  #;(with-input-from-file path read-all))
+    (%read-all port)))
 
 (define (read-library lib-path)
   (read-from-file
@@ -1726,7 +1726,7 @@
        lib-path)))
 
 (define (read-program lib-path src-path)
-  (append (read-library lib-path)
+  (append (apply append (map read-library lib-path))
           (if (equal? src-path "-")
               (read-all)
               (read-from-file src-path))))
@@ -1742,23 +1742,6 @@
       (car lst)
       (find predicate (cdr lst)))
     #f))
-
-#;(define (populate-prims prims str-file)
-  (extract
-    (lambda (prim acc rec)
-      (case (car prim)
-        ((primitive)
-         (let ((body (rec ""))
-               (head (apply substring (cons str-file (cdr (soft-assoc 'head prim)))))
-               (use (soft-assoc 'use prims)))
-           (append acc (cons (cons (caadr prim) 
-                                   (cons 'tbd (cons (cadr prim) (cons (cons 'body (cons (if (eqv? (string-length body) 0) head body) '())) 
-                                                                      (cons (cons 'head (cons head '())) 
-                                                                            (or use '())))))) '()))))
-        ((str)
-         (cadr ))))
-    prims
-    '()))
 
 (define (soft-assoc sym lst)
   (find (lambda (e) (and (pair? e) (eq? (car e) sym)))
@@ -1788,8 +1771,7 @@
             ((str)
              (cadr prim))))
         (extract-primitives-body parsed-file)
-        '())))
-  #;(extract-predicate (lambda (prim) (eq? (car prim) 'primitive)) parsed-file))
+        '()))))
 
 (define (extract-features parsed-file)
   (extract-predicate (lambda (prim) (eq? (car prim) 'feature)) parsed-file))
@@ -1881,19 +1863,6 @@
                 start
                 (if start (+ macro-len 1) macro-len)))))))
 
-      #;(if (and (eqv? (car cur) 64)    ;; @
-               (eqv? (cadr cur) 64)   ;; @
-               (eqv? (caddr cur) 40)) ;; #\
-        (if start
-          (cons start (+ 2 macro-len))
-          (loop (cdr cur-next) (cddr cur-next) (- len 1) cur 2))
-        (begin
-          (loop cur-next 
-              (cdr cur-next)
-              (- len 1)
-              start
-              (if start (+ macro-len 1) macro-len))))
-
 ;; Can be redefined by ribbit to make this function really fast. It would only be (rib lst len string-type)
 (define (list->string* lst len)
   (let ((str (make-string len (integer->char 48))))
@@ -1929,9 +1898,7 @@
                       (eqv? macro-type 'start-end))
                   (cons (cons 'str (cons (list->string* start-line start-len) '())) parsed-file))
                  (else
-                   parsed-file)))
-             #;(_ (if macro (pp (list->string* macro macro-len))))
-             )
+                   parsed-file))))
 
         (cond 
           ((eqv? macro-type 'end)
@@ -2249,7 +2216,7 @@
                (target "rvm")
                (input-path #f)
                (output-path #f)
-               (lib-path "default")
+               (lib-path '())
                (src-path #f)
                (minify? #f)
                (primitives #f)
@@ -2269,7 +2236,7 @@
                           (set! output-path (car rest))
                           (loop (cdr rest)))
                          ((and (pair? rest) (member arg '("-l" "--library")))
-                          (set! lib-path (car rest))
+                          (set! lib-path (cons (car rest) lib-path))
                           (loop (cdr rest)))
                          ((and (pair? rest) (member arg '("-m" "--minify")))
                           (set! minify? #t)
@@ -2325,7 +2292,7 @@
                          (string-append "/rvm." target))))
                  target
                  input-path
-                 lib-path
+                 (if (eq? lib-path '()) '("default") lib-path)
                  minify?
                  verbosity
                  primitives)))))
