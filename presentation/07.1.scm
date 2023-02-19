@@ -7,16 +7,16 @@
 
 (cond-expand
   ((host py)
-   (define-primitive (square a)
-                     "lambda: push(pop() ** 2),")
-   )
+    (define-primitive (square a)
+      "lambda: push(pop() ** 2),")
+    )
   ((host js)
-   (define-primitive (square a)
-                     "() => push(pop() ** 2)")
-   )
+    (define-primitive (square a)
+      "() => push(pop() ** 2)")
+    )
   ((host c)
-   (define-primitive (square a)
-                     "{PRIM1();push2(TAG_NUM((NUM(x) * NUM(x))), PAIR_TAG);break;}"))
+    (define-primitive (square a)
+      "{PRIM1();push2(TAG_NUM((NUM(x) * NUM(x))), PAIR_TAG);break;}"))
 
   )
 
