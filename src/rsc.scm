@@ -1713,8 +1713,9 @@
   (let* ((file-str (string-from-file path))
          (port (open-input-string file-str)))
 
-    (if (and (eqv? (char->integer (string-ref file-str 0)) 35) ; #\#
-             (eqv? (char->integer (string-ref file-str 1)) 33)) ; #\!
+    (if (and (> (string-length file-str) 1)
+             (and (eqv? (char->integer (string-ref file-str 0)) 35) ; #\#
+                  (eqv? (char->integer (string-ref file-str 1)) 33))) ; #\!
       (read-line port)) ;; skip line
     (%read-all port)))
 
@@ -1947,7 +1948,7 @@
 (define (unique lst)
   (unique-aux lst '()))
 
-(define (needed-features features activated-features)
+(define (needed-features features activated-features features-disabled)
   (let loop ((to-process activated-features)
              (needed-features '()))
     (if (pair? to-process)
@@ -1958,8 +1959,8 @@
              (current-used (soft-assoc 'use current-feature))
              (current-used (if current-used (cdr current-used) '())))
         (loop 
-          (fold (lambda (x acc) 
-                  (if (memq x (append needed-features to-process))
+          (fold (lambda (x acc) ; add all dependencies of the current feature to 'to-process'
+                  (if (or (memq x (append needed-features to-process)) (memq x features-disabled)) 
                     acc
                     (cons x acc)))
                 (cdr to-process)
@@ -2015,9 +2016,11 @@
 ;; Target code generation.
 
 (define (string-from-file path)
-  (call-with-input-file path (lambda (port) (read-line port #f))))
+  (let ((file-content (call-with-input-file path (lambda (port) (read-line port #f)))))
+       (if (eof-object? file-content) "" file-content)
+))
 
-(define (transform-host-file host-file-str input primitives)
+(define (transform-host-file host-file-str input primitives features-enabled features-disabled)
   (let* ((sample ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y")
          (host-str (string-replace
                      (string-replace
@@ -2036,10 +2039,11 @@
       (let* ((parsed-file (parse-host-file (string->list* host-str)))
              (features (extract-features parsed-file))
              (used-primitives (map car primitives))
-             (activated-features used-primitives)
+             (activated-features (append used-primitives features-enabled))
              (used-features (needed-features 
                               (append primitives (map cdr features)) 
-                              activated-features)))
+                              activated-features
+                              features-disabled)))
         (generate-file 
           used-features
           primitives
@@ -2048,7 +2052,7 @@
       host-str)))
 
 
-(define (generate-code target verbosity input-path rvm-path minify? injected-primitives source-vm proc-exports-and-prims)
+(define (generate-code target verbosity input-path rvm-path minify? injected-primitives features-enabled features-disabled source-vm proc-exports-and-prims)
   (let* ((proc
            (car proc-exports-and-prims))
          (exports
@@ -2072,7 +2076,7 @@
     (let* ((target-code-before-minification
             (if (equal? target "rvm")
                 input
-                (transform-host-file source-vm input primitives)))
+                (transform-host-file source-vm input primitives features-enabled features-disabled)))
            (target-code
             (if (or (not minify?) (equal? target "rvm"))
                 target-code-before-minification
@@ -2150,6 +2154,8 @@
     #f     ;; rvm-path
     #f     ;; minify?
     #f     ;; primitives
+    #f     ;; features-enabled
+    #f     ;; features-disabled
     #f     ;; vm-source
     (compile-program
      0 ;; verbosity
@@ -2173,7 +2179,10 @@
                            lib-path
                            minify?
                            verbosity
-                           primitives)
+                           primitives
+                           features-enabled
+                           features-disabled
+                          )
 
      ;; This version of the compiler reads the program and runtime library
      ;; source code from files and it supports various options.  It can
@@ -2201,6 +2210,8 @@
            rvm-path
            minify?
            primitives
+           features-enabled
+           features-disabled
            vm-source
            (compile-program
              verbosity
@@ -2220,6 +2231,8 @@
                (src-path #f)
                (minify? #f)
                (primitives #f)
+               (features-enabled '())
+               (features-disabled '())
                (rvm-path #f))
 
            (let loop ((args (cdr args)))
@@ -2246,6 +2259,12 @@
                           (loop (cdr rest)))
                          ((and (pair? rest) (member arg '("-r" "--rvm")))
                           (set! rvm-path (car rest))
+                          (loop (cdr rest)))
+                         ((and (pair? rest) (member arg '("-f+" "--enable-feature")))
+                          (set! features-enabled (cons (string->symbol (car rest)) features-enabled))
+                          (loop (cdr rest)))
+                         ((and (pair? rest) (member arg '("-f-" "--disable-feature")))
+                          (set! features-disabled (cons (string->symbol (car rest)) features-disabled))
                           (loop (cdr rest)))
                          ((member arg '("-v" "--v"))
                           (set! verbosity (+ verbosity 1))
@@ -2295,7 +2314,9 @@
                  (if (eq? lib-path '()) '("default") lib-path)
                  minify?
                  verbosity
-                 primitives)))))
+                 primitives
+                 features-enabled
+                 features-disabled)))))
 
    (parse-cmd-line (cmd-line))
 
