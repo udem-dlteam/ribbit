@@ -741,10 +741,10 @@
 
 (define (used-primitives primitives live)
   (let* ((primitive-names (map caaddr primitives))
-         (live-primitives 
-           (fold (lambda (l acc) 
+         (live-primitives
+           (fold (lambda (l acc)
                    (if (or (eq? (car l) 'rib) ;; ignore rib
-                           (not (memq (car l) primitive-names))) ;; not in primitive 
+                           (not (memq (car l) primitive-names))) ;; not in primitive
                      acc
                      (cons (car l) acc)))
                  '()
@@ -757,10 +757,10 @@
       (let ((prim (car prims)))
         (if (memq (car prim) live-primitive)
           (begin
-            (cond 
+            (cond
               ((pair? (cadr prim))
                (set-car! (cadr prim) (cons 'quote (cons i '())))  ;; set back in the code the index chosen
-               (set-car! (cdr prim) (cons i '()))) 
+               (set-car! (cdr prim) (cons i '())))
               ((eqv? (cadr prim) 'tbd)
                (set-car! (cdr prim) i)))
             (loop (cdr prims)
@@ -774,7 +774,7 @@
            (extract-exports program))
          (exprs
            (car exprs-and-exports))
-         (exprs 
+         (exprs
            (if (pair? exprs) exprs (cons #f '())))
          (exports
            (exports->alist (cdr exprs-and-exports)))
@@ -787,10 +787,10 @@
            (liveness-analysis expansion exports))
          (prims
            (if current-primitives
-             (let ((live-primitives 
-                     (used-primitives 
-                       current-primitives 
-                       (append 
+             (let ((live-primitives
+                     (used-primitives
+                       current-primitives
+                       (append
                          (map (lambda (x) (cons x #f)) (extract-use-feature parsed-vm '()))
                          live))))
                (set-primitive-order live-primitives current-primitives))
@@ -946,13 +946,13 @@
                 ((eqv? (car expr) 'define-primitive)
                  (if (not current-primitives)
                    (error "Cannot use define-primitive while targeting a non-modifiable host")
-                   (let* ((prim-num (cons 'tbd 
-                                          (cons (cons 'quote (cons 0 '())) 
+                   (let* ((prim-num (cons 'tbd
+                                          (cons (cons 'quote (cons 0 '()))
                                                 (cons (cons 'quote (cons 1 '())) '())))) ;; creating cell that will be set later on
                           (signature (cadr expr))
                           (use (and (pair? (caddr expr)) (eqv? 'use (caaddr expr)) (caddr expr)))
                           (code (if use (cadddr expr) (caddr expr))))
-                     (set! current-primitives 
+                     (set! current-primitives
                        (append current-primitives
                                (cons (cons (car signature)
                                            (cons prim-num
@@ -1713,8 +1713,9 @@
   (let* ((file-str (string-from-file path))
          (port (open-input-string file-str)))
 
-    (if (and (eqv? (char->integer (string-ref file-str 0)) 35) ; #\#
-             (eqv? (char->integer (string-ref file-str 1)) 33)) ; #\!
+    (if (and (> (string-length file-str) 1)
+             (and (eqv? (char->integer (string-ref file-str 0)) 35) ; #\#
+                  (eqv? (char->integer (string-ref file-str 1)) 33))) ; #\!
       (read-line port)) ;; skip line
     (%read-all port)))
 
@@ -1765,7 +1766,7 @@
             ((primitive)
              (let ((body (rec ""))
                    (new-prim (filter (lambda (x) (and (pair? x) (not (eq? (car x) 'body)))) prim))) ;;remove body clause
-               (cons (cons (caadr prim) 
+               (cons (cons (caadr prim)
                            (cons 'tbd
                                  (append new-prim (cons (cons 'body (cons body '())) '())))) acc)))
             ((str)
@@ -1804,12 +1805,12 @@
            '()))
 
 (define (extract walker parsed-file base)
-  (letrec ((func 
+  (letrec ((func
              (lambda (prim acc)
                (let* ((name (car prim))
                       (body (soft-assoc 'body (cdr prim)))
                       (rec (lambda (base)
-                             (if body 
+                             (if body
                                (fold func base (cadr body))
                                base))))
                  (walker prim acc rec)))))
@@ -1830,7 +1831,7 @@
   (let loop ((cur line) (len len) (start #f) (macro-len 0))
     (if (<= len 2)
       (if start
-        (cons 
+        (cons
           'start
           (cons start
                 (+ 1 macro-len)))
@@ -1851,10 +1852,10 @@
          (if start
            (cons
              'start-end ;; type
-             (cons 
+             (cons
                start
                (+ 3 macro-len)))
-           (cons 
+           (cons
              'end ;; type
              '())))
         (else
@@ -1888,19 +1889,19 @@
              (macro-pair (detect-macro cur-line cur-len))
              (macro-type (car macro-pair))
              (macro-args (cdr macro-pair))
-             (parsed-file 
+             (parsed-file
                (cond
                  ((eqv? macro-type 'end) ;; include last line
                   (cons (cons 'str (cons (list->string* start-line (+ cur-len start-len)) '())) parsed-file))
                  ((eqv? start-len 0)
                   parsed-file)
-                 ((or (eqv? macro-type 'start) 
+                 ((or (eqv? macro-type 'start)
                       (eqv? macro-type 'start-end))
                   (cons (cons 'str (cons (list->string* start-line start-len) '())) parsed-file))
                  (else
                    parsed-file))))
 
-        (cond 
+        (cond
           ((eqv? macro-type 'end)
            (cons cur-end
                  (reverse parsed-file)))
@@ -1947,7 +1948,7 @@
 (define (unique lst)
   (unique-aux lst '()))
 
-(define (needed-features features activated-features)
+(define (needed-features features activated-features features-disabled)
   (let loop ((to-process activated-features)
              (needed-features '()))
     (if (pair? to-process)
@@ -1957,9 +1958,9 @@
                                     features))
              (current-used (soft-assoc 'use current-feature))
              (current-used (if current-used (cdr current-used) '())))
-        (loop 
-          (fold (lambda (x acc) 
-                  (if (memq x (append needed-features to-process))
+        (loop
+          (fold (lambda (x acc) ; add all dependencies of the current feature to 'to-process'
+                  (if (or (memq x (append needed-features to-process)) (memq x features-disabled))
                     acc
                     (cons x acc)))
                 (cdr to-process)
@@ -1980,28 +1981,28 @@
                acc)))
           ((primitives)
            (let* ((gen (cdr (soft-assoc 'gen prim)))
-                  (generate-one 
+                  (generate-one
                     (lambda (prim)
                       (let ((index (cadr prim))
                             (body  (soft-assoc 'body prim))
                             (head  (soft-assoc 'head prim)))
                         (let loop ((gen gen))
                           (if (pair? gen)
-                            (string-append 
+                            (string-append
                               (cond ((string? (car gen)) (car gen))
                                       ((eq? (car gen) 'index) (if (pair? index) (number->string (car index)) (number->string index)))
                                       ((eq? (car gen) 'body) (cadr body))
                                       ((eq? (car gen) 'head) (cadr head)))
                               (loop (cdr gen)))
                             ""))))))
-             (string-append 
-               acc 
+             (string-append
+               acc
                (apply string-append
                       (map generate-one included-prims)))))
           ((use-feature)
            (string-append acc (rec "")))
           ((primitive)
-           acc) 
+           acc)
           (else
             acc)))
     parsed-file
@@ -2015,9 +2016,11 @@
 ;; Target code generation.
 
 (define (string-from-file path)
-  (call-with-input-file path (lambda (port) (read-line port #f))))
+  (let ((file-content (call-with-input-file path (lambda (port) (read-line port #f)))))
+       (if (eof-object? file-content) "" file-content)
+))
 
-(define (transform-host-file host-file-str input primitives)
+(define (transform-host-file host-file-str input primitives features-enabled features-disabled)
   (let* ((sample ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y")
          (host-str (string-replace
                      (string-replace
@@ -2036,11 +2039,12 @@
       (let* ((parsed-file (parse-host-file (string->list* host-str)))
              (features (extract-features parsed-file))
              (used-primitives (map car primitives))
-             (activated-features used-primitives)
-             (used-features (needed-features 
-                              (append primitives (map cdr features)) 
-                              activated-features)))
-        (generate-file 
+             (activated-features (append used-primitives features-enabled))
+             (used-features (needed-features
+                              (append primitives (map cdr features))
+                              activated-features
+                              features-disabled)))
+        (generate-file
           used-features
           primitives
           parsed-file
@@ -2048,7 +2052,7 @@
       host-str)))
 
 
-(define (generate-code target verbosity input-path rvm-path minify? injected-primitives source-vm proc-exports-and-prims)
+(define (generate-code target verbosity input-path rvm-path minify? injected-primitives features-enabled features-disabled source-vm proc-exports-and-prims)
   (let* ((proc
            (car proc-exports-and-prims))
          (exports
@@ -2072,7 +2076,7 @@
     (let* ((target-code-before-minification
             (if (equal? target "rvm")
                 input
-                (transform-host-file source-vm input primitives)))
+                (transform-host-file source-vm input primitives features-enabled features-disabled)))
            (target-code
             (if (or (not minify?) (equal? target "rvm"))
                 target-code-before-minification
@@ -2150,6 +2154,8 @@
     #f     ;; rvm-path
     #f     ;; minify?
     #f     ;; primitives
+    #f     ;; features-enabled
+    #f     ;; features-disabled
     #f     ;; vm-source
     (compile-program
      0 ;; verbosity
@@ -2168,12 +2174,15 @@
    (define (fancy-compiler src-path
                            output-path
                            rvm-path
-                           _target 
+                           _target
                            input-path
                            lib-path
                            minify?
                            verbosity
-                           primitives)
+                           primitives
+                           features-enabled
+                           features-disabled
+                          )
 
      ;; This version of the compiler reads the program and runtime library
      ;; source code from files and it supports various options.  It can
@@ -2184,10 +2193,10 @@
      (let* ((vm-source (string-from-file
                          (path-expand rvm-path
                                       (root-dir))))
-            (parsed-file 
+            (parsed-file
               (if (equal? _target "rvm")
                 #f
-                (parse-host-file 
+                (parse-host-file
                   (string->list* vm-source
                     )))))
        (set! target _target)
@@ -2201,6 +2210,8 @@
            rvm-path
            minify?
            primitives
+           features-enabled
+           features-disabled
            vm-source
            (compile-program
              verbosity
@@ -2220,6 +2231,8 @@
                (src-path #f)
                (minify? #f)
                (primitives #f)
+               (features-enabled '())
+               (features-disabled '())
                (rvm-path #f))
 
            (let loop ((args (cdr args)))
@@ -2246,6 +2259,12 @@
                           (loop (cdr rest)))
                          ((and (pair? rest) (member arg '("-r" "--rvm")))
                           (set! rvm-path (car rest))
+                          (loop (cdr rest)))
+                         ((and (pair? rest) (member arg '("-f+" "--enable-feature")))
+                          (set! features-enabled (cons (string->symbol (car rest)) features-enabled))
+                          (loop (cdr rest)))
+                         ((and (pair? rest) (member arg '("-f-" "--disable-feature")))
+                          (set! features-disabled (cons (string->symbol (car rest)) features-disabled))
                           (loop (cdr rest)))
                          ((member arg '("-v" "--v"))
                           (set! verbosity (+ verbosity 1))
@@ -2295,7 +2314,9 @@
                  (if (eq? lib-path '()) '("default") lib-path)
                  minify?
                  verbosity
-                 primitives)))))
+                 primitives
+                 features-enabled
+                 features-disabled)))))
 
    (parse-cmd-line (cmd-line))
 
