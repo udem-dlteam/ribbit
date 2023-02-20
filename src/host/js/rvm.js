@@ -155,18 +155,151 @@ str_to_rib = (s) => {
     return [a,l,3]
 }
 // )@@
+
+// @@(feature find_sym (use rib_to_list)
+find_sym = (name, symtbl) => {
+  lst = rib_to_list(symtbl)
+  return list_tail(symtbl, lst.indexOf(name))[0]
+
+}
+// )@@
+
+// @@(feature function_to_rib (use foreign call find_sym)
+function_to_rib = (f) => {
+  let host_call = find_sym('host-call', symtbl)
+  let id = find_sym('id', symtbl)
+  let arg2 = find_sym('arg2', symtbl)
+  let rib = [[0, 0, 1], [NIL, 0, 3], 2]
+  if (host_call == -1 || id == -1){
+    console.log("ERROR : you must define host-call as a primitive to convert a function to a rib")
+    return 
+  }
+
+  let code = [3, foreign(f),  // push(foreign(f))
+              [2, 1, // inverse arguments
+               [0, host_call,  // call host_call primitive
+                [0, arg2, // discard argument on stack
+                 [0, id, 0]]]]] // return 
+  let i = f.length // number of args
+  while(i--){
+    code = [3, 0,  // push 0
+             [0, rib, // call rib
+              code]]
+  }
+  code = [f.length, 0,     // number of params
+          [3, NIL, code]] // push nil
+
+  let env = 0 // no environnement
+  return [code, env, 1] // return the procedure
+}
+// )@@
+
+// @@(feature any_to_rib (use list_to_rib str_to_rib bool_to_rib function_to_rib)
+any_to_rib = (v) => {
+  return ({"number":(x)=>x,"boolean":bool_to_rib,"string":str_to_rib,"object":list_to_rib, 'function':function_to_rib, 'undefined':()=>NIL}[typeof v](v))
+}
+// )@@
+
+// @@(feature list_to_rib (use any_to_rib)
+list_to_rib = (l,i=0) => (i<l.length?[any_to_rib(l[i]),list_to_rib(l,i+1),0]:NIL)
+// )@@
+
 // @@(feature rib_to_str
 rib_to_str = (r) => {
     let f = (c) => (c===NIL?"":String.fromCharCode(c[0])+f(c[1]))
     return f(r[0])
 }
 // )@@
-// @@(feature any_to_rib (use list_to_rib str_to_rib bool_to_rib)
-any_to_rib = (v) => ({"number":(x)=>x,"boolean":bool_to_rib,"string":str_to_rib,"object":list_to_rib}[typeof v](v))
+
+// @@(feature rib_to_bool
+rib_to_bool = (r) => {
+  if (r === NIL){
+    return []
+  }
+  if (r === FALSE){
+    return false
+  }
+  if (r === TRUE){
+    return true
+  }
+  console.error("Cannot convert ", r, " to bool");
+}
 // )@@
-// @@(feature list_to_rib (use any_to_rib)
-list_to_rib = (l,i=0) => (i<l.length?[any_to_rib(l[i]),list_to_rib(l,i+1),0]:NIL)
+
+// @@(feature rib_to_list (use rib_to_any)
+rib_to_list = (r) => {
+  let elems = r[2] === 0 ? r : r[0];
+  let lst = [];
+  let f = (c) => {
+    if (c !== NIL){
+      lst.push(rib_to_any(c[0]))
+      f(c[1])
+    }
+  }
+  f(elems)
+  return lst
+}
 // )@@
+
+// @@(feature rib_to_function (use rib_to_any any_to_rib)
+func_stack = []
+rib_to_function = (r) => {
+  let func = (...args) => {
+    func_stack.push(pc)
+    push(r)
+    for(a in args){
+      push(any_to_rib(a))
+    }
+    pc = [0,args.length,[5, 0, 0]] // call function and then halt
+    run()
+    pc = func_stack.pop()
+    return_value = pop()
+    return rib_to_any(return_value)
+  }
+  return func
+}
+// )@@
+
+// @@(feature debug-callback
+debug_callback = (callback) => {
+  console.log(callback())
+  return true;
+}
+// )@@
+
+// @@(feature rib_to_symbol (use rib_to_str)
+rib_to_symbol = (r) => {
+  return rib_to_str(r[1])
+}
+// )@@
+
+
+// @@(feature rib_to_any (use rib_to_str rib_to_list rib_to_bool rib_to_bool rib_to_function rib_to_symbol)
+rib_to_any = (r) => {
+  if (typeof r === "number")
+    return r 
+  let tag = r[2]
+  return [rib_to_list, rib_to_function, rib_to_symbol, rib_to_str, rib_to_list, rib_to_bool][tag](r);
+}
+ // )@@
+
+
+// @@(feature foreign
+foreign = (r) => [0, r, 6] // 6 is to tag a foreign object
+// )@@
+
+// @@(feature host_call (use rib_to_list)
+// f is a foreign object representing a function
+host_call = () =>{
+  args = pop()
+  f = pop()[1]
+  return push(any_to_rib(f(...rib_to_list(args))))
+} 
+// )@@
+
+
+
+
 is_rib = (x) => x[lengthAttr];
 
 get_opnd = (o) => is_rib(o) ? o : list_tail(stack,o);
