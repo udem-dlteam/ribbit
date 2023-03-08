@@ -13,58 +13,77 @@ Inline:
 
 - `@@(`...`)@@`
 
+
+## Legend
+- parentheses `()` mean literal parentheses. Ex: `(use)` means `(use)`
+- in `<...>`, replace by what the `...` mean. Ex: `<var>` means you need to put a variable there.
+- in `[...]` means the `...` is optional
+- `+` means one or more times
+- in `{...}`, replace by source code in the language where the feature is defined.
+  Ex: `{HEAD} @@(feature <name> {BODY})@@` could be
+```c
+foobar(); // @@(feature boolean
+obj boolean(bool x) { return x ? CAR(FALSE) : FALSE; }
+// )@@
+```
+Here:
+- `{HEAD}` is `foobar(); // @@(feature boolean\n`
+- `{BODY}` is `obj boolean(bool x) { return x ? CAR(FALSE) : FALSE; } \n// )@@\n`
+### Note
+When feature (or primitive) definition are on the same line (`{BODY}` is empty), the value of `{BODY}` is
+set to the value of `{HEAD}`. (`{HEAD}` == `{BODY}`)
+Ex:
+```js
+prim1((x) => x) //  @@(primitive (id x))@@
+```
+Here, the `{HEAD}` is `prim1((x) => x) // @@(primitive (id x))@@\n`. Because the definition is a one-liner, the value
+of `{BODY}` is set to the value of `{HEAD}`.
+
 ## Current features
 
-> Legend:
-> - parentheses `()` mean literal parentheses. Ex: `(use)` means `(use)`
-> - in `<...>`, replace by what the `...` mean. Ex: `<var>` means you need to put a variable there.
-> - in `[...]` means the `...` is optional
-> - `+` means one or more times
-> - in `{...}`, replace by source code in the language where the feature is defined.
-    Ex: `{HEAD} @@(feature <name> {BODY})@@` could be
-> ```c
-> foobar(); // @@(feature boolean
-> obj boolean(bool x) { return x ? CAR(FALSE) : FALSE; }
-> // )@@
-> ```
-> Here:
-> - `{HEAD}` is `foobar(); // @@(feature boolean\n`
-> - `{BODY}` is `obj boolean(bool x) { return x ? CAR(FALSE) : FALSE; } \n// )@@\n`
+### Features
 
-- `{HEAD} @@(feature <name> [(use <otherFeature>+)] [{BODY}])@@`
+#### `{HEAD} @@(feature <condition> [(use <otherFeature>+)] [{BODY}])@@` 
 
-- `{HEAD} @@(primitives (gen <expr>+) {BODY})@@`
-    - in the gen, `expr`s must be string literals or one of the special values:
-        - `index`: final primitive index (the one decided after the filtering of unused primitives)
-        - `body`: the value of `{BODY}`
-        - `head`: the value of `{HEAD}`
-    - gen is evaluated to generate each primitive's code base on the expressions given (it evaluates them similarly
-      to `string append`)
+The feature annotation locates a feature to be used.
+- `condition` : a condition under which the `{BODY}` code is expanded 
+  - Ex: `{HEAD} @@(feature boolean [(use <otherFeature>+)] [{BODY}])@@` means _include this feature
+    if `(eq? boolean #t)`_
 
-- `{HEAD} @@(primitive <signature> [(use <otherFeature>+)] [{BODY}])@@`
+  - Ex: `{HEAD} @@(feature (and boolean getchar) [(use <otherFeature>+)] [{BODY}])@@` means _include this
+    feature
+    if `(and (eq? boolean #t) (eq? getchar #t))`_
 
-> ### Note
-> When feature (or primitive) definition are on the same line (`{BODY}` is empty), the value of `{BODY}` is
-> set to the value of `{HEAD}`. (`{HEAD}` == `{BODY}`)
-> Ex:
-> ```js
-> prim1((x) => x) //  @@(primitive (id x))@@
-> ```
-> Here, the `{HEAD}` is `prim1((x) => x) // @@(primitive (id x))@@\n`. Because the definition is a one-liner, the value
-> of `{BODY}` is set to the value of `{HEAD}`.
+> `(use <feature>)` would become the same (semantically) as `(set! <feature> #t)`
+- `use` : Specify dependencies of this feature, meaning features to be activated if this one is (like primitives).
+
+
+### Primitives
+
+#### `{HEAD} @@(primitives (gen <expr>+) {BODY})@@`
+
+The primitives annotation specify the location of all the primitives. Here `gen` is evaluated to generate each primitive's
+code base on the expressions given (it evaluates them similarly to `string append`). The `{BODY}` must contain `primitive`
+annotations to specify the location of individual primitive.
+ - `gen` :  `expr`s must be string literals or one of the special values:
+   - `index`: final primitive index (the one decided after the filtering of unused primitives)
+   - `body`: the value of `{BODY}`
+   - `head`: the value of `{HEAD}`
+
+
+### Primitive
+#### `{HEAD} @@(primitive <signature> [(use <feature>+)] [{BODY}])@@`
+This `primitive` annotation specify the location of a sigle primitive. It must be inside a `primitives` annotation (see above)
+- `signature` : A name and arguments as an sexp (for example `(rib a b c)`)
+- `use` : A list of primitive or feature that is used by this primitive.
+
+### Use-feature
+#### `@@(use-feature <features>+)@@`
+This annotation let the user force the activation of certain features. It is the same semantically as using `-f+ feature-one` command line argument.
+- `features` : A list of features to be activated
 
 ## Features Proposed
 
-- The feature command takes a `condition` as it's second arg (instead of a `name`):
-    - `{HEAD} @@(feature <condition> [(use <otherFeature>+)] [{BODY}])@@`
-
-    - Ex: `{HEAD} @@(feature boolean [(use <otherFeature>+)] [{BODY}])@@` means _include this feature
-      if `(eq? boolean #t)`_
-
-    - Ex: `{HEAD} @@(feature (and boolean getchar) [(use <otherFeature>+)] [{BODY}])@@` means _include this
-      feature
-      if `(and (eq? boolean #t) (eq? getchar #t))`_
-  > `(use <feature>)` would become the same (semantically) as `(set! <feature> #t)`
 
 - The `replace` command, which replaces all instances of `symbol` in the `{BODY}` by the value returned by `expr`:
     - `{HEAD} @@(replace <symbol> <expr> [{BODY}])@@`
