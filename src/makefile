@@ -14,7 +14,7 @@ build-all:
 	done
 
 check:
-	@if [ "$$HOST" == "" ]; then \
+	@if [ "$$HOST" = "" ]; then \
 	  for host in $(HOSTS); do \
 	    echo "====================== TESTING HOST $$host"; \
 	    cd host/$$host; $(MAKE) check; cd ../..; \
