@@ -773,24 +773,6 @@
 
 
 
-  #;(let loop ((prims prims) (i 0) (result '()))
-    (if (pair? prims)
-      (let ((prim (car prims)))
-        (if (memq (car prim) live-primitive)
-          (begin
-            (cond
-              ((pair? (cadr prim))
-               (set-car! (cadr prim) (cons 'quote (cons i '())))  ;; set back in the code the index chosen
-               (set-car! (cdr prim) (cons i '())))
-              ((eqv? (cadr prim) 'tbd)
-               (set-car! (cdr prim) i)))
-            (loop (cdr prims)
-                  (+ i 1)
-                  (cons prim result)))
-          (loop (cdr prims) i result)))
-      (reverse result)))
-
-
 (define (compile-program verbosity parsed-vm features-enabled features-disabled program)
   (let* ((exprs-and-exports
            (extract-exports program))
@@ -2110,6 +2092,20 @@
                    (string-append acc (rec "")))
                   ((primitive)
                    (string-append acc (rec "")))
+                  ((replace)
+                   (let* ((pattern     (cadr prim))
+                          (pattern     (if (symbol? pattern)
+                                         (symbol->string pattern)
+                                         pattern))
+                          (replacement (cons (caddr prim) '()))
+                          (replacement-text 
+                            (apply string-append 
+                                   (map (lambda (x)
+                                          (cond 
+                                            ((string? x) x)
+                                            ((and (symbol? x) (eq? x 'source) input))))
+                                        replacement))))
+                     (string-append acc (string-replace (rec "") pattern replacement-text))))
                   (else
                     acc)))))
            (extract
@@ -2134,10 +2130,7 @@
     host-file
     live-features
     primitives
-    input
-
-    
-    )
+    input)
 
 
   (let* ((sample ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y")

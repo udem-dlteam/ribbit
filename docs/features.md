@@ -82,12 +82,11 @@ This `primitive` annotation specify the location of a sigle primitive. It must b
 This annotation let the user force the activation of certain features. It is the same semantically as using `-f+ feature-one` command line argument.
 - `features` : A list of features to be activated
 
-## Features Proposed
 
-
-- The `replace` command, which replaces all instances of `symbol` in the `{BODY}` by the value returned by `expr`:
-    - `{HEAD} @@(replace <symbol> <expr> [{BODY}])@@`
-    - `symbol` must be the text to replace as a symbol (meaning spaces are not allowed).
+### Replace
+#### `{HEAD} @@(replace <symbol> <expr> [{BODY}])@@`
+The `replace` command, replaces all instances of `symbol` in the `{BODY}` by the value returned by `expr`:
+    - `symbol` must be the text to replace as a symbol or string.
     - `expr` must be a valid scheme expression that returns a string or one of the special values (or a mix of both):
         - `source`: the compiled source code
         - `line`: the current line in the file when the `replace` is evaluated.
@@ -98,3 +97,9 @@ This annotation let the user force the activation of certain features. It is the
       ```c
       char *input = "__SOURCE__"; // @@(replace __SOURCE__ source)@@
       ```
+
+## Features Proposed
+
+Nothing for now
+
+
