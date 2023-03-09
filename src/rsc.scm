@@ -1979,13 +1979,13 @@
 
 (define (eval-feature expr true-values)
   (cond ((and (pair? expr) (eqv? (car expr) 'not))
-         (not (eval-feature (cadr expr))))
+         (not (eval-feature (cadr expr) true-values)))
         ((and (pair? expr) (eqv? (car expr) 'and))
-         (not (memv #f (map eval-feature (cdr expr)))))
+         (not (memv #f (map (lambda (x) (eval-feature x true-values)) (cdr expr)))))
         ((and (pair? expr) (eqv? (car expr) 'or))
-         (not (not (memv #t (map eval-feature (cdr expr))))))
+         (not (not (memv #t (map (lambda (x) (eval-feature x true-values)) (cdr expr))))))
         (else
-         (memq expr true-values))))
+         (not (not (memq expr true-values))))))
     
 (define (filter-pair predicate lst)
   (let loop ((lst lst) (lst-true '()) (lst-false '()))
@@ -2072,6 +2072,7 @@
                               (let* ((name (car prim))
                                      (index (cadr prim))
                                      (primitive (find-primitive name features))
+                                     (_ (if (not primitive) (error "Cannot find needed primitive inside program :" name)))
                                      (body  (extract extract-func (cons primitive '()) ""))
                                      (head  (soft-assoc 'head primitive)))
                                 (let loop ((gen gen))

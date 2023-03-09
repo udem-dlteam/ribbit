@@ -1,0 +1,18 @@
+
+// @@(feature disabled (use child-enabled child-disabled)
+hidden
+// )@@
+
+//@@(feature child-disabled
+hidden
+//)@@
+
+//@@(feature child-enabled
+visible
+//)@@
+
+// @@(feature activated (use disabled child-enabled)
+visible
+// )@@
+
+;;;options: -f- disabled -f+ activated

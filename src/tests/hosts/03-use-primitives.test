@@ -1,5 +1,3 @@
-// @@(use-feature prim1 prim2)@@
-
 // @@(feature not-used
 hidden
 // )@@
@@ -11,6 +9,9 @@ visible
 visible
 // @@(primitives (gen body)
 hidden
+// @@(primitive (rib a b c)
+visible
+// )@@
 // @@(primitive (prim0 x y) (use not-used)
 hidden
 // )@@
@@ -26,3 +27,4 @@ hidden
 // )@@
 visible
 
+;;;options: -f+ prim2 -f+ prim1

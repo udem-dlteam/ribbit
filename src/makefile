@@ -23,6 +23,34 @@ check:
 	  cd host/$$HOST; $(MAKE) check; cd ../..; \
 	fi
 
+check-features:
+	@host="$${HOST:-js}"; \
+	for host_path in ./tests/hosts/*; do \
+		options=`sed -n -e '/;;;options:/p' $$host_path | sed -e 's/^;;;options://'`; \
+	    nb_visible_original=`grep -c visible $$host_path`; \
+		nb_hidden_original=`grep -c hidden $$host_path`; \
+		echo "====================== TESTING FEATURE $$host_path (v:$$nb_visible_original, h:$$nb_hidden_original, options: '$$options')"; \
+		cmd="gsi rsc.scm -t $$host $$options lib/empty.scm --rvm $$host_path -o .test-feature.REMOVE"; \
+		$$cmd; \
+		nb_visible_after=`grep -c visible .test-feature.REMOVE;` \
+		nb_hidden_after=`grep -c hidden .test-feature.REMOVE`; \
+		if ! [[ "$$nb_visible_after" -eq "$$nb_visible_original" && "$$nb_hidden_after" -eq "0" ]] ; then \
+		    echo "Mismatch on visible/hidden."; \
+			echo "  Visible expected : $$nb_visible_original "; \
+			echo "  Visible got      : $$nb_visible_after "; \
+			echo "  Hidden expected  : 0 (found $$nb_hidden_original in original file)"; \
+			echo "  Hidden got       : $$nb_hidden_after "; \
+			echo ""; \
+			echo "--- Original file ($$host_path): "; \
+			echo ""; \
+			cat $$host_path; \
+			echo ""; \
+			echo "--- Generated file ($$cmd) :"; \
+			echo ""; \
+	        cat .test-feature.REMOVE; \
+		fi; \
+	done
+
 check-bootstrap:
 	@host="$${HOST:-js}"; \
 	case $$host in \

@@ -1,0 +1,18 @@
+
+// @@(feature (and disabled activated)
+hidden
+// )@@
+
+// @@(feature (or disabled activated)
+visible
+// )@@
+
+// @@(feature (not disabled)
+visible
+// )@@
+
+// @@(feature (not activated)
+hidden
+// )@@
+
+;;;options: -f- disabled -f+ activated

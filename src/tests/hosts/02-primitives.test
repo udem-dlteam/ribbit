@@ -1,7 +1,10 @@
-// @@(use-feature prim1 prim2)@@
 
 visible
 // @@(primitives (gen body)
+hidden
+// @@(primitive (rib a b c)
+visible
+// )@@
 hidden
 // @@(primitive (prim0 x y)
 hidden
@@ -17,4 +20,7 @@ visible
 hidden
 // )@@
 visible
+
+
+;;;options: -f+ prim1 -f+ prim2
 
