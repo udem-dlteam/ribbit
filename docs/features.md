@@ -39,9 +39,9 @@ prim1((x) => x) //  @@(primitive (id x))@@
 Here, the `{HEAD}` is `prim1((x) => x) // @@(primitive (id x))@@\n`. Because the definition is a one-liner, the value
 of `{BODY}` is set to the value of `{HEAD}`.
 
-## Current features
+## Current features (inside host code)
 
-### Features
+### Features 
 
 #### `{HEAD} @@(feature <condition> [(use <otherFeature>+)] [{BODY}])@@` 
 
@@ -77,6 +77,12 @@ This `primitive` annotation specify the location of a sigle primitive. It must b
 - `signature` : A name and arguments as an sexp (for example `(rib a b c)`)
 - `use` : A list of primitive or feature that is used by this primitive.
 
+#### `(define-primitive <signature> [(use <feature>+)] <code>)`
+This `define-primitive` macro lets the programmer extend the host by extending the primitives. 
+- `signature` : A name and arguments as an sexp (for example `(rib a b c)`)
+- `use` : A list of primitive or feature that is used by this primitive.
+- `code` : Code of the primitive
+
 ### Use-feature
 #### `@@(use-feature <features>+)@@`
 This annotation let the user force the activation of certain features. It is the same semantically as using `-f+ feature-one` command line argument.
@@ -98,8 +104,36 @@ The `replace` command, replaces all instances of `symbol` in the `{BODY}` by the
       char *input = "__SOURCE__"; // @@(replace __SOURCE__ source)@@
       ```
 
+
+
 ## Features Proposed
 
-Nothing for now
+### Feature
+
+#### `(define-feature <condition> [(use <feature>+)] <position-code-pair>+)`
+
+This `define-feature` macro lets the programmer add primitive at compile-time. 
+ - `condition` is a condition under which the feature is added (made of used primitives). 
+ - `use` lists the numer of features (or primitives) needed by this one
+ - `position-code-pair` pair of position with their respective code. For example (targeting `js`) : 
+ ```
+ (define-feature rib_eater (use rib_to_any)
+    (init "
+console.log('Rib eater is activated');
+collected_ribs = []
+eat_rib = (r) => {
+    collected_ribs.push(rib_to_any(r));
+}
+")
+    (end "console.log('Here are my lovely eaten ribs (miam) : ', collected_ribs)")
+    )
+ ```
+
+### Position
+
+#### `@@(position <name>)@@`
+
+This `position` annotation defined a position in the code where the features can live
+
 
 
