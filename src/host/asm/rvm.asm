@@ -59,6 +59,10 @@ _start:
 %define DEBUG_PRIM
 %endif
 
+%if 0 ;; @@(replace "0" "1")@@
+%define RVM_GEN
+%endif
+
 %ifdef DEBUG
 %define NEED_PRINT_REGS
 %endif
@@ -966,8 +970,10 @@ prim_arg2:
 ;; )@@
 
 ;; @@(feature (and arg2 (not id))
+%ifdef RVM_GEN
 prim_arg2:
     ret
+%endif
 ;; )@@
 
 
