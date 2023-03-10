@@ -889,27 +889,29 @@ run_instr_if:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 prim_dispatch_table:
-	dd   prim_rib
-	dd   prim_id
-	dd   prim_arg1
-	dd   prim_arg2
-	dd   prim_close
-	dd   prim_isrib
-	dd   prim_field0
-	dd   prim_field1
-	dd   prim_field2
-	dd   prim_field0set
-	dd   prim_field1set
-	dd   prim_field2set
-	dd   prim_eqv
-	dd   prim_lt
-	dd   prim_add
-	dd   prim_sub
-	dd   prim_mul
-	dd   prim_quotient
-	dd   prim_getchar
-	dd   prim_putchar
-	dd   prim_exit
+;; @@(primitives (gen body)
+	dd   prim_rib         ;; @@(primitive (rib a b c))@@
+	dd   prim_id          ;; @@(primitive (id x))@@
+	dd   prim_arg1        ;; @@(primitive (arg1 x y))@@
+	dd   prim_arg2        ;; @@(primitive (arg2 x y))@@
+	dd   prim_close       ;; @@(primitive (close rib))@@
+	dd   prim_isrib       ;; @@(primitive (rib? rib))@@
+	dd   prim_field0      ;; @@(primitive (field0 rib))@@
+	dd   prim_field1      ;; @@(primitive (field1 rib))@@
+	dd   prim_field2      ;; @@(primitive (field2 rib))@@
+	dd   prim_field0set   ;; @@(primitive (field0-set! rib))@@
+	dd   prim_field1set   ;; @@(primitive (field1-set! rib))@@
+	dd   prim_field2set   ;; @@(primitive (field2-set! rib))@@
+	dd   prim_eqv         ;; @@(primitive (eqv? x y) (use bool_to_rib))@@
+	dd   prim_lt          ;; @@(primitive (< x y) (use bool_to_rib))@@
+	dd   prim_add         ;; @@(primitive (+ x y))@@
+	dd   prim_sub         ;; @@(primitive (- x y))@@
+	dd   prim_mul         ;; @@(primitive (* x y))@@
+	dd   prim_quotient    ;; @@(primitive (quotient x y))@@
+	dd   prim_getchar     ;; @@(primitive (getchar))@@
+	dd   prim_putchar     ;; @@(primitive (putchar c))@@
+	dd   prim_exit        ;; @@(primitive (exit n))@@  
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -917,6 +919,7 @@ prim_dispatch_table:
 string_rib	db "rib",0x0a,0
 %endif
 
+;; @@(feature rib
 prim_rib:
 
 %ifdef DEBUG_PRIM
@@ -937,6 +940,7 @@ prim_rib:
 	mov  FIELD0(LAST_ARG), PREV_ARG
 	NBARGS(3)
 	ret
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -944,6 +948,7 @@ prim_rib:
 string_id	db "id",0x0a,0
 %endif
 
+;; @@(feature id
 prim_id:
 
 %ifdef DEBUG_PRIM
@@ -958,6 +963,14 @@ prim_arg2:
 %endif
 
 	ret
+;; )@@
+
+;; @@(feature (and arg2 (not id))
+prim_arg2:
+    ret
+;; )@@
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -965,6 +978,7 @@ prim_arg2:
 string_arg1	db "arg1",0x0a,0
 %endif
 
+;; @@(feature arg1
 prim_arg1:
 
 %ifdef DEBUG_PRIM
@@ -976,6 +990,7 @@ prim_arg1:
 	pop  eax		; discard normal return address
 	POP_STACK
 	jmp  run_next
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -998,6 +1013,7 @@ prim_arg2:
 string_close	db "close",0x0a,0
 %endif
 
+;; @@(feature close
 prim_close:
 
 %ifdef DEBUG_PRIM
@@ -1014,6 +1030,7 @@ prim_close:
 	mov  FIELD1(LAST_ARG), ebx
 	NBARGS(1)
 	ret
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1021,6 +1038,7 @@ prim_close:
 string_field0	db "field0",0x0a,0
 %endif
 
+;; @@(feature field0
 prim_field0:
 
 %ifdef DEBUG_PRIM
@@ -1031,6 +1049,7 @@ prim_field0:
 	mov  LAST_ARG, FIELD0(LAST_ARG)	; RESULT = LAST_ARG
 	NBARGS(1)
 	ret
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1038,6 +1057,7 @@ prim_field0:
 string_field1	db "field1",0x0a,0
 %endif
 
+;; @@(feature field1
 prim_field1:
 
 %ifdef DEBUG_PRIM
@@ -1048,6 +1068,7 @@ prim_field1:
 	mov  LAST_ARG, FIELD1(LAST_ARG)	; RESULT = LAST_ARG
 	NBARGS(1)
 	ret
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1055,6 +1076,7 @@ prim_field1:
 string_field2	db "field2",0x0a,0
 %endif
 
+;; @@(feature field2
 prim_field2:
 
 %ifdef DEBUG_PRIM
@@ -1065,6 +1087,7 @@ prim_field2:
 	mov  LAST_ARG, FIELD2(LAST_ARG)	; RESULT = LAST_ARG
 	NBARGS(1)
 	ret
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1072,6 +1095,7 @@ prim_field2:
 string_field0set	db "field0-set!",0x0a,0
 %endif
 
+;; @@(feature field0-set!
 prim_field0set:
 
 %ifdef DEBUG_PRIM
@@ -1082,6 +1106,7 @@ prim_field0set:
 	mov  FIELD0(PREV_ARG), LAST_ARG	; RESULT = LAST_ARG
 ;	NBARGS(2)
 	ret
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1089,6 +1114,7 @@ prim_field0set:
 string_field1set	db "field1-set!",0x0a,0
 %endif
 
+;; @@(feature field1-set!
 prim_field1set:
 
 %ifdef DEBUG_PRIM
@@ -1099,6 +1125,7 @@ prim_field1set:
 	mov  FIELD1(PREV_ARG), LAST_ARG	; RESULT = LAST_ARG
 ;	NBARGS(2)
 	ret
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1106,6 +1133,7 @@ prim_field1set:
 string_field2set	db "field2-set!",0x0a,0
 %endif
 
+;; @@(feature field2-set!
 prim_field2set:
 
 %ifdef DEBUG_PRIM
@@ -1116,6 +1144,7 @@ prim_field2set:
 	mov  FIELD2(PREV_ARG), LAST_ARG	; RESULT = LAST_ARG
 ;	NBARGS(2)
 	ret
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1123,6 +1152,7 @@ prim_field2set:
 string_isrib	db "rib?",0x0a,0
 %endif
 
+;; @@(feature rib?
 prim_isrib:
 
 %ifdef DEBUG_PRIM
@@ -1144,6 +1174,7 @@ prim_isrib:
 %else
 	;; fallthrough (will test if the two bit patterns are the same)
 %endif
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1151,6 +1182,7 @@ prim_isrib:
 string_eqv	db "eqv?",0x0a,0
 %endif
 
+;; @@(feature eqv?
 prim_eqv:
 
 %ifdef DEBUG_PRIM
@@ -1171,6 +1203,7 @@ prim_eqv_internal:
 %else
 	;; fallthrough (will return #f)
 %endif
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1178,6 +1211,7 @@ prim_eqv_internal:
 string_lt	db "<",0x0a,0
 %endif
 
+;; @@(feature <
 prim_lt:
 
 %ifdef DEBUG_PRIM
@@ -1194,6 +1228,7 @@ return_true:
 return_boolean:
 ;	NBARGS(2)
 	ret
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1201,6 +1236,7 @@ return_boolean:
 string_add	db "+",0x0a,0
 %endif
 
+;; @@(feature +
 prim_add:
 
 %ifdef DEBUG_PRIM
@@ -1214,6 +1250,7 @@ prim_add:
 	add  LAST_ARG, PREV_ARG	; RESULT = LAST_ARG
 ;	NBARGS(2)
 	ret
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1221,6 +1258,7 @@ prim_add:
 string_sub	db "-",0x0a,0
 %endif
 
+;; @@(feature -
 prim_sub:
 
 %ifdef DEBUG_PRIM
@@ -1235,6 +1273,7 @@ prim_sub:
 	sub  LAST_ARG, PREV_ARG	; RESULT = LAST_ARG
 ;	NBARGS(2)
 	ret
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1242,6 +1281,7 @@ prim_sub:
 string_mul	db "*",0x0a,0
 %endif
 
+;; @@(feature *
 prim_mul:
 
 %ifdef DEBUG_PRIM
@@ -1259,6 +1299,7 @@ prim_mul:
 %endif
 ;	NBARGS(2)
 	ret
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1266,6 +1307,7 @@ prim_mul:
 string_quotient	db "quotient",0x0a,0
 %endif
 
+;; @@(feature quotient
 prim_quotient:
 
 %ifdef DEBUG_PRIM
@@ -1289,6 +1331,7 @@ raw_int_to_scheme_int:
 	inc  LAST_ARG
 %endif
 	ret
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1296,6 +1339,7 @@ raw_int_to_scheme_int:
 string_getchar	db "getchar",0x0a,0
 %endif
 
+;; @@(feature getchar
 prim_getchar:
 
 %ifdef DEBUG_PRIM
@@ -1318,6 +1362,7 @@ prim_getchar_done:
 	pop  ecx
 	NBARGS(0)
 	jmp  raw_int_to_scheme_int
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1325,6 +1370,7 @@ prim_getchar_done:
 string_putchar	db "putchar",0x0a,0
 %endif
 
+;; @@(feature putchar
 prim_putchar:
 
 %ifdef DEBUG_PRIM
@@ -1346,6 +1392,7 @@ prim_putchar:
 	pop  LAST_ARG
 	NBARGS(1)
 	ret
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1367,6 +1414,7 @@ run_instr_halt:
 	movC LAST_ARG, 0
 	;; fallthrough
 
+;; @@(feature exit
 prim_exit:
 
 %ifdef DEBUG_PRIM
@@ -1380,12 +1428,15 @@ prim_exit:
 	CALL_KERNEL
 ;	NBARGS(1)		; can be avoided because we are exiting!
 ;	ret
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; The compressed RVM code
 
+;; @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" source
 rvm_code:	db ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y",0 ; RVM code that prints HELLO!
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
