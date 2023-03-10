@@ -2009,8 +2009,9 @@
                        (or (memq name live-symbols)
                            (memq name features-enabled)))) 
                    primitives))
-         (live-features-symbols (filter (lambda (x) (not (memq x features-disabled)))
-                                        (append features-enabled (map caadr live-primitives)))))
+         (live-features-symbols (append (cons 'rib '()) ;; always add rib
+                                        (filter (lambda (x) (not (memq x features-disabled)))
+                                                (append features-enabled (map caadr live-primitives))))))
 
     (let loop ((used-features live-features-symbols)
                (features features))
