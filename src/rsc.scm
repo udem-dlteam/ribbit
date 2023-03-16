@@ -782,7 +782,7 @@
            (if (pair? exprs) exprs (cons #f '())))
          (exports
            (exports->alist (cdr exprs-and-exports)))
-         (host-features ;; features and primitives are the same
+         (host-features 
            (and parsed-vm (extract-features parsed-vm)))
          (_ (set! defined-features '())) ;; hack to propagate the defined-features to expand-begin
          (expansion
@@ -794,13 +794,16 @@
            (map car live))
 
          (live-features 
-           (used-features 
-             features
-             live-symbols
-             features-enabled
-             features-disabled))
+           (and parsed-vm 
+                (used-features 
+                  features
+                  live-symbols
+                  features-enabled
+                  features-disabled)))
          (primitives
-           (set-primitive-order live-features features))
+           (if parsed-vm
+               (set-primitive-order live-features features)
+               default-primitives))
          (exports
            (or exports
                (map (lambda (v)
@@ -2277,9 +2280,13 @@
     ;#f     ;; features-disabled
     ;#f     ;; vm-source
     (compile-program
-     0 ;; verbosity
-     #f ;; vm-source
+     0    ;; verbosity
+     #f   ;; parsed-vm
+     #f   ;; features-enabled
+     #f   ;; features-disabled
      (read-all)))))
+
+;; verbosity parsed-vm features-enabled features-disabled program)
 
 (define target "rvm")
 (cond-expand
