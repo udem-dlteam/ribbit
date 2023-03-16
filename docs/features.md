@@ -110,12 +110,12 @@ The `replace` command, replaces all instances of `symbol` in the `{BODY}` by the
 
 ### Feature
 
-#### `(define-feature <condition> [(use <feature>+)] <position-code-pair>+)`
+#### `(define-feature <condition> [(use <feature>+)] <location-code-pair>+)`
 
 This `define-feature` macro lets the programmer add primitive at compile-time. 
  - `condition` is a condition under which the feature is added (made of used primitives). 
  - `use` lists the numer of features (or primitives) needed by this one
- - `position-code-pair` pair of position with their respective code. For example (targeting `js`) : 
+ - `location-code-pair` pair of location with their respective code. For example (targeting `js`) : 
  ```
  (define-feature rib_eater (use rib_to_any)
     (init "
@@ -129,11 +129,11 @@ eat_rib = (r) => {
     )
  ```
 
-### Position
+### Location
 
-#### `@@(position <name>)@@`
+#### `@@(location <name>)@@`
 
-This `position` annotation defined a position in the code where the features can live
+This `location` annotation defined a location in the code where the features can live
 
 
 
