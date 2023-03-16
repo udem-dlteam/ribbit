@@ -872,8 +872,8 @@
                         (cons (expand-expr (cadr expr))
                               (cons (expand-expr (caddr expr))
                                     (cons (if (pair? (cdddr expr))
-                                              (expand-expr (cadddr expr))
-                                              #f)
+                                            (expand-expr (cadddr expr))
+                                            #f)
                                           '())))))
 
                  ((eqv? first 'lambda)
@@ -886,60 +886,60 @@
                  ((eqv? first 'let)
                   (let ((x (cadr expr)))
                     (if (symbol? x) ;; named let?
-                        (expand-expr
-                         (let ((bindings (caddr expr)))
-                           (cons
+                      (expand-expr
+                        (let ((bindings (caddr expr)))
+                          (cons
                             (cons
-                             'letrec
-                             (cons (cons
+                              'letrec
+                              (cons (cons
+                                      (cons x
+                                            (cons (cons 'lambda
+                                                        (cons (map car bindings)
+                                                              (cdddr expr)))
+                                                  '()))
+                                      '())
                                     (cons x
-                                          (cons (cons 'lambda
-                                                      (cons (map car bindings)
-                                                            (cdddr expr)))
-                                                '()))
-                                    '())
-                                   (cons x
-                                         '())))
+                                          '())))
                             (map cadr bindings))))
-                        (let ((bindings x))
-                          (if (pair? bindings)
-                              (cons 'let
-                                    (cons (map (lambda (binding)
-                                                 (cons (car binding)
-                                                       (cons (expand-expr
-                                                              (cadr binding))
-                                                             '())))
-                                               bindings)
-                                          (cons (expand-body (cddr expr))
-                                                '())))
-                              (expand-body (cddr expr)))))))
+                      (let ((bindings x))
+                        (if (pair? bindings)
+                          (cons 'let
+                                (cons (map (lambda (binding)
+                                             (cons (car binding)
+                                                   (cons (expand-expr
+                                                           (cadr binding))
+                                                         '())))
+                                           bindings)
+                                      (cons (expand-body (cddr expr))
+                                            '())))
+                          (expand-body (cddr expr)))))))
 
                  ((eqv? first 'let*)
                   (let ((bindings (cadr expr)))
                     (expand-expr
-                     (cons 'let
-                           (if (and (pair? bindings) (pair? (cdr bindings)))
-                               (cons (cons (car bindings) '())
-                                     (cons (cons 'let*
-                                                 (cons (cdr bindings)
-                                                       (cddr expr)))
-                                           '()))
-                               (cdr expr))))))
+                      (cons 'let
+                            (if (and (pair? bindings) (pair? (cdr bindings)))
+                              (cons (cons (car bindings) '())
+                                    (cons (cons 'let*
+                                                (cons (cdr bindings)
+                                                      (cddr expr)))
+                                          '()))
+                              (cdr expr))))))
 
                  ((eqv? first 'letrec)
                   (let ((bindings (cadr expr)))
                     (expand-expr
-                     (cons 'let
-                           (cons (map (lambda (binding)
-                                        (cons (car binding) (cons #f '())))
-                                      bindings)
-                                 (append (map (lambda (binding)
-                                                (cons 'set!
-                                                      (cons (car binding)
-                                                            (cons (cadr binding)
-                                                                  '()))))
-                                              bindings)
-                                         (cddr expr)))))))
+                      (cons 'let
+                            (cons (map (lambda (binding)
+                                         (cons (car binding) (cons #f '())))
+                                       bindings)
+                                  (append (map (lambda (binding)
+                                                 (cons 'set!
+                                                       (cons (car binding)
+                                                             (cons (cadr binding)
+                                                                   '()))))
+                                               bindings)
+                                          (cddr expr)))))))
 
                  ((eqv? first 'begin)
                   (expand-begin (cdr expr)))
@@ -947,67 +947,67 @@
                  ((eqv? first 'define)
                   (let ((pattern (cadr expr)))
                     (if (pair? pattern)
-                        (cons 'set!
-                              (cons (car pattern)
-                                    (cons (expand-expr
-                                           (cons 'lambda
-                                                 (cons (cdr pattern)
-                                                       (cddr expr))))
-                                          '())))
-                        (cons 'set!
-                              (cons pattern
-                                    (cons (expand-expr (caddr expr))
-                                          '()))))))
+                      (cons 'set!
+                            (cons (car pattern)
+                                  (cons (expand-expr
+                                          (cons 'lambda
+                                                (cons (cdr pattern)
+                                                      (cddr expr))))
+                                        '())))
+                      (cons 'set!
+                            (cons pattern
+                                  (cons (expand-expr (caddr expr))
+                                        '()))))))
 
 
-                ((eqv? (car expr) 'define-primitive)
-                 (if (not defined-features)
-                   (error "Cannot use define-primitive while targeting a non-modifiable host")
-                   (let* ((prim-num (cons 'tbd
-                                          (cons (cons 'quote (cons 0 '()))
-                                                (cons (cons 'quote (cons 1 '())) '())))) ;; creating cell that will be set later on
-                          (primitive-body (filter pair? (cdr expr)))
-                          (name (caadr primitive-body))
-                          (code (filter string? (cdr expr)))
-                          (code (if (eqv? (length code) 1) (car code) (error "define-primitive is not well formed"))))
+                 ((eqv? (car expr) 'define-primitive)
+                  (if (not defined-features)
+                    (error "Cannot use define-primitive while targeting a non-modifiable host")
+                    (let* ((prim-num (cons 'tbd
+                                           (cons (cons 'quote (cons 0 '()))
+                                                 (cons (cons 'quote (cons 1 '())) '())))) ;; creating cell that will be set later on
+                           (primitive-body (filter pair? (cdr expr)))
+                           (name (caadr primitive-body))
+                           (code (filter string? (cdr expr)))
+                           (code (if (eqv? (length code) 1) (car code) (error "define-primitive is not well formed"))))
 
-                     (set! defined-features
-                       (append defined-features
-                               (cons (cons 'primitive
-                                           (append primitive-body
-                                                   (append (cons (cons 'body (cons (cons (cons 'str (cons code '())) '()) '())) '())
-                                                           (cons (cons 'id (cons prim-num '())) '())))) '())))
-                     (cons 'set!
-                           (cons name
-                                 (cons (cons 'rib prim-num)
-                                       '()))))))
+                      (set! defined-features
+                        (append defined-features
+                                (cons (cons 'primitive
+                                            (append primitive-body
+                                                    (append (cons (cons 'body (cons (cons (cons 'str (cons code '())) '()) '())) '())
+                                                            (cons (cons 'id (cons prim-num '())) '())))) '())))
+                      (cons 'set!
+                            (cons name
+                                  (cons (cons 'rib prim-num)
+                                        '()))))))
 
 
                  ((eqv? first 'and)
                   (expand-expr
-                   (if (pair? (cdr expr))
-                       (if (pair? (cddr expr))
-                           (cons 'if
-                                 (cons (cadr expr)
-                                       (cons (cons 'and
-                                                   (cddr expr))
-                                             (cons #f
-                                                   '()))))
-                           (cadr expr))
-                       #t)))
+                    (if (pair? (cdr expr))
+                      (if (pair? (cddr expr))
+                        (cons 'if
+                              (cons (cadr expr)
+                                    (cons (cons 'and
+                                                (cddr expr))
+                                          (cons #f
+                                                '()))))
+                        (cadr expr))
+                      #t)))
 
                  ((eqv? first 'or)
                   (expand-expr
-                   (if (pair? (cdr expr))
-                       (if (pair? (cddr expr))
-                           (cons
-                            'let
+                    (if (pair? (cdr expr))
+                      (if (pair? (cddr expr))
+                        (cons
+                          'let
+                          (cons
+                            (cons (cons '_
+                                        (cons (cadr expr)
+                                              '()))
+                                  '())
                             (cons
-                             (cons (cons '_
-                                         (cons (cadr expr)
-                                               '()))
-                                   '())
-                             (cons
                               (cons 'if
                                     (cons '_
                                           (cons '_
@@ -1015,28 +1015,28 @@
                                                             (cddr expr))
                                                       '()))))
                               '())))
-                           (cadr expr))
-                       #f)))
+                        (cadr expr))
+                      #f)))
 
                  ((eqv? first 'cond)
                   (expand-expr
-                   (if (pair? (cdr expr))
-                       (if (eqv? 'else (car (cadr expr)))
-                           (cons 'begin (cdr (cadr expr)))
-                           (cons 'if
-                                 (cons (car (cadr expr))
-                                       (cons (cons 'begin
-                                                   (cdr (cadr expr)))
-                                             (cons (cons 'cond
-                                                         (cddr expr))
-                                                   '())))))
-                       #f)))
+                    (if (pair? (cdr expr))
+                      (if (eqv? 'else (car (cadr expr)))
+                        (cons 'begin (cdr (cadr expr)))
+                        (cons 'if
+                              (cons (car (cadr expr))
+                                    (cons (cons 'begin
+                                                (cdr (cadr expr)))
+                                          (cons (cons 'cond
+                                                      (cddr expr))
+                                                '())))))
+                      #f)))
 
                  (else
-                  (expand-list expr)))))
+                   (expand-list expr)))))
 
         (else
-         (expand-constant expr))))
+          (expand-constant expr))))
 
 (define (expand-constant x)
   (cons 'quote (cons x '())))
