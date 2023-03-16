@@ -363,7 +363,9 @@ setStack = writeRef stack
 -- Main
 
 -- inputStr :: String -- Debug
+-- @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" source
 inputStr = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" -- RVM code that prints HELLO!
+-- )@@
 
 -- main :: IO () -- Debug
 -- main = do

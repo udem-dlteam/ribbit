@@ -1,4 +1,6 @@
+-- @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" source
 local input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" -- RVM code that prints HELLO!
+-- )@@
 
 -- All variables are named such that the 'local' declarations can be
 -- removed without causing clashes.  This rreduces the output Lua size
