@@ -788,6 +788,7 @@
          (expansion
            (expand-begin exprs))
          (features (append defined-features host-features))
+         (_ (pp features))
          (live
            (liveness-analysis expansion exports))
          (live-symbols
