@@ -1,4 +1,7 @@
-;; This file must be runned with the js target
+;; This script can collect ribs that will be printed at the end
+;; To run this : 
+;;  > gsi rsc.scm -t js -l max examples/rib_eater.scm -o eat_ribs.js
+;;  > node eat_ribs.js
 
 
 (define-feature 
@@ -18,4 +21,3 @@
 (eat eat)
 (eat (lambda (foo bar) (+ foo bar)))
 (eat 'hello_world)
-
