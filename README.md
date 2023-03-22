@@ -121,3 +121,23 @@ The makefile in the `src` directory has these make targets:
       $ HOST=sh SH_HOST_INTERPRETER=ksh make check-bootstrap # check that rsc bootstraps with specific host and interpreter
 
       $ make prebuilt                  # creates prebuilt artifacts for all hosts
+
+## Supported targets (at the moment)
+
+| Host\feature | Supported | A `@@(replace ...)@@` | A `@@(primitives ...)@@` | A `@@(location ...)@@` | Rib conversion (host2scm, scm2host) | Arity feature (`arity-check` and `rest-param`) |
+|--------------|-----------|-----------------------|--------------------------|------------------------|-------------------------------------|------------------------------------------------|
+| py           |   YES     |       YES             |                          |                        |                                     |                                                |
+| js           |   YES     |       YES             |       YES                |    decl, start, end    |                                     |                                                |
+| c            |   YES     |       YES             |                          |                        |                                     |                                                |
+| asm          |   YES     |       YES             |                          |                        |                                     |                                                |
+| sh           |   YES     |       NO              |                          |                        |                                     |                                                |
+| scm          |   YES     |       YES             |                          |                        |                                     |                                                |
+| hs           |   YES     |       YES             |                          |                        |                                     |                                                |
+| lua          |   YES     |       YES             |                          |                        |                                     |                                                |
+| rs           |   YES     |       YES             |                          |                        |                                     |                                                |
+| java         |   YES     |       YES             |                          |                        |                                     |                                                |
+| scala        |   YES     |       YES             |                          |                        |                                     |                                                |
+| rb           |   YES     |       YES             |                          |                        |                                     |                                                |
+| ml           |   YES     |       YES             |                          |                        |                                     |                                                |
+| go           |   YES     |       YES             |                          |                        |                                     |                                                |
+| idr          |   YES     |       YES             |                          |                        |                                     |                                                |
