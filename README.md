@@ -130,7 +130,7 @@ The makefile in the `src` directory has these make targets:
 | js           |   YES     |       YES             |       YES                |    decl, start, end    |                                     |                                                |
 | c            |   YES     |       YES             |                          |                        |                                     |                                                |
 | asm          |   YES     |       YES             |                          |                        |                                     |                                                |
-| sh           |   YES     |       NO              |                          |                        |                                     |                                                |
+| sh           |   YES     |       YES             |                          |                        |                                     |                                                |
 | scm          |   YES     |       YES             |                          |                        |                                     |                                                |
 | hs           |   YES     |       YES             |                          |                        |                                     |                                                |
 | lua          |   YES     |       YES             |                          |                        |                                     |                                                |
