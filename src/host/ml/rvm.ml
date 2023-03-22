@@ -1,5 +1,8 @@
 (* RVM code that prints HELLO! *)
+(* @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92) @@ *)
 let input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"
+(* )@@ *)
+
 
 let debug = Sys.getenv_opt "RIBBIT_DEBUG" |> Option.is_some
 let tracing = ref false

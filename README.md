@@ -135,9 +135,9 @@ The makefile in the `src` directory has these make targets:
 | hs           |   YES     |       YES             |                          |                        |                                     |                                                |
 | lua          |   YES     |       YES             |                          |                        |                                     |                                                |
 | rs           |   YES     |       YES             |                          |                        |                                     |                                                |
-| java         |   YES     |       YES             |                          |                        |                                     |                                                |
 | scala        |   YES     |       YES             |                          |                        |                                     |                                                |
-| rb           |   YES     |       YES             |                          |                        |                                     |                                                |
 | ml           |   YES     |       YES             |                          |                        |                                     |                                                |
 | go           |   YES     |       YES             |                          |                        |                                     |                                                |
 | idr          |   YES     |       YES             |                          |                        |                                     |                                                |
+| rb           |   NO      |                       |                          |                        |                                     |                                                |
+| java         |   NO      |                       |                          |                        |                                     |                                                |

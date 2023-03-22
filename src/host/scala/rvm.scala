@@ -62,8 +62,9 @@ object Rib {
 }
 
 object Rvm {
-    // By default, prints "HELLO!"  
+    // @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
     private val program = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"
+    // )@@
 
     private val DEBUG = false
     private val NB_OF_PRIMITIVES = 20

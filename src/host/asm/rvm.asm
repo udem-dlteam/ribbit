@@ -1440,7 +1440,7 @@ prim_exit:
 
 ;;; The compressed RVM code
 
-;; @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" source
+;; @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
 rvm_code:	db ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y",0 ; RVM code that prints HELLO!
 ;; )@@
 

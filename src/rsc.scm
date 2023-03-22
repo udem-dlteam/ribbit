@@ -1800,8 +1800,8 @@
   (define primitives-body (cadr (soft-assoc 'body (soft-assoc 'primitives parsed-file))))
   (filter (lambda (x) (eq? (car x) 'primitive)) primitives-body))
 
-(define (pp-return x)
-  (pp x)
+(define (pp-return foo x)
+  (foo x)
   x)
 
 (define (extract-features parsed-file)
@@ -2090,8 +2090,28 @@
     #f))
 
 
-(define (generate-file parsed-file live-features primitives features input)
-  (pp (cons 'here features))
+(define (replace-eval expr encode)
+  (cond ((and 
+           (pair? expr)
+           (eq? 'encode (car expr))
+           (eqv? (length expr) 2))
+         (encode (replace-eval (cadr expr) encode)))
+        ((and
+           (pair? expr)
+           (eq? 'rvm-code-to-bytes (car expr))
+           (eqv? (length expr) 3))
+         (rvm-code-to-bytes
+           (replace-eval (cadr expr) encode)
+           (replace-eval (caddr expr) encode)))
+        ((string? expr)
+         expr)
+        ((number? expr)
+         expr)
+        (else
+          (error "Cannot evaluate expression in replace" expr))))
+
+
+(define (generate-file parsed-file live-features primitives features encode)
   (letrec ((extract-func
               (lambda (prim acc rec)
                 (case (car prim)
@@ -2149,14 +2169,7 @@
                           (pattern     (if (symbol? pattern)
                                          (symbol->string pattern)
                                          pattern))
-                          (replacement (cons (caddr prim) '()))
-                          (replacement-text 
-                            (apply string-append 
-                                   (map (lambda (x)
-                                          (cond 
-                                            ((string? x) x)
-                                            ((and (symbol? x) (eq? x 'source) input))))
-                                        replacement))))
+                          (replacement-text (replace-eval (caddr prim) encode)))
                      (string-append acc (string-replace (rec "") pattern replacement-text))))
                   (else
                     acc)))))
@@ -2174,8 +2187,7 @@
 
 (define (string-from-file path)
   (let ((file-content (call-with-input-file path (lambda (port) (read-line port #f)))))
-       (if (eof-object? file-content) "" file-content)
-))
+       (if (eof-object? file-content) "" file-content)))
 
 (define (transform-host-file host-file input primitives live-features)
   (generate-file
@@ -2227,24 +2239,27 @@
            (vector-ref proc-exports-and-features 3))
          (features
            (vector-ref proc-exports-and-features 4))
-         (encoded-program
-           (encode proc exports primitives))
-         (input
-           (string-append encoded-program
-                          (if input-path
-                            (string-from-file input-path)
-                            ""))))
+         (encode (lambda (bits)
+                   (let ((input (string-append 
+                                  (case bits
+                                    ((92) (encode proc exports primitives))
+                                    (else (error "Cannot encode program with this number of bits" bits)))
+                                  (if input-path
+                                    (string-from-file input-path)
+                                    "")) ))
+                     (if (>= verbosity 1)
+                       (begin
+                         (display "*** RVM code length: ")
+                         (display (string-length input))
+                         (display " bytes\n")))
+                     input))))
 
-    (if (>= verbosity 1)
-        (begin
-          (display "*** RVM code length: ")
-          (display (string-length input))
-          (display " bytes\n")))
+    
 
     (let* ((target-code-before-minification
             (if (equal? target "rvm")
-                input
-                (generate-file host-file live-features primitives features input)))
+                (encode 92)
+                (generate-file host-file live-features primitives features encode)))
            (target-code
             (if (or (not minify?) (equal? target "rvm"))
                 target-code-before-minification
