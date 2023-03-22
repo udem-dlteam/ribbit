@@ -983,6 +983,37 @@
                                   (cons (cons 'rib prim-num)
                                         '()))))))
 
+                 ((eqv? (car expr) 'define-feature)
+                  (if (not defined-features)
+                    (error "Cannot use define-feature while targeting a non-modifiable host")
+                    (let* ((feature-name (cadr expr))
+                           (has-use (eq? (caaddr expr) 'use))
+                           (feature-use (if has-use (caddr expr) '()))
+                           (feature-location-code-pairs (if has-use (cdddr expr) (cddr expr))))
+                      (for-each 
+                        (lambda (feature-pair)
+                          (set! defined-features 
+                            (append defined-features
+                                    (cons (cons 'feature
+                                                (cons feature-name
+                                                      (cons (cons '@@location
+                                                                  (cons (car feature-pair) '()))
+                                                      (cons feature-use
+                                                            (cons
+                                                              (cons 'body 
+                                                                    (cons
+                                                                      (cons 
+                                                                        (cons 'str
+                                                                              (cons (cadr feature-pair)
+                                                                                    '()))
+                                                                        '())
+                                                                      '()))
+                                                              '())))))
+                                          '()))))
+                        feature-location-code-pairs)
+                      '#f)))
+
+
 
                  ((eqv? first 'and)
                   (expand-expr
@@ -2060,6 +2091,7 @@
 
 
 (define (generate-file parsed-file live-features primitives features input)
+  (pp (cons 'here features))
   (letrec ((extract-func
               (lambda (prim acc rec)
                 (case (car prim)
@@ -2098,6 +2130,20 @@
                    (string-append acc (rec "")))
                   ((primitive)
                    (string-append acc (rec "")))
+                  ((location)
+                   (let* ((name (cadr prim))
+                          (matched-features
+                            (filter 
+                              (lambda (feature)
+                                (let ((location-name (soft-assoc '@@location feature))
+                                      (condition     (cadr feature)))
+                                  (and location-name 
+                                       (eq? (cadr location-name) name)
+                                       (eval-feature condition live-features))))
+                              features)))
+                     (string-append
+                       acc
+                       (extract extract-func matched-features ""))))
                   ((replace)
                    (let* ((pattern     (cadr prim))
                           (pattern     (if (symbol? pattern)

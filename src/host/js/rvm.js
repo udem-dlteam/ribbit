@@ -1,3 +1,4 @@
+// @@(location decl)@@
 input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"; // @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" source)@@
 
 debug = false; //debug
@@ -395,4 +396,6 @@ run = () => {
   }
 };
 
+// @@(location start)@@
 if (nodejs) run(); //node
+// @@(location end)@@
