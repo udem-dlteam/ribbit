@@ -39,7 +39,7 @@ prim1((x) => x) //  @@(primitive (id x))@@
 Here, the `{HEAD}` is `prim1((x) => x) // @@(primitive (id x))@@\n`. Because the definition is a one-liner, the value
 of `{BODY}` is set to the value of `{HEAD}`.
 
-## Current features (inside host code)
+## Meta-annotation constructs
 
 ### Features 
 
@@ -72,21 +72,11 @@ annotations to specify the location of individual primitive.
 
 
 ### Primitive
+
 #### `{HEAD} @@(primitive <signature> [(use <feature>+)] [{BODY}])@@`
 This `primitive` annotation specify the location of a sigle primitive. It must be inside a `primitives` annotation (see above)
 - `signature` : A name and arguments as an sexp (for example `(rib a b c)`)
 - `use` : A list of primitive or feature that is used by this primitive.
-
-#### `(define-primitive <signature> [(use <feature>+)] <code>)`
-This `define-primitive` macro lets the programmer extend the host by extending the primitives. 
-- `signature` : A name and arguments as an sexp (for example `(rib a b c)`)
-- `use` : A list of primitive or feature that is used by this primitive.
-- `code` : Code of the primitive
-
-### Use-feature
-#### `@@(use-feature <features>+)@@`
-This annotation let the user force the activation of certain features. It is the same semantically as using `-f+ feature-one` command line argument.
-- `features` : A list of features to be activated
 
 
 ### Replace
@@ -105,8 +95,20 @@ The `replace` command, replaces all instances of `symbol` in the `{BODY}` by the
       ```
 
 
+### Location
 
-## Features Proposed
+#### `@@(location <name>)@@`
+
+This `location` annotation defined a location in the code where the features can live
+
+
+## Macro-available contructs
+
+#### `(define-primitive <signature> [(use <feature>+)] <code>)`
+This `define-primitive` macro lets the programmer extend the host by extending the primitives. 
+- `signature` : A name and arguments as an sexp (for example `(rib a b c)`)
+- `use` : A list of primitive or feature that is used by this primitive.
+- `code` : Code of the primitive
 
 ### Feature
 
@@ -116,24 +118,12 @@ This `define-feature` macro lets the programmer add primitive at compile-time.
  - `condition` is a condition under which the feature is added (made of used primitives). 
  - `use` lists the numer of features (or primitives) needed by this one
  - `location-code-pair` pair of location with their respective code. For example (targeting `js`) : 
+
+ ```scheme
+(define-feature rib_eater (use rib_to_any)
+  (decl "collected_ribs = [];
+         function eat_rib(r) { collected_ribs.push(rib_to_any(r)); }")
+  (start "console.log('Rib eater is activated');")
+  (end "console.log('Here are my lovely eaten ribs (miam) : ', collected_ribs)"))
  ```
- (define-feature rib_eater (use rib_to_any)
-    (init "
-console.log('Rib eater is activated');
-collected_ribs = []
-eat_rib = (r) => {
-    collected_ribs.push(rib_to_any(r));
-}
-")
-    (end "console.log('Here are my lovely eaten ribs (miam) : ', collected_ribs)")
-    )
- ```
-
-### Location
-
-#### `@@(location <name>)@@`
-
-This `location` annotation defined a location in the code where the features can live
-
-
 
