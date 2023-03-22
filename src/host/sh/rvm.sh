@@ -1,6 +1,8 @@
 #!/bin/sh
 
+# @@(replace "41 59 39 117 63 62 118 68 63 62 118 82 68 63 62 118 82 65 63 62 118 82 65 63 62 118 82 58 63 62 118 82 61 33 40 58 108 107 109 33 39 58 108 107 118 54 121" (rvm-code-to-bytes (encode 92) " ")
 set 41 59 39 117 63 62 118 68 63 62 118 82 68 63 62 118 82 65 63 62 118 82 65 63 62 118 82 58 63 62 118 82 61 33 40 58 108 107 109 33 39 58 108 107 118 54 121
+# )@@
 
 _DEBUG=false                                                    # DEBUG
                                                                 # DEBUG
@@ -342,7 +344,7 @@ while true; do
 
 case $_B in
   # @@(primitives (gen "\n" index ")\n" body)
-  0) # @@(primitive (rib a b c)@@
+  0) # @@(primitive (rib a b c)
     eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then eval printf "\"(rib %s %s %s)\"" \$_X$_S $_B $_C; fi # DEBUG
     _H=$((_H+1)); eval _XR$_H=\$_X$_S _YR$_H=$_B _ZR$_H=$_C _S=\$_Y$_S; _C=R$_H
@@ -416,31 +418,31 @@ case $_B in
     if [ $_B = $_C ]; then _C=$_T; else _C=$_F; fi
     _PUSH
     ;; # )@@
- 13) # @@(primitive (lt a b)
+ 13) # @@(primitive (< a b)
     eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then printf "(< %s %s)" $_B $_C; fi # DEBUG
     if [ $_B -lt $_C ]; then _C=$_T; else _C=$_F; fi
     _PUSH
     ;; # )@@
- 14) # @@(primitive (add x y)
+ 14) # @@(primitive (+ x y)
     eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then printf "(+ %s %s)" $_B $_C; fi # DEBUG
     _C=$((_B+_C))
     _PUSH
     ;; # )@@
- 15) # @@(primitive (sub x y)
+ 15) # @@(primitive (- x y)
     eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then printf "(- %s %s)" $_B $_C; fi # DEBUG
     _C=$((_B-_C))
     _PUSH
     ;; # )@@
- 16) # @@(primitive (mul x y)
+ 16) # @@(primitive (* x y)
     eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then printf "(* %s %s)" $_B $_C; fi # DEBUG
     _C=$((_B*_C))
     _PUSH
     ;; # )@@
- 17) # @@(primitive (div x y)
+ 17) # @@(primitive (quotient x y)
     eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then printf "(quotient %s %s)" $_B $_C; fi # DEBUG
     _C=$((_B/_C))
