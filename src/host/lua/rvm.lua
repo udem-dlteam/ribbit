@@ -123,27 +123,29 @@ local function quotient(x, y)
 end
 
 local primitives = {
-   prim3(rib), -- 0
-   prim1(function(x) return x end), -- 1
-   pop, -- 2
-   arg2, -- 3
-   close, -- 4
-   prim1(function(x) return to_bool(is_rib(x)) end), -- 5
-   prim1(function(x) return x[1] end), -- 6
-   prim1(function(x) return x[2] end), -- 7
-   prim1(function(x) return x[3] end), -- 8
-   prim2(f0s), -- 9
-   prim2(f1s), -- 10
-   prim2(f2s), -- 11
-   prim2(function(x,y) return to_bool(x == y) end), -- 12
-   prim2(function(x,y) return to_bool(x<y) end), -- 13
-   prim2(function(x,y) return x + y end), -- 14
-   prim2(function(x,y) return x - y end), -- 15
-   prim2(function(x,y) return x * y end), -- 16
-   prim2(quotient), -- 17
-   getchar, -- 18
-   prim1(putchar), -- 19
-   prim1(os.exit) -- 20
+-- @@(primitives (gen body)
+   prim3(rib),                                       -- @@(primitive (rib a b c))@@                 
+   prim1(function(x) return x end),                  -- @@(primitive (id x))@@                    
+   pop,                                              -- @@(primitive (arg1 x y))@@                
+   arg2,                                             -- @@(primitive (arg2 x y))@@                
+   close,                                            -- @@(primitive (close rib))@@               
+   prim1(function(x) return to_bool(is_rib(x)) end), -- @@(primitive (rib? rib) (use bool2scm))@@ 
+   prim1(function(x) return x[1] end),               -- @@(primitive (field0 rib))@@              
+   prim1(function(x) return x[2] end),               -- @@(primitive (field1 rib))@@              
+   prim1(function(x) return x[3] end),               -- @@(primitive (field2 rib))@@              
+   prim2(f0s),                                       -- @@(primitive (field0-set! rib))@@         
+   prim2(f1s),                                       -- @@(primitive (field1-set! rib))@@         
+   prim2(f2s),                                       -- @@(primitive (field2-set! rib))@@         
+   prim2(function(x,y) return to_bool(x == y) end),  -- @@(primitive (eqv? x y) (use bool2scm))@@ 
+   prim2(function(x,y) return to_bool(x<y) end),     -- @@(primitive (< x y) (use bool2scm))@@ 
+   prim2(function(x,y) return x + y end),            -- @@(primitive (+ x y))@@                
+   prim2(function(x,y) return x - y end),            -- @@(primitive (- x y))@@                
+   prim2(function(x,y) return x * y end),            -- @@(primitive (* x y))@@                
+   prim2(quotient),                                  -- @@(primitive (quotient x y))@@         
+   getchar,                                          -- @@(primitive (getchar))@@              
+   prim1(putchar),                                   -- @@(primitive (putchar c))@@            
+   prim1(os.exit)                                    -- @@(primitive (exit n))@@               
+-- )@@
 }
 
 local function get_code()
