@@ -211,37 +211,49 @@ module Primitives : PRIMITIVES = struct
     c
 
   let primitives = [|
-      prim3 (fun z y x -> make_rib x y z);
-      prim1 (function x -> x);
-      (function () -> pop () |> ignore);
-      prim2 (fun y x -> y);
-      prim1 (function x -> make_rib (get_car x) !stack (Integer 1));
-      prim1 (function Rib _ -> true_rib | _ -> false_rib);
-      prim1 get_car;
-      prim1 get_cdr;
-      prim1 get_tag;
-      prim2 (fun y x -> set_car x y; y);
-      prim2 (fun y x -> set_cdr x y; y);
-      prim2 (fun y x -> set_tag x y; y);
-      prim2 (fun y x -> to_bool (rib_eq x y));
+  (* @@(primitives (gen body) *)
+      prim3 (fun z y x -> make_rib x y z);                                    (* @@(primitive (rib a b c))@@ *)
+      prim1 (function x -> x);                                                (* @@(primitive (id x))@@ *)
+      (function () -> pop () |> ignore);                                      (* @@(primitive (arg1 x y))@@ *)
+      prim2 (fun y x -> y);                                                   (* @@(primitive (arg2 x y))@@ *)
+      prim1 (function x -> make_rib (get_car x) !stack (Integer 1));          (* @@(primitive (close rib))@@ *)
+      prim1 (function Rib _ -> true_rib | _ -> false_rib);                    (* @@(primitive (rib? rib) (use bool2scm))@@ *)
+      prim1 get_car;                                                          (* @@(primitive (field0 rib))@@ *)
+      prim1 get_cdr;                                                          (* @@(primitive (field1 rib))@@ *)
+      prim1 get_tag;                                                          (* @@(primitive (field2 rib))@@ *)
+      prim2 (fun y x -> set_car x y; y);                                      (* @@(primitive (field0-set! rib))@@ *)
+      prim2 (fun y x -> set_cdr x y; y);                                      (* @@(primitive (field1-set! rib))@@ *)
+      prim2 (fun y x -> set_tag x y; y);                                      (* @@(primitive (field2-set! rib))@@ *)
+      prim2 (fun y x -> to_bool (rib_eq x y));                                (* @@(primitive (eqv? x y) (use bool2scm))@@ *)
+      (*  @@(primitive (< x y) @@ *)
       prim2 (fun y x -> match x, y with
                         | Integer a, Integer b -> to_bool (a < b)
                         | _ -> invalid_arg "< arguments must be Integers");
+      (*  )@@ *)
+      (*  @@(primitive (+ x y) @@ *)
       prim2 (fun y x -> match x, y with
                         | Integer a, Integer b -> Integer (a + b)
                         | _ -> invalid_arg "+ arguments must be Integers");
+      (*  )@@ *)
+      (*  @@(primitive (- x y) @@ *)
       prim2 (fun y x -> match x, y with
                         | Integer a, Integer b -> Integer (a - b)
                         | _ -> invalid_arg "- arguments must be Integers");
+      (*  )@@ *)
+      (*  @@(primitive ( * x y) @@ *)
       prim2 (fun y x -> match x, y with
                         | Integer a, Integer b -> Integer (a * b)
                         | _ -> invalid_arg "* arguments must be Integers");
+      (*  )@@ *)
+      (*  @@(primitive (quotient x y) @@ *)
       prim2 (fun y x -> match x, y with
                         | Integer a, Integer b -> Integer (a / b)
                         | _ -> invalid_arg "quotient arguments must be Integers");
-      prim0 (function () -> Integer (getchar ()));
-      prim1 (function Integer ch -> Integer (putchar ch) | _ -> invalid_arg "putchar argument must be Integer");
-      prim1 (function Integer status -> exit status | _ -> invalid_arg "exit argument must be Integer")
+      (*  )@@ *)
+      prim0 (function () -> Integer (getchar ()));                                                                (* @@(primitive (getchar))@@ *)
+      prim1 (function Integer ch -> Integer (putchar ch) | _ -> invalid_arg "putchar argument must be Integer");  (* @@(primitive (putchar x))@@ *)
+      prim1 (function Integer status -> exit status | _ -> invalid_arg "exit argument must be Integer")           (* @@(primitive (exit x))@@ *)
+  (*  )@@ *)
     |]
 end
 
