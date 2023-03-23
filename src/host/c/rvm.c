@@ -482,16 +482,16 @@ void prim(int no) {
     push2(TAG(x) = y, PAIR_TAG);
     break;
   } // )@@
-  case 12:  // @@(primitive (eqv? rib1 rib2) (uses to_bool)
+  case 12:  // @@(primitive (eqv? rib1 rib2) (use bool2scm)
   {
     PRIM2();
-    push2(rvm_to_bool(x == y), PAIR_TAG);
+    push2(bool2scm(x == y), PAIR_TAG);
     break;
   } //)@@
-  case 13:  // @@(primitive (< x y) (uses to_bool)
+  case 13:  // @@(primitive (< x y) (use bool2scm)
   {
     PRIM2();
-    push2(rvm_to_bool(NUM(x) < NUM(y)), PAIR_TAG);
+    push2(bool2scm(NUM(x) < NUM(y)), PAIR_TAG);
     break;
   } //)@@
   case 14:  // @@(primitive (+ x y)
