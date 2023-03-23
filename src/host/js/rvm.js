@@ -144,11 +144,11 @@ push = (x) => ((stack = [x,stack,0]), true);
 // @@(feature debug
 log_return = (s) => {console.log(s); return s;}
 // )@@
-// @@(feature bool_to_rib
-bool_to_rib = (x) => x ? TRUE : FALSE;
+// @@(feature bool2scm
+bool2scm = (x) => x ? TRUE : FALSE;
 // )@@
-// @@(feature str_to_rib
-str_to_rib = (s) => {
+// @@(feature str2scm
+str2scm = (s) => {
     let l = s.length
     let i = l
     let a = NIL
@@ -157,16 +157,16 @@ str_to_rib = (s) => {
 }
 // )@@
 
-// @@(feature find_sym (use rib_to_list)
+// @@(feature find_sym (use scm2list)
 find_sym = (name, symtbl) => {
-  lst = rib_to_list(symtbl)
+  lst = scm2list(symtbl)
   return list_tail(symtbl, lst.indexOf(name))[0]
 
 }
 // )@@
 
-// @@(feature function_to_rib (use foreign call find_sym)
-function_to_rib = (f) => {
+// @@(feature function2scm (use foreign call find_sym)
+function2scm = (f) => {
   let host_call = find_sym('host-call', symtbl)
   let id = find_sym('id', symtbl)
   let arg2 = find_sym('arg2', symtbl)
@@ -195,25 +195,25 @@ function_to_rib = (f) => {
 }
 // )@@
 
-// @@(feature any_to_rib (use list_to_rib str_to_rib bool_to_rib function_to_rib)
-any_to_rib = (v) => {
-  return ({"number":(x)=>x,"boolean":bool_to_rib,"string":str_to_rib,"object":list_to_rib, 'function':function_to_rib, 'undefined':()=>NIL}[typeof v](v))
+// @@(feature host2scm (use list2scm str2scm bool2scm function2scm)
+host2scm = (v) => {
+  return ({"number":(x)=>x,"boolean":bool2scm,"string":str2scm,"object":list2scm, 'function':function2scm, 'undefined':()=>NIL}[typeof v](v))
 }
 // )@@
 
-// @@(feature list_to_rib (use any_to_rib)
-list_to_rib = (l,i=0) => (i<l.length?[any_to_rib(l[i]),list_to_rib(l,i+1),0]:NIL)
+// @@(feature list2scm (use host2scm)
+list2scm = (l,i=0) => (i<l.length?[host2scm(l[i]),list2scm(l,i+1),0]:NIL)
 // )@@
 
-// @@(feature rib_to_str
-rib_to_str = (r) => {
+// @@(feature scm2str
+scm2str = (r) => {
     let f = (c) => (c===NIL?"":String.fromCharCode(c[0])+f(c[1]))
     return f(r[0])
 }
 // )@@
 
-// @@(feature rib_to_bool
-rib_to_bool = (r) => {
+// @@(feature scm2bool
+scm2bool = (r) => {
   if (r === NIL){
     return []
   }
@@ -227,13 +227,13 @@ rib_to_bool = (r) => {
 }
 // )@@
 
-// @@(feature rib_to_list (use rib_to_any)
-rib_to_list = (r) => {
+// @@(feature scm2list (use scm2host)
+scm2list = (r) => {
   let elems = r[2] === 0 ? r : r[0];
   let lst = [];
   let f = (c) => {
     if (c !== NIL){
-      lst.push(rib_to_any(c[0]))
+      lst.push(scm2host(c[0]))
       f(c[1])
     }
   }
@@ -242,20 +242,20 @@ rib_to_list = (r) => {
 }
 // )@@
 
-// @@(feature rib_to_function (use rib_to_any any_to_rib)
+// @@(feature scm2function (use scm2host host2scm)
 func_stack = []
-rib_to_function = (r) => {
+scm2function = (r) => {
   let func = (...args) => {
     func_stack.push(pc)
     push(r)
     for(a in args){
-      push(any_to_rib(a))
+      push(host2scm(a))
     }
     pc = [0,args.length,[5, 0, 0]] // call function and then halt
     run()
     pc = func_stack.pop()
     return_value = pop()
-    return rib_to_any(return_value)
+    return scm2host(return_value)
   }
   return func
 }
@@ -268,19 +268,19 @@ debug_callback = (callback) => {
 }
 // )@@
 
-// @@(feature rib_to_symbol (use rib_to_str)
-rib_to_symbol = (r) => {
-  return rib_to_str(r[1])
+// @@(feature scm2symbol (use scm2str)
+scm2symbol = (r) => {
+  return scm2str(r[1])
 }
 // )@@
 
 
-// @@(feature rib_to_any (use rib_to_str rib_to_list rib_to_bool rib_to_bool rib_to_function rib_to_symbol)
-rib_to_any = (r) => {
+// @@(feature scm2host (use scm2str scm2list scm2bool scm2bool scm2function scm2symbol)
+scm2host = (r) => {
   if (typeof r === "number")
     return r 
   let tag = r[2]
-  return [rib_to_list, rib_to_function, rib_to_symbol, rib_to_str, rib_to_list, rib_to_bool][tag](r);
+  return [scm2list, scm2function, scm2symbol, scm2str, scm2list, scm2bool][tag](r);
 }
  // )@@
 
@@ -289,12 +289,12 @@ rib_to_any = (r) => {
 foreign = (r) => [0, r, 6] // 6 is to tag a foreign object
 // )@@
 
-// @@(feature host_call (use rib_to_list)
+// @@(feature host_call (use scm2list)
 // f is a foreign object representing a function
 host_call = () =>{
   args = pop()
   f = pop()[1]
-  return push(any_to_rib(f(...rib_to_list(args))))
+  return push(host2scm(f(...scm2list(args))))
 } 
 // )@@
 
@@ -317,15 +317,15 @@ primitives = [
   () => (pop(), true),                              //  @@(primitive (arg1 x y))@@
   () => { let y = pop(); pop(); return push(y); },  //  @@(primitive (arg2 x y))@@
   () => push([pop()[0],stack,1]),                   //  @@(primitive (close rib))@@
-  prim1((x) => bool_to_rib(is_rib(x))),             //  @@(primitive (rib? rib) (use bool_to_rib))@@
+  prim1((x) => bool2scm(is_rib(x))),             //  @@(primitive (rib? rib) (use bool2scm))@@
   prim1((x) => x[0]),                               //  @@(primitive (field0 rib))@@
   prim1((x) => x[1]),                               //  @@(primitive (field1 rib))@@
   prim1((x) => x[2]),                               //  @@(primitive (field2 rib))@@
   prim2((y, x) => x[0]=y),                          //  @@(primitive (field0-set! rib))@@
   prim2((y, x) => x[1]=y),                          //  @@(primitive (field1-set! rib))@@
   prim2((y, x) => x[2]=y),                          //  @@(primitive (field2-set! rib))@@
-  prim2((y, x) => bool_to_rib(x===y)),              //  @@(primitive (eqv? x y) (use bool_to_rib))@@
-  prim2((y, x) => bool_to_rib(x<y)),                //  @@(primitive (< x y) (use bool_to_rib))@@
+  prim2((y, x) => bool2scm(x===y)),              //  @@(primitive (eqv? x y) (use bool2scm))@@
+  prim2((y, x) => bool2scm(x<y)),                //  @@(primitive (< x y) (use bool2scm))@@
   prim2((y, x) => x+y),                             //  @@(primitive (+ x y))@@
   prim2((y, x) => x-y),                             //  @@(primitive (- x y))@@
   prim2((y, x) => x*y),                             //  @@(primitive (* x y))@@

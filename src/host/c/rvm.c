@@ -397,8 +397,8 @@ void show_operand(obj o) {
 
 #endif
 
-// @@(feature to_bool
-obj rvm_to_bool(bool x) { return x ? CAR(FALSE) : FALSE; }
+// @@(feature bool2scm 
+obj bool2scm(bool x) { return x ? CAR(FALSE) : FALSE; }
 // )@@
 
 void prim(int no) {
@@ -440,10 +440,10 @@ void prim(int no) {
     TOS = TAG_RIB(alloc_rib(x, y, CLOSURE_TAG));
     break;
   } //)@@
-  case 5: // @@(primitive (rib? rib) (uses to_bool)
+  case 5: // @@(primitive (rib? rib) (use bool2scm)
   {
     PRIM1();
-    push2(rvm_to_bool(IS_RIB(x)), PAIR_TAG);
+    push2(bool2scm(IS_RIB(x)), PAIR_TAG);
     break;
   } //)@@
   case 6: // @@(primitive (field0 rib)
