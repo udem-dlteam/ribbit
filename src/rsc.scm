@@ -759,6 +759,7 @@
                  (memq (caadr feature) live-features)
                  (not (eq? (caadr feature) 'rib)))
           (let ((id (soft-assoc '@@id feature)))
+
             (set! i (+ i 1))
             (if id
               (set-car! (cadr id) (cons 'quote (cons i '())))) ;; set back id in code
@@ -788,7 +789,6 @@
          (expansion
            (expand-begin exprs))
          (features (append defined-features host-features))
-         (_ (pp features))
          (live
            (liveness-analysis expansion exports))
          (live-symbols
@@ -968,7 +968,7 @@
                                            (cons (cons 'quote (cons 0 '()))
                                                  (cons (cons 'quote (cons 1 '())) '())))) ;; creating cell that will be set later on
                            (primitive-body (filter pair? (cdr expr)))
-                           (name (caadr primitive-body))
+                           (name (caar primitive-body))
                            (code (filter string? (cdr expr)))
                            (code (if (eqv? (length code) 1) (car code) (error "define-primitive is not well formed"))))
 
@@ -977,7 +977,7 @@
                                 (cons (cons 'primitive
                                             (append primitive-body
                                                     (append (cons (cons 'body (cons (cons (cons 'str (cons code '())) '()) '())) '())
-                                                            (cons (cons 'id (cons prim-num '())) '())))) '())))
+                                                            (cons (cons '@@id (cons prim-num '())) '())))) '())))
                       (cons 'set!
                             (cons name
                                   (cons (cons 'rib prim-num)

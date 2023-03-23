@@ -3,7 +3,7 @@
   ((host js)
    (define-primitive (hello_world)
                      (use str_to_rib)
-                     "() => push('hello world'),"
+                     "() => push(str_to_rib('hello world')),"
                      )
    ;(define-primitive (console.log s)
    ;                  (use rib_to_str)
@@ -37,24 +37,22 @@
                      (use rib_to_str any_to_rib foreign)
                      "() => push(foreign(eval(rib_to_str(pop())))),")
    (define-primitive (step)
-                     "() => {debugger;return push(TRUE)},")
-                    
-                    
-                    ))
+                     "() => {debugger;return push(TRUE)},")))
+
 
 ;(debug-callback (lambda () 3))
-(debug-callback (lambda () "hello world"))
-;(let ((c 3))
-;   (debug-callback (lambda () c)))
-
-;(display 42)
-
-(define ff (foreign-eval "(x) => {console.log(x); return x}"))
-(define result (host-call ff (cons 42 '())))
-
-(display result)
-(define console.log (host-eval "(id) => document.getElementById(id)"))
-(console.log 1)
+;(debug-callback (lambda () "hello world"))
+;;(let ((c 3))
+;;   (debug-callback (lambda () c)))
+;
+;;(display 42)
+;
+;(define ff (foreign-eval "(x) => {console.log(x); return x}"))
+;(define result (host-call ff (cons 42 '())))
+;
+;(display result)
+;(define console.log (host-eval "(id) => document.getElementById(id)"))
+;(console.log 1)
 
 ;(console.log "hello world")
 ;(display "Hello world as a native string : \"")
