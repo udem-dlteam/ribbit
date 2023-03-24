@@ -80,19 +80,26 @@ This `primitive` annotation specify the location of a sigle primitive. It must b
 
 
 ### Replace
-#### `{HEAD} @@(replace <symbol> <expr> [{BODY}])@@`
-The `replace` command, replaces all instances of `symbol` in the `{BODY}` by the value returned by `expr`:
-    - `symbol` must be the text to replace as a symbol or string.
-    - `expr` must be a valid scheme expression that returns a string or one of the special values (or a mix of both):
-        - `source`: the compiled source code
-        - `line`: the current line in the file when the `replace` is evaluated.
-        - ... Maybe others?
-          <br>
-          <br>
-    - Ex: `__SOURCE__` will be replaced by the compiled source code:
-      ```c
-      char *input = "__SOURCE__"; // @@(replace __SOURCE__ source)@@
-      ```
+#### `{HEAD} @@(replace <pattern> <expr> [{BODY}])@@`
+The `replace` command, replaces all instances of `pattern` in the `{BODY}` by the value returned by `expr`:
+ - `pattern` must be the text to replace as a symbol or string.
+ - `expr` must be a valid scheme expression that returns a string or one of the special values (or a mix of both). The following fonctions are available : 
+    - `(encode bits)`: Returns the bytecode encoded on `bits` bits. For now, only 92 bits are supported, but we may support more in the future
+    - `(rvm-code-to-bytes input sep)`: Transform a rvm bytecode (or `input`) into a string containing the corresponding bytes separated by the character `sep`.
+
+Ex 1: `__SOURCE__` will be replaced by the compiled source code:
+
+```c
+char *input = "__SOURCE__"; // @@(replace __SOURCE__ (encode 92))@@
+```
+
+Ex 2: The hello world string will be replaced by the source code : 
+
+```c
+// @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
+char *input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y";
+// )@@
+```
 
 
 ### Location
