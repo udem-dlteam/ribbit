@@ -1,43 +1,44 @@
 (cond-expand
+
   ((host py)
    (define-primitive (square a)
-                     "lambda: push(pop() ** 2),"))
+     "lambda: push(pop() ** 2),"))
+
   ((host js)
    (define-primitive (square a)
-                     "() => push(pop() ** 2),"))
+     "() => push(pop() ** 2),"))
+
   ((host c)
    (define-primitive (square a)
-                     "{PRIM1();push2(TAG_NUM((NUM(x) * NUM(x))), PAIR_TAG);break;}"))
+     "{PRIM1();push2(TAG_NUM((NUM(x) * NUM(x))), PAIR_TAG);break;}"))
 
   ((host scm)
    (define-primitive (square a)
-                     "(prim1 (lambda (x) (* x x)))"))
+     "(prim1 (lambda (x) (* x x)))"))
 
   ((host hs)
    (define-primitive (square a)
-                     " , prim1 (pure . (\\case RibInt x -> RibInt (x * x); _ -> ribFalse))\n"))
+     " , prim1 (pure . (\\case RibInt x -> RibInt (x * x); _ -> ribFalse))\n"))
 
   ((host lua)
    (define-primitive (square a)
-                     "prim1(function(x) return x * x end),"))
+     "prim1(function(x) return x * x end),"))
 
   ((host ml)
    (define-primitive (square a)
-                     "prim1 (fun x -> match x with | Integer x -> Integer (x * x) | _ -> invalid_arg \"square argument must be Integer\");"))
+     "prim1 (fun x -> match x with | Integer x -> Integer (x * x) | _ -> invalid_arg \"square argument must be Integer\");"))
 
 
   ((host sh)
    (define-primitive (square a)
-                     "
-    eval _C=\\$_X$_S
-    _C=$((_C*_C))
-    _PUSH
-    ;;
-"))
+     "eval _C=\\$_X$_S
+      _C=$((_C*_C))
+      _PUSH
+      ;;"))
 
    ((host asm)
     (define-feature square
-                    (prims "
+      (prims "
 prim_square: 
 %if FIX_TAG != 0
 \tdec LAST_ARG
@@ -52,7 +53,7 @@ prim_square:
 \tret"))
 
     (define-primitive (square a)
-    "\tdd   prim_square\n")))
+      "\tdd   prim_square\n")))
 
 (putchar (square 6))
 (putchar 10)
