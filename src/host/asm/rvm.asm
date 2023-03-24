@@ -906,8 +906,8 @@ prim_dispatch_table:
 	dd   prim_field0set   ;; @@(primitive (field0-set! rib))@@
 	dd   prim_field1set   ;; @@(primitive (field1-set! rib))@@
 	dd   prim_field2set   ;; @@(primitive (field2-set! rib))@@
-	dd   prim_eqv         ;; @@(primitive (eqv? x y) (use bool_to_rib))@@
-	dd   prim_lt          ;; @@(primitive (< x y) (use bool_to_rib))@@
+	dd   prim_eqv         ;; @@(primitive (eqv? x y))@@
+	dd   prim_lt          ;; @@(primitive (< x y))@@
 	dd   prim_add         ;; @@(primitive (+ x y))@@
 	dd   prim_sub         ;; @@(primitive (- x y))@@
 	dd   prim_mul         ;; @@(primitive (* x y))@@
@@ -1158,7 +1158,7 @@ prim_field2set:
 string_isrib	db "rib?",0x0a,0
 %endif
 
-;; @@(feature rib?
+;; @@(feature rib? (use eqv?_feature)
 prim_isrib:
 
 %ifdef DEBUG_PRIM
@@ -1188,7 +1188,7 @@ prim_isrib:
 string_eqv	db "eqv?",0x0a,0
 %endif
 
-;; @@(feature eqv?
+;; @@(feature (or eqv? eqv?_feature) (use <_feature)
 prim_eqv:
 
 %ifdef DEBUG_PRIM
@@ -1217,7 +1217,7 @@ prim_eqv_internal:
 string_lt	db "<",0x0a,0
 %endif
 
-;; @@(feature <
+;; @@(feature (or < <_feature)
 prim_lt:
 
 %ifdef DEBUG_PRIM
@@ -1339,13 +1339,24 @@ raw_int_to_scheme_int:
 	ret
 ;; )@@
 
+;; @@(feature (and raw_int_to_scheme_int (not quotient))
+%ifdef RVM_GEN
+raw_int_to_scheme_int:
+	shl  LAST_ARG, 1
+%if FIX_TAG != 0
+	inc  LAST_ARG
+%endif
+	ret
+%endif
+;; )@@
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
 string_getchar	db "getchar",0x0a,0
 %endif
 
-;; @@(feature getchar
+;; @@(feature getchar (use raw_int_to_scheme_int)
 prim_getchar:
 
 %ifdef DEBUG_PRIM
@@ -1435,6 +1446,8 @@ prim_exit:
 ;	NBARGS(1)		; can be avoided because we are exiting!
 ;	ret
 ;; )@@
+
+; @@(location prims)@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
