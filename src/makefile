@@ -1,4 +1,4 @@
-HOSTS = c js py scm hs lua scala ml sh
+HOSTS = c js py scm hs lua ml sh asm
 
 all:
 
