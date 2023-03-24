@@ -85,7 +85,7 @@
                     (string-append
                      tmpin
                      (string-append " > " tmpout)))))
-       (let ((out
+       (let ((out                
               (call-with-input-file
                   tmpout
                 (lambda (port) (read-line port #f)))))
@@ -108,7 +108,10 @@
   (ribbit
 
    (define (cmd-line)
-     (cons "" '())))
+     (cons "" '()))
+
+   (define (number? x) (integer? x)))
+
 
   (chicken
 
@@ -811,7 +814,7 @@
                       (let ((var (car v)))
                         (cons var var)))
                     live)))
-         (return (make-vector 5 '())))
+         (return (make-vector 5)))
     (vector-set! 
       return
       0 
@@ -1556,7 +1559,6 @@
                                nparams
                                stream))))))
 
-  (define (number? x) (integer? x))
 
   (define (enc code stream)
     (if (rib? code)
@@ -2241,9 +2243,9 @@
            (vector-ref proc-exports-and-features 4))
          (encode (lambda (bits)
                    (let ((input (string-append 
-                                  (case bits
-                                    ((92) (encode proc exports primitives))
-                                    (else (error "Cannot encode program with this number of bits" bits)))
+                                  (if (eqv? bits 92)
+                                    (encode proc exports primitives)
+                                    (error "Cannot encode program with this number of bits" bits))
                                   (if input-path
                                     (string-from-file input-path)
                                     "")) ))
