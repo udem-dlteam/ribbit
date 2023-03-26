@@ -1798,10 +1798,6 @@
   (find (lambda (e) (and (pair? e) (eq? (car e) sym)))
         lst))
 
-(define (extract-primitives-body parsed-file)
-  (define primitives-body (cadr (soft-assoc 'body (soft-assoc 'primitives parsed-file))))
-  (filter (lambda (x) (eq? (car x) 'primitive)) primitives-body))
-
 (define (pp-return foo x)
   (foo x)
   x)
@@ -1822,53 +1818,6 @@
     parsed-file
     '()))
 
-(define (extract-primitives parsed-file)
-  (and
-    (soft-assoc 'primitives parsed-file) ;; check if body is present in primitives
-    (reverse
-      (extract
-        (lambda (prim acc rec)
-          (case (car prim)
-            ((primitive)
-             (let ((body (rec ""))
-                   (new-prim (filter (lambda (x) (and (pair? x) (not (eq? (car x) 'body)))) prim))) ;;remove body clause
-               (cons (cons (caadr prim)
-                           (cons 'tbd
-                                 (append new-prim (cons (cons 'body (cons body '())) '())))) acc)))
-            ((str)
-             (cadr prim))))
-        (extract-primitives-body parsed-file)
-        '()))))
-
-#;(define (extract-features parsed-file)
-  (extract-predicate (lambda (prim) (eq? (car prim) 'feature)) parsed-file))
-
-(define (extract-use-feature parsed-file used-primitives)
-  (extract
-    (lambda (prim acc rec)
-      (case (car prim)
-        ((use-feature)
-         (append (filter symbol? (cdr prim)) acc))
-        ((primitives)
-         (append (rec '()) acc))
-        ((primitive)
-         (let ((is-used (memq (caadr prim) used-primitives))
-               (use (soft-assoc 'use prim)))
-           (if (and is-used use)
-             (append (cdr use) acc)
-             acc)))
-        (else
-          acc)))
-    parsed-file
-    '()))
-
-(define (extract-predicate predicate parsed-file)
-  (extract (lambda (prim acc rec)
-             (if (predicate prim)
-               (append (append (rec '()) acc) (cons prim '()))
-               (append (rec '()) acc)))
-           parsed-file
-           '()))
 
 (define (extract walker parsed-file base)
   (letrec ((func
@@ -1930,7 +1879,7 @@
                 start
                 (if start (+ macro-len 1) macro-len)))))))
 
-;; Can be redefined by ribbit to make this function really fast. It would only be (rib lst len string-type)
+;; Can be redefined by ribbit to make this function somewhat fast. It would only be (rib lst len string-type)
 (define (list->string* lst len)
   (let ((str (make-string len (integer->char 48))))
     (let loop ((lst lst) (i 0))
@@ -2190,45 +2139,6 @@
 (define (string-from-file path)
   (let ((file-content (call-with-input-file path (lambda (port) (read-line port #f)))))
        (if (eof-object? file-content) "" file-content)))
-
-(define (transform-host-file host-file input primitives live-features)
-  (generate-file
-    host-file
-    live-features
-    primitives
-    input)
-
-
-  (let* ((sample ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y")
-         (host-str (string-replace
-                     (string-replace
-                       (string-replace
-                         (string-replace
-                           host-file-str
-                           sample
-                           input)
-                         (rvm-code-to-bytes sample " ")
-                         (rvm-code-to-bytes input " "))
-                       (rvm-code-to-bytes sample ",")
-                       (rvm-code-to-bytes input ","))
-                     "RVM code that prints HELLO!"
-                     "RVM code of the program")))
-    (if primitives
-      (let* ((parsed-file (parse-host-file (string->list* host-str)))
-             (features (extract-features parsed-file))
-             (used-primitives (map car primitives))
-             (activated-features (append used-primitives features-enabled))
-             (used-features (needed-features
-                              (append primitives (map cdr features))
-                              activated-features
-                              features-disabled)))
-        (generate-file
-          used-features
-          primitives
-          parsed-file
-          host-str))
-      host-str)))
-
 
 (define (generate-code target verbosity input-path rvm-path minify? host-file proc-exports-and-features) ;features-enabled features-disabled source-vm
   (let* ((proc
