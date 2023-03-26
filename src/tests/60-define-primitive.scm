@@ -53,7 +53,11 @@ prim_square:
 \tret"))
 
     (define-primitive (square a)
-      "\tdd   prim_square\n")))
+      "\tdd   prim_square\n"))
+
+   (else
+     (define-primitive (square a)
+      "ERROR"))) ;; Will make test fail !
 
 (putchar (square 6))
 (putchar 10)

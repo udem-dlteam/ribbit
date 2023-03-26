@@ -1,22 +1,17 @@
-
 (cond-expand
   ((host js)
    (define-primitive (hello_world)
                      (use str_to_rib)
                      "() => push(str_to_rib('hello world')),"
                      )
-   ;(define-primitive (console.log s)
-   ;                  (use rib_to_str)
-   ;                  "() => console.log(rib_to_str(pop())),")
+   (define-primitive (console.log s)
+                     (use rib_to_str)
+                     "() => console.log(rib_to_str(pop())),")
 
 
    (define-primitive (string-from-file path)
                      (use rib_to_str str_to_rib)
                      "() => {try{return push(str_to_rib(node_fs.readFileSync(rib_to_str(pop()), 'utf-8').toString()))}catch{ return push(FALSE)}},")
-
-   ;(define-primitive (show-tab)
-   ;                  (use list_to_rib)
-   ;                  "() => push(list_to_rib([1, 2, 3]))")
 
    (define-primitive (command-line)
                      (use list_to_rib)
@@ -40,16 +35,18 @@
                      "() => {debugger;return push(TRUE)},")))
 
 
+
+
 ;(debug-callback (lambda () 3))
 ;(debug-callback (lambda () "hello world"))
-;;(let ((c 3))
-;;   (debug-callback (lambda () c)))
-;
-;;(display 42)
-;
+;(let ((c 3))
+;   (debug-callback (lambda () c)))
+
+;(display 42)
+
 ;(define ff (foreign-eval "(x) => {console.log(x); return x}"))
 ;(define result (host-call ff (cons 42 '())))
-;
+
 ;(display result)
 ;(define console.log (host-eval "(id) => document.getElementById(id)"))
 ;(console.log 1)
@@ -61,7 +58,4 @@
 
 ;(display (console.log "hey there"))
 ;(display (string-from-file "./input.scm"))
-
-
-
 
