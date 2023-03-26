@@ -12,39 +12,50 @@
 # HOST_COMPILER takes two arguments, the output file (executable binary) and
 # the source file to compile
 
+RSC_DEFAULT = ../../rsc
+RSC_COMPILER ?= ${RSC_DEFAULT}
+
 all:
 
 build-all: build-repl-min build-repl-max build-repl-max-tc build-rsc
 
 build-repl-min: ../../repl-min.scm
-	dir="$(RIBBIT_BUILD_DIR)"; ../../rsc -t $(HOST) -l min $(RIBBIT_BUILD_OPTS) -o $${dir:-build}/repl-min.$(HOST) $<
+	dir="$(RIBBIT_BUILD_DIR)"; $(RSC_COMPILER) -t $(HOST) -l min $(RIBBIT_BUILD_OPTS) -o $${dir:-build}/repl-min.$(HOST) $<
 
 build-repl-max: ../../repl-max.scm
-	dir="$(RIBBIT_BUILD_DIR)"; ../../rsc -t $(HOST) -l max $(RIBBIT_BUILD_OPTS) -o $${dir:-build}/repl-max.$(HOST) $<
+	dir="$(RIBBIT_BUILD_DIR)"; $(RSC_COMPILER) -t $(HOST) -l max $(RIBBIT_BUILD_OPTS) -o $${dir:-build}/repl-max.$(HOST) $<
 
 build-repl-max-tc: ../../repl-max.scm
-	dir="$(RIBBIT_BUILD_DIR)"; ../../rsc -t $(HOST) -l max-tc $(RIBBIT_BUILD_OPTS) -o $${dir:-build}/repl-max-tc.$(HOST) $<
+	dir="$(RIBBIT_BUILD_DIR)"; $(RSC_COMPILER) -t $(HOST) -l max-tc $(RIBBIT_BUILD_OPTS) -o $${dir:-build}/repl-max-tc.$(HOST) $<
+	
 
-build-rsc: ../../rsc.scm
-	dir="$(RIBBIT_BUILD_DIR)"; ../../rsc -t $(HOST) -l max $(RIBBIT_BUILD_OPTS) -o $${dir:-build}/rsc.$(HOST) $<
+build-rsc: ../../rsc.scm  
+	dir="$(RIBBIT_BUILD_DIR)"; $(RSC_COMPILER) -t $(HOST) -l max $(RIBBIT_BUILD_OPTS) -o $${dir:-build}/rsc.$(HOST) $<
 
 check:
 	@host="$(HOST)"; \
 	INTERPRETER="$(HOST_INTERPRETER)"; \
 	COMPILER="$(HOST_COMPILER)"; \
+	RSC_COMPILER="${RSC_COMPILER}"; \
+	RSC_DEFAULT="${RSC_DEFAULT}"; \
 	for prog in `ls ../../tests/*.scm tests/*.scm`; do \
 	  options=`sed -n -e '/;;;options:/p' $$prog | sed -e 's/^;;;options://'`; \
+	  fancy_compiler=`sed -n -e '/;;;fancy-compiler/p' $$prog`; \
 	  echo "---------------------- $$prog [options:$$options]"; \
-	  rm -f test.$$host*; \
-	  ../../rsc -t $$host $$options -o test.$$host $$prog; \
-	  if [ "$$INTERPRETER" != "" ]; then \
-	    sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | $$INTERPRETER test.$$host > test.$$host.out; \
+	  if [ "$$RSC_DEFAULT" = "$$RSC_COMPILER" ] && [ "$$fancy_compiler" = ";;;fancy-compiler" ]; then \
+	    echo ">>> Skipped because it doesn't use the fancy compiler"; \
 	  else \
-	    $$COMPILER test.$$host.exe test.$$host; \
-	    sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | ./test.$$host.exe > test.$$host.out; \
+	    rm -f test.$$host*; \
+	    $$RSC_COMPILER -t $$host $$options -o test.$$host $$prog; \
+	    if [ "$$INTERPRETER" != "" ]; then \
+	      sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | $$INTERPRETER test.$$host > test.$$host.out; \
+	    else \
+	      $$COMPILER test.$$host.exe test.$$host; \
+	      sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | ./test.$$host.exe > test.$$host.out; \
+	    fi; \
+	    sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - test.$$host.out; \
+	    rm -f test.$$host*; \
 	  fi; \
-	  sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - test.$$host.out; \
-	  rm -f test.$$host*; \
 	done
 
 clean:

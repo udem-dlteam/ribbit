@@ -1,0 +1,15 @@
+
+Spécialisation de la VM au code source : 
+  - Enlever des primitives inutile
+  - Ajouter des primitives spécialisés
+  - Substitution de la string initiale
+
+Paramétrisation de la RVM:
+  - Activé ou désactivé le check du nombre d'arguments
+  - Activé ou désectivé le mode débug
+  - Activé d'autres composants comme le GC, tail-call, threads...
+
+
+$ git checkout leo-ard/primitives 
+
+

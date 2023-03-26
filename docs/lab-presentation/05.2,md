@@ -1,0 +1,390 @@
+
+Regardons comment les différentes VMs implémentent les primitives
+
+
+======== js
+
+...
+
+primitives = [
+  prim3((z, y, x) => [x, y, z]),
+  prim1((x) => x),
+  () => (pop(), true),
+  () => { let y = pop(); pop(); return push(y); },
+  () => push([pop()[0],stack,1]),
+  prim1((x) => to_bool(is_rib(x))),
+  prim1((x) => x[0]),
+  prim1((x) => x[1]),
+  prim1((x) => x[2]),
+  prim2((y, x) => x[0]=y),
+  prim2((y, x) => x[1]=y),
+  prim2((y, x) => x[2]=y),
+  prim2((y, x) => to_bool(x===y)),
+  prim2((y, x) => to_bool(x<y)),
+  prim2((y, x) => x+y),
+  prim2((y, x) => x-y),
+  prim2((y, x) => x*y),
+  prim2((y, x) => x/y|0),
+  getchar,
+  prim1(putchar),
+  () => pop() && halt() // will crash with error on != 0
+];
+
+...
+
+====== py
+
+...
+
+primitives = [
+ prim3(lambda z,y,x:[x,y,z]),
+ prim1(lambda x:x),
+ pop,
+ arg2,
+ close,
+ prim1(lambda x:to_bool(is_rib(x))),
+ prim1(lambda x:x[0]),
+ prim1(lambda x:x[1]),
+ prim1(lambda x:x[2]),
+ prim2(f0s),
+ prim2(f1s),
+ prim2(f2s),
+ prim2(lambda y,x:to_bool(x is y if is_rib(x) or is_rib(y) else x==y)),
+ prim2(lambda y,x:to_bool(x<y)),
+ prim2(lambda y,x:x+y),
+ prim2(lambda y,x:x-y),
+ prim2(lambda y,x:x*y),
+ prim2(lambda y,x:int(x/y)),
+ getchar,
+ prim1(putchar),
+ prim1(exit)
+]
+
+...
+
+======= Shell script
+
+...
+
+
+case $_B in
+  0)
+    eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
+    if $_DEBUG; then eval printf "\"(rib %s %s %s)\"" \$_X$_S $_B $_C; fi # DEBUG
+    _H=$((_H+1)); eval _XR$_H=\$_X$_S _YR$_H=$_B _ZR$_H=$_C _S=\$_Y$_S; _C=R$_H
+    _PUSH
+    ;;
+  1)
+    if $_DEBUG; then eval printf "\"(id %s)\"" \$_X$_S; fi # DEBUG
+    ;;
+  2)
+    eval _C=\$_X$_S # DEBUG
+    eval _S=\$_Y$_S
+    if $_DEBUG; then eval printf "\"(arg1 %s %s)\"" \$_X$_S $_C; fi # DEBUG
+    ;;
+  3)
+    eval _C=\$_X$_S _S=\$_Y$_S
+    if $_DEBUG; then eval printf "\"(arg2 %s %s)\"" \$_X$_S $_C; fi # DEBUG
+    eval _S=\$_Y$_S
+    _PUSH
+    ;;
+  4)
+    eval _C=\$_X$_S _S=\$_Y$_S
+    if $_DEBUG; then printf "(close %s)" $_C; fi # DEBUG
+    _H=$((_H+1)); eval _XR$_H=\$_X$_C _YR$_H=$_S _ZR$_H=1; _C=R$_H
+    _PUSH
+    ;;
+  5)
+    eval _C=\$_X$_S _S=\$_Y$_S
+    if $_DEBUG; then printf "(rib? %s)" $_C; fi # DEBUG
+    if [ $_C = ${_C#R} ]; then _C=$_F; else _C=$_T; fi
+    _PUSH
+    ;;
+  6)
+    eval _C=\$_X$_S _S=\$_Y$_S
+    if $_DEBUG; then printf "(field0 %s)" $_C; fi # DEBUG
+    eval _C=\$_X$_C
+    _PUSH
+    ;;
+  7)
+    eval _C=\$_X$_S _S=\$_Y$_S
+    if $_DEBUG; then printf "(field1 %s)" $_C; fi # DEBUG
+    eval _C=\$_Y$_C
+    _PUSH
+    ;;
+  8)
+    eval _C=\$_X$_S _S=\$_Y$_S
+    if $_DEBUG; then printf "(field2 %s)" $_C; fi # DEBUG
+    eval _C=\$_Z$_C
+    _PUSH
+    ;;
+  9)
+    eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
+    if $_DEBUG; then printf "(field0-set! %s %s)" $_B $_C; fi # DEBUG
+    eval _X$_B=$_C
+    _PUSH
+    ;;
+ 10)
+    eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
+    if $_DEBUG; then printf "(field1-set! %s %s)" $_B $_C; fi # DEBUG
+    eval _Y$_B=$_C
+    _PUSH
+    ;;
+ 11)
+    eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
+    if $_DEBUG; then printf "(field2-set! %s %s)" $_B $_C; fi # DEBUG
+    eval _Z$_B=$_C
+    _PUSH
+    ;;
+ 12)
+    eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
+    if $_DEBUG; then printf "(eqv? %s %s)" $_B $_C; fi # DEBUG
+    if [ $_B = $_C ]; then _C=$_T; else _C=$_F; fi
+    _PUSH
+    ;;
+ 13)
+    eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
+    if $_DEBUG; then printf "(< %s %s)" $_B $_C; fi # DEBUG
+    if [ $_B -lt $_C ]; then _C=$_T; else _C=$_F; fi
+    _PUSH
+    ;;
+ 14)
+    eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
+    if $_DEBUG; then printf "(+ %s %s)" $_B $_C; fi # DEBUG
+    _C=$((_B+_C))
+    _PUSH
+    ;;
+ 15)
+    eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
+    if $_DEBUG; then printf "(- %s %s)" $_B $_C; fi # DEBUG
+    _C=$((_B-_C))
+    _PUSH
+    ;;
+ 16)
+    eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
+    if $_DEBUG; then printf "(* %s %s)" $_B $_C; fi # DEBUG
+    _C=$((_B*_C))
+    _PUSH
+    ;;
+ 17)
+    eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
+    if $_DEBUG; then printf "(quotient %s %s)" $_B $_C; fi # DEBUG
+    _C=$((_B/_C))
+    _PUSH
+    ;;
+ 18)
+    if $_DEBUG; then printf "(getchar)"; fi # DEBUG
+    if [ $# = 0 ]; then
+      if [ -t 0 ]; then
+        set 0 `sed q | od -v -A n -t u1`
+      else
+        set 0 `od -v -A n -t u1`
+      fi
+      if [ $# = 1 ]; then set 0 -1; fi; shift
+    fi
+    _C=$1; shift
+    _PUSH
+    ;;
+ 19)
+    eval _C=\$_X$_S
+    if $_DEBUG; then printf "(putchar %s)" $_C; fi # DEBUG
+    printf \\$(($_C/64))$(($_C/8%8))$(($_C%8))
+    ;;
+ 20)
+    if $_DEBUG; then eval printf "\"(exit %s)\\n\"" \$_X$_S; fi # DEBUG
+    eval exit \$_X$_S
+    ;;
+esac
+
+
+...
+
+===== hs
+
+...
+
+
+-- primitives :: [Prim] -- Debug
+primitives =
+ [ prim3 (\(c,b,a) -> toRib $ RibObj a b c)                     -- rib object constructor
+ , prim1 pure                                    -- id
+ , void pop                                     -- take 2 TOS, keep first
+ , prim2 (const pure)                                -- take 2 TOS, keep second
+ , close                                       -- close
+ , prim1 (pure . (\case RibInt _ -> ribFalse; _ -> ribTrue))             -- rib?
+ , prim1 read0                                    -- field0 -- 6
+ , prim1 read1                                    -- field1 -- 7
+ , prim1 read2                                    -- field2 -- 8
+ , prim2 $ writePrim write0                             -- field0-set! -- 9
+ , prim2 $ writePrim write1                             -- field1-set! -- 10
+ , prim2 $ writePrim write2                             -- field2-set! -- 11
+ , prim2 $ \r1 r2 -> toBool (r1 == r2)                        -- eqv?
+ , prim2 $ \(RibInt r1) (RibInt r2) -> toBool (r1 < r2)               -- <
+ , prim2 $ onInt (+)                                 -- add
+ , prim2 $ onInt (-)                                 -- sub
+ , prim2 $ onInt (*)                                 -- mult
+ , prim2 $ onInt quot                                -- quotient
+ , safeGetChar >>= push . RibInt                       -- getChar
+ , prim1 (\r@(RibInt v) -> putChar (chr v) >> pure r)            -- putChar
+ ]
+
+...
+
+
+====== c
+
+...
+
+void prim(int no) {
+  switch (no) {
+  case 0: { // rib
+    obj new_rib = TAG_RIB(alloc_rib(NUM_0, NUM_0, NUM_0));
+    PRIM3();
+    CAR(new_rib) = x;
+    CDR(new_rib) = y;
+    TAG(new_rib) = z;
+    push2(new_rib, PAIR_TAG);
+    break;
+  }
+  case 1: { // id
+    PRIM1();
+    push2(x, PAIR_TAG);
+    break;
+  }
+  case 2: { // arg1
+    pop();
+    break;
+  }
+  case 3: { // arg2
+    obj x = pop();
+    pop();
+    push2(x, PAIR_TAG);
+    break;
+  }
+  case 4: { // close
+    obj x = CAR(TOS);
+    obj y = CDR(stack);
+    TOS = TAG_RIB(alloc_rib(x, y, CLOSURE_TAG));
+    break;
+  }
+  case 5: { // is rib?
+    PRIM1();
+    push2(boolean(IS_RIB(x)), PAIR_TAG);
+    break;
+  }
+  case 6: { // field0
+    PRIM1();
+    push2(CAR(x), PAIR_TAG);
+    break;
+  }
+  case 7: { // field1
+    PRIM1();
+    push2(CDR(x), PAIR_TAG);
+    break;
+  }
+  case 8: { // field2
+    PRIM1();
+    push2(TAG(x), PAIR_TAG);
+    break;
+  }
+  case 9: { // set field0
+    PRIM2();
+    push2(CAR(x) = y, PAIR_TAG);
+    break;
+  }
+  case 10: { // set field1
+    PRIM2();
+    push2(CDR(x) = y, PAIR_TAG);
+    break;
+  }
+  case 11: { // set field2
+    PRIM2();
+    push2(TAG(x) = y, PAIR_TAG);
+    break;
+  }
+  case 12: { // eqv?
+    PRIM2();
+    push2(boolean(x == y), PAIR_TAG);
+    break;
+  }
+  case 13: { // lt
+    PRIM2();
+    push2(boolean(NUM(x) < NUM(y)), PAIR_TAG);
+    break;
+  }
+  case 14: { // add
+    PRIM2();
+    push2(x + y - 1, PAIR_TAG);
+    break;
+  }
+  case 15: { // sub
+    PRIM2();
+    push2(x - y + 1, PAIR_TAG);
+    break;
+  }
+  case 16: { // mul
+    PRIM2();
+    push2(TAG_NUM((NUM(x) * NUM(y))), PAIR_TAG);
+    break;
+  }
+  case 17: { // div
+    PRIM2();
+    push2(TAG_NUM((NUM(x) / NUM(y))), PAIR_TAG);
+    break;
+  }
+  case 18: { // getc
+    int read;
+#ifdef NO_STD
+    asm volatile("push %%eax\n"
+                 "mov $0x03, %%eax\n"    // sys_call
+                 "mov $0, %%ebx\n"       // fd
+                 "lea 0(%%esp), %%ecx\n" // ptr
+                 "mov $1, %%edx\n"       // count
+                 "int $0x80\n"
+                 "pop %%eax\n"
+                 : "=a"(read)
+                 :
+                 : "ebx", "ecx", "edx", "esi", "edi");
+    read &= 0xFF;
+#else
+    read = getchar();
+    if (EOF == read) read = -1;
+#endif
+    push2(TAG_NUM(read), PAIR_TAG);
+    break;
+  }
+  case 19: { // putc
+    PRIM1();
+#ifdef NO_STD
+    {
+      asm volatile("mov %0, %%eax\n"
+                   "push %%eax\n"
+                   "mov $1, %%ebx\n"       // fd
+                   "lea 0(%%esp), %%ecx\n" // ptr
+                   "mov $1, %%edx\n"       // count
+                   "mov $0x04, %%eax\n"    // sys_call
+                   "int $0x80\n"
+                   "pop %%eax\n"
+                   :
+                   : "g"((int)(NUM(x) & 0xFF))
+                   : "eax", "ebx", "ecx", "edx", "esi", "edi");
+    }
+#else
+    putchar((char)NUM(x));
+    fflush(stdout);
+#endif
+    push2(x, PAIR_TAG);
+    break;
+  }
+  case 20: { // exit
+    PRIM1();
+    vm_exit(NUM(x));
+    break;
+  }
+  default: {
+    vm_exit(EXIT_ILLEGAL_INSTR);
+  }
+  }
+}
+
+...

@@ -1,5 +1,12 @@
-// @@(location decl)@@
-input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"; // @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92))@@
+// Pour exécuter :
+//  $ node ../presentation/07.2.js
+
+// Fichier commence ici
+//                |
+//                v
+
+
+input = "#rahctup,erauqs,,,,bir;(>q!':lkq!(:lkpy"; // RVM code of the program
 
 debug = false; //debug
 
@@ -141,166 +148,7 @@ pc = n[0][2];
 stack = [0,0,[5,0,0]]; // primordial continuation (executes halt instr.)
 
 push = (x) => ((stack = [x,stack,0]), true);
-// @@(feature debug
-log_return = (s) => {console.log(s); return s;}
-// )@@
-// @@(feature bool2scm
-bool2scm = (x) => x ? TRUE : FALSE;
-// )@@
-// @@(feature str2scm
-str2scm = (s) => {
-    let l = s.length
-    let i = l
-    let a = NIL
-    while (i) a=[s.charCodeAt(--i),a,0];
-    return [a,l,3]
-}
-// )@@
-
-// @@(feature find_sym (use scm2list)
-find_sym = (name, symtbl) => {
-  lst = scm2list(symtbl)
-  return list_tail(symtbl, lst.indexOf(name))[0]
-
-}
-// )@@
-
-// @@(feature function2scm (use foreign call find_sym)
-function2scm = (f) => {
-  let host_call = find_sym('host-call', symtbl)
-  let id = find_sym('id', symtbl)
-  let arg2 = find_sym('arg2', symtbl)
-  let rib = [[0, 0, 1], [NIL, 0, 3], 2]
-  if (host_call == -1 || id == -1){
-    console.log("ERROR : you must define host-call as a primitive to convert a function to a rib")
-    return 
-  }
-
-  let code = [3, foreign(f),  // push(foreign(f))
-              [2, 1, // inverse arguments
-               [0, host_call,  // call host_call primitive
-                [0, arg2, // discard argument on stack
-                 [0, id, 0]]]]] // return 
-  let i = f.length // number of args
-  while(i--){
-    code = [3, 0,  // push 0
-             [0, rib, // call rib
-              code]]
-  }
-  code = [f.length, 0,     // number of params
-          [3, NIL, code]] // push nil
-
-  let env = 0 // no environnement
-  return [code, env, 1] // return the procedure
-}
-// )@@
-
-// @@(feature host2scm (use list2scm str2scm bool2scm function2scm)
-host2scm = (v) => {
-  return ({"number":(x)=>x,"boolean":bool2scm,"string":str2scm,"object":list2scm, 'function':function2scm, 'undefined':()=>NIL}[typeof v](v))
-}
-// )@@
-
-// @@(feature list2scm (use host2scm)
-list2scm = (l,i=0) => (i<l.length?[host2scm(l[i]),list2scm(l,i+1),0]:NIL)
-// )@@
-
-// @@(feature scm2str
-scm2str = (r) => {
-    let f = (c) => (c===NIL?"":String.fromCharCode(c[0])+f(c[1]))
-    return f(r[0])
-}
-// )@@
-
-// @@(feature scm2bool
-scm2bool = (r) => {
-  if (r === NIL){
-    return []
-  }
-  if (r === FALSE){
-    return false
-  }
-  if (r === TRUE){
-    return true
-  }
-  console.error("Cannot convert ", r, " to bool");
-}
-// )@@
-
-// @@(feature scm2list (use scm2host)
-scm2list = (r) => {
-  let elems = r[2] === 0 ? r : r[0];
-  let lst = [];
-  let f = (c) => {
-    if (c !== NIL){
-      lst.push(scm2host(c[0]))
-      f(c[1])
-    }
-  }
-  f(elems)
-  return lst
-}
-// )@@
-
-// @@(feature scm2function (use scm2host host2scm)
-func_stack = []
-scm2function = (r) => {
-  let func = (...args) => {
-    func_stack.push(pc)
-    push(r)
-    for(a in args){
-      push(host2scm(a))
-    }
-    pc = [0,args.length,[5, 0, 0]] // call function and then halt
-    run()
-    pc = func_stack.pop()
-    return_value = pop()
-    return scm2host(return_value)
-  }
-  return func
-}
-// )@@
-
-// @@(feature debug-callback
-debug_callback = (callback) => {
-  console.log(callback())
-  return true;
-}
-// )@@
-
-// @@(feature scm2symbol (use scm2str)
-scm2symbol = (r) => {
-  return scm2str(r[1])
-}
-// )@@
-
-
-// @@(feature scm2host (use scm2str scm2list scm2bool scm2bool scm2function scm2symbol)
-scm2host = (r) => {
-  if (typeof r === "number")
-    return r 
-  let tag = r[2]
-  return [scm2list, scm2function, scm2symbol, scm2str, scm2list, scm2bool][tag](r);
-}
- // )@@
-
-
-// @@(feature foreign
-foreign = (r) => [0, r, 6] // 6 is to tag a foreign object
-// )@@
-
-// @@(feature host_call (use scm2list)
-// f is a foreign object representing a function
-host_call = () =>{
-  args = pop()
-  f = pop()[1]
-  return push(host2scm(f(...scm2list(args))))
-} 
-// )@@
-
-
-
-
+to_bool = (x) => x ? TRUE : FALSE;
 is_rib = (x) => x[lengthAttr];
 
 get_opnd = (o) => is_rib(o) ? o : list_tail(stack,o);
@@ -311,30 +159,13 @@ prim2 = (f) => () => push(f(pop(),pop()));
 prim3 = (f) => () => push(f(pop(),pop(),pop()));
 
 primitives = [
-// @@(primitives (gen body)
   prim3((z, y, x) => [x, y, z]),                    //  @@(primitive (rib a b c))@@
   prim1((x) => x),                                  //  @@(primitive (id x))@@
   () => (pop(), true),                              //  @@(primitive (arg1 x y))@@
   () => { let y = pop(); pop(); return push(y); },  //  @@(primitive (arg2 x y))@@
   () => push([pop()[0],stack,1]),                   //  @@(primitive (close rib))@@
-  prim1((x) => bool2scm(is_rib(x))),             //  @@(primitive (rib? rib) (use bool2scm))@@
-  prim1((x) => x[0]),                               //  @@(primitive (field0 rib))@@
-  prim1((x) => x[1]),                               //  @@(primitive (field1 rib))@@
-  prim1((x) => x[2]),                               //  @@(primitive (field2 rib))@@
-  prim2((y, x) => x[0]=y),                          //  @@(primitive (field0-set! rib))@@
-  prim2((y, x) => x[1]=y),                          //  @@(primitive (field1-set! rib))@@
-  prim2((y, x) => x[2]=y),                          //  @@(primitive (field2-set! rib))@@
-  prim2((y, x) => bool2scm(x===y)),              //  @@(primitive (eqv? x y) (use bool2scm))@@
-  prim2((y, x) => bool2scm(x<y)),                //  @@(primitive (< x y) (use bool2scm))@@
-  prim2((y, x) => x+y),                             //  @@(primitive (+ x y))@@
-  prim2((y, x) => x-y),                             //  @@(primitive (- x y))@@
-  prim2((y, x) => x*y),                             //  @@(primitive (* x y))@@
-  prim2((y, x) => x/y|0),                           //  @@(primitive (quotient x y))@@
-  getchar,                                          //  @@(primitive (getchar))@@
   prim1(putchar),                                   //  @@(primitive (putchar c))@@
-  () => pop() && halt(),//will crash with error on != 0 @@(primitive (exit n))@@
-// )@@
-];
+() => push(pop() ** 2)];
 
 run = () => {
   while (1) {
@@ -396,6 +227,4 @@ run = () => {
   }
 };
 
-// @@(location start)@@
 if (nodejs) run(); //node
-// @@(location end)@@

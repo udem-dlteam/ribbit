@@ -101,3 +101,7 @@ modules.xml
 .idea/sonarlint
 
 # End of https://www.toptal.com/developers/gitignore/api/pycharm+all
+
+# vscode
+src/.vscode/launch.json
+src/.vscode/tasks.json

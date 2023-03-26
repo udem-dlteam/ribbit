@@ -5,9 +5,7 @@ import Data.String
 import System
 
 input : String
--- @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
-input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" -- RVM code that prints HELLO!
--- )@@
+input = "#1gra,rahctup,,,,;\'u?>vR6!(:lkm!\':lkv6y" -- RVM code that prints HELLO!
 
 
 ----------------------

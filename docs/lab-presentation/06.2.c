@@ -1,3 +1,20 @@
+
+// Pour généré le fichier :
+//   $ gsi rsc.scm -t c -l empty ../presentation/06.1.scm -o ../presentation/06.1.c
+
+
+// Pour compiler le fichier :
+//   $ gcc ../presentation/05.4.c -o 05.4.exe && ./05.4.exe
+
+/* Scheme (input2.scm)
+(putchar 72)
+(putchar 73)
+(putchar 33)
+*/
+
+// Début du fichier |
+//                  v
+
 /*
  * The Ribbit VM implementation in C
  */
@@ -64,9 +81,7 @@ char *input =
 
 #else
 
-// @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
-char *input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"; // RVM code that prints HELLO!
-// )@@
+char *input = "#1gra,rahctup,,,,;'vD?>vR>?>vR=!(:lkm!':lkpy"; // RVM code of the program
 
 #endif
 
@@ -397,15 +412,14 @@ void show_operand(obj o) {
 
 #endif
 
-// @@(feature bool2scm 
-obj bool2scm(bool x) { return x ? CAR(FALSE) : FALSE; }
-// )@@
-
+// Il y a moins de primitives !
+//          |
+//          |
+//          v
 void prim(int no) {
   switch (no) { 
-  // @@(primitives (gen "case " index ":" body) 
-  case 0: // @@(primitive (rib a b c)
-  {
+
+case 0:  {
     obj new_rib = TAG_RIB(alloc_rib(NUM_0, NUM_0, NUM_0));
     PRIM3();
     CAR(new_rib) = x;
@@ -414,134 +428,34 @@ void prim(int no) {
     push2(new_rib, PAIR_TAG);
     break;
     
-  } // )@@
-  case 1: // @@(primitive (id x)
-  {
+  } // @@)@@
+
+case 1:  {
     PRIM1();
     push2(x, PAIR_TAG);
     break;
-  } // )@@
-  case 2: // @@(primitive (arg1 x y)
-  {
+  } // @@)@@
+
+case 2:  {
     pop();
     break;
-  } // )@@
-  case 3: // @@(primitive (arg2 x y)
-  {
+  } // @@)@@
+
+case 3:  {
     obj x = pop();
     pop();
     push2(x, PAIR_TAG);
     break;
-  } //)@@
-  case 4: // @@(primitive (close rib)
-  {
+  } //@@)@@
+
+case 4:  {
     obj x = CAR(TOS);
     obj y = CDR(stack);
     TOS = TAG_RIB(alloc_rib(x, y, CLOSURE_TAG));
     break;
-  } //)@@
-  case 5: // @@(primitive (rib? rib) (use bool2scm)
-  {
-    PRIM1();
-    push2(bool2scm(IS_RIB(x)), PAIR_TAG);
-    break;
-  } //)@@
-  case 6: // @@(primitive (field0 rib)
-  {
-    PRIM1();
-    push2(CAR(x), PAIR_TAG);
-    break;
-  } //)@@
-  case 7: // @@(primitive (field1 rib)
-  {
-    PRIM1();
-    push2(CDR(x), PAIR_TAG);
-    break;
-  } //)@@
-  case 8:  // @@(primitive (field2 rib)
-  {
-    PRIM1();
-    push2(TAG(x), PAIR_TAG);
-    break;
-  } //)@@
-  case 9: // @@(primitive (field0-set! rib x)
-  { 
-    PRIM2();
-    push2(CAR(x) = y, PAIR_TAG);
-    break;
-  } //)@@
-  case 10:  // @@(primitive (field1-set! rib x)
-  {
-    PRIM2();
-    push2(CDR(x) = y, PAIR_TAG);
-    break;
-  } //)@@
-  case 11:  // @@(primitive (field2-set! rib x)
-  {
-    PRIM2();
-    push2(TAG(x) = y, PAIR_TAG);
-    break;
-  } // )@@
-  case 12:  // @@(primitive (eqv? rib1 rib2) (use bool2scm)
-  {
-    PRIM2();
-    push2(bool2scm(x == y), PAIR_TAG);
-    break;
-  } //)@@
-  case 13:  // @@(primitive (< x y) (use bool2scm)
-  {
-    PRIM2();
-    push2(bool2scm(NUM(x) < NUM(y)), PAIR_TAG);
-    break;
-  } //)@@
-  case 14:  // @@(primitive (+ x y)
-  {
-    PRIM2();
-    push2(x + y - 1, PAIR_TAG);
-    break;
-  } //)@@
-  case 15:  // @@(primitive (- x y)
-  {
-    PRIM2();
-    push2(x - y + 1, PAIR_TAG);
-    break;
-  } //)@@
-  case 16:  // @@(primitive (* x y)
-  {
-    PRIM2();
-    push2(TAG_NUM((NUM(x) * NUM(y))), PAIR_TAG);
-    break;
-  } // )@@
-  case 17:  // @@(primitive (quotient x y)
-  {
-    PRIM2();
-    push2(TAG_NUM((NUM(x) / NUM(y))), PAIR_TAG);
-    break;
-  } // )@@
-  case 18:  // @@(primitive (getchar)
-  {
-    int read;
-#ifdef NO_STD
-    asm volatile("push %%eax\n"
-                 "mov $0x03, %%eax\n"    // sys_call
-                 "mov $0, %%ebx\n"       // fd
-                 "lea 0(%%esp), %%ecx\n" // ptr
-                 "mov $1, %%edx\n"       // count
-                 "int $0x80\n"
-                 "pop %%eax\n"
-                 : "=a"(read)
-                 :
-                 : "ebx", "ecx", "edx", "esi", "edi");
-    read &= 0xFF;
-#else
-    read = getchar();
-    if (EOF == read) read = -1;
-#endif
-    push2(TAG_NUM(read), PAIR_TAG);
-    break;
-  } // )@@
-  case 19:  // @@(primitive (putchar c)
-  {
+  } //@@)@@
+
+case 5:  {
     PRIM1();
 #ifdef NO_STD
     {
@@ -563,14 +477,7 @@ void prim(int no) {
 #endif
     push2(x, PAIR_TAG);
     break;
-  } // )@@
-  case 20:  // @@(primitive (exit n)
-  {
-    PRIM1();
-    vm_exit(NUM(x));
-    break;
-  } // )@@
-  // )@@
+  } // @@)@@
   default: {
     vm_exit(EXIT_ILLEGAL_INSTR);
   }

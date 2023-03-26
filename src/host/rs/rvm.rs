@@ -265,7 +265,9 @@ fn main()
 
 fn init()
 {
+    // @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
     let input = String::from(");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y");
+    // )@@
     let mut heap: [Obj; HEAP_SIZE] = [Obj::Num(0); HEAP_SIZE];
     let scan = &heap[0] as *const Obj; 
 

@@ -1,6 +1,12 @@
 # Ribbit
 
-A small and portable Scheme implementation that supports closures, tail calls, first-class continuations, a REPL and AOT and incremental compilers. All that for a run time footprint around 4 KB!
+A small, portable and extensible Scheme implementation that supports closures, tail calls, first-class continuations, a REPL and AOT and incremental compilers. All that for a run time footprint around 4 KB!
+
+Ribbit currently supports 9 targets such as *JavaScript*, *Assembly (x86)*, *C*, *Python* and *POSIX Shell*, with more to come !
+
+For more information about Ribbit, you can look at our papers in the [paper section](#ressearch-and-papers) or check out [all supported targets](#supported-targets)
+
+## Try it now !
 
 You can [try the REPL with a minimal library here](https://udem-dlteam.github.io/ribbit/repl-min.html) or [try a more featureful version here](https://udem-dlteam.github.io/ribbit/repl-max.html).
 
@@ -16,7 +22,7 @@ There are also prebuilt versions of the Ribbit AOT compiler in the `prebuilt` di
 
 The AOT compiler's source code is in a single file: `src/rsc.scm` . This Scheme file can be executed as a program with the Gambit, Guile, Chicken or Kawa interpreters. Alternatively the AOT compiler can be executed using the `src/rsc` shell script, which has the additional `-c` option to select a specific build of the Ribbit AOT compiler which is useful for bootstrapping Ribbit or to execute one of the prebuilt versions.
 
-Ribbit currently supports the target languages C, JavaScript, Python, Scheme, Haskell, Lua, Scala, Ocaml and POSIX shell which are selectable with the compiler's `-t` option with `c`, `js`, `py`, `scm`, `hs`, `lua`, `scala`, `ml`, and `sh` respectively.  The compacted RVM code can be obtained with the target `rvm` which is the default.
+Ribbit currently supports the target languages C, JavaScript, Python, Scheme, Haskell, Lua, Assembly (x86), Ocaml and POSIX shell which are selectable with the compiler's `-t` option with `c`, `js`, `py`, `scm`, `hs`, `lua`, `asm`, `ml`, and `sh` respectively.  The compacted RVM code can be obtained with the target `rvm` which is the default.
 
 The `-m` option causes a minification of the generated program. This requires a recent version of Gambit.
 
@@ -121,3 +127,34 @@ The makefile in the `src` directory has these make targets:
       $ HOST=sh SH_HOST_INTERPRETER=ksh make check-bootstrap # check that rsc bootstraps with specific host and interpreter
 
       $ make prebuilt                  # creates prebuilt artifacts for all hosts
+
+
+
+
+
+## Supported targets
+
+| Host\feature | Supported | A `@@(replace ...)@@` | A `@@(primitives ...)@@` | A `@@(location ...)@@` | Rib conversion (host2scm, scm2host) | Arity feature (`arity-check` and `rest-param`) |
+|--------------|-----------|-----------------------|--------------------------|------------------------|-------------------------------------|------------------------------------------------|
+| py           |   YES     |       YES             |       YES                |                        |                                     |                                                |
+| js           |   YES     |       YES             |       YES                |    decl, start, end    |                                     |                                                |
+| c            |   YES     |       YES             |       YES                |                        |                                     |                                                |
+| asm          |   YES     |       YES             |       YES                |                        |                                     |                                                |
+| sh           |   YES     |       YES             |       YES                |                        |                                     |                                                |
+| scm          |   YES     |       YES             |       YES                |                        |                                     |                                                |
+| hs           |   YES     |       YES             |       YES                |                        |                                     |                                                |
+| lua          |   YES     |       YES             |       YES                |                        |                                     |                                                |
+| ml           |   YES     |       YES             |       YES                |                        |                                     |                                                |
+| rs           |   NO      |                       |                          |                        |                                     |                                                |
+| go           |   NO      |                       |                          |                        |                                     |                                                |
+| idr          |   NO      |                       |                          |                        |                                     |                                                |
+| scala        |   NO      |                       |                          |                        |                                     |                                                |
+| rb           |   NO      |                       |                          |                        |                                     |                                                |
+| java         |   NO      |                       |                          |                        |                                     |                                                |
+
+## Ressearch and papers
+
+We are actively developping Ribbit. If you have an idea, you can reach out to @leo-ard or @feeley.
+
+- [Leonard Oest O'Leary and Marc Feeley, A Compact and Extensible Portable Scheme VM. In MoreVMs Workshop (MOREVMS@PROGRAMMING'23), March 2023](http://www.iro.umontreal.ca/~feeley/papers/OLearyFeeleyMOREVMS23.pdf)
+- [Samuel Yvon and Marc Feeley, A Small Scheme VM, Compiler, and REPL in 4K. In Workshop on Virtual Machines and Intermediate Languages (VMIL@SPLASH'21), October 2021.](http://www.iro.umontreal.ca/~feeley/papers/YvonFeeleyVMIL21.pdf)

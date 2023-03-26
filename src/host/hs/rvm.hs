@@ -157,26 +157,29 @@ close = do
 
 -- primitives :: [Prim] -- Debug
 primitives =
- [ prim3 (\(c,b,a) -> toRib $ RibObj a b c)                     -- rib object constructor
- , prim1 pure                                    -- id
- , void pop                                     -- take 2 TOS, keep first
- , prim2 (const pure)                                -- take 2 TOS, keep second
- , close                                       -- close
- , prim1 (pure . (\case RibInt _ -> ribFalse; _ -> ribTrue))             -- rib?
- , prim1 read0                                    -- field0 -- 6
- , prim1 read1                                    -- field1 -- 7
- , prim1 read2                                    -- field2 -- 8
- , prim2 $ writePrim write0                             -- field0-set! -- 9
- , prim2 $ writePrim write1                             -- field1-set! -- 10
- , prim2 $ writePrim write2                             -- field2-set! -- 11
- , prim2 $ \r1 r2 -> toBool (r1 == r2)                        -- eqv?
- , prim2 $ \(RibInt r1) (RibInt r2) -> toBool (r1 < r2)               -- <
- , prim2 $ onInt (+)                                 -- add
- , prim2 $ onInt (-)                                 -- sub
- , prim2 $ onInt (*)                                 -- mult
- , prim2 $ onInt quot                                -- quotient
- , safeGetChar >>= push . RibInt                       -- getChar
- , prim1 (\r@(RibInt v) -> putChar (chr v) >> pure r)            -- putChar
+ [ 
+-- @@(primitives (gen body)
+ prim3 (\(c,b,a) -> toRib $ RibObj a b c)                    -- @@(primitive (rib a b c))@@
+ , prim1 pure                                                -- @@(primitive (id x))@@
+ , void pop                                                  -- @@(primitive (arg1 x y))@@
+ , prim2 (const pure)                                        -- @@(primitive (arg2 x y))@@
+ , close                                                     -- @@(primitive (close rib))@@ 
+ , prim1 (pure . (\case RibInt _ -> ribFalse; _ -> ribTrue)) -- @@(primitive (rib? rib))@@
+ , prim1 read0                                               -- @@(primitive (field0 rib))@@
+ , prim1 read1                                               -- @@(primitive (field1 rib))@@
+ , prim1 read2                                               -- @@(primitive (field2 rib))@@
+ , prim2 $ writePrim write0                                  -- @@(primitive (field0-set! rib))@@
+ , prim2 $ writePrim write1                                  -- @@(primitive (field1-set! rib))@@ 
+ , prim2 $ writePrim write2                                  -- @@(primitive (field2-set! rib))@@ 
+ , prim2 $ \r1 r2 -> toBool (r1 == r2)                       -- @@(primitive (eqv? rib))@@
+ , prim2 $ \(RibInt r1) (RibInt r2) -> toBool (r1 < r2)      -- @@(primitive (< x y))@@
+ , prim2 $ onInt (+)                                         -- @@(primitive (+ x y))@@
+ , prim2 $ onInt (-)                                         -- @@(primitive (- x y))@@
+ , prim2 $ onInt (*)                                         -- @@(primitive (* x y))@@
+ , prim2 $ onInt quot                                        -- @@(primitive (quotient x y))@@
+ , safeGetChar >>= push . RibInt                             -- @@(primitive (getchar))@@
+ , prim1 (\r@(RibInt v) -> putChar (chr v) >> pure r)        -- @@(primitive (putchar x))@@
+ -- )@@
  ]
 
 -- writePrim :: Monad m => (t -> b -> m a) -> t -> b -> m b -- Debug
@@ -363,7 +366,9 @@ setStack = writeRef stack
 -- Main
 
 -- inputStr :: String -- Debug
+-- @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
 inputStr = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" -- RVM code that prints HELLO!
+-- )@@
 
 -- main :: IO () -- Debug
 -- main = do

@@ -1,0 +1,11 @@
+// This is a test for the feature
+
+// @@(feature foobar
+visible
+// )@@
+
+// @@(feature foo
+hidden
+// )@@
+
+;;;options: -f+ foobar

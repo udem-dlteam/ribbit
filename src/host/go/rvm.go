@@ -9,7 +9,9 @@ import (
 const DebugICall = false
 
 //goland:noinspection SpellCheckingInspection
+// @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
 const Input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" // RVM code that prints HELLO!
+// )@@
 
 const (
 	InstrCall  = 0
