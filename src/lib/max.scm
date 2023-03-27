@@ -755,8 +755,14 @@
 (define const-op     3)
 (define if-op        4)
 
-(define (comp cte expr cont)
+(define (add-nb-args nb tail)
+  (if (not (eqv? ##feature-rest-param 0))
+    (rib const-op
+         nb
+         tail)
+    tail))
 
+(define (comp cte expr cont)
   (cond ((symbol? expr)
          (rib get-op (lookup expr cte 0) cont))
 
@@ -801,7 +807,9 @@
                           '())
                          (if (null? cte)
                              cont
-                             (gen-call 'close cont)))))
+                             (add-nb-args
+                               1
+                               (gen-call 'close cont))))))
 
 ;#; ;; support for begin special form
                  ((eqv? first 'begin)
@@ -869,6 +877,7 @@
                     (if (symbol? first)
                         (comp-call cte
                                    args
+                                   (length args)
                                    (cons first cont))
                         (comp-bind cte
                                    '_
@@ -905,17 +914,21 @@
                     body
                     (if (eqv? cont tail)
                         cont
-                        (rib jump/call-op ;; call
-                             'arg2
-                             cont)))))
+                        (add-nb-args
+                          2
+                          (rib jump/call-op ;; call
+                               'arg2
+                                cont))))))
 
 (define (comp-begin cte exprs cont)
   (comp cte
         (car exprs)
         (if (pair? (cdr exprs))
+          (add-nb-args
+            2
             (rib jump/call-op ;; call
                  'arg1
-                 (comp-begin cte (cdr exprs) cont))
+                 (comp-begin cte (cdr exprs) cont)))
             cont)))
 
 (define (gen-call v cont)
@@ -934,17 +947,20 @@
       (field2 cont) ;; remove pop
       (rib const-op 0 cont))) ;; add dummy value for set!
 
-(define (comp-call cte exprs var-cont)
+(define (comp-call cte exprs nb-args var-cont)
   (if (pair? exprs)
       (comp cte
             (car exprs)
             (comp-call (cons #f cte)
                        (cdr exprs)
+                       nb-args
                        var-cont))
       (let ((var (car var-cont)))
         (let ((cont (cdr var-cont)))
           (let ((v (lookup var cte 0)))
-            (gen-call v cont))))))
+            (add-nb-args
+              nb-args
+              (gen-call (if (and (integer? v) (not (eqv? ##feature-rest-param 0))) (+ 1 v) v) cont)))))))
 
 (define (lookup var cte i)
   (if (pair? cte)
@@ -958,9 +974,26 @@
       (cons (car vars) (extend (cdr vars) cte))
       cte))
 
-(define tail (rib jump/call-op 'id 0)) ;; jump
+(define tail (add-nb-args 1 (rib jump/call-op 'id 0))) ;; jump
+
+(define (display-rib rib)
+  (display "[")
+  (if (rib? (field0 rib))
+    (display-rib (field0 rib))
+    (display (field0 rib)))
+  (display " ")
+  (if (rib? (field1 rib))
+    (display-rib (field1 rib))
+    (display (field1 rib)))
+  (display " ")
+  (if (rib? (field2 rib))
+    (display-rib (field2 rib))
+    (display (field2 rib)))
+  (display "]"))
+
 
 (define (compile expr) ;; converts an s-expression to a procedure
+
   (make-procedure (rib 0 0 (comp '() expr tail)) '()))
 
 (define (eval expr)

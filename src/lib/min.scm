@@ -722,6 +722,13 @@
 (define const-op     3)
 (define if-op        4)
 
+(define (add-nb-args nb tail)
+  (if (not (eqv? ##feature-rest-param 0))
+    (rib const-op
+         nb
+         tail)
+    tail))
+
 (define (comp cte expr cont)
 
   (cond ((symbol? expr)
@@ -769,7 +776,9 @@
                           '())
                          (if (null? cte)
                              cont
-                             (gen-call 'close cont)))))
+                             (add-nb-args
+                               1
+                               (gen-call 'close cont))))))
 
 ;;#; ;; support for begin special form
 ;;                 ((eqv? first 'begin)
@@ -831,6 +840,7 @@
                   ;#; ;; support for calls with only variable in operator position
                   (comp-call cte
                              (cdr expr)
+                             (length expr)
                              (cons first cont))
 ;;                  #; ;; support for calls with any expression in operator position
 ;;                  (let ((args (cdr expr)))
@@ -904,17 +914,20 @@
       (field2 cont) ;; remove pop
       (rib const-op 0 cont))) ;; add dummy value for set!
 
-(define (comp-call cte exprs var-cont)
+(define (comp-call cte exprs nb-args var-cont)
   (if (pair? exprs)
       (comp cte
             (car exprs)
             (comp-call (cons #f cte)
                        (cdr exprs)
+                       nb-args
                        var-cont))
       (let ((var (car var-cont)))
         (let ((cont (cdr var-cont)))
           (let ((v (lookup var cte 0)))
-            (gen-call v cont))))))
+            (add-nb-args
+              nb-args
+              (gen-call (if (and (not (rib? v)) (not (eqv? ##feature-rest-param 0))) (+ v 1) v) cont)))))))
 
 (define (lookup var cte i)
   (if (pair? cte)

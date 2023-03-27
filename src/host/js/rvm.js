@@ -345,6 +345,9 @@ run = () => {
     case 0: // jump/call
         if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } //debug
         o = get_opnd(o)[0];
+        // @@(feature rest-param
+        //rest=pop(); /* @@(replace // "")@@ */
+        // )@@
         let c = o[0];
         if (is_rib(c)) {
             let c2 = [0,o,0];
@@ -384,7 +387,7 @@ run = () => {
         push(get_opnd(o)[0]);
         break;
     case 3: // const
-        if (debug) { console.log("--- const " + o); show_stack(); } //debug
+        if (debug) { console.log("--- const ", o); show_stack(); } //debug
         push(o);
         break;
     case 4: // if
