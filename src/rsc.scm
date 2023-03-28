@@ -858,6 +858,20 @@
           (append to-add
                   (cdr expansion)))))
 
+(define (detect-features live)
+  (fold (lambda (x acc)
+          (if (and (pair? x) (pair? (cdr x)))
+            (let ((expr (cadr x)))
+              (if (and (pair? expr) ;; check for arity check
+                       (eq? (car expr) 'lambda)
+                       (or (symbol? (cadr expr))
+                           (and (pair? (cadr expr))
+                                (not (eq? (last-item (cadr expr)) '())))))
+                (cons 'rest-param (cons 'arity-check acc))
+                acc))
+            acc))
+        '()
+        live))
 
 (define (compile-program verbosity parsed-vm features-enabled features-disabled program)
   (let* ((exprs-and-exports
@@ -876,6 +890,8 @@
          (features (append defined-features host-features))
          (live
            (liveness-analysis expansion exports))
+         (features-enabled 
+           (unique (append (detect-features live) features-enabled)))
          (live-symbols
            (map car live))
 
