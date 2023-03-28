@@ -663,7 +663,7 @@
                                                     (length args)
                                                     (gen-call 
                                                       (if (and (number? v)
-                                                               (memq 'rest-param (ctx-live-features ctx)))
+                                                               (memq 'arity-check (ctx-live-features ctx)))
                                                         (+ v 1)
                                                         v)
                                                       cont)))))
@@ -713,7 +713,7 @@
                   cont)))
 
 (define (add-nb-args ctx nb-args tail)
-  (if (memq 'rest-param (ctx-live-features ctx))
+  (if (memq 'arity-check (ctx-live-features ctx))
     (rib const-op
          nb-args
          tail)
@@ -1426,7 +1426,7 @@
   (define built-constants '())
 
   (define (add-nb-args nb-args tail)
-    (if (and live-features (memq 'rest-param live-features))
+    (if (and live-features (memq 'arity-check live-features))
       (rib const-op
            nb-args
            tail)

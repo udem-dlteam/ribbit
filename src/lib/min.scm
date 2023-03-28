@@ -723,7 +723,7 @@
 (define if-op        4)
 
 (define (add-nb-args nb tail)
-  (if (not (eqv? ##feature-rest-param 0))
+  (if (not (eqv? ##feature-arity-check 0))
     (rib const-op
          nb
          tail)
@@ -927,7 +927,7 @@
           (let ((v (lookup var cte 0)))
             (add-nb-args
               nb-args
-              (gen-call (if (and (not (rib? v)) (not (eqv? ##feature-rest-param 0))) (+ v 1) v) cont)))))))
+              (gen-call (if (and (not (rib? v)) (not (eqv? ##feature-arity-check 0))) (+ v 1) v) cont)))))))
 
 (define (lookup var cte i)
   (if (pair? cte)
