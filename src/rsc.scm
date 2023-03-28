@@ -547,6 +547,23 @@
 (define (ctx-live-set! ctx x)
   (set-car! (field1 ctx) x))
 
+(define (last-item lst)
+  (if (pair? lst)
+    (last-item (cdr lst))
+    lst))
+
+(define (improper-length lst)
+  (if (pair? lst)
+    (+ 1 (improper-length (cdr lst)))
+    0))
+
+(define (improper-list->list lst1 lst2)
+  (if (pair? lst1)
+    (improper-list->list (cdr lst1) (cons (car lst1) lst2))
+    (reverse (cons lst1 lst2))))
+
+    
+
 (define (comp ctx expr cont)
   ;(pp (list 'comp (ctx-cte ctx) expr cont))
 
@@ -592,17 +609,26 @@
                         (comp ctx (cadr expr) cont-test)))))
 
                  ((eqv? first 'lambda)
-                  (let ((params (cadr expr)))
+                  (let* ((params (cadr expr))
+                         (variadic (or (symbol? params) (not (eq? (last-item params) '()))))
+                         (nb-params
+                            (if variadic
+                              (improper-length params)
+                              (length params)))
+                         (params 
+                           (if variadic
+                             (improper-list->list params '())
+                             params)))
                     (rib const-op
                          (make-procedure
-                          (rib (length params)
+                          (rib (+ (* 2 nb-params) (if variadic 1 0))
                                0
                                (comp-begin (ctx-cte-set
-                                            ctx
-                                            (extend params
-                                                    (cons #f
-                                                          (cons #f
-                                                                (ctx-cte ctx)))))
+                                             ctx
+                                             (extend params
+                                                     (cons #f
+                                                           (cons #f
+                                                                 (ctx-cte ctx)))))
                                            (cddr expr)
                                            tail))
                           '())
@@ -634,7 +660,7 @@
                                    (lambda (ctx)
                                      (let ((v (lookup first (ctx-cte ctx) 0)))
                                        (add-nb-args ctx 
-                                                    (length expr)
+                                                    (length args)
                                                     (gen-call 
                                                       (if (and (number? v)
                                                                (memq 'rest-param (ctx-live-features ctx)))
@@ -884,7 +910,7 @@
       return
       0 
       (make-procedure
-        (rib 0 ;; 0 parameters
+        (rib 2 ;; 0 parameters 
              0
              (comp ctx
                    expansion

@@ -1,7 +1,15 @@
 // @@(location decl)@@
 input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"; // @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92))@@
 
-debug = false; //debug
+
+// @@(feature (or debug debug-trace)
+debug = true; 
+// )@@
+// @@(feature (and (not debug) (not debug-trace))
+debug = false;
+// )@@
+
+
 
 lengthAttr = "length";
 
@@ -344,16 +352,43 @@ run = () => {
         return;
     case 0: // jump/call
         if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } //debug
+        f = show_opnd(o) // DEBUG REMOVE
         o = get_opnd(o)[0];
-        // @@(feature rest-param
-        //rest=pop(); /* @@(replace // "")@@ */
+        // @@(feature arity-check
+        let ncall=pop();
         // )@@
         let c = o[0];
+
         if (is_rib(c)) {
             let c2 = [0,o,0];
             let s2 = c2;
-            let nargs = c[0];
+
+            // @@(feature (and debug-trace debug)
+            if(debug){
+                console.log("\nDEBUG " + f + " -- ncall:", ncall, " nargs:", c[0] >> 1, "variadics:", c[0] & 1);
+            }
+            // )@@
+            
+            let nargs = c[0] >> 1; 
+            // @@(feature rest-param (use arity-check)
+            let vari = c[0] & 1;
+            if ((!vari && nargs != ncall) || (vari && nargs > ncall)){
+                console.log("*** Unexpected number of arguments ncall:", ncall, " nargs:", nargs, "variadics:", vari);
+                halt();
+            }
+            // )@@
+
+            //@@(feature rest-param (use arity-check)
+            ncall-=nargs;
+            if (vari) {
+                let rest=NIL;
+                while(ncall--) 
+                    rest=[pop(), rest, 0];
+                s2=[rest,s2,0]
+            }
+            // )@@
             while (nargs--) s2 = [pop(),s2,0];
+
             if (pc[2]===0) {
                 // jump
                 let k = get_cont();
