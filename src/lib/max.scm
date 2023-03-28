@@ -788,7 +788,7 @@
                   (let ((params (cadr expr)))
                     (rib const-op
                          (make-procedure
-                          (rib (length params)
+                          (rib (* 2 (length params))
                                0
 ;;                               #; ;; support for single expression in body
 ;;                               (comp (extend params
