@@ -134,23 +134,23 @@ The makefile in the `src` directory has these make targets:
 
 ## Supported targets
 
-| Host\feature | Supported | A `@@(replace ...)@@` | A `@@(primitives ...)@@` | A `@@(location ...)@@` | Rib conversion (host2scm, scm2host) | Arity feature (`arity-check` and `rest-param`) |
-|--------------|-----------|-----------------------|--------------------------|------------------------|-------------------------------------|------------------------------------------------|
-| py           |   YES     |       YES             |       YES                |                        |                                     |                                                |
-| js           |   YES     |       YES             |       YES                |    decl, start, end    |                                     |                                                |
-| c            |   YES     |       YES             |       YES                |                        |                                     |                                                |
-| asm          |   YES     |       YES             |       YES                |                        |                                     |                                                |
-| sh           |   YES     |       YES             |       YES                |                        |                                     |                                                |
-| scm          |   YES     |       YES             |       YES                |                        |                                     |                                                |
-| hs           |   YES     |       YES             |       YES                |                        |                                     |                                                |
-| lua          |   YES     |       YES             |       YES                |                        |                                     |                                                |
-| ml           |   YES     |       YES             |       YES                |                        |                                     |                                                |
-| rs           |   NO      |                       |                          |                        |                                     |                                                |
-| go           |   NO      |                       |                          |                        |                                     |                                                |
-| idr          |   NO      |                       |                          |                        |                                     |                                                |
-| scala        |   NO      |                       |                          |                        |                                     |                                                |
-| rb           |   NO      |                       |                          |                        |                                     |                                                |
-| java         |   NO      |                       |                          |                        |                                     |                                                |
+| Host\feature | Supported | Markup complete  | Arity feature (RFS 1) |
+|--------------|-----------|------------------|-----------------------|
+| py           |   YES     | missing location |        YES            |
+| js           |   YES     |      YES         |        YES            |
+| c            |   YES     | missing location |                       |
+| asm          |   YES     | missing location |                       |
+| sh           |   YES     | missing location |                       |
+| scm          |   YES     | missing location |                       |
+| hs           |   YES     | missing location |                       |
+| lua          |   YES     | missing location |                       |
+| ml           |   YES     | missing location |                       |
+| rs           |   NO      |                  |                       |
+| go           |   NO      |                  |                       |
+| idr          |   NO      |                  |                       |
+| scala        |   NO      |                  |                       |
+| rb           |   NO      |                  |                       |
+| java         |   NO      |                  |                       |
 
 ## Ressearch and papers
 

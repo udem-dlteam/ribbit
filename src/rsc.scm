@@ -848,8 +848,8 @@
                          (cond 
                            ((memq sym live-features)
                             (cons (cons 'set! (cons sym (cons #t '()))) acc))
-                           ;((string-start-with? (symbol->string sym) prefix)
-                           ; (cons (cons 'set! (cons sym (cons #f '()))) acc))
+                           ((string-start-with? (symbol->string sym) prefix)
+                            (cons (cons 'set! (cons sym (cons #f '()))) acc))
                            (else acc)))
                        '()
                        live-symbols)))
@@ -904,8 +904,8 @@
                features-disabled)
              features-enabled))
 
-         ;(expansion
-         ;  (add-feature-variables live-symbols (or live-features '()) expansion))
+         (expansion
+           (add-feature-variables live-symbols (or live-features '()) expansion))
 
          (primitives
            (if parsed-vm

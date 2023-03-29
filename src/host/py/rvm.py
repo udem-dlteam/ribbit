@@ -240,11 +240,29 @@ while 1:
  if i<1: # jump/call
   if tracing: print(("call " if is_rib(pc[2]) else "jump ") + show(o)) # DEBUG
   o=get_opnd(o)[0]
+  # @@(feature arity-check
+  ncall=pop();
+  # )@@
   c=o[0]
   if is_rib(c):
    c2=[0,o,0]
    s2=c2
-   nargs=c[0]
+   nargs=c[0]>>1
+   # @@(feature rest-param (use arity-check)
+   vari=c[0]&1
+   if ((not vari and nargs != ncall) or (vari and nargs > ncall)):
+    print("*** Unexpected number of arguments ncall:", ncall, "nargs", nargs, "variadics:", vari);
+    exit(1)
+   ncall-=nargs
+   if vari: 
+    rest=NIL
+    while ncall:
+     rest=[pop(), rest, 0]
+     ncall-=1
+     
+    s2=[rest,s2,0]
+   # )@@
+
    while nargs:s2=[pop(),s2,0];nargs-=1
    if is_rib(pc[2]): # call
     c2[0]=stack
