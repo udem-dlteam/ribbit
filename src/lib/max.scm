@@ -1009,6 +1009,11 @@
           (newline)
           (repl)))))
 
+(define (fold func base lst)
+  (if (pair? lst)
+    (fold func (func (car lst) base) (cdr lst))
+    acc))
+
 (define (error msg info)
   (display msg)
   (display " ")

@@ -2373,10 +2373,6 @@
     #f     ;; rvm-path
     #f     ;; minify?
     #f     ;; host-file
-    ;#f     ;; primitives
-    ;#f     ;; features-enabled
-    ;#f     ;; features-disabled
-    ;#f     ;; vm-source
     (compile-program
      0    ;; verbosity
      #f   ;; parsed-vm
