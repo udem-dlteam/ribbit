@@ -41,7 +41,6 @@
 (putchar 10)
 
 ;;;options: -l min
-;;;fancy-compiler
 ;;;expected:
 ;;;()(A)(AB)A()A(B)A(BC)AB()AB(C)AB(CD)
 ;;;()(A)(AB)A()A(B)A(BC)AB()AB(C)AB(CD)

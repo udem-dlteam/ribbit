@@ -848,8 +848,8 @@
                          (cond 
                            ((memq sym live-features)
                             (cons (cons 'set! (cons sym (cons #t '()))) acc))
-                           #;((string-start-with? (symbol->string sym) prefix)
-                            (cons (cons 'set! (cons sym (cons #f '()))) acc))
+                           ;((string-start-with? (symbol->string sym) prefix)
+                           ; (cons (cons 'set! (cons sym (cons #f '()))) acc))
                            (else acc)))
                        '()
                        live-symbols)))
@@ -896,17 +896,16 @@
            (map car live))
 
          (live-features 
-           (and parsed-vm 
-                (used-features 
-                  features
-                  live-symbols
-                  features-enabled
-                  features-disabled)))
+           (if parsed-vm 
+             (used-features 
+               features
+               live-symbols
+               features-enabled
+               features-disabled)
+             features-enabled))
 
-         (expansion
-           (if parsed-vm
-               (add-feature-variables live-symbols (or live-features '()) expansion)
-               expansion))
+         ;(expansion
+         ;  (add-feature-variables live-symbols (or live-features '()) expansion))
 
          (primitives
            (if parsed-vm
@@ -919,8 +918,7 @@
                         (cons var var)))
                     live)))
          (return (make-vector 5))
-         (ctx (make-ctx '() live exports (or live-features '())))
-         )
+         (ctx (make-ctx '() live exports (or live-features '()))))
     (set! tail (add-nb-args ctx 1 tail))
     (vector-set! 
       return
@@ -2382,7 +2380,7 @@
     (compile-program
      0    ;; verbosity
      #f   ;; parsed-vm
-     #f   ;; features-enabled
+     (cons 'arity-check (cons 'rest-param '()))   ;; features-enabled
      #f   ;; features-disabled
      (read-all)))))
 
