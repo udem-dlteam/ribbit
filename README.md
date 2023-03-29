@@ -134,23 +134,23 @@ The makefile in the `src` directory has these make targets:
 
 ## Supported targets
 
-| Host\feature | Supported | Markup complete  | Arity feature (RFS 1) |
-|--------------|-----------|------------------|-----------------------|
-| py           |   YES     | missing location |        YES            |
-| js           |   YES     |      YES         |        YES            |
-| c            |   YES     | missing location |                       |
-| asm          |   YES     | missing location |                       |
-| sh           |   YES     | missing location |                       |
-| scm          |   YES     | missing location |                       |
-| hs           |   YES     | missing location |                       |
-| lua          |   YES     | missing location |                       |
-| ml           |   YES     | missing location |                       |
-| rs           |   NO      |                  |                       |
-| go           |   NO      |                  |                       |
-| idr          |   NO      |                  |                       |
-| scala        |   NO      |                  |                       |
-| rb           |   NO      |                  |                       |
-| java         |   NO      |                  |                       |
+| Host\feature | Supported | Markup complete  | Arity feature  |
+|--------------|-----------|------------------|----------------|
+| py           |   YES     | missing location |        YES     |
+| js           |   YES     |      YES         |        YES     |
+| c            |   YES     | missing location |      PARTIAL   |
+| asm          |   YES     | missing location |                |
+| sh           |   YES     | missing location |                |
+| scm          |   YES     | missing location |                |
+| hs           |   YES     | missing location |                |
+| lua          |   YES     | missing location |                |
+| ml           |   YES     | missing location |                |
+| rs           |   NO      |                  |                |
+| go           |   NO      |                  |                |
+| idr          |   NO      |                  |                |
+| scala        |   NO      |                  |                |
+| rb           |   NO      |                  |                |
+| java         |   NO      |                  |                |
 
 ## Ressearch and papers
 
