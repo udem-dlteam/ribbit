@@ -912,7 +912,7 @@
                (set-primitive-order live-features features)
                default-primitives))
          (exports
-           (or exports
+           (or (and (not (memq 'debug live-features)) exports)
                (map (lambda (v)
                       (let ((var (car v)))
                         (cons var var)))
