@@ -993,8 +993,8 @@
 
 
 (define (compile expr) ;; converts an s-expression to a procedure
-
-  (make-procedure (rib 0 0 (comp '() expr tail)) '()))
+  (let ((foo (comp '() expr tail)))
+    (make-procedure (rib 0 0 foo) '())))
 
 (define (eval expr)
   ((compile expr)))
