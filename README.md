@@ -139,7 +139,7 @@ The makefile in the `src` directory has these make targets:
 | py           |   YES     | missing location |        YES     |
 | js           |   YES     |      YES         |        YES     |
 | c            |   YES     | missing location |        YES     |
-| asm          |   YES     | missing location |      PARTIAL   |
+| asm          |   YES     | missing location |        YES     |
 | sh           |   YES     | missing location |                |
 | scm          |   YES     | missing location |                |
 | hs           |   YES     | missing location |                |

@@ -698,22 +698,49 @@ is_closure:
 	mov  edx, FIELD0(edx)
 	mov  edx, FIELD0(edx)	; get nparams
     shr  edx, 2 ;; remove tagging and rest param
-    ; @@(feature arity-check
+    ; @@(feature arity-check (use exit)
     jc  with_rest
 no_rest:
     cmp  edx, TEMP3
 	je   create_frame_loop_start ;; pass arity-check
     jmp  error_arity_check
 with_rest:
-    cmp  edx, TEMP3
-	jle   create_frame_loop_start ;; pass arity-check
+    sub   TEMP3, edx
+	jge   rest_loop_prepare ;; pass arity-check
 error_arity_check:
     push string_arity_error
     call print_string
     call prim_exit
     ; )@@
-pass_arity_check:
 	jmp  create_frame_loop_start
+
+; @@(feature rest-param (use arity-check)
+%define NEED_PRINT_REGS
+rest_loop_prepare:
+    push edx ;; save edx
+    push eax ;; save eax
+    lea  eax, [NIL]
+    mov  edx, TEMP3
+    jmp  rest_loop_start
+rest_frame_loop:
+	mov  TEMP3, eax		; remember the frame's head
+	POP_STACK_TO(eax)
+	push FIX(PAIR_TYPE)
+	call alloc_rib		; stack_register <- [arg, stack_register, PAIR_TYPE]
+	mov  eax, stack
+	POP_STACK
+	mov  ebx, TEMP3
+	mov  FIELD1(eax), ebx
+rest_loop_start:
+	dec  edx
+	jns  rest_frame_loop
+	push FIX(PAIR_TYPE)
+    call alloc_rib ;; push result to stack
+    pop eax
+    pop edx
+    inc edx 
+    jmp create_frame_loop_start
+; )@@
 create_frame_loop:
 	mov  TEMP3, eax		; remember the frame's head
 	POP_STACK_TO(eax)
@@ -726,7 +753,6 @@ create_frame_loop:
 create_frame_loop_start:
 	dec  edx
 	jns  create_frame_loop
-
 	mov  edx, TEMP2	      ; get continuation rib
 	cmp  dword FIELD2(pc), FIX(PAIR_TYPE)	; jump? (tail call)
 	je   jump_closure
