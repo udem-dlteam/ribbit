@@ -568,6 +568,7 @@ decompress_long_symbol:
 	dec  al			; start accumulating at 0 or 1
 	call get_int
 
+
 decompress_short_symbol:
 decompress_symbol:
 	mov  ebx, eax
@@ -648,6 +649,14 @@ string_jump	db "jump --",0x0a,0
 string_call	db "call --",0x0a,0
 %endif
 
+; @@(feature arity-check
+string_arity_error db "Arity check error",0x0a,0
+string_test_rest db "Test rest params",0x0a,0
+%ifndef NEED_PRINT_STRING
+%define NEED_PRINT_STRING
+%endif
+; )@@
+
 run_instr_jump_call:
 
 %ifdef DEBUG_INSTR
@@ -664,6 +673,11 @@ print_jump_call_done:
 %endif
 
 	mov  eax, FIELD0(edx)	; eax = procedure to call
+    ; @@(feature arity-check
+    POP_STACK_TO(edx)
+    shr edx, 1
+    mov  TEMP3, edx
+    ; )@@
 	mov  edx, FIELD0(eax)	; edx = field0 of procedure (int or rib)
 	shr  edx, 1
 %if FIX_TAG == 0
@@ -683,7 +697,22 @@ is_closure:
 	mov  FIELD1(eax), edx
 	mov  edx, FIELD0(edx)
 	mov  edx, FIELD0(edx)	; get nparams
-	shr  edx, 1
+    shr  edx, 2 ;; remove tagging and rest param
+    ; @@(feature arity-check
+    jc  with_rest
+no_rest:
+    cmp  edx, TEMP3
+	je   create_frame_loop_start ;; pass arity-check
+    jmp  error_arity_check
+with_rest:
+    cmp  edx, TEMP3
+	jle   create_frame_loop_start ;; pass arity-check
+error_arity_check:
+    push string_arity_error
+    call print_string
+    call prim_exit
+    ; )@@
+pass_arity_check:
 	jmp  create_frame_loop_start
 create_frame_loop:
 	mov  TEMP3, eax		; remember the frame's head
