@@ -338,6 +338,11 @@ while true; do
     0)
       if $_DEBUG; then if [ $_P = 0 ]; then printf "jump "; else printf "call "; fi; _showln $_C; fi # DEBUG
       _VAR
+      # @@(feature arity-check 
+      eval _NCALL=$_S 
+      eval _S=\$_Y$_S
+      # )@@
+
       eval _C=\$_X$_C
       eval _B=\$_X$_C
       if [ $_B = ${_B#R} ]; then
@@ -481,6 +486,8 @@ if $_DEBUG; then eval printf "\" -> %s\\n\"" \$_X$_S; fi # DEBUG
       else
         _H=$((_H+1)); eval _XR$_H=0 _YR$_H=$_C _ZR$_H=0; _C=R$_H _A=R$_H _Q=$_B
         eval _I=\$_X$_Q
+        _J=$((_I%2))
+        _I=$((_I/2))
         while [ $_I -gt 0 ]; do
           _H=$((_H+1)); eval _XR$_H=\$_X$_S _YR$_H=$_A _ZR$_H=0 _S=\$_Y$_S; _A=R$_H
           _I=$((_I-1))
