@@ -141,7 +141,7 @@ The makefile in the `src` directory has these make targets:
 | c            |   YES     | missing location |        YES     |
 | asm          |   YES     | missing location |        YES     |
 | sh           |   YES     | missing location |        YES     |
-| scm          |   YES     | missing location |                |
+| scm          |   YES     | missing location |        YES     |
 | hs           |   YES     | missing location |                |
 | lua          |   YES     | missing location |                |
 | ml           |   YES     | missing location |                |
