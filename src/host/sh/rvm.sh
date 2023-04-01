@@ -4,7 +4,10 @@
 set 41 59 39 117 63 62 118 68 63 62 118 82 68 63 62 118 82 65 63 62 118 82 65 63 62 118 82 58 63 62 118 82 61 33 40 58 108 107 109 33 39 58 108 107 118 54 121
 # )@@
 
-_DEBUG=false                                                    # DEBUG
+_DEBUG=true
+# @@(feature (not debug)
+_DEBUG=false
+# )@@
                                                                 # DEBUG
 _show()                                                         # DEBUG
 {                                                               # DEBUG
@@ -339,7 +342,7 @@ while true; do
       if $_DEBUG; then if [ $_P = 0 ]; then printf "jump "; else printf "call "; fi; _showln $_C; fi # DEBUG
       _VAR
       # @@(feature arity-check 
-      eval _NCALL=$_S 
+      eval _K=\$_X$_S  # NCALL
       eval _S=\$_Y$_S
       # )@@
 
@@ -486,11 +489,30 @@ if $_DEBUG; then eval printf "\" -> %s\\n\"" \$_X$_S; fi # DEBUG
       else
         _H=$((_H+1)); eval _XR$_H=0 _YR$_H=$_C _ZR$_H=0; _C=R$_H _A=R$_H _Q=$_B
         eval _I=\$_X$_Q
-        _J=$((_I%2))
-        _I=$((_I/2))
-        while [ $_I -gt 0 ]; do
+        
+        _G=$((_I/2)) # Number of arguments
+        # @@(feature rest-param (use arity-check)
+        _V=$((_I%2))
+        if  [ "$_V" -eq "0" -a "$_G" -ne "$_K" ] || [ "$_V" -eq "1" -a "$_G" -gt "$_K" ] ; then 
+            echo "*** Unexpected number of arguments ncall: " $_K " nargs: " $_G " Variadic : " $_V
+            exit 1
+        fi
+        _K=$((_K-_G))
+        if [ "$_V" -eq 1 ]; then 
+            _R=$_N
+
+            while [ $_K -gt 0 ]; do
+                _H=$((_H+1)); eval _XR$_H=\$_X$_S _YR$_H=$_R _ZR$_H=0 _S=\$_Y$_S; _R=R$_H
+                _K=$((_K-1))
+            done
+
+            _H=$((_H+1)); eval _XR$_H=$_R _YR$_H=$_A _ZR$_H=0; _A=R$_H
+        fi
+        # )@@
+        
+        while [ $_G -gt 0 ]; do
           _H=$((_H+1)); eval _XR$_H=\$_X$_S _YR$_H=$_A _ZR$_H=0 _S=\$_Y$_S; _A=R$_H
-          _I=$((_I-1))
+          _G=$((_G-1))
         done
         if [ $_P = ${_P#R} ]; then
           _GETCONT

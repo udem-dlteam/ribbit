@@ -140,7 +140,7 @@ The makefile in the `src` directory has these make targets:
 | js           |   YES     |      YES         |        YES     |
 | c            |   YES     | missing location |        YES     |
 | asm          |   YES     | missing location |        YES     |
-| sh           |   YES     | missing location |                |
+| sh           |   YES     | missing location |        YES     |
 | scm          |   YES     | missing location |                |
 | hs           |   YES     | missing location |                |
 | lua          |   YES     | missing location |                |
