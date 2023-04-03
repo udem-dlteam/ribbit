@@ -23,7 +23,9 @@ input=");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" # RVM code that prints H
 ```
 
 Vous pouvez suivre les étapes suivantes pour faire les annotations de votre RVM. N'hésitez pas à me contacter sur github ou par courriel si vous avez des questions. 
+
 Courriel : leonard.oest.oleary@umontreal.ca
+
 github : leo-ard
 
 ## Étape 1 : Changement du nombre d'arguments
@@ -38,7 +40,11 @@ L'entier qui correspondait aux nombres d'arguments a été légèrement changé.
 etc...
 ```
 
-Pour faire le changement, vous pouvez soit diviser le résultat par 2, ou faire un bitshift vers la droite. Voici le changement que j'ai fait pour rvm.js.
+Pour faire le changement, vous pouvez soit diviser le résultat par 2, ou faire un bitshift vers la droite. [Voici le changement que j'ai fait pour rvm.js](https://github.com/udem-dlteam/ribbit/blob/cd9bab3e4bea25b8e2aa737bf651175e6c208053/src/host/js/rvm.js#L372) :  
+```js
+let nargs = c[0] >> 1; 
+```
+
 
 ## Étape 2 : Annotation du replace
 
@@ -238,6 +244,8 @@ HOST="<votre-target>" make check
 # Test le compilateur "fancy"
 HOST="<votre-target>" make check-fancy
 ```
+  
+Lors du `check-fancy` le test `37-variadics.scm` ne va pas passer, vu que vous n'avez pas implémenté les arguments rests. C'est normal, il ne faut pas s'en soucier !
 
 Voir l'énoncé du travail pour tester le bootstrap
 
