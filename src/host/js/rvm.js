@@ -1,6 +1,7 @@
-// @@(location decl)@@
 input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"; // @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92))@@
 
+
+// @@(location decl)@@
 
 // @@(feature (or debug debug-trace)
 debug = true; 
@@ -41,12 +42,12 @@ if (nodejs) { // in nodejs? //node
 
   sym2str = (s) => chars2str(s[1][0]); //node //debug
   chars2str = (s) => (s===NIL) ? "" : (String.fromCharCode(s[0])+chars2str(s[1])); //node //debug
-  show_opnd = (o) => is_rib(o) ? "sym " + sym2str(o) : "int " + o; //node //debug
+  show_opnd = (o) => is_rib(o) ? ("sym " + sym2str(o)) : ("int " + o); //node //debug
   show_stack = () => { //node //debug
     let s = stack; //node //debug
     let r = []; //node //debug
     while (!s[2]) { r[r[lengthAttr]]=s[0]; s=s[1]; } //node //debug
-    console.log(require("util").inspect(r, {showHidden: false, depth: 2})); //node //debug
+    console.log(require("util").inspect(r, {showHidden: false, depth: 2}).replace(/\n/g, "").replace(/  /g, " ")); //node //debug
   } //node //debug
 
 } else { // in web browser //node
@@ -352,7 +353,6 @@ run = () => {
         return;
     case 0: // jump/call
         if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } //debug
-        f = show_opnd(o) // DEBUG REMOVE
         o = get_opnd(o)[0];
         // @@(feature arity-check
         let ncall=pop();
@@ -370,7 +370,7 @@ run = () => {
             // )@@
             
             let nargs = c[0] >> 1; 
-            // @@(feature rest-param (use arity-check)
+            // @@(feature arity-check
             let vari = c[0] & 1;
             if ((!vari && nargs != ncall) || (vari && nargs > ncall)){
                 console.log("*** Unexpected number of arguments ncall:", ncall, " nargs:", nargs, "variadics:", vari);
@@ -378,7 +378,7 @@ run = () => {
             }
             // )@@
 
-            //@@(feature rest-param (use arity-check)
+            // @@(feature rest-param (use arity-check)
             ncall-=nargs;
             if (vari) {
                 let rest=NIL;
@@ -422,7 +422,7 @@ run = () => {
         push(get_opnd(o)[0]);
         break;
     case 3: // const
-        if (debug) { console.log("--- const ", o); show_stack(); } //debug
+        if (debug) { console.log("--- const " + (is_rib(o) ? "" : ("int " + o))); show_stack(); } //debug
         push(o);
         break;
     case 4: // if
