@@ -342,7 +342,7 @@ while true; do
       if $_DEBUG; then if [ $_P = 0 ]; then printf "jump "; else printf "call "; fi; _showln $_C; fi # DEBUG
       _VAR
       # @@(feature arity-check 
-      eval _K=\$_X$_S  # NCALL
+      eval _K=\$_X$_S  # NARGS
       eval _S=\$_Y$_S
       # )@@
 
@@ -494,7 +494,7 @@ if $_DEBUG; then eval printf "\" -> %s\\n\"" \$_X$_S; fi # DEBUG
         # @@(feature rest-param (use arity-check)
         _V=$((_I%2))
         if  [ "$_V" -eq "0" -a "$_G" -ne "$_K" ] || [ "$_V" -eq "1" -a "$_G" -gt "$_K" ] ; then 
-            echo "*** Unexpected number of arguments ncall: " $_K " nargs: " $_G " Variadic : " $_V
+            echo "*** Unexpected number of arguments nargs: " $_K " nparams: " $_G " Variadic : " $_V
             exit 1
         fi
         _K=$((_K-_G))

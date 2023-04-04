@@ -355,7 +355,7 @@ run = () => {
         if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } //debug
         o = get_opnd(o)[0];
         // @@(feature arity-check
-        let ncall=pop();
+        let nargs=pop();
         // )@@
         let c = o[0];
 
@@ -365,29 +365,28 @@ run = () => {
 
             // @@(feature (and debug-trace debug)
             if(debug){
-                console.log("\nDEBUG " + f + " -- ncall:", ncall, " nargs:", c[0] >> 1, "variadics:", c[0] & 1);
+                console.log("\nDEBUG " + f + " -- nargs:", nargs, " nparams:", c[0] >> 1, "variadics:", c[0] & 1);
             }
             // )@@
             
-            let nargs = c[0] >> 1; 
+            let nparams = c[0] >> 1; 
             // @@(feature arity-check
-            let vari = c[0] & 1;
-            if ((!vari && nargs != ncall) || (vari && nargs > ncall)){
-                console.log("*** Unexpected number of arguments ncall:", ncall, " nargs:", nargs, "variadics:", vari);
+            if (c[0] & 1 ? nparams > nargs : nparams != nargs){
+                console.log("*** Unexpected number of arguments nargs:", nargs, " nparams:", nparams, "variadics:", c[0]&1);
                 halt();
             }
             // )@@
 
             // @@(feature rest-param (use arity-check)
-            ncall-=nargs;
-            if (vari) {
+            nargs-=nparams;
+            if (c[0]&1) {
                 let rest=NIL;
-                while(ncall--) 
+                while(nargs--) 
                     rest=[pop(), rest, 0];
                 s2=[rest,s2,0]
             }
             // )@@
-            while (nargs--) s2 = [pop(),s2,0];
+            while (nparams--) s2 = [pop(),s2,0];
 
             if (pc[2]===0) {
                 // jump
