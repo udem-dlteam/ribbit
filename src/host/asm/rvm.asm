@@ -568,6 +568,7 @@ decompress_long_symbol:
 	dec  al			; start accumulating at 0 or 1
 	call get_int
 
+
 decompress_short_symbol:
 decompress_symbol:
 	mov  ebx, eax
@@ -648,6 +649,14 @@ string_jump	db "jump --",0x0a,0
 string_call	db "call --",0x0a,0
 %endif
 
+; @@(feature arity-check
+string_arity_error db "Arity check error",0x0a,0
+string_test_rest db "Test rest params",0x0a,0
+%ifndef NEED_PRINT_STRING
+%define NEED_PRINT_STRING
+%endif
+; )@@
+
 run_instr_jump_call:
 
 %ifdef DEBUG_INSTR
@@ -664,6 +673,11 @@ print_jump_call_done:
 %endif
 
 	mov  eax, FIELD0(edx)	; eax = procedure to call
+    ; @@(feature arity-check
+    POP_STACK_TO(edx)
+    shr edx, 1
+    mov  TEMP3, edx
+    ; )@@
 	mov  edx, FIELD0(eax)	; edx = field0 of procedure (int or rib)
 	shr  edx, 1
 %if FIX_TAG == 0
@@ -683,8 +697,50 @@ is_closure:
 	mov  FIELD1(eax), edx
 	mov  edx, FIELD0(edx)
 	mov  edx, FIELD0(edx)	; get nparams
-	shr  edx, 1
+    shr  edx, 2 ;; remove tagging and rest param
+    ; @@(feature arity-check (use exit)
+    jc  with_rest
+no_rest:
+    cmp  edx, TEMP3
+	je   create_frame_loop_start ;; pass arity-check
+    jmp  error_arity_check
+with_rest:
+    sub   TEMP3, edx
+	jge   rest_loop_prepare ;; pass arity-check
+error_arity_check:
+    push string_arity_error
+    call print_string
+    call prim_exit
+    ; )@@
 	jmp  create_frame_loop_start
+
+; @@(feature rest-param (use arity-check)
+%define NEED_PRINT_REGS
+rest_loop_prepare:
+    push edx ;; save edx
+    push eax ;; save eax
+    lea  eax, [NIL]
+    mov  edx, TEMP3
+    jmp  rest_loop_start
+rest_frame_loop:
+	mov  TEMP3, eax		; remember the frame's head
+	POP_STACK_TO(eax)
+	push FIX(PAIR_TYPE)
+	call alloc_rib		; stack_register <- [arg, stack_register, PAIR_TYPE]
+	mov  eax, stack
+	POP_STACK
+	mov  ebx, TEMP3
+	mov  FIELD1(eax), ebx
+rest_loop_start:
+	dec  edx
+	jns  rest_frame_loop
+	push FIX(PAIR_TYPE)
+    call alloc_rib ;; push result to stack
+    pop eax
+    pop edx
+    inc edx 
+    jmp create_frame_loop_start
+; )@@
 create_frame_loop:
 	mov  TEMP3, eax		; remember the frame's head
 	POP_STACK_TO(eax)
@@ -697,7 +753,6 @@ create_frame_loop:
 create_frame_loop_start:
 	dec  edx
 	jns  create_frame_loop
-
 	mov  edx, TEMP2	      ; get continuation rib
 	cmp  dword FIELD2(pc), FIX(PAIR_TYPE)	; jump? (tail call)
 	je   jump_closure
