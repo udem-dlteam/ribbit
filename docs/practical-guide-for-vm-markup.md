@@ -40,9 +40,9 @@ L'entier qui correspondait aux nombres d'arguments a été légèrement changé.
 etc...
 ```
 
-Pour faire le changement, vous pouvez soit diviser le résultat par 2, ou faire un décalage d'un bit vers la droite. [Voici le changement que j'ai fait pour rvm.js](https://github.com/udem-dlteam/ribbit/blob/cd9bab3e4bea25b8e2aa737bf651175e6c208053/src/host/js/rvm.js#L372) :  
+Pour faire le changement, vous pouvez soit diviser le résultat par 2, ou faire un décalage d'un bit vers la droite. [Voici le changement que j'ai fait pour rvm.js](https://github.com/udem-dlteam/ribbit/blob/8dfb16f1cd0168a97c4bf2fab7a46bc5ec19fe94/src/host/js/rvm.js#L372) :  
 ```js
-let nargs = c[0] >> 1; 
+let nparams = c[0] >> 1; 
 ```
 
 

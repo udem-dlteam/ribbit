@@ -250,7 +250,7 @@ while 1:
    nparams=c[0]>>1
    # @@(feature arity-check 
    if nparams > nargs if c[0]&1 else nparams != nargs:
-    print("*** Unexpected number of arguments nargs:", nargs, "nparams", nparams, "variadics:", vari);
+    print("*** Unexpected number of arguments nargs:", nargs, "nparams", nparams, "variadics:", c[0]&1);
     exit(1)
    # )@@
    # @@(feature rest-param (use arity-check)
