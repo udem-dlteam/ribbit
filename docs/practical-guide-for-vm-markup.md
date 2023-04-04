@@ -53,7 +53,7 @@ Pour que votre `rvm` supporte le remplacement de la string contenant le bytecode
 input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"; // @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92))@@
 ```
 
-Ici, on remplace `);'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y` (sans les `"`) par `(encode 92)` qui nous retourne le bytecode de notre programme encodé sur 92 bits (encodage normal).
+Ici, on remplace `);'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y` (sans les `"`) par `(encode 92)` qui nous retourne le bytecode de notre programme encodé avec 92 code possible par caractère (encodage normal).
 
 Pour tester, vous pouvez faire :
 
@@ -173,8 +173,8 @@ Pour tester votre ajout des primitives, vous pouvez exécuter la commande suivan
 ```
 gsi rsc.scm -t <votre-langage> -l empty tests/01-putchar.scm -o <output-file>
 ```
-ou : 
-- <votre-langage> est votre language (par exemple, `js`)
+où : 
+- <votre-langage> est votre langage (par exemple, `js`)
 - <output-file> est un emplacement de votre choix
 
 Vous pouvez ensuite observer le contenu de <output-file>. Vous devriez voir que seulement les primitives `rib`, `putchar`, `close`, `arg2`, `arg1`, `id` sont présente.
