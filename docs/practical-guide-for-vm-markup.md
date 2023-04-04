@@ -4,17 +4,17 @@
 
 Le système d'annotation a été expliqué en démonstration. Il consiste à rajouter des marqueurs qui donnent de l'information supplémentaire au compilateur afin de connaitre : 
 1. l'emplacement des primitives (et l'ordre)
-2. comment changer la string initial (bytecode)
+2. comment changer la chaine de caractère initiale (bytecode)
 3. les morceaux de code à ajouter ou retirer afin d'activer certaines fonctionnalités
 
-Les vms suivantes ont déjà été annotées, vous pouvez vous fier sur ceux-ci afin de voir comment le système fonctionne.
+Les machines virtuelles suivantes ont déjà été annotées, vous pouvez vous fier sur ceux-ci afin de voir comment le système fonctionne.
 
 Ces annotations permettent au compilateur de :
 - réarranger les primitives
 - retirer les primitives qui ne sont pas nécessaires
 - activer/désactiver les fonctionnalités
 
-À noté que chaque annotation commence par `@@(` et fini par `)@@` (un peut comme les s-expressions de scheme. Le premier symbole que l'annotation contient correspond à son type. Par exemple, voici une annotation simple de type `replace` : 
+À noté que chaque annotation commence par `@@(` et fini par `)@@` (un peut comme les s-expressions de scheme. Le premier symbole de l'annotation correspond à son type. Par exemple, voici une annotation simple de type `replace` : 
 
 ```
 # @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
@@ -30,25 +30,25 @@ github : leo-ard
 
 ## Étape 1 : Changement du nombre d'arguments
 
-L'entier qui correspondait aux nombres d'arguments a été légèrement changé.  Maintenant, le dernier bit détermine si la fonction est *variadic* ou non (0 ou 1).  Ainsi, un 4 correspond à une fonction qui prend 2 arguments et qui n'est pas *variadic* et un 5 correspond à une fonction qui prend 2 arguments avec des arguments variadics.
+L'entier qui correspondait aux nombres d'arguments a été légèrement changé.  Maintenant, le dernier bit détermine si la fonction est variadique ou non (0 ou 1). Une fonction est variadique si elle accepte un nombre variable de paramètres.  Ainsi, un 4 correspond à une fonction qui prend 2 arguments et qui n'est pas variadique et un 5 correspond à une fonction qui prend 2 arguments avec des arguments variadiques.
 ```
-0 -> 000 -> aucun argument, la fonction ne prend pas d'argument variadic
-1 -> 001 -> aucun argument, les arguments variadics sont acceptés
-2 -> 010 -> 1 argument, la fonction ne prend pas d'argument variadic
-3 -> 011 -> 1 argument, les arguments variadics sont acceptés
-4 -> 100 -> 2 arguments, la fonction ne prend pas d'argument variadic,
+0 -> 000 -> aucun argument, la fonction ne prend pas d'argument variadique
+1 -> 001 -> aucun argument, les arguments variadiques sont acceptés
+2 -> 010 -> 1 argument, la fonction ne prend pas d'argument variadique
+3 -> 011 -> 1 argument, les arguments variadiques sont acceptés
+4 -> 100 -> 2 arguments, la fonction ne prend pas d'argument variadique,
 etc...
 ```
 
-Pour faire le changement, vous pouvez soit diviser le résultat par 2, ou faire un bitshift vers la droite. [Voici le changement que j'ai fait pour rvm.js](https://github.com/udem-dlteam/ribbit/blob/cd9bab3e4bea25b8e2aa737bf651175e6c208053/src/host/js/rvm.js#L372) :  
+Pour faire le changement, vous pouvez soit diviser le résultat par 2, ou faire un décalage d'un bit vers la droite. [Voici le changement que j'ai fait pour rvm.js](https://github.com/udem-dlteam/ribbit/blob/cd9bab3e4bea25b8e2aa737bf651175e6c208053/src/host/js/rvm.js#L372) :  
 ```js
 let nargs = c[0] >> 1; 
 ```
 
 
-## Étape 2 : Annotation du replace
+## Étape 2 : L'annotation *replace*
 
-Pour que votre `rvm` supporte le remplacement de la string contenant le bytecode, il faut rajouter l'instruction `replace`. Replace prend 2 arguments, soit la string à remplacé et le contenu avec laquelle le faire. Par exemple, pour `js`, on a : 
+Pour que votre `rvm` supporte le remplacement de la chaine de caractères contenant le *bytecode*, il faut rajouter l'instruction *replace*. L'annotation *replace* prend 2 arguments, soit la chaine de caractères à remplacer et le contenu avec laquelle le faire. Par exemple, pour `js`, on a : 
 ```js
 input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"; // @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92))@@
 ```
@@ -61,7 +61,7 @@ Pour tester, vous pouvez faire :
 gsi rsc.scm -t <votre target> -l empty tests/00-empty.scm -o <fichier-de-votre-choix>
 ```
 
-et regarder le contenu de `<fichier-de-votre-choix>` pour voir si la string s'est bel et bien modifié. Elle devrait maintenant être égal à : `#di,,,,;'i$!':lkl{` (qui correspond au bytecode d'un programme vide).
+et regarder le contenu de `<fichier-de-votre-choix>` pour voir si la chaine de caractère s'est bel et bien modifiée. Elle devrait maintenant être égal à : `#di,,,,;'i$!':lkl{` (qui correspond au *bytecode* d'un programme vide).
 
 ## Étape 3: Annotation des primitives
 
@@ -142,7 +142,7 @@ primitives = [
 ]
 ```
 
-Ici, les annotations sont sur la même ligne. Dans ce cas, le `head` et le `body` de la primitive va être le même, soit la ligne sur laquelle elle est. C'est pourquoi on peut simplement écrire `(gen body)` pour la génération de primitive.
+Ici, les annotations sont sur la même ligne. Dans ce cas, le `head` et le `body` de la primitive vont être les mêmes, soit la ligne sur laquelle elle est. C'est pourquoi on peut simplement écrire `(gen body)` pour la génération de primitive.
 
 Maintenant, à vous de jouer ! Vous pouvez annoter les primitives. Voici toutes les primitives et leur signature qui doivent être définies dans votre rvm. Le nom de la primitive est très important ! 
 ```
@@ -177,19 +177,18 @@ où :
 - <votre-langage> est votre langage (par exemple, `js`)
 - <output-file> est un emplacement de votre choix
 
-Vous pouvez ensuite observer le contenu de <output-file>. Vous devriez voir que seulement les primitives `rib`, `putchar`, `close`, `arg2`, `arg1`, `id` sont présente.
+Vous pouvez ensuite observer le contenu de <output-file>. Vous devriez voir seulement les primitives `rib`, `putchar`, `close`, `arg2`, `arg1`, `id`.
 
 ## Étape 4 : Feature `arity-check`
 
-Maintenant que votre `rvm` contient les annotations des primitives et de la string initial, on peut ajouter le feature `arity-check` à notre rvm. Lorsque que le feature `arity-check` est activé, le compilateur va générer un bytecode qui push le nombre d'arguments sur la pile avant chaque appel de fonction. Il faut donc `pop()` ce nombre d'arguments et le conserver dans une variable. Par la suite, il faut rajouter une garde qui regarde si le nombre d'arguments est adéquoit selon la signature de la fonction. Le `pop` et le check de la signature doivent être dans des annotations `@@(feature arity-check ...)@@` afin de pouvoir retirer ce code si jamais `arity-check` n'est pas activé. 
+Maintenant que votre `rvm` contient les annotations des primitives et de la string initial, on peut ajouter le *feature* `arity-check` à notre rvm. Lorsque le feature `arity-check` est activé, le compilateur va générer un *bytecode* qui met sur la pile le nombre d'arguments avant chaque appel de fonction. Il faut donc retirer de la pile ce nombre d'arguments et le conserver dans une variable. Par la suite, il faut rajouter une garde qui regarde si le nombre d'arguments est adéquat selon la signature de la fonction. Tous les ajouts relatifs à la vérification de l'arité de la fonction doivent  être les annotations `@@(feature arity-check ...)@@` afin de pouvoir retirer ce code si jamais `arity-check` n'est pas activé. 
 
 ```js
 case 0: // jump/call
     if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } //debug
     o = get_opnd(o)[0];
     // @@(feature arity-check
-    // Sauvegarde le nombre d'arguments avec lequel on a appelé la fonction
-    let ncall=pop();
+    let nargs=pop();
     // )@@
     let c = o[0];
 
@@ -197,17 +196,15 @@ case 0: // jump/call
         let c2 = [0,o,0];
         let s2 = c2;
         
-        // Un bitshift doit être fait dans tous les cas (voir étape 2)
-        let nargs = c[0] >> 1; 
+        let nparams = c[0] >> 1; 
         // @@(feature arity-check
-        // Est-ce que la fonction supporte des arguments variadics ?
-        let vari = c[0] & 1;
-        if ((!vari && nargs != ncall) || (vari && nargs > ncall)){
-            // On afficher une erreur et on crash si oui
-            console.log("*** Unexpected number of arguments ncall:", ncall, " nargs:", nargs, "variadics:", vari);
+        // Ici, c[0] & 1 correspond à si la fonction accepte des arguments variadics ou non
+        if (c[0] & 1 ? nparams > nargs : nparams != nargs){
+            console.log("*** Unexpected number of arguments nargs:", nargs, " nparams:", nparams, "variadics:", c[0]&1);
             halt();
         }
         // )@@
+
 ```
 
 Vous pouvez maintenant tester votre code avec les commandes suivantes : 
@@ -221,9 +218,9 @@ gsi rsc.scm -t <votre-target> -l max -f+ arity-check tests/36-fact.scm -o <outpu
 <votre-interpreteur> <output>
 ```
 
-## Étape 5 : Changement de la string HELLO!
+## Étape 5 : Changement de la chaine de caractère HELLO!
 
-Maintenant que votre programme supporte par défaut le nombre d'arguments variadics, il faut changer le bytecode qui affiche "HELLO!" afin que votre fichier fonctionne en tout seul. Pour ce faire, vous pouvez simplement remplacer `);'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y` par :
+Maintenant que votre programme supporte par défaut le nombre d'arguments variadiques, il faut changer le *bytecode* qui affiche "HELLO!" afin que votre fichier fonctionne de lui-même. Pour ce faire, vous pouvez simplement remplacer `);'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y` par :
 ```
 );'lvD?m>lvRD?m>lvRA?m>lvRA?m>lvR:?m>lvR=!(:nlkm!':nlkv6{
 ```
@@ -248,4 +245,3 @@ HOST="<votre-target>" make check-fancy
 Lors du `check-fancy` le test `37-variadics.scm` ne va pas passer, vu que vous n'avez pas implémenté les arguments rests. C'est normal, il ne faut pas s'en soucier !
 
 Voir l'énoncé du travail pour tester le bootstrap
-
