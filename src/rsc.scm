@@ -455,6 +455,36 @@
 
 ;;;----------------------------------------------------------------------------
 
+(define (display-rib rib depth)
+  (if (> depth 0)
+    (begin
+      (display "[")
+      (cond ((not (rib? rib))
+             (display rib))
+            ((rib? (field0 rib))
+             (display-rib (field0 rib) (- depth 1)))
+            (else
+              (display (field0 rib))))
+      (display " ")
+      (cond ((not (rib? rib))
+             (display rib))
+            ((rib? (field1 rib))
+             (display-rib (field1 rib) (- depth 1)))
+            (else
+              (display (field1 rib))))
+      (display " ")
+      (cond ((not (rib? rib))
+             (display rib))
+            ((rib? (field2 rib))
+             (display-rib (field2 rib) (- depth 1)))
+            (else
+              (display (field2 rib))))
+      (display "]"))
+    (display "...")))
+
+
+;;;------------------------------------------------------------------------------
+
 (define predefined '(rib false true nil)) ;; predefined symbols
 
 (define default-primitives '(
@@ -534,18 +564,18 @@
 
 ;; The compiler from Ribbit Scheme to RVM code.
 
-(define (make-ctx cte live exports live-features) (rib cte (cons live live-features) exports))
+(define (make-ctx cte live exports live-features) (rib cte (rib live live-features #f) exports))
 
 (define (ctx-cte ctx) (field0 ctx))
-(define (ctx-live ctx) (car (field1 ctx)))
-(define (ctx-live-features ctx) (cdr (field1 ctx)))
+(define (ctx-live ctx) (field0 (field1 ctx)))
+(define (ctx-live-features ctx) (field1 (field1 ctx)))
 (define (ctx-exports ctx) (field2 ctx))
 
 (define (ctx-cte-set ctx x)
   (rib x (field1 ctx) (field2 ctx)))
 
 (define (ctx-live-set! ctx x)
-  (set-car! (field1 ctx) x))
+  (field0-set! (field1 ctx) x))
 
 (define (last-item lst)
   (if (pair? lst)
@@ -594,13 +624,13 @@
                                       (begin
 ;;                                        (pp `(*** constant propagation of ,var = ,(cadr g))
 ;;                                             (current-error-port))
-                                        (gen-noop cont))
-                                      (comp ctx val (gen-assign v cont)))
+                                        (gen-noop ctx cont))
+                                      (comp ctx val (gen-assign ctx v cont)))
                                   (begin
 ;;                                    (pp `(*** removed dead assignment to ,var)
 ;;                                         (current-error-port))
-                                    (gen-noop cont))))
-                            (comp ctx val (gen-assign v cont)))))))
+                                    (gen-noop ctx cont))))
+                            (comp ctx val (gen-assign ctx v cont)))))))
 
                  ((eqv? first 'if)
                   (let ((cont-false (comp ctx (cadddr expr) cont)))
@@ -682,15 +712,35 @@
       (rib jump/call-op v 0)      ;; jump
       (rib jump/call-op v cont))) ;; call
 
-(define (gen-assign v cont)
-  (rib set-op v (gen-noop cont)))
+(define (gen-assign ctx v cont)
+  (rib set-op v (gen-noop ctx cont)))
 
-(define (gen-noop cont)
-  (if (and (rib? cont) ;; starts with pop?
-           (eqv? (field0 cont) jump/call-op) ;; call?
-           (eqv? (field1 cont) 'arg1)
-           (rib? (field2 cont)))
-      (field2 cont) ;; remove pop
+
+
+(define (is-call? ctx name cont)
+  (let* ((arity-check (memq 'arity-check (ctx-live-features ctx))) 
+         (call-rib 
+           (if arity-check
+             (and (rib? cont) (field2 cont))
+             (and (rib? cont) cont)))
+         (call-rib-ok?
+           (and call-rib
+                (eqv? (field0 call-rib) jump/call-op) ;; call?
+                (eqv? (field1 call-rib) name)
+                (rib? (field2 call-rib)))))
+    (if arity-check
+      (and call-rib-ok?
+           (rib? cont)
+           (eqv? (field0 cont) const-op)
+           (not (rib? (field1 cont)))) ;; push a number
+      call-rib-ok?)))
+
+
+(define (gen-noop ctx cont)
+  (if (is-call? ctx 'arg1 cont)
+      (if (memq 'arity-check (ctx-live-features ctx))
+        (field2 (field2 cont)) ;; remove const and pop
+        (field2 cont)) ;; remove pop
       (rib const-op 0 cont))) ;; add dummy value for set!
 
 (define (comp-bind ctx vars exprs body cont)
@@ -894,6 +944,7 @@
            (unique (append (detect-features live) features-enabled)))
          (live-symbols
            (map car live))
+
 
          (live-features 
            (if parsed-vm 
@@ -1303,11 +1354,11 @@
 
 (define (live? var lst)
   (if (pair? lst)
-      (let ((x (car lst)))
-        (if (eqv? var (car x))
-            x
-            (live? var (cdr lst))))
-      #f))
+    (let ((x (car lst)))
+      (if (eqv? var (car x))
+        x
+        (live? var (cdr lst))))
+    #f))
 
 (define (constant? g)
   (and (pair? (cdr g))
