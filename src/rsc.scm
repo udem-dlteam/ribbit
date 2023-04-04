@@ -2410,9 +2410,12 @@
      ;; for a specific target and minify the resulting target code.
 
 
-     (let* ((vm-source (string-from-file
-                         (path-expand rvm-path
-                                      (root-dir))))
+     (let* ((vm-source 
+              (if (equal? _target "rvm")
+                #f
+                (string-from-file
+                  (path-expand rvm-path
+                               (root-dir)))))
             (host-file
               (if (equal? _target "rvm")
                 #f
