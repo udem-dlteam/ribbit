@@ -1,7 +1,16 @@
-// @@(location decl)@@
 input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"; // @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92))@@
 
-debug = false; //debug
+
+// @@(location decl)@@
+
+// @@(feature (or debug debug-trace)
+debug = true; 
+// )@@
+// @@(feature (and (not debug) (not debug-trace))
+debug = false;
+// )@@
+
+
 
 lengthAttr = "length";
 
@@ -33,12 +42,12 @@ if (nodejs) { // in nodejs? //node
 
   sym2str = (s) => chars2str(s[1][0]); //node //debug
   chars2str = (s) => (s===NIL) ? "" : (String.fromCharCode(s[0])+chars2str(s[1])); //node //debug
-  show_opnd = (o) => is_rib(o) ? "sym " + sym2str(o) : "int " + o; //node //debug
+  show_opnd = (o) => is_rib(o) ? ("sym " + sym2str(o)) : ("int " + o); //node //debug
   show_stack = () => { //node //debug
     let s = stack; //node //debug
     let r = []; //node //debug
     while (!s[2]) { r[r[lengthAttr]]=s[0]; s=s[1]; } //node //debug
-    console.log(require("util").inspect(r, {showHidden: false, depth: 2})); //node //debug
+    console.log(require("util").inspect(r, {showHidden: false, depth: 2}).replace(/\n/g, "").replace(/  /g, " ")); //node //debug
   } //node //debug
 
 } else { // in web browser //node
@@ -345,12 +354,40 @@ run = () => {
     case 0: // jump/call
         if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } //debug
         o = get_opnd(o)[0];
+        // @@(feature arity-check
+        let nargs=pop();
+        // )@@
         let c = o[0];
+
         if (is_rib(c)) {
             let c2 = [0,o,0];
             let s2 = c2;
-            let nargs = c[0];
-            while (nargs--) s2 = [pop(),s2,0];
+
+            // @@(feature (and debug-trace debug)
+            if(debug){
+                console.log("\nDEBUG " + f + " -- nargs:", nargs, " nparams:", c[0] >> 1, "variadics:", c[0] & 1);
+            }
+            // )@@
+            
+            let nparams = c[0] >> 1; 
+            // @@(feature arity-check
+            if (c[0] & 1 ? nparams > nargs : nparams != nargs){
+                console.log("*** Unexpected number of arguments nargs:", nargs, " nparams:", nparams, "variadics:", c[0]&1);
+                halt();
+            }
+            // )@@
+
+            // @@(feature rest-param (use arity-check)
+            nargs-=nparams;
+            if (c[0]&1) {
+                let rest=NIL;
+                while(nargs--) 
+                    rest=[pop(), rest, 0];
+                s2=[rest,s2,0]
+            }
+            // )@@
+            while (nparams--) s2 = [pop(),s2,0];
+
             if (pc[2]===0) {
                 // jump
                 let k = get_cont();
@@ -384,7 +421,7 @@ run = () => {
         push(get_opnd(o)[0]);
         break;
     case 3: // const
-        if (debug) { console.log("--- const " + o); show_stack(); } //debug
+        if (debug) { console.log("--- const " + (is_rib(o) ? "" : ("int " + o))); show_stack(); } //debug
         push(o);
         break;
     case 4: // if

@@ -306,12 +306,43 @@
          (else
           #f))
        (let* ((proc (get-var stack opnd))
-              (code (_field0 proc)))
+              (code (_field0 proc))
+              ; @@(feature arity-check (use rest-param)
+              (ncall (_car stack))
+              (stack (_cdr stack))
+              ; )@@
+              )
          (if (_rib? code)
 
              ;; calling a lambda
-             (let ((new-cont (_rib 0 proc 0)))
-               (let loop ((nargs (_field0 code))
+             (let ((new-cont (_rib 0 proc 0))
+                   (nargs (arithmetic-shift (_field0 code) -1))
+                   (vari  (bitwise-and (_field0 code) 1)))
+               ;; @@(feature arity-check
+               (if (or (and (eqv? vari 0)
+                            (not (eqv? nargs ncall)))
+                       (and (eqv? vari 1)
+                            (> nargs ncall)))
+                 (error "*** Arrity check failled"))
+               ;; )@@
+               ;; @@(feature rest-param (use arity-check)
+               (if (eqv? vari 1)
+                 (let rest-loop ((rest _nil)
+                                 (i (- ncall nargs))
+                                 (_stack stack))
+                   (if (< 0 i)
+                     (rest-loop
+                       (_cons (_car _stack) rest)
+                       (- i 1)
+                       (_cdr _stack)
+                       )
+                     (begin 
+                       (set! stack (_cons rest _stack))
+                       (set! nargs (+ 1 nargs))))
+                   )
+                 )
+               ;; )@@
+               (let loop ((nargs nargs)
                           (new-stack new-cont)
                           (stack stack))
                  (if (< 0 nargs)

@@ -1,9 +1,16 @@
 /*
  * The Ribbit VM implementation in C
  */
+
+// @@(feature debug
+//#define DEBUG_I_CALL
+// )@@
+
 #ifdef DEBUG_I_CALL
 #define DEBUG
 #endif
+
+
 
 #ifdef DEBUG
 
@@ -359,7 +366,7 @@ rib *list_tail(rib *lst, num i) {
 obj list_ref(rib *lst, num i) { return list_tail(lst, i)->fields[0]; }
 
 obj get_opnd(obj o) {
-  return (IS_NUM(o) ? list_tail(RIB(stack), NUM(o)) : RIB(o))->fields[0];
+  return (IS_NUM(o) ? RIB(list_tail(RIB(stack), NUM(o))) : RIB(o))->fields[0];
 }
 
 obj get_cont() {
@@ -577,6 +584,54 @@ void prim(int no) {
   }
 }
 
+#ifdef DEBUG
+void show_rib(obj s, int depth){
+    if (depth > 3){
+        if (IS_RIB(s)){
+            printf("[Array]");
+            return;
+        }
+    }
+    if (IS_RIB(s)){
+        printf("[ ");
+        show_rib(CAR(s), depth+1);
+        printf(", ");
+        show_rib(CDR(s), depth+1);
+        printf(", ");
+        show_rib(TAG(s), depth+1);
+        printf(" ]");
+    }
+    else{
+        printf("%d", NUM(s));
+    }
+}
+
+void show_stack(){
+    obj itr = stack;
+    PRINTLN();
+    if (NUM(TAG(itr))){
+        printf("[]");
+        return;
+
+    }
+    printf("[ ");
+    int first = 0;
+    while(!NUM(TAG(itr))){
+        if (first){
+            printf(", ");
+        }
+        else{
+            first = 1;
+        }
+        show_rib(CAR(itr), 0);
+        itr = CDR(itr);
+    }
+    printf(" ]");
+
+}
+
+#endif
+
 void run() {
 #define ADVANCE_PC()                                                           \
   do {                                                                         \
@@ -597,10 +652,12 @@ void run() {
 #ifdef DEBUG_I_CALL
       printf(jump ? "--- jump " : "--- call ");
       show_operand(CDR(pc));
+      show_stack();
       PRINTLN();
 #endif
-#define proc (get_opnd(CDR(pc)))
+      obj proc = get_opnd(CDR(pc));
 #define code CAR(proc)
+      num nargs = NUM(pop()); // @@(feature arity-check)@@
       if (IS_NUM(code)) {
         prim(NUM(code));
 
@@ -611,19 +668,38 @@ void run() {
         }
         pc = TAG(pc);
       } else {
-        num argc = NUM(CAR(code));
-        // Use the car of the PC to save the new PC
-        CAR(pc) = CAR(get_opnd(CDR(pc)));
 
-        //        pop();
+        num nparams = NUM(CAR(code)) >> 1;
 
         obj s2 = TAG_RIB(alloc_rib(NUM_0, proc, PAIR_TAG));
+        CAR(pc) = CAR(proc);
 
-        for (int i = 0; i < argc; ++i) {
+
+        // @@(feature arity-check
+        num vari = NUM(CAR(code))&1;  
+        if ((!vari && nparams != nargs)||(vari && nparams > nargs)){
+            printf("*** Unexpected number of arguments nargs: %d nparams: %d vari: %b", nargs, nparams, vari);
+            exit(1);
+        }
+        // )@@
+        // @@(feature rest-param (use arity-check)
+        nargs-=nparams;
+        if (vari){
+            obj rest = NIL;
+            for(int i = 0; i < nargs; ++i){
+                rest = TAG_RIB(alloc_rib(pop(), rest, PAIR_TAG));
+            }
+            s2 = TAG_RIB(alloc_rib(rest, s2, PAIR_TAG));
+        }
+        // )@@
+
+        for (int i = 0; i < nparams; ++i) {
           s2 = TAG_RIB(alloc_rib(pop(), s2, PAIR_TAG));
         }
 
-        obj c2 = TAG_RIB(list_tail(RIB(s2), argc));
+        nparams = nparams + vari; // @@(feature arity-check)@@
+
+        obj c2 = TAG_RIB(list_tail(RIB(s2), nparams));
 
         if (jump) {
           obj k = get_cont();
@@ -643,11 +719,11 @@ void run() {
       break;
     }
 #undef code
-#undef proc
     case INSTR_SET: { // set
 #ifdef DEBUG_I_CALL
       printf("--- set ");
       show_operand(CDR(pc));
+      show_stack();
       PRINTLN();
 #endif
       obj x = CAR(stack);
@@ -661,6 +737,7 @@ void run() {
 #ifdef DEBUG_I_CALL
       printf("--- get ");
       show_operand(CDR(pc));
+      show_stack();
       PRINTLN();
 #endif
       push2(get_opnd(CDR(pc)), PAIR_TAG);
@@ -671,6 +748,7 @@ void run() {
 #ifdef DEBUG_I_CALL
       printf("--- const ");
       show_operand(CDR(pc));
+      show_stack();
       PRINTLN();
 #endif
       push2(CDR(pc), PAIR_TAG);
@@ -680,6 +758,7 @@ void run() {
     case INSTR_IF: { // if
 #ifdef DEBUG_I_CALL
       printf("--- if");
+      show_stack();
       PRINTLN();
 #endif
 

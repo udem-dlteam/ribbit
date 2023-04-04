@@ -6,12 +6,12 @@
 (cond-expand
   ((host js)
    (define-primitive (string-from-file path)
-                     (use rib_to_str str_to_rib)
-                     "() => {try{return push(str_to_rib(node_fs.readFileSync(rib_to_str(pop()), 'utf-8').toString()))}catch{ return push(FALSE)}},")
+                     (use scm2str str2scm)
+                     "() => {try{return push(str2scm(node_fs.readFileSync(scm2str(pop()), 'utf-8').toString()))}catch{ return push(FALSE)}},")
 
    (define-primitive (command-line)
-                     (use list_to_rib)
-                     "() => push(list_to_rib(process.argv.splice(1))),")))
+                     (use list2scm)
+                     "() => push(list2scm(process.argv.splice(1))),")))
 
 (let ((filename (cadr (command-line))))  ;; take the first argument of the script
   (display (string-append filename ":\n")) 
