@@ -1,6 +1,4 @@
-# @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
-input = raw");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"  # RVM code that prints HELLO!
-# )@@
+input = raw");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"  #@@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92))@@
 
 function putChar(c)
     write(stdout, Char(c))
@@ -352,14 +350,27 @@ while true
             end
         end
         o = get_opnd(o)[1]
+
+        # @@(feature arity-check
+        nargs = pop()
+        # )@@
+
         c = o[1]
         if is_rib(c)
             c2 = [0, o, 0]
             s2 = c2
-            nargs = c[1]
-            while nargs != 0
+            nparams = c[1] >> 1
+
+            # @@(feature arity-check 
+            if c[1] & 1 == 1 ? nparams > nargs : nparams != nargs
+                print(string("*** Unexpected number of arguments nargs:", nargs, "nparams", nparams, "variadics:", c[1] & 1))
+                exit(1)
+            end
+            # )@@
+
+            while nparams != 0
                 s2 = [pop(), s2, 0]
-                nargs -= 1
+                nparams -= 1
             end
             if is_rib(pc[3]) # call
                 c2[1] = stack

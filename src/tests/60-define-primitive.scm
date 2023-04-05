@@ -4,6 +4,10 @@
    (define-primitive (square a)
      "lambda: push(pop() ** 2),"))
 
+  ((host jl)
+   (define-primitive (square a)
+     "() -> push(pop() ^ 2),"))
+
   ((host js)
    (define-primitive (square a)
      "() => push(pop() ** 2),"))
