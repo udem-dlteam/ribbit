@@ -172,17 +172,24 @@ if cat "$LIBRARY" $SOURCES | sed -e 's/^#!/;;#!/g' | $COMPILER > "$RVM.temp" ; t
 
   else
 
-    SAMPLE="41 59 39 117 63 62 118 68 63 62 118 82 68 63 62 118 82 65 63 62 118 82 65 63 62 118 82 58 63 62 118 82 61 33 40 58 108 107 109 33 39 58 108 107 118 54 121"
+    SAMPLE_ARRAY="41 59 39 117 63 62 118 68 63 62 118 82 68 63 62 118 82 65 63 62 118 82 65 63 62 118 82 58 63 62 118 82 61 33 40 58 108 107 109 33 39 58 108 107 118 54 121"
+    SAMPLE_ARITY_CHECK=");'lvD?m>lvRD?m>lvRA?m>lvRA?m>lvR:?m>lvR=!(:nlkm!':nlkv6{"
+    SAMPLE_DEFAULT=");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"
 
-    if grep "$SAMPLE" "$ROOTDIR/host/$TARGET/rvm.$TARGET" > "$OUTPUTFILE.temp" ; then
+    if grep "$SAMPLE_ARRAY" "$ROOTDIR/host/$TARGET/rvm.$TARGET" > "$OUTPUTFILE.temp" ; then
 
       set 0 `od -v -A n -t u1 "$RVM"`
       shift
-      sed -e "s/$SAMPLE/$*/g" "$ROOTDIR/host/$TARGET/rvm.$TARGET" > "$OUTPUTFILE.temp"
+      sed -e "s/$SAMPLE_ARRAY/$*/g" "$ROOTDIR/host/$TARGET/rvm.$TARGET" > "$OUTPUTFILE.temp"
 
     else
 
-      SAMPLE=");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"
+      if grep "$SAMPLE_ARITY_CHECK" "$ROOTDIR/host/$TARGET/rvm.$TARGET" > "$OUTPUTFILE.temp" ; then
+        SAMPLE=$SAMPLE_ARITY_CHECK;
+      else
+        SAMPLE=$SAMPLE_DEFAULT;
+      fi
+
       "$RSC_SCHEME_INTERPRETER" -e "(define B\"$SAMPLE\")(define D\"$ROOTDIR/host/$TARGET/rvm.$TARGET\")(define(A b c)(let((o(string-length b))(h(string-length c)))(let q((j 0)(d 0)(k(list)))(if(<(+ d h)o)(let x((i 0))(if(< i h)(if(char=?(string-ref b(+ d i))(string-ref c i))(x(+ i 1))(q j(+ d 1)k))(q(+ d h)(+ d h)(cons(substring b j d)k))))(reverse(cons(substring b j o)k))))))(define(z m c)(if(pair? m)(let((n(reverse m))(c(string->list c)))(let f((a(cdr n))(t(string->list(car n))))(if(pair? a)(f(cdr a)(append(string->list(car a))(append c t)))(list->string t))))(string)))(define C'((9 116)(10 110)(13 114)(34 34)(92 92)))(define(v b)(let f((a(reverse(string->list b)))(e(list)))(if(pair? a)(f(cdr a)(let*((g(char->integer(car a)))(s(assoc g C)))(if s(cons 92(cons(cadr s)e))(cons g e))))(list->string(map integer->char e)))))(define(r u)(let f((e(list)))(let((g(read-char u)))(if(char? g)(f(cons g e))(list->string(reverse e))))))(define(w y)(call-with-input-file y r))(define p(r(current-input-port)))(define l(A(w D)B))(display(if(null?(cdr l))(string-append(car l)p)(z l(v p))))" < "$RVM" > "$OUTPUTFILE.temp"
 
     fi
