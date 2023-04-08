@@ -2014,7 +2014,10 @@
     (if (or (not (pair? cur)) (eqv? (car cur) 10)) ;; new line
       (begin
         ;(pp (list->string* last-new-line (+ 1 len)) )
-        (cons (and (pair? cur) (cdr cur)) (+ 1 len)))
+        (cons (and (pair? cur) (cdr cur)) 
+              (if (not (pair? cur))
+                len
+                (+ 1 len))))
       (loop (cdr cur) (+ len 1)))))
 
 (define (detect-macro line len)
