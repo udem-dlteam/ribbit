@@ -55,6 +55,10 @@ prim_square:
     (define-primitive (square a)
       "\tdd   prim_square\n"))
 
+   ((host clj)
+      (define-primitive (square a)
+        "(prim1 (fn [x] (* x x)))\n"))
+
    (else
      (define-primitive (square a)
       "ERROR"))) ;; Will make test fail !
