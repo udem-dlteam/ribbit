@@ -1,11 +1,11 @@
 reserved_atoms([nil, code, init, main], []).
 
 
-% @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
-rvm_code(");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"). % RVM code that prints HELLO!
+% @@(replace ");'lvD?m>lvRD?m>lvRA?m>lvRA?m>lvR:?m>lvR=!(:nlkm!':nlkv6{" (encode 92)
+rvm_code(");'lvD?m>lvRD?m>lvRA?m>lvRA?m>lvR:?m>lvR=!(:nlkm!':nlkv6{"). % RVM code that prints HELLO!
 % )@@
 
-% type(+TypeLit, -TypeVal)
+% type(+TypeLit, -TypeVal).
 % type(pair, 0).
 % type(procedure, 1).
 % type(symbol, 2).
@@ -252,17 +252,21 @@ set_var(Stack, Opnd, Val) :-
       field_0_set(Rib, Val)
   ).
 
+% @@(feature arity-check
 narg_check(Needed, Stack, Stack1, _) :-
   pop(Stack, Needed, Stack1), !.
 
 narg_check(Needed, Stack, _, Prim) :-
   pop(Stack, Given, _),
   atomic_list_concat([Given, ' expected to have ', Needed, ' arguments in ', Prim], Message),
-  domain_error(Message, Given).
+  domain_error(Message, Given), !.
+% )@@
 
-% @@(primitives (gen "primitive(" index ", Stack, NewStack, _) :- " body)
+narg_check(_, Stack, Stack, _) :- !.
+
+% @@(primitives (gen "primitive(" index ", Stack, NewStack, _) :- \n" body)
 primitive(0, Stack, NewStack, _) :- % @@(primitive (rib a b c)
-  narg_check(3, Stack, Stack0, primitive0),
+  narg_check(3, Stack, Stack0, rib),
   pop(Stack0, Z, Stack1),
   pop(Stack1, Y, Stack2),
   pop(Stack2, X, Stack3),
@@ -270,29 +274,29 @@ primitive(0, Stack, NewStack, _) :- % @@(primitive (rib a b c)
   push(Stack3, Rib, NewStack). % )@@
 
 primitive(1, Stack, NewStack, _) :- % @@(primitive (id x)
-  narg_check(1, Stack, Stack0, primitive1),
+  narg_check(1, Stack, Stack0, id),
   pop(Stack0, X, Stack1),
   push(Stack1, X, NewStack). % )@@
 
 primitive(2, Stack, NewStack, _) :- % @@(primitive (arg1 x y)
-  narg_check(2, Stack, Stack0, primitive2),
+  narg_check(2, Stack, Stack0, arg1),
   pop(Stack0, _, NewStack). % )@@
 
 primitive(3, Stack, NewStack, _) :- % @@(primitive (arg2 x y)
-  narg_check(2, Stack, Stack0, primitive3),
+  narg_check(2, Stack, Stack0, arg2),
   pop(Stack0, Y, Stack1),
   pop(Stack1, _, Stack2),
   push(Stack2, Y, NewStack). % )@@
 
 primitive(4, Stack, NewStack, _) :- % @@(primitive (close rib)
-  pop(Stack, _, Stack0),
+  narg_check(_, Stack, Stack0, close),
   pop(Stack0, X, Stack1),
   field_0(X, Car),
   rib_(Car, Stack1, 1, Rib),
-push(Stack1, Rib, NewStack). % )@@
+  push(Stack1, Rib, NewStack). % )@@
 
-primitive(5, Stack, NewStack, _) :- % @@(primitive (rib? rib)
-  narg_check(1, Stack, Stack0, primitive5),
+primitive(5, Stack, NewStack, _) :- % @@(primitive (rib? x)
+  narg_check(1, Stack, Stack0, 'rib?'),
   pop(Stack0, X, Stack1),
   special(true, TRUE),
   special(false, FALSE),
@@ -302,47 +306,47 @@ primitive(5, Stack, NewStack, _) :- % @@(primitive (rib? rib)
       push(Stack1, FALSE, NewStack)
     ). % )@@
 
-primitive(6, Stack, NewStack, _) :- % @@(primitive (field0 rib)
-  narg_check(1, Stack, Stack0, primitive6),
+primitive(6, Stack, NewStack, _) :- % @@(primitive (field0 x)
+  narg_check(1, Stack, Stack0, field0),
   pop(Stack0, X, Stack1),
   field_0(X, Field0),
   push(Stack1, Field0, NewStack). % )@@
 
-primitive(7, Stack, NewStack, _) :- % @@(primitive (field1 rib)
-  narg_check(1, Stack, Stack0, primitive7),
+primitive(7, Stack, NewStack, _) :- % @@(primitive (field1 x)
+  narg_check(1, Stack, Stack0, field1),
   pop(Stack0, X, Stack1),
   field_1(X, Field1),
   push(Stack1, Field1, NewStack). % )@@
 
-primitive(8, Stack, NewStack, _) :- % @@(primitive (field2 rib)
-  narg_check(1, Stack, Stack0, primitive8),
+primitive(8, Stack, NewStack, _) :- % @@(primitive (field2 x)
+  narg_check(1, Stack, Stack0, field2),
   pop(Stack0, X, Stack1),
   field_2(X, Field2),
   push(Stack1, Field2, NewStack). % )@@
 
 primitive(9, Stack, NewStack, _) :- % @@(primitive (field0-set! rib x)
-  narg_check(2, Stack, Stack0, primitive9),
+  narg_check(2, Stack, Stack0, 'field0-set!'),
   pop(Stack0, Y, Stack1),
   pop(Stack1, X, Stack2),
   field_0_set(X, Y),
   push(Stack2, Y, NewStack). % )@@
 
 primitive(10, Stack, NewStack, _) :- % @@(primitive (field1-set! rib x)
-  narg_check(2, Stack, Stack0, primitive10),
+  narg_check(2, Stack, Stack0, 'field1-set!'),
   pop(Stack0, Y, Stack1),
   pop(Stack1, X, Stack2),
   field_1_set(X, Y),
   push(Stack2, Y, NewStack). % )@@
 
 primitive(11, Stack, NewStack, _) :- % @@(primitive (field2-set! rib x)
-  narg_check(2, Stack, Stack0, primitive11),
+  narg_check(2, Stack, Stack0, 'field2-set!'),
   pop(Stack0, Y, Stack1),
   pop(Stack1, X, Stack2),
   field_2_set(X, Y),
   push(Stack2, Y, NewStack). % )@@
 
 primitive(12, Stack, NewStack, _) :- % @@(primitive (eqv? x y)
-  narg_check(2, Stack, Stack0, primitive12),
+  narg_check(2, Stack, Stack0, 'eqv?'),
   pop(Stack0, Y, Stack1),
   pop(Stack1, X, Stack2),
   special(true, TRUE),
@@ -354,7 +358,7 @@ primitive(12, Stack, NewStack, _) :- % @@(primitive (eqv? x y)
   ). % )@@
 
 primitive(13, Stack, NewStack, _) :- % @@(primitive (< a b)
-  narg_check(2, Stack, Stack0, primitive13),
+  narg_check(2, Stack, Stack0, '<'),
   pop(Stack0, Y, Stack1),
   pop(Stack1, X, Stack2),
   special(true, TRUE),
@@ -366,55 +370,67 @@ primitive(13, Stack, NewStack, _) :- % @@(primitive (< a b)
   ). % )@@
 
 primitive(14, Stack, NewStack, _) :- % @@(primitive (+ a b)
-  narg_check(2, Stack, Stack0, primitive14),
+  narg_check(2, Stack, Stack0, '+'),
   pop(Stack0, Y, Stack1),
   pop(Stack1, X, Stack2),
   N is X + Y,
   push(Stack2, N, NewStack). % )@@
 
 primitive(15, Stack, NewStack, _) :- % @@(primitive (- a b)
-  narg_check(2, Stack, Stack0, primitive15),
+  narg_check(2, Stack, Stack0, '-'),
   pop(Stack0, Y, Stack1),
   pop(Stack1, X, Stack2),
   N is X - Y,
   push(Stack2, N, NewStack). % )@@
 
 primitive(16, Stack, NewStack, _) :- % @@(primitive (* a b)
-  narg_check(2, Stack, Stack0, primitive16),
+  narg_check(2, Stack, Stack0, '*'),
   pop(Stack0, Y, Stack1),
   pop(Stack1, X, Stack2),
   N is X * Y,
   push(Stack2, N, NewStack). % )@@
 
 primitive(17, Stack, NewStack, _) :- % @@(primitive (quotient a b)
-  narg_check(2, Stack, Stack0, primitive17),
+  narg_check(2, Stack, Stack0, quotient),
   pop(Stack0, Y, Stack1),
   pop(Stack1, X, Stack2),
   N is X // Y,
   push(Stack2, N, NewStack). % )@@
 
-primitive(18, Stack, NewStack, _) :- % @@(primitive (getchar)
-  narg_check(0, Stack, Stack0, primitive18),
+primitive(18, Stack, NewStack, _) :- %% @@(primitive (getchar)
+  narg_check(0, Stack, Stack0, getchar),
   get_code(Char),
   push(Stack0, Char, NewStack). % )@@
 
 primitive(19, Stack, NewStack, _) :- % @@(primitive (putchar c)
-  narg_check(1, Stack, Stack0, primitive19),
+  narg_check(1, Stack, Stack0, putchar),
   pop(Stack0, X, Stack1),
   put_code(X),
   push(Stack1, X, NewStack). % )@@
 
 primitive(20, Stack, NewStack, _) :- % @@(primitive (exit a)
-  narg_check(1, Stack, Stack0, primitive20),
+  narg_check(1, Stack, Stack0, exit),
   pop(Stack0, X, NewStack),
   halt(X). % )@@
 
-primitive(21, Stack, NewStack, _) :- % @@(primitive (list l)
+
+primitive(21, Stack, NewStack, _) :- % @@(primitive (list . l) (use variadic)
   pop(Stack, Nargs, Stack1),
   pop_n(Nargs, Stack1, Args, Stack2),
   reverse(Args, Args1),
   list_(Args1, List),
   push(Stack2, List, NewStack). % )@@
+
+primitive(22, Stack, NewStack) :- % @@(primitive (square a)
+  narg_check(1, Stack, Stack0, square),
+  pop(Stack0, X, Stack1),
+  N is X * X,
+  push(Stack1, N, NewStack). % )@@
+% )@@
+
+  
+
+
 
 list_([], NIL) :- special(nil, NIL).
 list_([X | Tail], List) :-
@@ -445,13 +461,14 @@ case_instr(0, Opnd, Next, Pc, Stack, Pc1, Stack1) :-
       field_0(Code, NargsEncoded),
       Nargs is NargsEncoded // 2,
       (
-        (NargsEncoded mod 2) = 1 ->
+        (NargsEncoded mod 2) =:= 1 ->
           pop(Stack, NPassed, Stack_1),
           Nargs =< NPassed,
           Nargs2 is Nargs + 1,
           N is NPassed - Nargs,
           pop_n(N, Stack_1, Rest, Stack_2),
-          list_(Rest, RestRib),
+          reverse(Rest, Rest0),
+          list_(Rest0, RestRib),
           push(Stack_2, RestRib, Stack_3)
           ; Nargs2 = Nargs,
           narg_check(Nargs2, Stack, Stack_3, lambda_call)
