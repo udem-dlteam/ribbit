@@ -1047,8 +1047,8 @@ pub mod rvm {
                 },
                                 &mut stack, &mut rib_heap), // )@@
                 n => panic!("Unexpected code for primitive call {n}"),
-            }
             // )@@
+            }
         }
 
         // Build the initial symbol table
