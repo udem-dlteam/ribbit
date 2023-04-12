@@ -683,11 +683,9 @@ pub mod rvm {
 
 
 
-    // @@(feature bool2scm
     fn to_bool<E>(expr: E) -> RibField where E: FnOnce() -> bool{
         if expr() { RibField::Rib(TRUE_REF)} else { RibField::Rib(FALSE_REF) }
     }
-    // )@@
 
 
 
@@ -855,7 +853,7 @@ pub mod rvm {
     }
 
     fn incoherent_nargs_stop(nargs:u32,expected_nargs:u32, variadic:bool) {
-        //TODO: Reformulate error message
+
         if variadic {
             eprintln!("Insufficient number of arguments. This function requires a minimum of {} arguments, got {}", expected_nargs, nargs);
             println!("Insufficient number of arguments. This function requires a minimum of {} arguments, got {}", expected_nargs, nargs);
@@ -876,10 +874,8 @@ pub mod rvm {
         let heap_tracing = false;
         let mut debug = false;
 
-        // @@(feature debug
         tracing = true;
         debug = true;
-        // )@@
 
         // @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
         let rvm_code: String = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y".to_string();
@@ -900,8 +896,7 @@ pub mod rvm {
 
         fn primitives(code:u8, expected_nargs: u32, mut stack: &mut usize, mut rib_heap: &mut RibHeap) {
             match code {
-                // @@(primitives (gen index " => " body)
-                0 => // @@(primitive (rib a b c)
+                0 =>
                     {
                         rvm_prim3(expected_nargs, |z, y, x, h| -> RibField
                             {
@@ -911,83 +906,83 @@ pub mod rvm {
                                     ))
                             },
                                   &mut stack, &mut rib_heap)
-                    },// )@@
-                1 => // @@(primitive (id x)
-                    { rvm_prim1(expected_nargs,|x,_h|x,&mut stack,&mut rib_heap) }, // )@@
-                2 => // @@(primitive (arg1 x y)
-                    { if expected_nargs != 2 {incoherent_nargs_stop(expected_nargs,2,false)}; (||->(){ pop_stack(&mut stack, &mut rib_heap);})();}, // )@@
-                3 => // @@(primitive (arg2 x y)
-                    {if expected_nargs != 2 {incoherent_nargs_stop(expected_nargs,2,false)}; rvm_arg2(&mut stack, &mut rib_heap)}, // )@@
-                4 => // @@(primitive (close rib)
+                    },
+                1 =>
+                    { rvm_prim1(expected_nargs,|x,_h|x,&mut stack,&mut rib_heap) },
+                2 =>
+                    { if expected_nargs != 2 {incoherent_nargs_stop(expected_nargs,2,false)}; (||->(){ pop_stack(&mut stack, &mut rib_heap);})();},
+                3 =>
+                    {if expected_nargs != 2 {incoherent_nargs_stop(expected_nargs,2,false)}; rvm_arg2(&mut stack, &mut rib_heap)},
+                4 =>
                     {
                     if expected_nargs != 1 {incoherent_nargs_stop(expected_nargs, 1, false) };
                     rvm_close(&mut stack, &mut rib_heap)
-                }, // )@@
-                5 => // @@(primitive (rib? rib) (use bool2scm)
+                },
+                5 =>
                     rvm_prim1(expected_nargs,|x, _h|
                                    to_bool(||is_rib(&x)),
-                               &mut stack, &mut rib_heap), // )@@
-                6 => // @@(primitive (field0 rib)
+                               &mut stack, &mut rib_heap),
+                6 =>
                     rvm_prim1(expected_nargs,|x, h|x.get_rib(h).first,
-                               &mut stack, &mut rib_heap), // )@@
-                7 => // @@(primitive (field1 rib)
+                               &mut stack, &mut rib_heap),
+                7 =>
                     rvm_prim1(expected_nargs,|x, h|x.get_rib(h).middle,
-                               &mut stack, &mut rib_heap), // )@@
-                8 => // @@(primitive (field2 rib)
+                               &mut stack, &mut rib_heap),
+                8 =>
                     rvm_prim1(expected_nargs,|x,h|x.get_rib(h).last,
-                               &mut stack, &mut rib_heap), // )@@
-                9 =>// @@(primitive (field0-set! rib)
+                               &mut stack, &mut rib_heap),
+                9 =>
                     rvm_prim2(expected_nargs,|y,x, h|
                                    {let mut new_rib = x.get_rib(h);
                                        let x_index = x.get_rib_ref();
                                        new_rib.first=y;
                                        h.set(&x_index,new_rib);
                                        y},
-                               &mut stack, &mut rib_heap), // )@@
-                10 => // @@(primitive (field1-set! rib)
+                               &mut stack, &mut rib_heap),
+                10 =>
                     rvm_prim2(expected_nargs,|y,x, h|
                                     {let mut new_rib = x.get_rib(h);
                                         let x_index = x.get_rib_ref();
                                         new_rib.middle=y;
                                         h.set(&x_index,new_rib);
                                         y},
-                                &mut stack, &mut rib_heap), // )@@
-                11 => // @@(primitive (field2-set! rib)
+                                &mut stack, &mut rib_heap),
+                11 =>
                     rvm_prim2(expected_nargs,|y,x,h|
                                     {let mut new_rib = x.get_rib(h);
                                         let x_index = x.get_rib_ref();
                                         new_rib.last=y;
                                         h.set(&x_index,new_rib);
                                         y},
-                                &mut stack, &mut rib_heap), // )@@
-                12 => // @@(primitive (eqv? rib1 rib2) (use bool2scm)
+                                &mut stack, &mut rib_heap),
+                12 =>
                     rvm_prim2(expected_nargs,|y, x,_h|
                                     { to_bool(||x==y)
-                                    }, &mut stack, &mut rib_heap), // )@@
-                13 => // @@(primitive (< x y) (use bool2scm)
+                                    }, &mut stack, &mut rib_heap),
+                13 =>
                     rvm_prim2(expected_nargs,|y, x,_h|
                                     { to_bool(||x<y)
                                     },
-                                &mut stack, &mut rib_heap), // )@@
-                14 => // @@(primitive (+ x y)
+                                &mut stack, &mut rib_heap),
+                14 =>
                     rvm_prim2(expected_nargs,|y, x, _h|
                                     { (x+y)
                                         .expect("Addition operands should both be numbers")
                                     },
-                                &mut stack, &mut rib_heap), // )@@
-                15 => // @@(primitive (- x y)
+                                &mut stack, &mut rib_heap),
+                15 =>
                     rvm_prim2(expected_nargs,|y, x, _h|
                                     { (x-y)
                                         .expect("Subtraction operands should both be numbers")
                                     },
-                                &mut stack, &mut rib_heap), // )@@
-                16 => // @@(primitive (* x y)
+                                &mut stack, &mut rib_heap),
+                16 =>
                     rvm_prim2(expected_nargs,|y, x, _h|
                                     { (x*y)
                                         .expect("Factors should both be numbers")
                                     },
-                                &mut stack, &mut rib_heap), // )@@
-                17 => // @@(primitive (quotient x y)
+                                &mut stack, &mut rib_heap),
+                17 =>
                     rvm_prim2(expected_nargs,|y, x, _h|
                                     { match y {
                                         RibField::Number(0) => {println!("Division by zero");process::exit(1)}
@@ -996,12 +991,12 @@ pub mod rvm {
                                         (x/y)
                                         .expect("Division operands should both be numbers")
                                     },
-                                &mut stack, &mut rib_heap), // )@@
-                18 => // @@(primitive (getchar)
+                                &mut stack, &mut rib_heap),
+                18 =>
                     {
                     rvm_getchar(&mut stack, &mut rib_heap)
-                }, // )@@
-                19 => // @@(primitive (putchar c)
+                },
+                19 =>
                     rvm_prim1(expected_nargs,|x, _h| {
                     let n_to_push = x.get_number() as u32;
                     let c_to_write = char::from_u32(n_to_push)
@@ -1010,7 +1005,7 @@ pub mod rvm {
                     putchar(c_to_write);
                     RibField::Number(n_to_push as i32)
                 },
-                                &mut stack, &mut rib_heap), // )@@
+                                &mut stack, &mut rib_heap),
                 20 =>
                     {
                     let mut n_elems = expected_nargs;
@@ -1038,17 +1033,17 @@ pub mod rvm {
                     }
                     push_stack(RibField::Rib(new_list),&mut stack, &mut rib_heap);
                 },
-                21 => // @@(primitive (exit n)
+                21 =>
                     rvm_prim1(expected_nargs,|code, _h| {
                     match code {
                         RibField::Number(value) => process::exit(value),
                         RibField::Rib(_) => process::exit(0x0100),
                     }
                 },
-                                &mut stack, &mut rib_heap), // )@@
+                                &mut stack, &mut rib_heap),
                 n => panic!("Unexpected code for primitive call {n}"),
             }
-            // )@@
+
         }
 
         // Build the initial symbol table
@@ -1268,7 +1263,7 @@ pub mod rvm {
             let mut o = pc.get_rib(&mut rib_heap).middle;
             let pc_instr = pc.get_rib(&mut rib_heap).first.get_number();
             match pc_instr {
-                HALT => { if tracing {println!("halt");}
+                HALT => { if tracing {eprintln!("halt");}
                     return},
                 // jump/call
                 CALL => {
@@ -1276,19 +1271,16 @@ pub mod rvm {
                         eprintln!("call {}",show(&o,&mut rib_heap));
                     } else {eprintln!("jump {}",show(&o,&mut rib_heap));}
                     }
-                    // @@(feature arity-check
-                    let mut expected_nargs = pop_stack(&mut stack, &mut rib_heap).get_number();
-                    //)@@
+                    let mut nargs = pop_stack(&mut stack, &mut rib_heap).get_number();
                     let opnd_ref =get_opnd(&o, &stack, &mut rib_heap);
                     o = opnd_ref.first;
                     let mut c = o.get_rib(&mut rib_heap).first;
                     if is_rib(&c){ // c: code
-                        let mut nargs = c.get_rib(&mut rib_heap)
+                        let mut nparams = c.get_rib(&mut rib_heap)
                             .first.get_number();
 
-                        // @@(feature arity-check
 
-                        //TODO: Encoder le flag présence-d'un-paramètre-rest dans le nparams du Rib code d'un Rib PROCÉDURE
+
                         /* Référence en C:
                             num vari = NUM(CAR(code))&1;
                             if ((!vari && nparams != nargs)||(vari && nparams > nargs)){
@@ -1297,14 +1289,14 @@ pub mod rvm {
                             }
                         */
 
-                        let variadic = nargs % 2==1;
-                        nargs = nargs>>1;
+                        let variadic = nparams % 2==1;
+                        nparams = nparams >>1;
 
-                        if !variadic && nargs != expected_nargs || variadic && nargs > expected_nargs
+                        if !variadic && nparams != nargs || variadic && nparams > nargs
                         {
-                            incoherent_nargs_stop(expected_nargs as u32,nargs as u32, variadic);
+                            incoherent_nargs_stop(nargs as u32, nparams as u32, variadic);
                         }
-                        // )@@
+
 
                         let mut c2 = make_rib(RibField::Number(0),
                                               RibField::Rib(o.get_rib_ref()),
@@ -1312,8 +1304,7 @@ pub mod rvm {
                         let mut s2 = rib_heap.push_rib(c2);
                         let c2_ref = s2;
 
-                        // @@(feature rest-param (use arity-check)
-                        //TODO: Implémenter l'extraction des paramètres rest du stack et leur stockage dans s2
+
                         /* Référence en C:
                             nargs-=nparams;
                             if (vari){
@@ -1325,24 +1316,24 @@ pub mod rvm {
                             }
                         */
 
-                        expected_nargs -= nargs;
+                        nargs -= nparams;
                         if variadic
                         {
                             let mut rest = NIL_REF;
                             let mut i =0;
-                            while i < expected_nargs {
+                            while i < nargs {
                                 let arg =pop_stack(&mut stack, &mut rib_heap);
                                 push_stack(arg, &mut rest, &mut rib_heap);
                                 i -= 1;
                             }
                             push_stack(RibField::Rib(rest), &mut s2, &mut rib_heap);
                         }
-                        // )@@
 
-                        while nargs>0{
+
+                        while nparams >0{
                             let popped =pop_stack(&mut stack,&mut rib_heap);
                             push_stack(popped,&mut s2,&mut rib_heap);
-                            nargs-=1;
+                            nparams -=1;
                         };
                         if is_rib(&pc.get_rib(&mut rib_heap).last) {
                             //It's a call
@@ -1360,7 +1351,7 @@ pub mod rvm {
                         stack = s2;
 
                     } else {
-                        primitives(c.get_number() as u8, expected_nargs as u32, &mut stack, &mut rib_heap);
+                        primitives(c.get_number() as u8, nargs as u32, &mut stack, &mut rib_heap);
                         if is_rib(&pc.get_rib(&mut rib_heap).last)
                             || pc.get_rib(&mut rib_heap).last.get_number() !=0 {
                             //It's a call
