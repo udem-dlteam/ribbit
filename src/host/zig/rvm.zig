@@ -595,7 +595,7 @@ const Ribbit = struct {
                 try self.stackPush(val);
             },
             PrimitiveOperation.arg1 => {
-                try checkNumberParams(1, actual_nargs);
+                try checkNumberParams(2, actual_nargs);
 
                 _ = self.stackPop();
             },
