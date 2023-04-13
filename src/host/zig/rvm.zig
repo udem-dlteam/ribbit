@@ -133,6 +133,7 @@ fn listTail(list: *Rib, i: usize) *Rib {
 
 fn checkNumberParams(expect: i32, actual: i32) !void {
     if (expect != actual) {
+        try stderr.print("expected {} arguments, got {}\n", .{ expect, actual });
         return error.WrongNumberOfParams;
     }
 }
