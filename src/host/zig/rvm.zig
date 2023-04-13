@@ -801,7 +801,7 @@ const Ribbit = struct {
                     var c: RibField = operand.rib.car;
 
                     if (c.isRib()) {
-                        var nargs: i32 = c.rib.car.num;
+                        var nargs: i32 = c.rib.car.num >> 1;
                         const c2: *Rib = try self.newRib(num(0), operand, num(0));
                         var s2: *Rib = c2;
 
