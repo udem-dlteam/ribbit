@@ -258,14 +258,15 @@ narg_check(Needed, Stack, Stack1, _) :-
 
 narg_check(Needed, Stack, _, Prim) :-
   pop(Stack, Given, _),
-  atomic_list_concat([Given, ' expected to have ', Needed, ' arguments in ', Prim], Message),
-  domain_error(Message, Given), !.
+  atomic_list_concat([Given, ' expected to have ', Needed, ' arguments in ', Prim], Message), !,
+  domain_error(Message, Given).
 % )@@
 
 narg_check(_, Stack, Stack, _) :- !.
 
-% @@(primitives (gen "primitive(" index ", Stack, NewStack, _) :- \n" body)
-primitive(0, Stack, NewStack, _) :- % @@(primitive (rib a b c)
+% @@(primitives (gen "primitive(" index ", Stack, NewStack, " body)
+primitive(0, Stack, NewStack, % @@(primitive (rib a b c)
+  _) :- 
   narg_check(3, Stack, Stack0, rib),
   pop(Stack0, Z, Stack1),
   pop(Stack1, Y, Stack2),
@@ -273,29 +274,34 @@ primitive(0, Stack, NewStack, _) :- % @@(primitive (rib a b c)
   rib_(X, Y, Z, Rib),
   push(Stack3, Rib, NewStack). % )@@
 
-primitive(1, Stack, NewStack, _) :- % @@(primitive (id x)
+primitive(1, Stack, NewStack, % @@(primitive (id x)
+  _) :- 
   narg_check(1, Stack, Stack0, id),
   pop(Stack0, X, Stack1),
   push(Stack1, X, NewStack). % )@@
 
-primitive(2, Stack, NewStack, _) :- % @@(primitive (arg1 x y)
+primitive(2, Stack, NewStack,  % @@(primitive (arg1 x y)
+  _) :-
   narg_check(2, Stack, Stack0, arg1),
   pop(Stack0, _, NewStack). % )@@
 
-primitive(3, Stack, NewStack, _) :- % @@(primitive (arg2 x y)
+primitive(3, Stack, NewStack,  % @@(primitive (arg2 x y)
+  _) :-
   narg_check(2, Stack, Stack0, arg2),
   pop(Stack0, Y, Stack1),
   pop(Stack1, _, Stack2),
   push(Stack2, Y, NewStack). % )@@
 
-primitive(4, Stack, NewStack, _) :- % @@(primitive (close rib)
+primitive(4, Stack, NewStack,  % @@(primitive (close rib)
+  _) :-
   narg_check(_, Stack, Stack0, close),
   pop(Stack0, X, Stack1),
   field_0(X, Car),
   rib_(Car, Stack1, 1, Rib),
   push(Stack1, Rib, NewStack). % )@@
 
-primitive(5, Stack, NewStack, _) :- % @@(primitive (rib? x)
+primitive(5, Stack, NewStack,  % @@(primitive (rib? x)
+  _) :-
   narg_check(1, Stack, Stack0, 'rib?'),
   pop(Stack0, X, Stack1),
   special(true, TRUE),
@@ -306,46 +312,53 @@ primitive(5, Stack, NewStack, _) :- % @@(primitive (rib? x)
       push(Stack1, FALSE, NewStack)
     ). % )@@
 
-primitive(6, Stack, NewStack, _) :- % @@(primitive (field0 x)
+primitive(6, Stack, NewStack,  % @@(primitive (field0 x)
+  _) :-
   narg_check(1, Stack, Stack0, field0),
   pop(Stack0, X, Stack1),
   field_0(X, Field0),
   push(Stack1, Field0, NewStack). % )@@
 
-primitive(7, Stack, NewStack, _) :- % @@(primitive (field1 x)
+primitive(7, Stack, NewStack,  % @@(primitive (field1 x)
+  _) :-
   narg_check(1, Stack, Stack0, field1),
   pop(Stack0, X, Stack1),
   field_1(X, Field1),
   push(Stack1, Field1, NewStack). % )@@
 
-primitive(8, Stack, NewStack, _) :- % @@(primitive (field2 x)
+primitive(8, Stack, NewStack,  % @@(primitive (field2 x)
+  _) :-
   narg_check(1, Stack, Stack0, field2),
   pop(Stack0, X, Stack1),
   field_2(X, Field2),
   push(Stack1, Field2, NewStack). % )@@
 
-primitive(9, Stack, NewStack, _) :- % @@(primitive (field0-set! rib x)
+primitive(9, Stack, NewStack,  % @@(primitive (field0-set! rib x)
+  _) :-
   narg_check(2, Stack, Stack0, 'field0-set!'),
   pop(Stack0, Y, Stack1),
   pop(Stack1, X, Stack2),
   field_0_set(X, Y),
   push(Stack2, Y, NewStack). % )@@
 
-primitive(10, Stack, NewStack, _) :- % @@(primitive (field1-set! rib x)
+primitive(10, Stack, NewStack,  % @@(primitive (field1-set! rib x)
+  _) :-
   narg_check(2, Stack, Stack0, 'field1-set!'),
   pop(Stack0, Y, Stack1),
   pop(Stack1, X, Stack2),
   field_1_set(X, Y),
   push(Stack2, Y, NewStack). % )@@
 
-primitive(11, Stack, NewStack, _) :- % @@(primitive (field2-set! rib x)
+primitive(11, Stack, NewStack,  % @@(primitive (field2-set! rib x)
+  _) :-
   narg_check(2, Stack, Stack0, 'field2-set!'),
   pop(Stack0, Y, Stack1),
   pop(Stack1, X, Stack2),
   field_2_set(X, Y),
   push(Stack2, Y, NewStack). % )@@
 
-primitive(12, Stack, NewStack, _) :- % @@(primitive (eqv? x y)
+primitive(12, Stack, NewStack,  % @@(primitive (eqv? x y)
+  _) :-
   narg_check(2, Stack, Stack0, 'eqv?'),
   pop(Stack0, Y, Stack1),
   pop(Stack1, X, Stack2),
@@ -357,7 +370,8 @@ primitive(12, Stack, NewStack, _) :- % @@(primitive (eqv? x y)
       push(Stack2, FALSE, NewStack)
   ). % )@@
 
-primitive(13, Stack, NewStack, _) :- % @@(primitive (< a b)
+primitive(13, Stack, NewStack,  % @@(primitive (< a b)
+  _) :-
   narg_check(2, Stack, Stack0, '<'),
   pop(Stack0, Y, Stack1),
   pop(Stack1, X, Stack2),
@@ -369,66 +383,90 @@ primitive(13, Stack, NewStack, _) :- % @@(primitive (< a b)
       push(Stack2, FALSE, NewStack)
   ). % )@@
 
-primitive(14, Stack, NewStack, _) :- % @@(primitive (+ a b)
+primitive(14, Stack, NewStack,  % @@(primitive (+ a b)
+  _) :-
   narg_check(2, Stack, Stack0, '+'),
   pop(Stack0, Y, Stack1),
   pop(Stack1, X, Stack2),
   N is X + Y,
   push(Stack2, N, NewStack). % )@@
 
-primitive(15, Stack, NewStack, _) :- % @@(primitive (- a b)
+primitive(15, Stack, NewStack,  % @@(primitive (- a b)
+  _) :-
   narg_check(2, Stack, Stack0, '-'),
   pop(Stack0, Y, Stack1),
   pop(Stack1, X, Stack2),
   N is X - Y,
   push(Stack2, N, NewStack). % )@@
 
-primitive(16, Stack, NewStack, _) :- % @@(primitive (* a b)
+primitive(16, Stack, NewStack,  % @@(primitive (* a b)
+  _) :-
   narg_check(2, Stack, Stack0, '*'),
   pop(Stack0, Y, Stack1),
   pop(Stack1, X, Stack2),
   N is X * Y,
   push(Stack2, N, NewStack). % )@@
 
-primitive(17, Stack, NewStack, _) :- % @@(primitive (quotient a b)
+primitive(17, Stack, NewStack,  % @@(primitive (quotient a b)
+  _) :-
   narg_check(2, Stack, Stack0, quotient),
   pop(Stack0, Y, Stack1),
   pop(Stack1, X, Stack2),
   N is X // Y,
   push(Stack2, N, NewStack). % )@@
 
-primitive(18, Stack, NewStack, _) :- %% @@(primitive (getchar)
+primitive(18, Stack, NewStack,  %% @@(primitive (getchar)
+  _) :-
   narg_check(0, Stack, Stack0, getchar),
   get_code(Char),
   push(Stack0, Char, NewStack). % )@@
 
-primitive(19, Stack, NewStack, _) :- % @@(primitive (putchar c)
+primitive(19, Stack, NewStack,  % @@(primitive (putchar c)
+  _) :-
   narg_check(1, Stack, Stack0, putchar),
   pop(Stack0, X, Stack1),
   put_code(X),
   push(Stack1, X, NewStack). % )@@
 
-primitive(20, Stack, NewStack, _) :- % @@(primitive (exit a)
+primitive(20, Stack, NewStack,  % @@(primitive (exit a)
+  _) :-
   narg_check(1, Stack, Stack0, exit),
   pop(Stack0, X, NewStack),
   halt(X). % )@@
 
-
-primitive(21, Stack, NewStack, _) :- % @@(primitive (list . l) (use variadic)
+primitive(21, Stack, NewStack,  % @@(primitive (list . l) (use arity-check)
+  _) :-
   pop(Stack, Nargs, Stack1),
   pop_n(Nargs, Stack1, Args, Stack2),
   reverse(Args, Args1),
   list_(Args1, List),
   push(Stack2, List, NewStack). % )@@
 
-primitive(22, Stack, NewStack) :- % @@(primitive (square a)
-  narg_check(1, Stack, Stack0, square),
-  pop(Stack0, X, Stack1),
-  N is X * X,
-  push(Stack1, N, NewStack). % )@@
+primitive(22, Stack, NewStack,  % @@(primitive (apply fn . args) (use arity-check variadic)
+  Pc) :-
+  narg_check(2, Stack, Stack0, apply),
+  pop(Stack0, ListRib, Stack1),
+  pop(Stack1, Fn, Stack2),
+  once(list_(List, ListRib)),
+  length(List, Nargs),
+  special(nil, NIL),
+  rib_(NIL, 0, 3, Rib1),
+  rib_(Fn, Rib1, 2, Proc),
+  foldl(push_foldl, List, Stack2, Stack3),
+  push_arity_cond(Stack3, Nargs, NewStack),
+  field_2(Pc, Cont),
+  rib_(0, Proc, Cont, NewCont),
+  field_2_set(Pc, NewCont). % )@@
+
 % )@@
 
-  
+% @@(feature arity-check
+push_arity_cond(Stack, Val, NewStack) :-
+  push(Stack, Val, NewStack), !. % )@@
+push_arity_cond(Stack, _, Stack) :- !.
+
+push_foldl(Val, Stack, NewStack) :-
+  push(Stack, Val, NewStack).
 
 
 
