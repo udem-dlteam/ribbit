@@ -889,13 +889,13 @@ pub mod rvm {
         let mut step_count:u32 =0;
         let start_tracing:u32 = 0;
         let mut next_stamp:u32 =0;
-        let mut tracing = false;
+        let mut tracing = true;
         let heap_tracing = false;
-        let mut debug = false;
+        let mut debug = true;
 
-        // @@(feature debug
-        tracing = true;
-        debug = true;
+        // @@(feature (not debug)
+        tracing = false;
+        debug = false;
         // )@@
 
         // @@(replace ");'lvD?m>lvRD?m>lvRA?m>lvRA?m>lvR:?m>lvR=!(:nlkm!':nlkv6{" (encode 92)
