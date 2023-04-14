@@ -723,12 +723,17 @@ pub mod rvm {
     }
 
 
-    fn rvm_prim1<F>(expected_nargs: u32, mut f: F,stack: &mut usize, holder: &mut RibHeap)
+    fn rvm_prim1<F>( // @@(feature arity-check
+        expected_nargs: u32,
+        // )@@
+        mut f: F,stack: &mut usize, holder: &mut RibHeap)
         where F: FnMut(RibField,&mut RibHeap) -> RibField{
+        // @@(feature arity-check
         if expected_nargs != 1
         {
             incoherent_nargs_stop(expected_nargs,1,false)
         }
+        // )@@
         let x =pop_stack(stack, holder);
         let r = f(x, holder);
         push_stack(
@@ -737,12 +742,17 @@ pub mod rvm {
         );
     }
 
-    fn rvm_prim2<G>(expected_nargs: u32, mut f: G,stack: &mut usize, holder: &mut RibHeap)
+    fn rvm_prim2<G>( // @@(feature arity-check
+        expected_nargs: u32,
+                     // )@@
+                     mut f: G,stack: &mut usize, holder: &mut RibHeap)
         where G: FnMut(RibField,RibField, &mut RibHeap) -> RibField{
+        // @@(feature arity-check
         if expected_nargs != 2
         {
             incoherent_nargs_stop(expected_nargs,2,false)
         }
+        // )@@
         let x = pop_stack(stack, holder);
         let y = pop_stack(stack, holder);
         let r =f(x, y, holder);
@@ -751,12 +761,17 @@ pub mod rvm {
         );
     }
 
-    fn rvm_prim3<H>(expected_nargs: u32, mut f: H,stack: &mut usize, holder: &mut RibHeap)
+    fn rvm_prim3<H>(// @@(feature arity-check
+                    expected_nargs: u32,
+                    // )@@
+                    mut f: H,stack: &mut usize, holder: &mut RibHeap)
         where H: FnMut(RibField, RibField, RibField, &mut RibHeap) -> RibField{
+        // @@(feature arity-check
         if expected_nargs != 3
         {
             incoherent_nargs_stop(expected_nargs,3,false)
         }
+        // )@@
         let x = pop_stack(stack, holder);
         let y = pop_stack(stack, holder);
         let z = pop_stack(stack, holder);
@@ -854,6 +869,7 @@ pub mod rvm {
         *symtbl = sym_top.middle.get_rib_ref();
     }
 
+    // @@(feature arity-check
     fn incoherent_nargs_stop(nargs:u32,expected_nargs:u32, variadic:bool) {
         //TODO: Reformulate error message
         if variadic {
@@ -866,6 +882,7 @@ pub mod rvm {
         }
         process::exit(0x0100)
     }
+    // )@@
 
     pub fn run_rvm() {
 
@@ -881,8 +898,8 @@ pub mod rvm {
         debug = true;
         // )@@
 
-        // @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
-        let rvm_code: String = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y".to_string();
+        // @@(replace ");'lvD?m>lvRD?m>lvRA?m>lvRA?m>lvR:?m>lvR=!(:nlkm!':nlkv6{" (encode 92)
+        let rvm_code: String = ");'lvD?m>lvRD?m>lvRA?m>lvRA?m>lvR:?m>lvR=!(:nlkm!':nlkv6{".to_string();
         // )@@
 
         let mut pos = rvm_code.chars();
@@ -898,12 +915,20 @@ pub mod rvm {
         let mut stack: usize;
 
 
-        fn primitives(code:u8, expected_nargs: u32, mut stack: &mut usize, mut rib_heap: &mut RibHeap) {
+        fn primitives(code:u8,
+                      // @@(feature arity-check
+                      expected_nargs: u32,
+                      // )@@
+                      mut stack: &mut usize, mut rib_heap: &mut RibHeap) {
             match code {
                 // @@(primitives (gen index " => " body)
                 0 => // @@(primitive (rib a b c)
                     {
-                        rvm_prim3(expected_nargs, |z, y, x, h| -> RibField
+                        rvm_prim3(
+                            // @@(feature arity-check
+                            expected_nargs,
+                            // )@@
+                            |z, y, x, h| -> RibField
                             {
                                 RibField::Rib(
                                     h.push_rib(
@@ -913,31 +938,53 @@ pub mod rvm {
                                   &mut stack, &mut rib_heap)
                     },// )@@
                 1 => // @@(primitive (id x)
-                    { rvm_prim1(expected_nargs,|x,_h|x,&mut stack,&mut rib_heap) }, // )@@
+                    { rvm_prim1( // @@(feature arity-check
+                        expected_nargs,
+                                 // )@@
+                                 |x,_h|x,&mut stack,&mut rib_heap) }, // )@@
                 2 => // @@(primitive (arg1 x y)
-                    { if expected_nargs != 2 {incoherent_nargs_stop(expected_nargs,2,false)}; (||->(){ pop_stack(&mut stack, &mut rib_heap);})();}, // )@@
+                    { // @@(feature arity-check
+                        if expected_nargs != 2 {incoherent_nargs_stop(expected_nargs,2,false)};
+                        // )@@
+                        (||->(){ pop_stack(&mut stack, &mut rib_heap);})();}, // )@@
                 3 => // @@(primitive (arg2 x y)
-                    {if expected_nargs != 2 {incoherent_nargs_stop(expected_nargs,2,false)}; rvm_arg2(&mut stack, &mut rib_heap)}, // )@@
+                    { // @@(feature arity-check
+                        if expected_nargs != 2 {incoherent_nargs_stop(expected_nargs,2,false)};
+                        // )@@
+                        rvm_arg2(&mut stack, &mut rib_heap)}, // )@@
                 4 => // @@(primitive (close rib)
-                    {
+                    { // @@(feature arity-check
                     if expected_nargs != 1 {incoherent_nargs_stop(expected_nargs, 1, false) };
-                    rvm_close(&mut stack, &mut rib_heap)
+                        // )@@
+                        rvm_close(&mut stack, &mut rib_heap)
                 }, // )@@
                 5 => // @@(primitive (rib? rib) (use bool2scm)
-                    rvm_prim1(expected_nargs,|x, _h|
+                    rvm_prim1( // @@(feature arity-check
+                        expected_nargs,
+                               // )@@
+                               |x, _h|
                                    to_bool(||is_rib(&x)),
                                &mut stack, &mut rib_heap), // )@@
                 6 => // @@(primitive (field0 rib)
-                    rvm_prim1(expected_nargs,|x, h|x.get_rib(h).first,
+                    rvm_prim1( // @@(feature arity-check
+                        expected_nargs,
+                               // )@@
+                               |x, h|x.get_rib(h).first,
                                &mut stack, &mut rib_heap), // )@@
                 7 => // @@(primitive (field1 rib)
-                    rvm_prim1(expected_nargs,|x, h|x.get_rib(h).middle,
+                    rvm_prim1( // @@(feature arity-check
+                        expected_nargs, // )@@
+                               |x, h|x.get_rib(h).middle,
                                &mut stack, &mut rib_heap), // )@@
                 8 => // @@(primitive (field2 rib)
-                    rvm_prim1(expected_nargs,|x,h|x.get_rib(h).last,
+                    rvm_prim1( // @@(feature arity-check
+                        expected_nargs, // )@@
+                               |x,h|x.get_rib(h).last,
                                &mut stack, &mut rib_heap), // )@@
                 9 =>// @@(primitive (field0-set! rib)
-                    rvm_prim2(expected_nargs,|y,x, h|
+                    rvm_prim2( // @@(feature arity-check
+                        expected_nargs, // )@@
+                               |y,x, h|
                                    {let mut new_rib = x.get_rib(h);
                                        let x_index = x.get_rib_ref();
                                        new_rib.first=y;
@@ -945,7 +992,9 @@ pub mod rvm {
                                        y},
                                &mut stack, &mut rib_heap), // )@@
                 10 => // @@(primitive (field1-set! rib)
-                    rvm_prim2(expected_nargs,|y,x, h|
+                    rvm_prim2( // @@(feature arity-check
+                        expected_nargs, // )@@
+                              |y,x, h|
                                     {let mut new_rib = x.get_rib(h);
                                         let x_index = x.get_rib_ref();
                                         new_rib.middle=y;
@@ -953,7 +1002,9 @@ pub mod rvm {
                                         y},
                                 &mut stack, &mut rib_heap), // )@@
                 11 => // @@(primitive (field2-set! rib)
-                    rvm_prim2(expected_nargs,|y,x,h|
+                    rvm_prim2( // @@(feature arity-check
+                        expected_nargs, // )@@
+                               |y,x,h|
                                     {let mut new_rib = x.get_rib(h);
                                         let x_index = x.get_rib_ref();
                                         new_rib.last=y;
@@ -961,22 +1012,30 @@ pub mod rvm {
                                         y},
                                 &mut stack, &mut rib_heap), // )@@
                 12 => // @@(primitive (eqv? rib1 rib2) (use bool2scm)
-                    rvm_prim2(expected_nargs,|y, x,_h|
+                    rvm_prim2( // @@(feature arity-check
+                        expected_nargs, // )@@
+                               |y, x,_h|
                                     { to_bool(||x==y)
                                     }, &mut stack, &mut rib_heap), // )@@
                 13 => // @@(primitive (< x y) (use bool2scm)
-                    rvm_prim2(expected_nargs,|y, x,_h|
+                    rvm_prim2( // @@(feature arity-check
+                        expected_nargs, // )@@
+                               |y, x,_h|
                                     { to_bool(||x<y)
                                     },
                                 &mut stack, &mut rib_heap), // )@@
                 14 => // @@(primitive (+ x y)
-                    rvm_prim2(expected_nargs,|y, x, _h|
+                    rvm_prim2( // @@(feature arity-check
+                        expected_nargs, // )@@
+                               |y, x, _h|
                                     { (x+y)
                                         .expect("Addition operands should both be numbers")
                                     },
                                 &mut stack, &mut rib_heap), // )@@
                 15 => // @@(primitive (- x y)
-                    rvm_prim2(expected_nargs,|y, x, _h|
+                    rvm_prim2( // @@(feature arity-check
+                        expected_nargs, // )@@
+                               |y, x, _h|
                                     { (x-y)
                                         .expect("Subtraction operands should both be numbers")
                                     },
@@ -988,7 +1047,9 @@ pub mod rvm {
                                     },
                                 &mut stack, &mut rib_heap), // )@@
                 17 => // @@(primitive (quotient x y)
-                    rvm_prim2(expected_nargs,|y, x, _h|
+                    rvm_prim2( // @@(feature arity-check
+                        expected_nargs, // )@@
+                               |y, x, _h|
                                     { match y {
                                         RibField::Number(0) => {println!("Division by zero");process::exit(1)}
                                         _ => ()
@@ -1002,7 +1063,9 @@ pub mod rvm {
                     rvm_getchar(&mut stack, &mut rib_heap)
                 }, // )@@
                 19 => // @@(primitive (putchar c)
-                    rvm_prim1(expected_nargs,|x, _h| {
+                    rvm_prim1( // @@(feature arity-check
+                        expected_nargs, // )@@
+                               |x, _h| {
                     let n_to_push = x.get_number() as u32;
                     let c_to_write = char::from_u32(n_to_push)
                         .expect(format!("expected representable character, got {}",n_to_push)
@@ -1013,6 +1076,9 @@ pub mod rvm {
                                 &mut stack, &mut rib_heap), // )@@
                 20 =>
                     {
+                        // @@(feature (not arity-check)
+                        let expected_nargs = pop_stack(&mut stack,&mut rib_heap).get_number();
+                        // )@@
                     let mut n_elems = expected_nargs;
                     let mut elems = Vec::new();
                     while n_elems > 0 {
@@ -1039,15 +1105,17 @@ pub mod rvm {
                     push_stack(RibField::Rib(new_list),&mut stack, &mut rib_heap);
                 },
                 21 => // @@(primitive (exit n)
-                    rvm_prim1(expected_nargs,|code, _h| {
+                    rvm_prim1(// @@(feature arity-check
+                        expected_nargs, // )@@
+                              |code, _h| {
                     match code {
                         RibField::Number(value) => process::exit(value),
                         RibField::Rib(_) => process::exit(0x0100),
                     }
                 },
                                 &mut stack, &mut rib_heap), // )@@
+                // )@@
                 n => panic!("Unexpected code for primitive call {n}"),
-            // )@@
             }
         }
 
@@ -1277,13 +1345,13 @@ pub mod rvm {
                     } else {eprintln!("jump {}",show(&o,&mut rib_heap));}
                     }
                     // @@(feature arity-check
-                    let mut expected_nargs = pop_stack(&mut stack, &mut rib_heap).get_number();
+                    let mut nargs = pop_stack(&mut stack, &mut rib_heap).get_number();
                     //)@@
                     let opnd_ref =get_opnd(&o, &stack, &mut rib_heap);
                     o = opnd_ref.first;
                     let mut c = o.get_rib(&mut rib_heap).first;
                     if is_rib(&c){ // c: code
-                        let mut nargs = c.get_rib(&mut rib_heap)
+                        let mut nparams = c.get_rib(&mut rib_heap)
                             .first.get_number();
 
                         // @@(feature arity-check
@@ -1297,12 +1365,12 @@ pub mod rvm {
                             }
                         */
 
-                        let variadic = nargs % 2==1;
-                        nargs = nargs>>1;
+                        let variadic = nparams % 2==1;
+                        nparams = nparams >>1;
 
-                        if !variadic && nargs != expected_nargs || variadic && nargs > expected_nargs
+                        if !variadic && nparams != nargs || variadic && nparams > nargs
                         {
-                            incoherent_nargs_stop(expected_nargs as u32,nargs as u32, variadic);
+                            incoherent_nargs_stop(nargs as u32, nparams as u32, variadic);
                         }
                         // )@@
 
@@ -1325,12 +1393,12 @@ pub mod rvm {
                             }
                         */
 
-                        expected_nargs -= nargs;
+                        nargs -= nparams;
                         if variadic
                         {
                             let mut rest = NIL_REF;
                             let mut i =0;
-                            while i < expected_nargs {
+                            while i < nargs {
                                 let arg =pop_stack(&mut stack, &mut rib_heap);
                                 push_stack(arg, &mut rest, &mut rib_heap);
                                 i -= 1;
@@ -1339,10 +1407,10 @@ pub mod rvm {
                         }
                         // )@@
 
-                        while nargs>0{
+                        while nparams >0{
                             let popped =pop_stack(&mut stack,&mut rib_heap);
                             push_stack(popped,&mut s2,&mut rib_heap);
-                            nargs-=1;
+                            nparams -=1;
                         };
                         if is_rib(&pc.get_rib(&mut rib_heap).last) {
                             //It's a call
@@ -1360,7 +1428,11 @@ pub mod rvm {
                         stack = s2;
 
                     } else {
-                        primitives(c.get_number() as u8, expected_nargs as u32, &mut stack, &mut rib_heap);
+                        primitives(c.get_number() as u8,
+                                   // @@(feature arity-check
+                                   nargs as u32,
+                                   // )@@
+                                   &mut stack, &mut rib_heap);
                         if is_rib(&pc.get_rib(&mut rib_heap).last)
                             || pc.get_rib(&mut rib_heap).last.get_number() !=0 {
                             //It's a call
