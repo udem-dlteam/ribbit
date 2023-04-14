@@ -723,7 +723,7 @@ pub mod rvm {
     }
 
 
-    fn rvm_prim1<F>( // @@(feature arity-check
+    fn rvm_prim1<F>(// @@(feature arity-check
         expected_nargs: u32,
         // )@@
         mut f: F,stack: &mut usize, holder: &mut RibHeap)
@@ -742,7 +742,7 @@ pub mod rvm {
         );
     }
 
-    fn rvm_prim2<G>( // @@(feature arity-check
+    fn rvm_prim2<G>(// @@(feature arity-check
         expected_nargs: u32,
                      // )@@
                      mut f: G,stack: &mut usize, holder: &mut RibHeap)
