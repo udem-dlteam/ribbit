@@ -421,7 +421,7 @@
 		       (let ((rest _nil) (i (- ncall nargs)) (_stack stack))
 			 (dotimes (_n i)
 			   (setf rest (_cons (_car _stack) rest))
-			   (_stack (_cdr _stack)))
+			   (setf _stack (_cdr _stack)))
 			 (setf stack (_cons rest _stack))
 			 (setf nargs (+ 1 nargs))))
 		   ;; )@@
