@@ -47,7 +47,7 @@ const Opcode = enum(i32) {
     }
 };
 
-const nb_primitives = 21;
+const nb_primitives = 20;
 
 const PrimitiveOperation = enum(i32) {
     rib_ = 0,
@@ -70,8 +70,7 @@ const PrimitiveOperation = enum(i32) {
     quotient = 17,
     getchar = 18,
     putchar = 19,
-    list = 20,
-    exit = 21,
+    exit = 20,
 };
 
 const RibField = union(enum) {
@@ -129,13 +128,6 @@ fn rib(val: *Rib) RibField {
 
 fn listTail(list: *Rib, i: usize) *Rib {
     return if (i == 0) list else listTail(list.cdr.rib, i - 1);
-}
-
-fn checkNumberParams(expect: i32, actual: i32) !void {
-    if (expect != actual) {
-        try stderr.print("expected {} arguments, got {}\n", .{ expect, actual });
-        return error.WrongNumberOfParams;
-    }
 }
 
 const Reader = struct {
@@ -578,11 +570,9 @@ const Ribbit = struct {
         return if (b) self.true_value else self.false_value;
     }
 
-    fn primitiveOperation(self: *@This(), op: PrimitiveOperation, actual_nargs: i32) !void {
+    fn primitiveOperation(self: *@This(), op: PrimitiveOperation) !void {
         switch (op) {
             PrimitiveOperation.rib_ => {
-                try checkNumberParams(3, actual_nargs);
-
                 const tag: RibField = self.stackPop();
                 const cdr: RibField = self.stackPop();
                 const car: RibField = self.stackPop();
@@ -590,26 +580,18 @@ const Ribbit = struct {
                 try self.stackPush(rf);
             },
             PrimitiveOperation.id => {
-                try checkNumberParams(1, actual_nargs);
-
                 const val: RibField = self.stackPop();
                 try self.stackPush(val);
             },
             PrimitiveOperation.arg1 => {
-                try checkNumberParams(2, actual_nargs);
-
                 _ = self.stackPop();
             },
             PrimitiveOperation.arg2 => {
-                try checkNumberParams(2, actual_nargs);
-
                 const val = self.stackPop();
                 _ = self.stackPop();
                 try self.stackPush(val);
             },
             PrimitiveOperation.close => {
-                try checkNumberParams(1, actual_nargs);
-
                 const val = self.stackPop();
 
                 const rf: RibField = rib(try self.newRib(
@@ -621,56 +603,40 @@ const Ribbit = struct {
                 try self.stackPush(rf);
             },
             PrimitiveOperation.is_rib => {
-                try checkNumberParams(1, actual_nargs);
-
                 const val: RibField = self.stackPop();
                 try self.stackPush(rib(self.toBool(val.isRib())));
             },
             PrimitiveOperation.field0 => {
-                try checkNumberParams(1, actual_nargs);
-
                 const val: RibField = self.stackPop();
                 try self.stackPush(val.rib.car);
             },
             PrimitiveOperation.field1 => {
-                try checkNumberParams(1, actual_nargs);
-
                 const val: RibField = self.stackPop();
                 try self.stackPush(val.rib.cdr);
             },
             PrimitiveOperation.field2 => {
-                try checkNumberParams(1, actual_nargs);
-
                 const val: RibField = self.stackPop();
                 try self.stackPush(val.rib.tag);
             },
             PrimitiveOperation.set_field0 => {
-                try checkNumberParams(2, actual_nargs);
-
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 val2.rib.car = val1;
                 try self.stackPush(val1);
             },
             PrimitiveOperation.set_field1 => {
-                try checkNumberParams(2, actual_nargs);
-
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 val2.rib.cdr = val1;
                 try self.stackPush(val1);
             },
             PrimitiveOperation.set_field2 => {
-                try checkNumberParams(2, actual_nargs);
-
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 val2.rib.tag = val1;
                 try self.stackPush(val1);
             },
             PrimitiveOperation.is_eqv => {
-                try checkNumberParams(2, actual_nargs);
-
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
 
@@ -688,36 +654,26 @@ const Ribbit = struct {
                 try self.stackPush(rib(val));
             },
             PrimitiveOperation.lt => {
-                try checkNumberParams(2, actual_nargs);
-
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 try self.stackPush(rib(self.toBool(val2.num < val1.num)));
             },
             PrimitiveOperation.add => {
-                try checkNumberParams(2, actual_nargs);
-
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 try self.stackPush(num(val2.num + val1.num));
             },
             PrimitiveOperation.sub => {
-                try checkNumberParams(2, actual_nargs);
-
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 try self.stackPush(num(val2.num - val1.num));
             },
             PrimitiveOperation.mul => {
-                try checkNumberParams(2, actual_nargs);
-
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 try self.stackPush(num(val2.num * val1.num));
             },
             PrimitiveOperation.quotient => {
-                try checkNumberParams(2, actual_nargs);
-
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 if (val1.num != 0) {
@@ -727,29 +683,14 @@ const Ribbit = struct {
                 }
             },
             PrimitiveOperation.getchar => {
-                try checkNumberParams(0, actual_nargs);
-
                 const read: i32 = stdin.readByte() catch -1;
                 try self.stackPush(num(read));
             },
             PrimitiveOperation.putchar => {
-                try checkNumberParams(1, actual_nargs);
-
                 const val: RibField = self.stackPop();
                 const c: u8 = @intCast(u8, val.num);
                 try stdout.writeByte(c);
                 try self.stackPush(val);
-            },
-            PrimitiveOperation.list => {
-                var nb_elements: i32 = actual_nargs;
-                var l: RibField = rib(self.nil_value);
-
-                while (nb_elements > 0) : (nb_elements -= 1) {
-                    const element: RibField = self.stackPop();
-                    l = rib(try self.newRib(element, l, num(ObjectType.pair.val())));
-                }
-
-                try self.stackPush(l);
             },
             PrimitiveOperation.exit => {
                 std.process.exit(0);
@@ -787,9 +728,10 @@ const Ribbit = struct {
                     return;
                 },
                 Opcode.jump_call => {
-                    const actual_nargs: RibField = self.stackPop();
-
                     operand = self.getOperand(operand).car;
+
+                    var nargs: i32 = self.stackPop().num; // @@(feature arity-check)@@
+
                     switch (operand) {
                         .num => |n| {
                             stderr.print("operand: {}\n", .{n}) catch unreachable;
@@ -801,20 +743,55 @@ const Ribbit = struct {
                     var c: RibField = operand.rib.car;
 
                     if (c.isRib()) {
-                        var nargs: i32 = c.rib.car.num >> 1;
-                        const c2: *Rib = try self.newRib(num(0), operand, num(0));
+                        var nparams: i32 = c.rib.car.num >> 1;
+
+                        var c2: *Rib = try self.newRib(num(0), operand, num(0));
                         var s2: *Rib = c2;
 
-                        try checkNumberParams(nargs, actual_nargs.num);
+                        // @@(feature arity-check
+                        const vari: i32 = c.rib.car.num & 1;
 
-                        while (nargs > 0) {
+                        if ((vari == 0 and nparams != nargs) or (vari != 0 and nparams > nargs)) {
+                            try stderr.print("*** Unexpected number of arguments nargs: {} nparams: {} vari: {}\n", .{ nargs, nparams, vari });
+                            return error.WrongNumberOfParams;
+                        }
+                        // )@@
+
+                        // @@(feature rest-param (use arity-check)
+                        nargs -= nparams;
+
+                        if (vari != 0) {
+                            var rest: *Rib = self.nil_value;
+
+                            var i: i32 = 0;
+                            while (i < nargs) : (i += 1) {
+                                rest = try self.newRib(
+                                    self.stackPop(),
+                                    rib(rest),
+                                    num(ObjectType.pair.val()),
+                                );
+                            }
+
+                            s2 = try self.newRib(
+                                rib(rest),
+                                rib(s2),
+                                num(ObjectType.pair.val()),
+                            );
+                        }
+                        // )@@
+
+                        var i: i32 = 0;
+                        while (i < nparams) : (i += 1) {
                             s2 = try self.newRib(
                                 self.stackPop(),
                                 rib(s2),
-                                num(0),
+                                num(ObjectType.pair.val()),
                             );
-                            nargs -= 1;
                         }
+
+                        nparams = nparams + vari; // @@(feature arity-check)@@
+
+                        c2 = listTail(s2, @intCast(usize, nparams));
 
                         if (self.pc.tag.isRib()) {
                             c2.car = self.top_of_stack;
@@ -828,7 +805,7 @@ const Ribbit = struct {
                         self.top_of_stack = rib(s2);
                     } else {
                         if (c.num <= nb_primitives) {
-                            try self.primitiveOperation(@intToEnum(PrimitiveOperation, c.num), actual_nargs.num);
+                            try self.primitiveOperation(@intToEnum(PrimitiveOperation, c.num));
                         } else {
                             return;
                         }
