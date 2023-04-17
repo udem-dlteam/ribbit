@@ -50,6 +50,7 @@ const Opcode = enum(i32) {
 };
 
 const nb_primitives = 20;
+const exit_illegal_instr = 6;
 
 const PrimitiveOperation = enum(i32) {
     rib_ = 0,
@@ -73,6 +74,7 @@ const PrimitiveOperation = enum(i32) {
     getchar = 18,
     putchar = 19,
     exit = 20,
+    _,
 };
 
 const RibField = union(enum) {
@@ -576,7 +578,7 @@ const Ribbit = struct {
 
     fn primitiveOperation(self: *@This(), op: PrimitiveOperation) !void {
         switch (op) {
-            // @@(primitives (gen "case " index ":" body)
+            // @@(primitives (gen head body)
             PrimitiveOperation.rib_ => { // @@(primitive (rib a b c)
                 const tag: RibField = self.stackPop();
                 const cdr: RibField = self.stackPop();
@@ -702,6 +704,9 @@ const Ribbit = struct {
                 std.process.exit(@intCast(u8, x));
             }, // )@@
             // )@@
+            else => {
+                std.process.exit(exit_illegal_instr);
+            },
         }
     }
 
