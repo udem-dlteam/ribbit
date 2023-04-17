@@ -1,4 +1,6 @@
+// @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
 const rvm_code = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"; // RVM code that prints HELLO!
+// )@@
 
 const std = @import("std");
 const stdin = std.io.getStdIn().reader();
@@ -566,32 +568,35 @@ const Ribbit = struct {
         return s;
     }
 
-    fn toBool(self: *@This(), b: bool) *Rib {
+    // @@(feature bool2scm
+    fn bool2scm(self: *@This(), b: bool) *Rib {
         return if (b) self.true_value else self.false_value;
     }
+    // )@@
 
     fn primitiveOperation(self: *@This(), op: PrimitiveOperation) !void {
         switch (op) {
-            PrimitiveOperation.rib_ => {
+            // @@(primitives (gen "case " index ":" body)
+            PrimitiveOperation.rib_ => { // @@(primitive (rib a b c)
                 const tag: RibField = self.stackPop();
                 const cdr: RibField = self.stackPop();
                 const car: RibField = self.stackPop();
                 const rf: RibField = rib(try self.newRib(car, cdr, tag));
                 try self.stackPush(rf);
-            },
-            PrimitiveOperation.id => {
+            }, // )@@
+            PrimitiveOperation.id => { // @@(primitive (id x)
                 const val: RibField = self.stackPop();
                 try self.stackPush(val);
-            },
-            PrimitiveOperation.arg1 => {
+            }, // )@@
+            PrimitiveOperation.arg1 => { // @@(primitive (arg1 x y)
                 _ = self.stackPop();
-            },
-            PrimitiveOperation.arg2 => {
+            }, // )@@
+            PrimitiveOperation.arg2 => { // @@(primitive (arg2 x y)
                 const val = self.stackPop();
                 _ = self.stackPop();
                 try self.stackPush(val);
-            },
-            PrimitiveOperation.close => {
+            }, // )@@
+            PrimitiveOperation.close => { // @@(primitive (close rib)
                 const val = self.stackPop();
 
                 const rf: RibField = rib(try self.newRib(
@@ -601,79 +606,79 @@ const Ribbit = struct {
                 ));
 
                 try self.stackPush(rf);
-            },
-            PrimitiveOperation.is_rib => {
+            }, // )@@
+            PrimitiveOperation.is_rib => { // @@(primitive (rib? rib) (use bool2scm)
                 const val: RibField = self.stackPop();
-                try self.stackPush(rib(self.toBool(val.isRib())));
-            },
-            PrimitiveOperation.field0 => {
+                try self.stackPush(rib(self.bool2scm(val.isRib())));
+            }, // )@@
+            PrimitiveOperation.field0 => { // @@(primitive (field0 rib)
                 const val: RibField = self.stackPop();
                 try self.stackPush(val.rib.car);
-            },
-            PrimitiveOperation.field1 => {
+            }, // )@@
+            PrimitiveOperation.field1 => { // @@(primitive (field1 rib)
                 const val: RibField = self.stackPop();
                 try self.stackPush(val.rib.cdr);
-            },
-            PrimitiveOperation.field2 => {
+            }, // )@@
+            PrimitiveOperation.field2 => { // @@(primitive (field2 rib)
                 const val: RibField = self.stackPop();
                 try self.stackPush(val.rib.tag);
-            },
-            PrimitiveOperation.set_field0 => {
+            }, // )@@
+            PrimitiveOperation.set_field0 => { // @@(primitive (field0-set! rib x)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 val2.rib.car = val1;
                 try self.stackPush(val1);
-            },
-            PrimitiveOperation.set_field1 => {
+            }, // )@@
+            PrimitiveOperation.set_field1 => { // @@(primitive (field1-set! rib x)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 val2.rib.cdr = val1;
                 try self.stackPush(val1);
-            },
-            PrimitiveOperation.set_field2 => {
+            }, // )@@
+            PrimitiveOperation.set_field2 => { // @@(primitive (field2-set! rib x)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 val2.rib.tag = val1;
                 try self.stackPush(val1);
-            },
-            PrimitiveOperation.is_eqv => {
+            }, // )@@
+            PrimitiveOperation.is_eqv => { // @@(primitive (eqv? rib1 rib2) (use bool2scm)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
 
                 const val = switch (val1) {
                     .num => |n| switch (val2) {
-                        .num => |m| self.toBool(n == m),
-                        else => self.toBool(false),
+                        .num => |m| self.bool2scm(n == m),
+                        else => self.bool2scm(false),
                     },
                     .rib => |f| switch (val2) {
-                        .rib => |g| self.toBool(f == g),
-                        else => self.toBool(false),
+                        .rib => |g| self.bool2scm(f == g),
+                        else => self.bool2scm(false),
                     },
                 };
 
                 try self.stackPush(rib(val));
-            },
-            PrimitiveOperation.lt => {
+            }, // )@@
+            PrimitiveOperation.lt => { // @@(primitive (< x y) (use bool2scm)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
-                try self.stackPush(rib(self.toBool(val2.num < val1.num)));
-            },
-            PrimitiveOperation.add => {
+                try self.stackPush(rib(self.bool2scm(val2.num < val1.num)));
+            }, // )@@
+            PrimitiveOperation.add => { // @@(primitive (+ x y)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 try self.stackPush(num(val2.num + val1.num));
-            },
-            PrimitiveOperation.sub => {
+            }, // )@@
+            PrimitiveOperation.sub => { // @@(primitive (- x y)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 try self.stackPush(num(val2.num - val1.num));
-            },
-            PrimitiveOperation.mul => {
+            }, // )@@
+            PrimitiveOperation.mul => { // @@(primitive (* x y)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 try self.stackPush(num(val2.num * val1.num));
-            },
-            PrimitiveOperation.quotient => {
+            }, // )@@
+            PrimitiveOperation.quotient => { // @@(primitive (quotient x y)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 if (val1.num != 0) {
@@ -681,20 +686,22 @@ const Ribbit = struct {
                 } else {
                     try self.stackPush(num(0));
                 }
-            },
-            PrimitiveOperation.getchar => {
+            }, // )@@
+            PrimitiveOperation.getchar => { // @@(primitive (getchar)
                 const read: i32 = stdin.readByte() catch -1;
                 try self.stackPush(num(read));
-            },
-            PrimitiveOperation.putchar => {
+            }, // )@@
+            PrimitiveOperation.putchar => { // @@(primitive (putchar c)
                 const val: RibField = self.stackPop();
                 const c: u8 = @intCast(u8, val.num);
                 try stdout.writeByte(c);
                 try self.stackPush(val);
-            },
-            PrimitiveOperation.exit => {
-                std.process.exit(0);
-            },
+            }, // )@@
+            PrimitiveOperation.exit => { // @@(primitive (exit n)
+                const x: i32 = self.stackPop().num;
+                std.process.exit(@intCast(u8, x));
+            }, // )@@
+            // )@@
         }
     }
 
