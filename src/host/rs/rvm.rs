@@ -555,7 +555,7 @@ pub mod rvm {
                                 {
                                     rib_o =field_o.get_rib(holder);
                                     let n =rib_o.first.get_number() as u32;
-                                    let c = char::from_u32(n).unwrap();
+                                    let c = std::char::from_u32(n).unwrap();
                                     result.push(c);
                                     field_o = rib_o.middle;
                                 }
@@ -579,7 +579,7 @@ pub mod rvm {
                         {
                             rib_o = field_o.get_rib(holder);
                             let n = rib_o.first.get_number() as u32;
-                            let mut c =char::from_u32(n).unwrap();
+                            let mut c =std::char::from_u32(n).unwrap();
                             if c == '\n' {
                                 c = 'n';
                                 result.push_str("\\");
@@ -1102,7 +1102,7 @@ pub mod rvm {
                         // )@@
                                |x, _h| {
                     let n_to_push = x.get_number() as u32;
-                    let c_to_write = char::from_u32(n_to_push)
+                    let c_to_write = std::char::from_u32(n_to_push)
                         .expect(format!("expected representable character, got {}",n_to_push)
                             .as_str());
                     putchar(c_to_write);
