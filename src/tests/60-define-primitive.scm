@@ -54,6 +54,13 @@ prim_square:
 
     (define-primitive (square a)
       "\tdd   prim_square\n"))
+   ((host pro)
+      (define-primitive (square a) "_) :-
+  narg_check(1, Stack, Stack0, square),
+  pop(Stack0, X, Stack1),
+  N is X * X,
+  push(Stack1, N, NewStack).
+"))
 
    (else
      (define-primitive (square a)
