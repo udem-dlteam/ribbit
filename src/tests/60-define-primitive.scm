@@ -62,6 +62,10 @@ prim_square:
   push(Stack1, N, NewStack).
 "))
 
+   ((host clj)
+      (define-primitive (square a)
+        "(prim1 (fn [x] (* x x)))\n"))
+
    (else
      (define-primitive (square a)
       "ERROR"))) ;; Will make test fail !
