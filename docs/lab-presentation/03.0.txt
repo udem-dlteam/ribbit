@@ -1,4 +1,6 @@
-Par exemple, voici la repl scheme encodé avec la RVM :
+fr: Par exemple, voici la repl scheme encodé avec la RVM :
+
+en: For example, here is the repl scheme encoded with RVM:
 
 $ ./rsc -t rvm -l max tests/50-repl.scm -o ../presentation/04.txt
 

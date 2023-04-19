@@ -1,7 +1,9 @@
-// Pour exécuter :
+// fr: Pour exécuter :
+// en: To execute:
 //  $ node ../presentation/07.2.js
 
-// Fichier commence ici
+// fr: Fichier commence ici
+// en: File starts here
 //                |
 //                v
 

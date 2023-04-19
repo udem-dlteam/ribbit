@@ -1,5 +1,7 @@
 
-// Pour généré le fichier :
+// fr: Pour généré le fichier :
+// en: To generate the file:
+//
 //   $ gsi rsc.scm -t c -l empty ../presentation/06.1.scm -o ../presentation/06.1.c
 
 
@@ -12,7 +14,8 @@
 (putchar 33)
 */
 
-// Début du fichier |
+// fr: Début du fichier |
+// en: Start of file |
 //                  v
 
 /*

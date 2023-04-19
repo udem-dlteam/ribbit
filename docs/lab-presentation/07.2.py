@@ -1,7 +1,9 @@
-# Pour exécuter :
+# fr: Pour exécuter :
+# en: To execute:
 #  $ python ../presentation/07.2.py
 
-# Fichier commence ici
+# fr: Fichier commence ici
+# en: File starts here
 #                |
 #                v
 

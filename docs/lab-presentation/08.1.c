@@ -1,10 +1,20 @@
+// FR:
 // Un dernier aspect : 
 //  - Les features
 
 //On veut développer un système qui permet de montré la dépendance de code:
 
-
 // @@(feature boolean@@ < --- on annote le feature ici
+
+
+// EN:
+// One last aspect:
+// - Features
+
+//We want to develop a system that allows to show the code dependency:
+
+// @@(feature boolean@@ < --- we annotate the feature here
+
 obj boolean(bool x) { return x ? CAR(FALSE) : FALSE; }
 // @@)@@
 
