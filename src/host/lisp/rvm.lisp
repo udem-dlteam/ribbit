@@ -349,7 +349,7 @@
    (prim0 (lambda ()
 	    (if (< pos (length *rvm-code*))
 		(get-byte)
-	      (let ((c (read-char)))
+	      (let ((c (read-char *standard-input* nil)))
 		(if (characterp c)
 		    (char-code c)
 		  -1)))))
