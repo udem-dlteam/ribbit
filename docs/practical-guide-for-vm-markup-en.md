@@ -1,20 +1,20 @@
-# Practical guide for VMs markup / Guide pratique pour l'annotation de VMs
+# Practical guide for VMs markup
 
-## Prelude : comprendre le système d'annotation
+## Prelude: understanding the annotation system
 
-Le système d'annotation a été expliqué en démonstration. Il consiste à rajouter des marqueurs qui donnent de l'information supplémentaire au compilateur afin de connaitre : 
-1. l'emplacement des primitives (et l'ordre)
-2. comment changer la chaine de caractère initiale (bytecode)
-3. les morceaux de code à ajouter ou retirer afin d'activer certaines fonctionnalités
+The annotation system was explained in demonstration. It consists of adding markers that give additional information to the compiler in order to know:
+1. location of primitives (and order)
+2. how to change the initial character string (bytecode)
+3. the pieces of code to add or remove in order to activate certain functionalities
 
-Les machines virtuelles suivantes ont déjà été annotées, vous pouvez vous fier sur ceux-ci afin de voir comment le système fonctionne.
+The following virtual machines have already been annotated, you can rely on these to see how the system is performing.
 
-Ces annotations permettent au compilateur de :
-- réarranger les primitives
-- retirer les primitives qui ne sont pas nécessaires
-- activer/désactiver les fonctionnalités
+These annotations allow the compiler to:
+- rearrange the primitives
+- remove unnecessary primitives
+- enable/disable features
 
-À noté que chaque annotation commence par `@@(` et fini par `)@@` (un peut comme les s-expressions de scheme. Le premier symbole de l'annotation correspond à son type. Par exemple, voici une annotation simple de type `replace` : 
+Note that each annotation starts with `@@(` and ends with `)@@` (much like the s-expressions of scheme. The first symbol of the annotation corresponds to its type. For example, here is a simple annotation of type `replace`:
 
 ```
 # @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
@@ -22,81 +22,81 @@ input=");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" # RVM code that prints H
 # )@@
 ```
 
-Vous pouvez suivre les étapes suivantes pour faire les annotations de votre RVM. N'hésitez pas à me contacter sur github ou par courriel si vous avez des questions. 
+You can follow the following steps to make the annotations of your RVM. Feel free to contact me on github or by email if you have any questions.
 
-Courriel : leonard.oest.oleary@umontreal.ca
+Email: leonard.oest.oleary@umontreal.ca
 
-github : leo-ard
+github: leo-ard
 
-## Étape 1 : Changement du nombre d'arguments
+## Step 1: Changing the number of arguments
 
-L'entier qui correspondait aux nombres d'arguments a été légèrement changé.  Maintenant, le dernier bit détermine si la fonction est variadique ou non (0 ou 1). Une fonction est variadique si elle accepte un nombre variable de paramètres.  Ainsi, un 4 correspond à une fonction qui prend 2 arguments et qui n'est pas variadique et un 5 correspond à une fonction qui prend 2 arguments avec des arguments variadiques.
+The integer that corresponded to the numbers of arguments has been changed slightly. Now the last bit determines if the function is variadic or not (0 or 1). A function is variadic if it accepts a variable number of parameters. Thus, a 4 corresponds to a function which takes 2 arguments and which is not variadic and a 5 corresponds to a function which takes 2 arguments with variadic arguments.
 ```
-0 -> 000 -> aucun argument, la fonction ne prend pas d'argument variadique
-1 -> 001 -> aucun argument, les arguments variadiques sont acceptés
-2 -> 010 -> 1 argument, la fonction ne prend pas d'argument variadique
-3 -> 011 -> 1 argument, les arguments variadiques sont acceptés
-4 -> 100 -> 2 arguments, la fonction ne prend pas d'argument variadique,
+0 -> 000 -> no argument, the function does not take a variadic argument
+1 -> 001 -> no arguments, variadic arguments are accepted
+2 -> 010 -> 1 argument, the function does not take a variadic argument
+3 -> 011 -> 1 argument, variadic arguments are accepted
+4 -> 100 -> 2 arguments, the function does not take a variadic argument,
 etc...
 ```
 
-Pour faire le changement, vous pouvez soit diviser le résultat par 2, ou faire un décalage d'un bit vers la droite. [Voici le changement que j'ai fait pour rvm.js](https://github.com/udem-dlteam/ribbit/blob/8dfb16f1cd0168a97c4bf2fab7a46bc5ec19fe94/src/host/js/rvm.js#L372) :  
+To make the change, you can either divide the result by 2, or shift one bit to the right. [Here is the change I made for rvm.js](https://github.com/udem-dlteam/ribbit/blob/8dfb16f1cd0168a97c4bf2fab7a46bc5ec19fe94/src/host/js/rvm.js#L372):
 ```js
-let nparams = c[0] >> 1; 
+let nparams = c[0] >> 1;
 ```
 
 
-## Étape 2 : L'annotation *replace*
+## Step 2: The *replace* annotation
 
-Pour que votre `rvm` supporte le remplacement de la chaine de caractères contenant le *bytecode*, il faut rajouter l'instruction *replace*. L'annotation *replace* prend 2 arguments, soit la chaine de caractères à remplacer et le contenu avec laquelle le faire. Par exemple, pour `js`, on a : 
+For your `rvm` to support the replacement of the character string containing the *bytecode*, you must add the *replace* instruction. The *replace* annotation takes 2 arguments, the string to replace and the content with which to do it. For example, for `js`, we have:
 ```js
-input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"; // @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92))@@
+input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"; // @@(replace ");'u?> vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92))@@
 ```
 
-Ici, on remplace `);'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y` (sans les `"`) par `(encode 92)` qui nous retourne le bytecode de notre programme encodé avec 92 code possible par caractère (encodage normal).
+Here, we replace `);'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y` (without the `"`) by `(encode 92 )` which returns the bytecode of our program encoded with 92 possible codes per character (normal encoding).
 
-Pour tester, vous pouvez faire :
+To test, you can do:
 
 ```
-gsi rsc.scm -t <votre target> -l empty tests/00-empty.scm -o <fichier-de-votre-choix>
+gsi rsc.scm -t <your target> -l empty tests/00-empty.scm -o <file-of-your-choice>
 ```
 
-et regarder le contenu de `<fichier-de-votre-choix>` pour voir si la chaine de caractère s'est bel et bien modifiée. Elle devrait maintenant être égal à : `#di,,,,;'i$!':lkl{` (qui correspond au *bytecode* d'un programme vide).
+and look at the contents of `<file-of-your-choice>` to see if the string has changed. It should now be equal to: `#di,,,,;'i$!':lkl{` (which corresponds to the *bytecode* of an empty program).
 
-## Étape 3: Annotation des primitives
+## Step 3: Annotate Primitives
 
-Vous pouvez maintenant annoter les primitives. Pour ce faire, il faut ajouter les instructions `primitives`, et à l'intérieur de cette annotation, plusieurs annotations `primitive` pour chacune que vous avez dans votre code. L'annotation `primitives` va remplacer tout le code qu'elle contient par les primitives que le compilateur juge utiles. L'instruction `(gen ...)` permet de dire au compilateur *comment* générer chaque primitive. Par exemple, voici l'annotation en `c` :
+You can now annotate primitives. This is done by adding the `primitive` instructions, and inside that annotation, multiple `primitive` annotations for each one you have in your code. The `primitives` annotation will replace all the code it contains with whatever primitives the compiler deems useful. The `(gen ...)` instruction tells the compiler *how* to generate each primitive. For example, here is the `c` annotation:
 
 ```c
 void prim(int no) {
-  switch (no) {
-      // @@(primitives (gen "case " index ":" body) 
-      case 0: // @@(primitive (rib a b c)
-      {
-        obj new_rib = TAG_RIB(alloc_rib(NUM_0, NUM_0, NUM_0));
-        PRIM3();
-        CAR(new_rib) = x;
-        CDR(new_rib) = y;
-        TAG(new_rib) = z;
-        push2(new_rib, PAIR_TAG);
-        break;
-        
-      } // )@@
-      case 1: // @@(primitive (id x)
-      {
-        PRIM1();
-        push2(x, PAIR_TAG);
-        break;
-      } // )@@
-      case 2: // @@(primitive (arg1 x y)
-      {
-        pop();
-        break;
-      } // )@@
-      ...
-  } // fin du switch
-  // )@@
-} // fin de la fonction prim
+   switch (no) {
+       // @@(primitives (gen "case " index ":" body)
+       case 0: // @@(primitive (rib a b c)
+       {
+         obj new_rib = TAG_RIB(alloc_rib(NUM_0, NUM_0, NUM_0));
+         PRIM3();
+         CAR(new_rib) = x;
+         CDR(new_rib) = y;
+         TAG(new_rib) = z;
+         push2(new_rib, PAIR_TAG);
+         break;
+
+       } // )@@
+       case 1: // @@(primitive (id x)
+       {
+         PRIM1();
+         push2(x, PAIR_TAG);
+         break;
+       } // )@@
+       box 2: // @@(primitive (arg1 x y)
+       {
+         pop();
+         break;
+       } // )@@
+       ...
+   } // end of switch
+   // )@@
+} // end of prim function
 ```
 
 You can see each annotation in the comments. To understand what the `(gen "case " index ":" body)` statement does, one must first understand the concept of `head` and `body`. Each annotation contains a `head` and a `body`. The first line of the annotation definition corresponds to the `head`. The rest of the lines correspond to the body. For example, for the annotation `(primitive (id x))`, the `head` is:
