@@ -4,4 +4,4 @@
 ;;;options: -l min
 ;;;input:
 ;;;expected:
-;;;(1 4 3 "salut!" #p)
+;;;(1 4 3 "salut!" #<procedure #2>)
