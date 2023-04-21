@@ -152,9 +152,9 @@ The makefile in the `src` directory has these make targets:
 | rb           |   NO      |                  |                |
 | java         |   NO      |                  |                |
 
-## Ressearch and papers
+## Research and papers
 
-We are actively developping Ribbit. If you have an idea, you can reach out to @leo-ard or @feeley.
+We are actively developing Ribbit. If you have an idea, you can reach out to @leo-ard or @feeley.
 
 - [Leonard Oest O'Leary and Marc Feeley, A Compact and Extensible Portable Scheme VM. In MoreVMs Workshop (MOREVMS@PROGRAMMING'23), March 2023](http://www.iro.umontreal.ca/~feeley/papers/OLearyFeeleyMOREVMS23.pdf)
 - [Samuel Yvon and Marc Feeley, A Small Scheme VM, Compiler, and REPL in 4K. In Workshop on Virtual Machines and Intermediate Languages (VMIL@SPLASH'21), October 2021.](http://www.iro.umontreal.ca/~feeley/papers/YvonFeeleyVMIL21.pdf)
