@@ -1,6 +1,6 @@
 SHELL=bash
 
-HOSTS = c js py scm hs lua ml sh asm rs
+HOSTS = c js py scm hs lua ml sh asm rs clj
 
 all:
 
@@ -78,6 +78,7 @@ check-bootstrap:
         scala) host_interpreter="$${SCALA_HOST_INTERPRETER:-scala}";; \
            ml) host_interpreter="$${ML_HOST_INTERPRETER:-ocaml}";; \
            sh) host_interpreter="$${SH_HOST_INTERPRETER:-ksh}";; \
+	   clj) host_interpreter="$${CLJ_HOST_INTERPRETER:-clj}";; \
 	esac; \
 	echo ./rsc -t $$host -l max -o rsc-bootstrap1.$$host rsc.scm; \
 	time ./rsc -t $$host -l max -o rsc-bootstrap1.$$host rsc.scm; \
