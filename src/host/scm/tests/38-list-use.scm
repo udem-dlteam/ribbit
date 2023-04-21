@@ -1,6 +1,6 @@
 (let ((lst (list 65 108 108 111 33)))
   (begin(
-	 (putchar (car lst))
+	 (putchar (cdr lst))
 	 (putchar (car (cdr lst)))
 	 (putchar (car (cdr (cdr lst))))
 	 (putchar (car (cdr (cdr (cdr lst)))))
