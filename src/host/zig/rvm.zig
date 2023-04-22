@@ -315,6 +315,8 @@ const Memory = struct {
     }
 
     fn gc(self: *@This()) void {
+        const before = self.alloc_a;
+
         var i: usize = 0;
         while (i < self.alloc_b) : (i += 1) {
             switch (self.block_b[i].car) {
@@ -343,6 +345,9 @@ const Memory = struct {
         self.block_b = tmp;
         self.alloc_a = self.alloc_b;
         self.alloc_b = 0;
+
+        const after = self.alloc_a;
+        stderr.print("% freed: {}\n", .{(@intToFloat(f32, after) / @intToFloat(f32, before))}) catch @panic("");
     }
 
     /// Alloue un rib, mais sans potentiellement déclencher un gc.
@@ -898,7 +903,6 @@ const Ribbit = struct {
         self.nil_value = self.memory.move(self.nil_value);
 
         self.memory.gc();
-        stderr.print("gc'd\n", .{}) catch @panic("");
     }
 
     fn addSymbol(self: *@This(), chars: *Rib, length: i32) !*Rib {
