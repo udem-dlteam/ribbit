@@ -840,7 +840,7 @@
                   ;#; ;; support for calls with only variable in operator position
                   (comp-call cte
                              (cdr expr)
-                             (length expr)
+                             (length (cdr expr))
                              (cons first cont))
 ;;                  #; ;; support for calls with any expression in operator position
 ;;                  (let ((args (cdr expr)))
