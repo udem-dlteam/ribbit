@@ -300,7 +300,8 @@ const Memory = struct {
             stderr.print(
                 "used: {}\n",
                 .{self.alloc_b},
-            ) catch @panic("ne doit pas arriver");
+            ) catch unreachable;
+
             @panic("out of bounds. Comment ça arrive?");
         }
 
@@ -315,10 +316,10 @@ const Memory = struct {
     }
 
     fn gc(self: *@This()) void {
-        const before = self.alloc_a;
-
         var i: usize = 0;
         while (i < self.alloc_b) : (i += 1) {
+            // stderr.print("{}/{}\n", .{ self.alloc_b, self.block_b.len }) catch unreachable;
+
             switch (self.block_b[i].car) {
                 .num => {},
                 .rib => |r| self.block_b[i].car = .{ .rib = self.move(r) },
@@ -334,11 +335,6 @@ const Memory = struct {
             }
         }
 
-        if (self.alloc_b == self.block_b.len) {
-            // Le gc a rien vidé
-            @panic("out");
-        }
-
         // on échange les deux blocs.
         const tmp = self.block_a;
         self.block_a = self.block_b;
@@ -346,8 +342,7 @@ const Memory = struct {
         self.alloc_a = self.alloc_b;
         self.alloc_b = 0;
 
-        const after = self.alloc_a;
-        stderr.print("% freed: {}\n", .{(@intToFloat(f32, after) / @intToFloat(f32, before))}) catch @panic("");
+        // stderr.print("live ribs: {}\n", .{self.alloc_a}) catch @panic("");
     }
 
     /// Alloue un rib, mais sans potentiellement déclencher un gc.
@@ -468,7 +463,7 @@ const Ribbit = struct {
     pc: *Rib = undefined,
 
     fn init(allocator: Allocator) !@This() {
-        const block_size = 10000000;
+        const block_size = 100_000_000;
 
         var o: @This() = .{
             .allocator = allocator,
