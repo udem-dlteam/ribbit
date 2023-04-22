@@ -264,11 +264,18 @@ const Reader = struct {
 /// toutes les racines dans le nouveau bloc, puis à traverser le nouveau bloc en
 /// copiant dans le nouveau bloc tous les champs pas copiés des objets qu'on
 /// rencontre.
-const Memory =
-    struct {
+const Memory = struct {
     block_a: []Rib,
     block_b: []Rib,
-    used: usize = 0,
+    alloc_a: usize = 0,
+    alloc_b: usize = 0,
+
+    fn move_field(self: *@This(), obj: RibField) RibField {
+        switch (obj) {
+            .rib => |r| return rib(self.move(r)),
+            .num => |n| return num(n),
+        }
+    }
 
     /// On reçoit une addresse d'objet dans le bloc b, puis, selon l'état de
     /// l'objet, on fait deux choses:
@@ -279,23 +286,26 @@ const Memory =
     /// sa nouvelle addresse.
     fn move(self: *@This(), obj: *Rib) *Rib {
         if (obj.car.isRib()) {
-            const left = @ptrToInt(self.block_a.ptr);
-            const right = left + self.block_a.len;
+            const left = @ptrToInt(self.block_b.ptr);
+            const right = left + self.block_b.len;
             const forward = obj.car.rib;
 
             if (left <= @ptrToInt(forward) and @ptrToInt(forward) < right) {
-                // Trèèèès probablement un truc déjà bougé
+                // un truc déjà bougé
                 return forward;
             }
         }
 
-        if (self.used >= self.block_a.len) {
-            stderr.print("used: {}\n", .{self.used}) catch @panic("ne doit pas arriver");
+        if (self.alloc_b >= self.block_b.len) {
+            stderr.print(
+                "used: {}\n",
+                .{self.alloc_b},
+            ) catch @panic("ne doit pas arriver");
             @panic("out of bounds. Comment ça arrive?");
         }
 
-        const addr = &self.block_a[self.used];
-        self.used += 1;
+        const addr = &self.block_b[self.alloc_b];
+        self.alloc_b += 1;
         addr.* = obj.*;
 
         // On écrit la nouvelle addresse dans le car de l'ancient endroit.
@@ -304,42 +314,42 @@ const Memory =
         return addr;
     }
 
-    fn gc(self: *@This(), roots: []**Rib) void {
+    fn gc(self: *@This()) void {
+        var i: usize = 0;
+        while (i < self.alloc_b) : (i += 1) {
+            switch (self.block_b[i].car) {
+                .num => {},
+                .rib => |r| self.block_b[i].car = .{ .rib = self.move(r) },
+            }
+            switch (self.block_b[i].cdr) {
+                .num => {},
+                .rib => |r| self.block_b[i].cdr = .{ .rib = self.move(r) },
+            }
+
+            switch (self.block_b[i].tag) {
+                .num => {},
+                .rib => |r| self.block_b[i].tag = .{ .rib = self.move(r) },
+            }
+        }
+
+        if (self.alloc_b == self.block_b.len) {
+            // Le gc a rien vidé
+            @panic("out");
+        }
 
         // on échange les deux blocs.
         const tmp = self.block_a;
         self.block_a = self.block_b;
         self.block_b = tmp;
-        self.used = 0;
-
-        for (roots) |root| {
-            const new_addr = self.move(root.*);
-            root.* = new_addr;
-        }
-
-        var i: usize = 0;
-        while (i < self.used) : (i += 1) {
-            switch (self.block_a[i].car) {
-                .num => {},
-                .rib => |r| self.block_a[i].car = .{ .rib = self.move(r) },
-            }
-            switch (self.block_a[i].cdr) {
-                .num => {},
-                .rib => |r| self.block_a[i].cdr = .{ .rib = self.move(r) },
-            }
-
-            switch (self.block_a[i].tag) {
-                .num => {},
-                .rib => |r| self.block_a[i].tag = .{ .rib = self.move(r) },
-            }
-        }
+        self.alloc_a = self.alloc_b;
+        self.alloc_b = 0;
     }
 
     /// Alloue un rib, mais sans potentiellement déclencher un gc.
     fn alloc(self: *@This()) *Rib {
-        const o = &self.block_a[self.used];
+        const o = &self.block_a[self.alloc_a];
         o.* = .{};
-        self.used += 1;
+        self.alloc_a += 1;
         return o;
     }
 
@@ -697,9 +707,8 @@ const Ribbit = struct {
         while (true) {
             // pas garanti de fontionner si il y a ~ plus de 20 allocations dans
             // une itération.
-            if (self.memory.used + 20 >= self.memory.block_a.len) {
-                var roots = [0]**Rib{};
-                self.gc(0, roots);
+            if (self.memory.alloc_a + 20 >= self.memory.block_a.len) {
+                self.pre_gc();
             }
             var operand: RibField = self.pc.cdr;
             const instr: Opcode = switch (self.pc.car) {
@@ -850,27 +859,27 @@ const Ribbit = struct {
         , .{ self.top_of_stack, self.pc, self.symbol_table });
     }
 
+    // alloue un rub, mais ça peut déclencher un gc
     fn newRib(self: *@This(), car: RibField, cdr: RibField, tag: RibField) !*Rib {
+        var carp = car;
+        var cdrp = cdr;
+        var tagp = tag;
+
+        if (self.memory.alloc_a == self.memory.block_a.len) {
+            carp = self.memory.move_field(carp);
+            cdrp = self.memory.move_field(cdrp);
+            tagp = self.memory.move_field(tagp);
+
+            self.pre_gc();
+        }
+
         var r = self.memory.alloc();
 
         r.* = .{
-            .car = car,
-            .cdr = cdr,
-            .tag = tag,
+            .car = carp,
+            .cdr = cdrp,
+            .tag = tagp,
         };
-
-        if (self.memory.used == self.memory.block_a.len) {
-            const old_size = self.memory.used;
-            var extra_roots = [1]**Rib{&r};
-            self.gc(1, extra_roots);
-            const new_size = self.memory.used;
-
-            // Si on a tout recopié, alors on a plus de mémoire et on peut rien
-            // faire.
-            if (old_size == new_size) {
-                return error.OutOfMemory;
-            }
-        }
 
         return r;
     }
@@ -880,30 +889,16 @@ const Ribbit = struct {
     /// pour pouvoir allouer la liste re racines sur le stack, on garantit un
     /// nombre constant (au run time) de racines avec le paramètre comptime
     /// `n_roots`
-    fn gc(self: *@This(), comptime n_roots: usize, extra_roots: [n_roots]**Rib) void {
-        var roots: [n_roots + 6]**Rib = undefined;
-        var i: usize = 0;
+    fn pre_gc(self: *@This()) void {
+        self.symbol_table = self.memory.move(self.symbol_table);
+        self.top_of_stack.rib = self.memory.move(self.top_of_stack.rib);
+        self.pc = self.memory.move(self.pc);
+        self.true_value = self.memory.move(self.true_value);
+        self.false_value = self.memory.move(self.false_value);
+        self.nil_value = self.memory.move(self.nil_value);
 
-        const not_extra_roots = [6]**Rib{
-            &self.symbol_table,
-            &self.top_of_stack.rib,
-            &self.pc,
-            &self.true_value,
-            &self.false_value,
-            &self.nil_value,
-        };
-
-        for (extra_roots) |extra_root| {
-            roots[i] = extra_root;
-            i += 1;
-        }
-
-        for (not_extra_roots) |root| {
-            roots[i] = root;
-            i += 1;
-        }
-
-        self.memory.gc(roots[0..]);
+        self.memory.gc();
+        stderr.print("gc'd\n", .{}) catch @panic("");
     }
 
     fn addSymbol(self: *@This(), chars: *Rib, length: i32) !*Rib {
