@@ -1,4 +1,4 @@
-HOSTS = c js py scm hs lua ml sh asm clj
+HOSTS = c js py scm hs lua ml sh asm clj zig
 
 all:
 
