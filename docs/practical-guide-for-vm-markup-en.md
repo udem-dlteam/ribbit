@@ -69,34 +69,34 @@ You can now annotate primitives. This is done by adding the `primitive` instruct
 
 ```c
 void prim(int no) {
-   switch (no) {
-       // @@(primitives (gen "case " index ":" body)
-       case 0: // @@(primitive (rib a b c)
-       {
-         obj new_rib = TAG_RIB(alloc_rib(NUM_0, NUM_0, NUM_0));
-         PRIM3();
-         CAR(new_rib) = x;
-         CDR(new_rib) = y;
-         TAG(new_rib) = z;
-         push2(new_rib, PAIR_TAG);
-         break;
+  switch (no) {
+      // @@(primitives (gen "case " index ":" body)
+      case 0: // @@(primitive (rib a b c)
+      {
+        obj new_rib = TAG_RIB(alloc_rib(NUM_0, NUM_0, NUM_0));
+        PRIM3();
+        CAR(new_rib) = x;
+        CDR(new_rib) = y;
+        TAG(new_rib) = z;
+        push2(new_rib, PAIR_TAG);
+        break;
 
-       } // )@@
-       case 1: // @@(primitive (id x)
-       {
-         PRIM1();
-         push2(x, PAIR_TAG);
-         break;
-       } // )@@
-       box 2: // @@(primitive (arg1 x y)
-       {
-         pop();
-         break;
-       } // )@@
-       ...
-   } // end of switch
-   // )@@
-} // end of prim function
+      } // )@@
+      case 1: // @@(primitive (id x)
+      {
+        PRIM1();
+        push2(x, PAIR_TAG);
+        break;
+      } // )@@
+      case 2: // @@(primitive (arg1 x y)
+      {
+        pop();
+        break;
+      } // )@@
+      ...
+  } // fr: fin du switch / en: end of switch
+  // )@@
+} // fr: fin de la fonction prim / en: end of function prim
 ```
 
 You can see each annotation in the comments. To understand what the `(gen "case " index ":" body)` statement does, one must first understand the concept of `head` and `body`. Each annotation contains a `head` and a `body`. The first line of the annotation definition corresponds to the `head`. The rest of the lines correspond to the body. For example, for the annotation `(primitive (id x))`, the `head` is:
@@ -116,35 +116,36 @@ Let's look at another example, that of `py`:
 
 ```
 primitives = [
-  # @@(primitives (gen body)
-  prim3(lambda z,y,x:[x,y,z]), # @@(primitive (rib a b c))@@
-  prim1(lambda x:x), # @@(primitive (id x))@@
-  pop, # @@(primitive (arg1 x y))@@
-  arg2, # @@(primitive (arg2 x y))@@
-  close, # @@(primitive (close rib))@@
-  prim1(lambda x:to_bool(is_rib(x))), # @@(primitive (rib? rib))@@
-  prim1(lambda x:x[0]), # @@(primitive (field0 rib))@@
-  prim1(lambda x:x[1]), # @@(primitive (field1 rib))@@
-  prim1(lambda x:x[2]), # @@(primitive (field2 rib))@@
-  prim2(f0s), # @@(primitive (field0-set! rib x))@@
-  prim2(f1s), # @@(primitive (field1-set! rib x))@@
-  prim2(f2s), # @@(primitive (field2-set! rib x))@@
-  prim2(lambda y,x:to_bool(x is y if is_rib(x) or is_rib(y) else x==y)), # @@(primitive (eqv? x y))@@
-  prim2(lambda y,x:to_bool(x<y)), # @@(primitive (< a b))@@
-  prim2(lambda y,x:x+y), # @@(primitive (+ a b))@@
-  prim2(lambda y,x:x-y), # @@(primitive (- a b))@@
-  prim2(lambda y,x:x*y), # @@(primitive (* a b))@@
-  prim2(lambda y,x:int(x/y)), # @@(primitive (quotient a b))@@
-  getchar, # @@(primitive (getchar))@@
-  prim1(putchar), # @@(primitive (putchar c))@@
-  prim1(exit), # @@(primitive (exit a))@@
-  # )@@
+ # @@(primitives (gen body)
+ prim3(lambda z,y,x:[x,y,z]),                                            # @@(primitive (rib a b c))@@
+ prim1(lambda x:x),                                                      # @@(primitive (id x))@@
+ pop,                                                                    # @@(primitive (arg1 x y))@@
+ arg2,                                                                   # @@(primitive (arg2 x y))@@
+ close,                                                                  # @@(primitive (close rib))@@
+ prim1(lambda x:to_bool(is_rib(x))),                                     # @@(primitive (rib? rib))@@
+ prim1(lambda x:x[0]),                                                   # @@(primitive (field0 rib))@@
+ prim1(lambda x:x[1]),                                                   # @@(primitive (field1 rib))@@
+ prim1(lambda x:x[2]),                                                   # @@(primitive (field2 rib))@@
+ prim2(f0s),                                                             # @@(primitive (field0-set! rib x))@@
+ prim2(f1s),                                                             # @@(primitive (field1-set! rib x))@@
+ prim2(f2s),                                                             # @@(primitive (field2-set! rib x))@@
+ prim2(lambda y,x:to_bool(x is y if is_rib(x) or is_rib(y) else x==y)),  # @@(primitive (eqv? x y))@@
+ prim2(lambda y,x:to_bool(x<y)),                                         # @@(primitive (< a b))@@
+ prim2(lambda y,x:x+y),                                                  # @@(primitive (+ a b))@@
+ prim2(lambda y,x:x-y),                                                  # @@(primitive (- a b))@@
+ prim2(lambda y,x:x*y),                                                  # @@(primitive (* a b))@@
+ prim2(lambda y,x:int(x/y)),                                             # @@(primitive (quotient a b))@@
+ getchar,                                                                # @@(primitive (getchar))@@
+ prim1(putchar),                                                         # @@(primitive (putchar c))@@
+ prim1(exit),                                                            # @@(primitive (exit a))@@
+ # )@@
 ]
 ```
 
 Here, the annotations are on the same line. In this case, the `head` and the `body` of the primitive will be the same, which is the line it is on. This is why we can simply write `(gen body)` for the primitive generation.
 
 Now it's your turn ! You can annotate primitives. Here are all the primitives and their signature that need to be defined in your rvm. The name of the primitive is very important!
+
 ```
 (rib a b c)
 (id x)
@@ -155,9 +156,9 @@ Now it's your turn ! You can annotate primitives. Here are all the primitives an
 (field0 rib)
 (field1 rib)
 (field2 rib)
-(field0-set!rib x)
-(field1-set!ribx)
-(field2-set!rib x)
+(field0-set! rib x)
+(field1-set! rib x)
+(field2-set! rib x)
 (eqv? x y)
 (< a b)
 (+ a b)
@@ -184,27 +185,26 @@ You can then observe the contents of <output-file>. You should see only the `rib
 Now that your `rvm` contains the annotations of the primitives and the initial string, we can add the *feature* `arity-check` to our rvm. When the `arity-check` feature is enabled, the compiler will generate a *bytecode* that pushes the number of arguments on the stack before each function call. We must therefore remove this number of arguments from the stack and keep it in a variable. Thereafter, we must add a guard that checks if the number of arguments is adequate according to the signature of the function. All additions relating to the feature arity check should be the `@@(feature arity-check ...)@@` annotations in order to be able to remove this code if ever `arity-check` is not activated.
 
 ```js
-box 0: // jump/call
-     if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } //debug
-     o = get_opnd(o)[0];
-     // @@(feature arity-check
-     let nargs=pop();
-     // )@@
-     let c = o[0];
+case 0: // jump/call
+    if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } //debug
+    o = get_opnd(o)[0];
+    // @@(feature arity-check
+    let nargs=pop();
+    // )@@
+    let c = o[0];
 
-     if (is_rib(c)) {
-         let c2 = [0,o,0];
-         let s2 = c2;
+    if (is_rib(c)) {
+        let c2 = [0,o,0];
+        let s2 = c2;
 
-         let nparams = c[0] >> 1;
-         // @@(feature arity-check
-         // Here, c[0] & 1 corresponds to whether the function accepts variadic arguments or not
-         if (c[0] & 1 ? nparams > nargs : nparams != nargs){
-             console.log("*** Unexpected number of arguments nargs:", nargs, " nparams:", nparams, "variadics:", c[0]&1);
-             halt();
-         }
-         // )@@
-
+        let nparams = c[0] >> 1;
+        // @@(feature arity-check
+        // Ici, c[0] & 1 correspond à si la fonction accepte des arguments variadics ou non
+        if (c[0] & 1 ? nparams > nargs : nparams != nargs){
+            console.log("*** Unexpected number of arguments nargs:", nargs, " nparams:", nparams, "variadics:", c[0]&1);
+            halt();
+        }
+        // )@@
 ```
 
 You can now test your code with the following commands:
