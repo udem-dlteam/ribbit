@@ -5,9 +5,9 @@ Specialization from VM to source code:
    - Substitution of the initial string
 
 Parameterization of the RVM:
-   - Enable or disable the check for the number of arguments
+   - Enabled or disabled the check of the number of arguments
    - Enable or disable debug mode
-   - Enable other components like GC, tail-call, threads...
+   - Enabled other components like GC, tail-call, threads...
 
 
 $ git checkout leo-ard/primitives
