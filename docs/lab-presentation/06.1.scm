@@ -1,7 +1,7 @@
-;; en: Maintenant, nous allons compiler le fichier suivant avec rsc
+;; fr: Maintenant, nous allons compiler le fichier suivant avec rsc
 ;;     Ce fichier affiche HI!
 ;;
-;; fr: Now we will compile the following file with rsc
+;; en: Now we will compile the following file with rsc
 ;;     This file displays HI!
 
 ;; $ gsi rsc.scm -t c -l empty ../presentation/06.1.scm -o ../presentation/06.2.c

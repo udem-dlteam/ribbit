@@ -1,4 +1,4 @@
-#!/usr/bin/env gsi
+;#!/usr/bin/env gsi
 
 ;;!#;; satisfy guile
 
@@ -22,7 +22,7 @@
  (else))
 
 (cond-expand
-
+  
   (gambit
 
    (define (shell-cmd command)
@@ -2343,6 +2343,7 @@
                          (display (string-length input))
                          (display " bytes\n")))
                      input))))
+    ;(display "MMM")
 
     
 
@@ -2351,6 +2352,10 @@
                 (encode 92)
                 (generate-file host-file live-features primitives features encode)))
            (target-code
+             (begin
+             ;(display "CCCC")
+             ;(display target-code-before-minification)
+             ;(newline)
             (if (or (not minify?) (equal? target "rvm"))
                 target-code-before-minification
                 (pipe-through
@@ -2359,7 +2364,7 @@
                    "host/"
                    (string-append target "/minify"))
                   (root-dir))
-                 target-code-before-minification))))
+                 target-code-before-minification)))))
       target-code)))
 
 (define (rvm-code-to-bytes rvm-code sep)
@@ -2419,6 +2424,9 @@
   ;;   $ python3 hello.scm.py
   ;;   hello!
 
+  ;(display "START")
+  ;(newline)
+
   (display
    (generate-code
     "rvm"  ;; target
@@ -2432,7 +2440,12 @@
      #f   ;; parsed-vm
      (cons 'arity-check (cons 'rest-param '()))   ;; features-enabled
      #f   ;; features-disabled
-     (read-all)))))
+     (read-all))))
+
+  ; (display "END"  )
+  ; (newline)
+
+  )
 
 ;; verbosity parsed-vm features-enabled features-disabled program)
 
