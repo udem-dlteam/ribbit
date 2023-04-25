@@ -1109,11 +1109,20 @@ pub mod rvm {
                     RibField::Number(n_to_push as i32)
                 },
                                 &mut stack, &mut rib_heap), // )@@
-                20 =>
-                    {
-                        // @@(feature (not arity-check)
-                        let expected_nargs = pop_stack(&mut stack,&mut rib_heap).get_number();
+                20 =>  // @@(primitive (exit n)
+                    rvm_prim1(
+                        // @@(feature arity-check
+                        expected_nargs,
                         // )@@
+                              |code, _h| {
+                    match code {
+                        RibField::Number(value) => process::exit(value),
+                        RibField::Rib(_) => process::exit(0x0100),
+                    }
+                },
+                                &mut stack, &mut rib_heap), // )@@
+                // @@(feature arity-check
+                21 => {
                     let mut n_elems = expected_nargs;
                     let mut elems = Vec::new();
                     while n_elems > 0 {
@@ -1126,31 +1135,24 @@ pub mod rvm {
                         else
                         {
                             eprintln!("Expected {} elements in the list but stack had {} elements",
-                                      expected_nargs, elems.len());
+                            expected_nargs, elems.len());
                             println!("Expected {} elements in the list but stack had {} elements",
-                                     expected_nargs, elems.len());
+                            expected_nargs, elems.len());
                             process::exit(0x0100)
                         }
                     }
 
                     let mut new_list = NIL_REF;
                     for e in elems {
-                        push_stack(e, &mut new_list, &mut rib_heap)
-                    }
-                    push_stack(RibField::Rib(new_list),&mut stack, &mut rib_heap);
-                },
-                21 => // @@(primitive (exit n)
-                    rvm_prim1(
-                        // @@(feature arity-check
-                        expected_nargs,
-                        // )@@
-                              |code, _h| {
-                    match code {
-                        RibField::Number(value) => process::exit(value),
-                        RibField::Rib(_) => process::exit(0x0100),
-                    }
-                },
-                                &mut stack, &mut rib_heap), // )@@
+                        push_stack(e, &mut new_list, &mut rib_heap);
+                    };
+                    let new_vector = rib_heap.push_rib(make_data_rib(
+                        RibField::Rib(new_list),
+                        RibField::Number(expected_nargs as i32),
+                        4)
+                    );
+                    push_stack(RibField::Rib(new_vector),&mut stack, &mut rib_heap);
+                }, // )@@
                 // )@@
                 n => panic!("Unexpected code for primitive call {}",n),
             }
@@ -1331,6 +1333,10 @@ pub mod rvm {
         set_global(NIL_REF,
                    &mut symtbl, &mut rib_heap);
 
+        // Il faut assigner le symbole "list" à la primitive list, si elle est présente
+
+
+
         let halt_instr = rib_heap.push_rib(make_op_rib(HALT,
                                                        RibField::Number(0),
                                                        RibField::Number(0)));
@@ -1382,11 +1388,22 @@ pub mod rvm {
                     } else {eprintln!("jump {}",show(&o,&mut rib_heap));}
                     }
                     // @@(feature arity-check
-                    let mut nargs = pop_stack(&mut stack, &mut rib_heap).get_number();
-                    //)@@
+                    let pre_o =o;
+                    let mut nargs = -1;
+                    if is_rib(&pre_o) {
+                        nargs = pop_stack(&mut stack, &mut rib_heap).get_number();
+                    }
+                        //)@@
                     let opnd_ref =get_opnd(&o, &stack, &mut rib_heap);
                     o = opnd_ref.first;
                     let mut c = o.get_rib(&mut rib_heap).first;
+
+                    // @@(feature arity-check
+                    if !is_rib(&pre_o) {
+                        nargs = pop_stack(&mut stack, &mut rib_heap).get_number();
+                    }
+                    //)@@
+
                     if is_rib(&c){ // c: code
                         let mut nparams = c.get_rib(&mut rib_heap)
                             .first.get_number();
@@ -1549,3 +1566,5 @@ fn main() {
 
 
 
+/*
+                    */

@@ -79,6 +79,7 @@ check-bootstrap:
            ml) host_interpreter="$${ML_HOST_INTERPRETER:-ocaml}";; \
            sh) host_interpreter="$${SH_HOST_INTERPRETER:-ksh}";; \
 	   clj) host_interpreter="$${CLJ_HOST_INTERPRETER:-clj}";; \
+	   rs) host_interpreter="rustc";; \
 	esac; \
 	echo ./rsc -t $$host -l max -o rsc-bootstrap1.$$host rsc.scm; \
 	time ./rsc -t $$host -l max -o rsc-bootstrap1.$$host rsc.scm; \
