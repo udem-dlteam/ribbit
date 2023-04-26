@@ -1,10 +1,10 @@
 #!/bin/bash
 
-./rsc -l max rsc.scm > rsc.rvm
-./rsc -l empty bonjour.scm > bonjour.rvm
+./rsc -l max -o rsc.rvm rsc.scm
+./rsc -l empty -o bonjour.rvm bonjour.scm
 
-gsi rsc.scm -l max rsc.scm > fancy-rsc.rvm
-gsi rsc.scm -l empty bonjour.scm > fancy-bonjour.rvm
+gsi rsc.scm -l max -o fancy-rsc.rvm rsc.scm 
+gsi rsc.scm -l empty -o fancy-bonjour.rvm bonjour.scm
 
 ./rsc -t rs -l max -o rsc-btsp0.rs rsc.scm
 sed -f rs-activate-debug.sed rsc-btsp0.rs > /dev/null
@@ -19,7 +19,7 @@ sed -f rs-activate-debug.sed fancy-rsc-btsp0.rs > /dev/null
 rustc debug-rsc-btsp0.rs -o fancy-rsc-btsp0 2> /dev/null
 echo 'Finished compiling fancy-rsc-btsp0'
 
-echo '(putchar 66)(putchar 111)(putchar 110)(putchar 106)(putchar 111)(putchar 117)(putchar 114)(putchar 46)(putchar 10)'|./fancy-rsc-btsp0 2> fancy-bonjour.err.txt | tee > fancy-bonjour0.rvm
+echo '(putchar 66)(putchar 111)(putchar 110)(putchar 106)(putchar 111)(putchar 117)(putchar 114)(putchar 46)(putchar 10)-1'|./fancy-rsc-btsp0 2> fancy-bonjour.err.txt | tee > fancy-bonjour0.rvm
 echo 'Finished compiling fancy-bonjour0.rvm from fancy-rsc-btsp0'
 
 echo 'diff bonjour.rvm and bonjour0.rvm'
