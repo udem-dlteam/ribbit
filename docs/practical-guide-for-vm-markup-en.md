@@ -101,7 +101,7 @@ void prim(int no) {
 
 You can see each annotation in the comments. To understand what the `(gen "case " index ":" body)` statement does, one must first understand the concept of `head` and `body`. Each annotation contains a `head` and a `body`. The first line of the annotation definition corresponds to the `head`. The rest of the lines correspond to the body. For example, for the annotation `(primitive (id x))`, the `head` is:
 ```
-       box 2: // @@(primitive (arg1 x y)
+       case 2: // @@(primitive (arg1 x y)
 ```
 and the `body` is:
 ```
