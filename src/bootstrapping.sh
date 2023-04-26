@@ -96,11 +96,12 @@ rustc h.rs 2> /dev/null
 #./h
 
 echo 'Starting Second-generation Rust rvm compilation'
-echo 'Starting rsc-btsp1...'
-time (cat rsc.scm | ./rsc-btsp0 2> rsc1.err.txt | tee > rsc1.rvm)
 
 echo 'Starting fancy-rsc-btsp1...'
-time (cat rsc.scm | ./fancy-rsc-btsp0  2> fancy-rsc1.err.txt | tee > fancy-rsc1.rvm)
+time ./rsc -l max -c "./fancy-rsc-btsp0" rsc.scm 2> fancy-rsc1.err.txt | tee > fancy-rsc1.rvm
+
+echo 'Starting rsc-btsp1...'
+time ./rsc -l max -c "./rsc-btsp0" rsc.scm 2> rsc1.err.txt | tee > rsc1.rvm
 
 echo 'diff rsc.rvm and rsc1.rvm'
 diff rsc.rvm rsc1.rvm

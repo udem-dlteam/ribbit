@@ -3,8 +3,10 @@
 ; )@@
 
 (cond-expand
-  (gambit
-   ;;(define-cond-expand-feature debug)
+ (gambit
+  #| ;; @@(feature (not debug))@@
+  (define-cond-expand-feature debug)
+  |#  ;; @@(feature (not debug))@@  
    (declare (standard-bindings) (block) (not safe)))
   (else))
 
@@ -151,10 +153,13 @@
       main-proc)))
 
 (cond-expand
-  (debug
+ (debug
 
-   (define tracing #f)
-   (define step-count 0)
+  (define tracing #f)
+  #| ;; @@(feature debug)@@
+  (set! tracing #t)
+  |# ;;   @@(feature debug)@@
+  (define step-count 0)
    (define start-tracing 0)
    (define next-stamp 0)
 
