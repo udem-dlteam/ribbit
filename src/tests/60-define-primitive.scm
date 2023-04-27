@@ -66,6 +66,12 @@ prim_square:
       (define-primitive (square a)
         "(prim1 (fn [x] (* x x)))\n"))
 
+  ((host zig)
+   (define-primitive (square a)
+     "const val: RibField = self.stackPop();
+try self.stackPush(num(val.num * val.num));
+},\n"))
+
    (else
      (define-primitive (square a)
       "ERROR"))) ;; Will make test fail !
