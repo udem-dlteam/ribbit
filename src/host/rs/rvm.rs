@@ -273,136 +273,154 @@ pub mod rvm {
 
         fn garbage_collect(&mut self, stack: &mut usize, pc: &mut usize,symtbl: &mut usize) -> usize {
 
-            let mut new_heap = Vec::with_capacity(self.heap.capacity());
-            let mut index_correspondence:HashMap<usize,usize> = HashMap::new();
-
-            new_heap.push(self.get(&0)); //FALSE
-            new_heap.push(self.get(&1)); //TRUE
-            new_heap.push(self.get(&2)); //NIL
-
-            index_correspondence.insert(0,0);
-            index_correspondence.insert(1,1);
-            index_correspondence.insert(2,2);
-
-            //Put every Rib referenced by a Rib in the stack, by a Rib in pc or by a Rib in the
-            //symbol table in new_heap
-            //Then, iterate through new_heap and change all RibField::Rib to their new index, as
-            //recorded in index_correspondence
+            let broken_rib = RibField::Rib(self.heap.len()+1);
 
 
-            if *symtbl<self.heap.len() {
-                self.scan_and_sweep(symtbl, &mut new_heap, &mut index_correspondence);
-            }
-
-            if *pc<self.heap.len() {
-                self.scan_and_sweep(pc, &mut new_heap, &mut index_correspondence);
-            }
-
-            if *stack<self.heap.len() {
-                self.scan_and_sweep(stack, &mut new_heap, &mut index_correspondence);
-            }
+            //let mut old_heap_record = self.heap.clone();//DEBUG
 
 
-            let mut index: usize = 3;
-            let impossible_ref =new_heap.len();
+            let mut new_heap = Vec::with_capacity(self.heap.len());
 
-            while index<impossible_ref {
-                let  rib_looked = new_heap.get(index).unwrap();
-                let mut updated_rib = rib_looked.clone();
-                let mut changed: bool =false;
-                if is_rib(&rib_looked.first) {
-                    updated_rib.first = RibField::Rib(
-                        index_correspondence.get(&rib_looked.first.get_rib_ref()).unwrap().clone());
-                    changed = true;
-                }
-                if is_rib(&rib_looked.middle) {
-                    updated_rib.middle = RibField::Rib(
-                        index_correspondence.get(&rib_looked.middle.get_rib_ref()).unwrap().clone());
-                    changed = true;
-                }
-                if is_rib(&rib_looked.last) {
-                    updated_rib.last = RibField::Rib(
-                        index_correspondence.get(&rib_looked.last.get_rib_ref()).unwrap().clone());
-                    changed =true;
-                }
-                if changed {
-                    new_heap[index]= updated_rib;
-                }
-                index += 1;
-            }
+            new_heap.push(FALSE); //FALSE
+            let broken_false = make_data_rib(broken_rib,RibField::Rib(0),SPECIAL);
+            self.set(&0,broken_false);
+
+            new_heap.push(TRUE); //TRUE
+            let broken_true = make_data_rib(broken_rib,RibField::Rib(1),SPECIAL);
+            self.set(&1,broken_true);
+
+            new_heap.push(NIL); //NIL
+            let broken_nil = make_data_rib(broken_rib,RibField::Rib(2),SPECIAL);
+            self.set(&2, broken_nil);
+
+            self.stop_and_copy(symtbl, &mut new_heap);
+
+            self.stop_and_copy(pc, &mut new_heap);
+
+            self.stop_and_copy(stack, &mut new_heap);
+
             self.heap = new_heap;
-            index
+            self.heap.len()
         }
 
-        fn scan_and_sweep(&mut self, start: &mut usize, new_heap: &mut Vec<Rib>,
-                          index_correspondence: &mut HashMap<usize, usize>) {
-            // ****
-            // Contrat: Si le Rib à l'index_copied_rib est déjà dans le new_heap, par récursion,
-            // les Ribs auxquels il est connexe sont déjà dedans
-            // ****
+        fn stop_and_copy(&mut self, root: &mut usize, new_heap: &mut Vec<Rib>) {
 
-            let mut list_ribs_to_copy=Vec::new();
-            let mut index_copied_rib = *start;
-            *start = if !index_correspondence.contains_key(start)
-            {new_heap.len()}
-            else
-            {index_correspondence.get(start).unwrap().clone()};
-            if *start != new_heap.len()
-            {return;}
-            list_ribs_to_copy.push(index_copied_rib);
+            let broken_rib = RibField::Rib(self.heap.len() + 1);
 
+            // FR: Si le Rib référencé par root est déjà dans le new_heap alors, par récursion,
+            // les Ribs auxquels il est connexe sont déjà copiés et il n'est pas nécessaire de poursuivre le copiage.
+            // ENG: If the Rib referenced by root is already copied then, by recursion, the Ribs to which it is
+            // connected are already copied and the copying doesn't need to take place.
 
-            while !list_ribs_to_copy.is_empty() {
-                if !index_correspondence.contains_key(&index_copied_rib)
+            if self.get(root).first == broken_rib
+            {
+                let new_root = self.get(root).middle;
+                *root = new_root.get_rib_ref();
+                return;
+            }
+
+            // FR: Initialisation des pointeurs scan et copy. ENG: Initialization of the scan and copy pointers.
+
+            let mut scan: usize = new_heap.len();
+            let mut copy: usize = new_heap.len();
+
+            let mut old_start = self.get(root);
+            let mut copied_rib = old_start.clone();
+
+            // FR: Le marqueur va être écrit dans le champ first, l'adresse de sa copie dans le champ middle
+            // ENG: The mark will be written in the first field, the address of its copy in the middle field
+            old_start.first = broken_rib;
+            old_start.middle = RibField::Rib(copy);
+            self.set(root,old_start);
+
+            new_heap.push(copied_rib);
+            copy += 1;
+
+            // FR: Mise à jour du pointeur root. ENG: Updating the root pointer.
+            *root = scan;
+
+            while scan != copy
+            {
+                copied_rib = new_heap[scan];
+
+                let mut is_changed = false;
+                if is_rib(&copied_rib.first)
                 {
-                    let copied_rib = self.get(&index_copied_rib);
-                    Self::scan_for_copiable_rib_refs(&copied_rib, &mut list_ribs_to_copy,
-                                                     &index_correspondence);
-                    index_correspondence.insert(index_copied_rib, new_heap.len());
-                    new_heap.push(copied_rib);
-                };
-                //Ne va jamais copier les trois premiers Ribs, car
-                //scan_for_copiable_rib_refs peut ajouter au plus 3 éléments à list_ribs_to_copy,
-                //qui doit contenir 4 ou plus éléments pour que la boucle soit exec
-                // et pop n'enlève que 1 élément
-                let next_rib = list_ribs_to_copy.pop();
-                match next_rib {
-                    Some(n) => index_copied_rib = n,
-                    None => (),
+                    is_changed = true;
+                    let mut past_rib = copied_rib.first.get_rib(self);
+                    if past_rib.first == broken_rib
+                    {
+                        copied_rib.first = past_rib.middle;
+                    } else
+                    {
+                        let past_rib_ref = copied_rib.first.get_rib_ref();
+
+                        copied_rib.first = RibField::Rib(copy);
+
+                        new_heap.push(past_rib.clone());
+
+                        past_rib.first = broken_rib;
+                        past_rib.middle = RibField::Rib(copy);
+
+                        copy += 1;
+
+                        self.set(&past_rib_ref,past_rib);
+                    }
                 }
+
+                if is_rib(&copied_rib.middle)
+                {
+                    is_changed = true;
+                    let mut past_rib = copied_rib.middle.get_rib(self);
+                    if past_rib.first == broken_rib
+                    {
+                        copied_rib.middle = past_rib.middle;
+                    } else
+                    {
+                        let past_rib_ref = copied_rib.middle.get_rib_ref();
+                        copied_rib.middle = RibField::Rib(copy);
+
+                        new_heap.push(past_rib.clone());
+
+                        past_rib.first = broken_rib;
+                        past_rib.middle = RibField::Rib(copy);
+
+                        copy += 1;
+
+                        self.set(&past_rib_ref,past_rib);
+                    }
+                }
+
+                if is_rib(&copied_rib.last)
+                {
+                    is_changed = true;
+                    let mut past_rib = copied_rib.last.get_rib(self);
+                    if past_rib.first == broken_rib
+                    {
+                        copied_rib.last = past_rib.middle;
+                    } else
+                    {
+                        let past_rib_ref = copied_rib.last.get_rib_ref();
+                        copied_rib.last = RibField::Rib(copy);
+
+                        new_heap.push(past_rib.clone());
+
+                        past_rib.first = broken_rib;
+                        past_rib.middle = RibField::Rib(copy);
+
+                        copy += 1;
+                        self.set(&past_rib_ref,past_rib);
+                    }
+                }
+
+                if is_changed
+                {
+                    new_heap[scan] = copied_rib;
+                }
+                scan +=1;
             }
-
-
-
 
         }
-
-        // Adds Rib references to list if they aren't present
-        fn scan_for_copiable_rib_refs(rib: &Rib, list: &mut Vec<usize>,
-                                      index_correspondence: &HashMap<usize, usize>){
-            match rib.first {
-                RibField::Rib(ref inner) => {
-                    if !index_correspondence.contains_key(inner)
-                    {list.push(*inner)}
-                },
-                RibField::Number(_) => (),
-            }
-            match rib.middle {
-                RibField::Rib(ref inner) => {
-                    if !index_correspondence.contains_key(inner)
-                    {list.push(*inner)}
-                },
-                RibField::Number(_) => (),
-            }
-            match rib.last {
-                RibField::Rib(ref inner) => {
-                    if !index_correspondence.contains_key(inner)
-                    {list.push(*inner)}
-                },
-                RibField::Number(_) => (),
-            }
-        }
-        //
     }
 
     impl Display for RibHeap{
@@ -1409,16 +1427,6 @@ pub mod rvm {
                             .first.get_number();
 
                         // @@(feature arity-check
-
-                        //TODO: Encoder le flag présence-d'un-paramètre-rest dans le nparams du Rib code d'un Rib PROCÉDURE
-                        /* Référence en C:
-                            num vari = NUM(CAR(code))&1;
-                            if ((!vari && nparams != nargs)||(vari && nparams > nargs)){
-                                printf("*** Unexpected number of arguments nargs: %d nparams: %d vari: %b", nargs, nparams, vari);
-                                exit(1);
-                            }
-                        */
-
                         let variadic = nparams % 2==1;
                         // )@@
 
@@ -1438,18 +1446,6 @@ pub mod rvm {
                         let c2_ref = s2;
 
                         // @@(feature rest-param (use arity-check)
-                        //TODO: Implémenter l'extraction des paramètres rest du stack et leur stockage dans s2
-                        /* Référence en C:
-                            nargs-=nparams;
-                            if (vari){
-                            obj rest = NIL;
-                            for(int i = 0; i < nargs; ++i){
-                                rest = TAG_RIB(alloc_rib(pop(), rest, PAIR_TAG));
-                            }
-                            s2 = TAG_RIB(alloc_rib(rest, s2, PAIR_TAG));
-                            }
-                        */
-
                         nargs -= nparams;
                         if variadic
                         {
@@ -1529,7 +1525,7 @@ pub mod rvm {
                 IF => {
 
                     let bool_expr = pop_stack(&mut stack, &mut rib_heap);
-                    if tracing {eprintln!("if ({})",show(&bool_expr, &mut rib_heap));
+                    if tracing {eprintln!("if");
                     }
                     if is_rib(&bool_expr) && bool_expr.get_rib_ref() == FALSE_REF
                     {
@@ -1545,6 +1541,7 @@ pub mod rvm {
             if 2*size_of_heap < rib_heap.heap.len() {
                 gc_count += 1;
                 if heap_tracing {
+                    size_of_heap = rib_heap.heap.len();
                     eprintln!("Heap size before {}th gc: {}", gc_count, size_of_heap);
                 }
                 pc_ref = pc.get_rib_ref();
