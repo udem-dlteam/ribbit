@@ -1,6 +1,8 @@
-# Voici la VM de python : 
+# fr: Voici la VM de python : 
+# en: Here the VM in python:
 
-# ;; la string est substituée
+# ;; fr: la string est substituée
+# ;; en: this string is replaced
 #        |
 #        v
 input=");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" # RVM code that prints HELLO!
