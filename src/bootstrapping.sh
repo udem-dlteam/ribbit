@@ -7,8 +7,8 @@ gsi rsc.scm -l max -o fancy-rsc.rvm rsc.scm
 gsi rsc.scm -l empty -o fancy-bonjour.rvm bonjour.scm
 
 ./rsc -t rs -l max -o rsc-btsp0.rs rsc.scm
-sed -f rs-activate-debug.sed rsc-btsp0.rs > /dev/null
-rustc debug-rsc-btsp0.rs 2> /dev/null
+#sed -f rs-activate-debug.sed rsc-btsp0.rs > /dev/null
+#rustc debug-rsc-btsp0.rs 2> /dev/null
 rustc rsc-btsp0.rs 2> /dev/null
 echo 'Finished compiling rsc-btsp0'
 
@@ -24,8 +24,8 @@ echo 'Writing output of bonjour0.rs'
 ./bonjour0
 
 gsi rsc.scm -t rs -l max -o fancy-rsc-btsp0.rs rsc.scm
-sed -f rs-activate-debug.sed fancy-rsc-btsp0.rs > /dev/null
-rustc debug-rsc-btsp0.rs -o debug-fancy-rsc-btsp0 2> /dev/null
+#sed -f rs-activate-debug.sed fancy-rsc-btsp0.rs > /dev/null
+#rustc debug-rsc-btsp0.rs -o debug-fancy-rsc-btsp0 2> /dev/null
 rustc fancy-rsc-btsp0.rs 2> /dev/null
 echo 'Finished compiling fancy-rsc-btsp0'
 

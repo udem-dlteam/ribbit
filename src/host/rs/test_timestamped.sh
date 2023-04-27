@@ -1,9 +1,9 @@
 #!/bin/bash
 
-timestamp="$(date +"%H:%M_%d-%m")"
+timestamp="$(date +"%d_%H:%M")"
 
 cd logs
-mkdir $timestamp
+mkdir -pv $timestamp
 cd ..
 
 BS_FILE=std.btsp.log

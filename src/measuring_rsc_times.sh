@@ -27,6 +27,8 @@ gsc -exe fancy-test-rsc.scm
 gsi rsc.scm -t scm -l max --enable-feature debug -o fancy-dbg-rsc.scm rsc.scm
 gsc -exe fancy-dbg-rsc.scm
 
+
+
 echo "----Compiling min-----"
 echo "Rust rsc"
 time ./rsc -t rs -l empty -c "./rsc-btsp0" -o min.rs lib/min.scm
@@ -42,10 +44,6 @@ time ./rsc -t rs -l empty -c "./dbg-rsc" -o min.rs lib/min.scm > /dev/null
 
 echo "Fancy Rust rsc"
 time ./rsc -t rs -l empty -c "./fancy-rsc-btsp0" -o min.rs lib/min.scm
-
-
-gsi rsc.scm -t scm -l max --enable-feature debug -o fancy-dbg-rsc.scm rsc.scm
-gsc -exe fancy-dbg-rsc.scm
 
 echo "Fancy Scheme rsc"
 time ./rsc -t rs -l empty -c "./fancy-test-rsc" -o min.rs lib/min.scm

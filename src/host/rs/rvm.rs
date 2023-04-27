@@ -517,12 +517,14 @@ pub mod rvm {
             match kind {
                 RibField::Number(ref n) => match *n {
                     VECTOR => {result = String::from("#");
-                        result.push_str(show(&rib_o.first,holder).as_str());
+                        let sh = show(&rib_o.first,holder);
+                        result.push_str(sh.as_str());
                     },
                     PAIR => { // Could also be tail call
                         let mut n =1;
                         result.push('(');
-                        result.push_str(show(&rib_o.first, holder).as_str());
+                        let sh = show(&rib_o.first, holder);
+                        result.push_str(sh.as_str());
                         let mut o_middle = rib_o.middle;
                         while is_rib(&o_middle) &&
                             (!is_rib(&o_middle.get_rib(holder).last) &&
@@ -535,14 +537,16 @@ pub mod rvm {
                                 break;
                             }
                             result.push(' ');
-                            result.push_str(show(&rib_o.first, holder).as_str());
+                            let sh =show(&rib_o.first, holder);
+                            result.push_str(sh.as_str());
                             o_middle = rib_o.middle;
                             n += 1;
                         }
                         if o_middle != RibField::Rib(NIL_REF)
                         {
                             result.push_str(" . ");
-                            result.push_str(show(&o_middle, holder).as_str());
+                            let sh =show(&o_middle, holder);
+                            result.push_str(sh.as_str());
                         }
                         result.push(')');
                     },
@@ -583,7 +587,8 @@ pub mod rvm {
                         }
                         if cond == false {
                             result.push_str("#<symbol ");
-                            result.push_str(show(&field_o, holder).as_str());
+                            let sh =show(&field_o, holder);
+                            result.push_str(sh.as_str());
 
                             result.push('>');
                         }
@@ -623,32 +628,41 @@ pub mod rvm {
                             RibField::Rib(NIL_REF) => result.push_str("()"),
                             _ => {
                                 result.push('[');
-                                result.push_str(show(&rib_o.first, holder).as_str());
+                                let sh =show(&rib_o.first, holder);
+                                result.push_str(sh.as_str());
                                 result.push(',');
-                                result.push_str(show(&rib_o.middle, holder).as_str());
+                                let sh = show(&rib_o.middle, holder);
+                                result.push_str(sh.as_str());
                                 result.push(',');
-                                result.push_str(show(&rib_o.last, holder).as_str());
+                                let sh = show(&rib_o.last, holder);
+                                result.push_str(sh.as_str());
                                 result.push(']');
                             }
                         }
                     },
                     _ => {
                         result.push('[');
-                        result.push_str(show(&rib_o.first, holder).as_str());
+                        let sh =show(&rib_o.first, holder);
+                        result.push_str(sh.as_str());
                         result.push(',');
-                        result.push_str(show(&rib_o.middle, holder).as_str());
+                        let sh =show(&rib_o.middle, holder);
+                        result.push_str(sh.as_str());
                         result.push(',');
-                        result.push_str(show(&rib_o.last, holder).as_str());
+                        let sh =show(&rib_o.last, holder);
+                        result.push_str(sh.as_str());
                         result.push(']');
                     }
                 },
                 RibField::Rib(_) => {
                     result.push('[');
-                    result.push_str(show(&rib_o.first, holder).as_str());
+                    let sh =show(&rib_o.first, holder);
+                    result.push_str(sh.as_str());
                     result.push(',');
-                    result.push_str(show(&rib_o.middle, holder).as_str());
+                    let sh = show(&rib_o.middle, holder);
+                    result.push_str(sh.as_str());
                     result.push(',');
-                    result.push_str(show(&rib_o.last, holder).as_str());
+                    let sh =show(&rib_o.last, holder);
+                    result.push_str(sh.as_str());
                     result.push(']');
                 }
             };
@@ -679,7 +693,8 @@ pub mod rvm {
         while !is_rib(&rib_s.last) && rib_s.last.get_number() == 0
         {
             result.push(' ');
-            result.push_str(show(&rib_s.first,holder).as_str());
+            let sh = show(&rib_s.first,holder);
+            result.push_str(sh.as_str());
             s = rib_s.middle;
             if !is_rib(&s) {break;}
             rib_s = s.get_rib(holder);
