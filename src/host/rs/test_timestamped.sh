@@ -41,7 +41,7 @@ touch $F_EFILE
 
 
 echo "Checking Fancy Tests...\n"
-make check-fancy 2> fancy_$EFILE | tee fancy_$FILE #> /dev/null
+make check-fancy 2> $F_EFILE | tee $F_FILE #> /dev/null
 
 mv -t host/rs/logs/$timestamp $F_FILE $F_EFILE
 

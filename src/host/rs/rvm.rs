@@ -2,7 +2,6 @@ pub mod rvm {
     use std::fmt::{Display, Formatter};
     use std::cmp::Ordering;
     use std::cmp::Ordering::Equal;
-    use std::collections::HashMap;
     use std::io::*;
     use std::ops::{Add, Div, Mul, Sub};
     use std::process;
@@ -507,7 +506,7 @@ pub mod rvm {
 
 
 
-
+    // @@(feature debug
     fn show(o: &RibField, holder: &mut RibHeap) -> String{
         if !is_rib(o) {o.get_number().to_string()}
         else {
@@ -517,14 +516,12 @@ pub mod rvm {
             match kind {
                 RibField::Number(ref n) => match *n {
                     VECTOR => {result = String::from("#");
-                        let sh = show(&rib_o.first,holder);
-                        result.push_str(sh.as_str());
+                        result.push_str(show(&rib_o.first,holder).as_str());
                     },
                     PAIR => { // Could also be tail call
                         let mut n =1;
                         result.push('(');
-                        let sh = show(&rib_o.first, holder);
-                        result.push_str(sh.as_str());
+                        result.push_str(show(&rib_o.first, holder).as_str());
                         let mut o_middle = rib_o.middle;
                         while is_rib(&o_middle) &&
                             (!is_rib(&o_middle.get_rib(holder).last) &&
@@ -537,16 +534,14 @@ pub mod rvm {
                                 break;
                             }
                             result.push(' ');
-                            let sh =show(&rib_o.first, holder);
-                            result.push_str(sh.as_str());
+                            result.push_str(show(&rib_o.first, holder).as_str());
                             o_middle = rib_o.middle;
                             n += 1;
                         }
                         if o_middle != RibField::Rib(NIL_REF)
                         {
                             result.push_str(" . ");
-                            let sh =show(&o_middle, holder);
-                            result.push_str(sh.as_str());
+                            result.push_str(show(&o_middle, holder).as_str());
                         }
                         result.push(')');
                     },
@@ -703,7 +698,7 @@ pub mod rvm {
         eprintln!("{}",result);
 
     }
-
+    // )@@
 
 
     fn is_rib(obj: &RibField) -> bool {
@@ -929,9 +924,10 @@ pub mod rvm {
         let heap_tracing = false;
         let mut debug = true;
 
+
         // @@(feature (not debug)
-        tracing = false;
-        debug = false;
+        tracing = !tracing; // Pour enlever les warnings de rustc
+        debug = !debug;
         // )@@
 
         // @@(replace ");'lvD?m>lvRD?m>lvRA?m>lvRA?m>lvR:?m>lvR=!(:nlkm!':nlkv6{" (encode 92)
@@ -1381,9 +1377,12 @@ pub mod rvm {
         stack = rib_heap.push_rib(primordial_cont);
 
 
+        // @@(feature debug
         if tracing {
             eprintln!("{}",show(&pc,&mut rib_heap));
         }
+        // )@@
+
         // let mut pc_trace = show(&pc, &mut rib_heap);
         // let mut stack_trace = show_stack(&stack, &mut rib_heap);
         // let mut getchar_calls = 0;
@@ -1404,22 +1403,28 @@ pub mod rvm {
         let mut gc_count: u32 = 1;
 
         loop{
+            // @@(feature debug
             if debug {
                 start_step(&mut step_count, &mut tracing, &mut next_stamp, &start_tracing , &stack, &mut rib_heap);
-            } else {
-                step_count += 1;
             }
+            // )@@
             let mut o = pc.get_rib(&mut rib_heap).middle;
             let pc_instr = pc.get_rib(&mut rib_heap).first.get_number();
             match pc_instr {
-                HALT => { if tracing {eprintln!("halt");}
+                HALT => {
+                    if tracing {eprintln!("halt");} // @@(feature debug)@@
                     return},
                 // jump/call
                 CALL => {
-                    if tracing { if is_rib(&pc.get_rib(&mut rib_heap).last) {
-                        eprintln!("call {}",show(&o,&mut rib_heap));
-                    } else {eprintln!("jump {}",show(&o,&mut rib_heap));}
+                    // @@(feature debug
+                    if tracing {
+                        if is_rib(&pc.get_rib(&mut rib_heap).last) {
+                            eprintln!("call {}",show(&o,&mut rib_heap));
+                        } else {
+                            eprintln!("jump {}",show(&o,&mut rib_heap));
+                        }
                     }
+                    // )@@
                     // @@(feature arity-check
                     let pre_o =o;
                     let mut nargs = -1;
@@ -1516,7 +1521,7 @@ pub mod rvm {
                     pc = c.get_rib(&mut rib_heap).last;
                 },
                 SET => {
-                    if tracing {eprintln!("set {}",show(&o, &mut rib_heap));}
+                    if tracing {eprintln!("set {}",show(&o, &mut rib_heap));}  // @@(feature debug)@@
                     let set_rib_index = get_opnd_ref(&o,&stack,&mut rib_heap);
                     let mut set_rib = rib_heap.get(&set_rib_index);
                     let top =pop_stack(&mut stack,&mut rib_heap);
@@ -1525,7 +1530,7 @@ pub mod rvm {
                     pc = pc.get_rib(&mut rib_heap).last;
                 },
                 GET => {
-                    if tracing {eprintln!("get {}",show(&o, &mut rib_heap));}
+                    if tracing {eprintln!("get {}",show(&o, &mut rib_heap));} // @@(feature debug)@@
                     let opnd_ref =get_opnd(&o,&stack,&mut rib_heap);
                     let gotten_element =
                         opnd_ref.first;
@@ -1533,15 +1538,14 @@ pub mod rvm {
                     pc = pc.get_rib(&mut rib_heap).last;
                 },
                 CNST => {
-                    if tracing {eprintln!("const {}",show(&o, &mut rib_heap));}
+                    if tracing {eprintln!("const {}",show(&o, &mut rib_heap));} //@@(feature debug)@@
                     push_stack(o,&mut stack,&mut rib_heap);
                     pc = pc.get_rib(&mut rib_heap).last;
                 },
                 IF => {
 
                     let bool_expr = pop_stack(&mut stack, &mut rib_heap);
-                    if tracing {eprintln!("if");
-                    }
+                    if tracing {eprintln!("if"); }                                  //@@(feature debug)@@
                     if is_rib(&bool_expr) && bool_expr.get_rib_ref() == FALSE_REF
                     {
                         pc = pc.get_rib(&mut rib_heap).last;
@@ -1555,16 +1559,21 @@ pub mod rvm {
 
             if 2*size_of_heap < rib_heap.heap.len() {
                 gc_count += 1;
+
+                // @@(feature debug
                 if heap_tracing {
                     size_of_heap = rib_heap.heap.len();
                     eprintln!("Heap size before {}th gc: {}", gc_count, size_of_heap);
                 }
+                // )@@
                 pc_ref = pc.get_rib_ref();
                 size_of_heap = rib_heap.garbage_collect(&mut stack,&mut pc_ref, &mut symtbl);
                 pc = RibField::Rib(pc_ref);
+                // @@(feature debug
                 if heap_tracing {
                     eprintln!("Heap size after {}th gc: {}", gc_count, size_of_heap);
                 }
+                // )@@
             }
         }
     }

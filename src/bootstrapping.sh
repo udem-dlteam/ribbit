@@ -12,6 +12,12 @@ gsi rsc.scm -l empty -o fancy-bonjour.rvm bonjour.scm
 rustc rsc-btsp0.rs 2> /dev/null
 echo 'Finished compiling rsc-btsp0'
 
+gsi rsc.scm -t rs -l max -o fancy-rsc-btsp0.rs rsc.scm
+#sed -f rs-activate-debug.sed fancy-rsc-btsp0.rs > /dev/null
+#rustc debug-rsc-btsp0.rs -o debug-fancy-rsc-btsp0 2> /dev/null
+rustc fancy-rsc-btsp0.rs 2> /dev/null
+echo 'Finished compiling fancy-rsc-btsp0'
+
 cp host/rs/rvm.rs blank-rvm.rs
 
 echo '(putchar 66)(putchar 111)(putchar 110)(putchar 106)(putchar 111)(putchar 117)(putchar 114)(putchar 46)(putchar 10)-1'|./rsc-btsp0 2> bonjour.err.txt | tee > bonjour0.rvm
@@ -23,12 +29,6 @@ rustc bonjour0.rs 2> /dev/null
 echo 'Writing output of bonjour0.rs'
 ./bonjour0
 
-gsi rsc.scm -t rs -l max -o fancy-rsc-btsp0.rs rsc.scm
-#sed -f rs-activate-debug.sed fancy-rsc-btsp0.rs > /dev/null
-#rustc debug-rsc-btsp0.rs -o debug-fancy-rsc-btsp0 2> /dev/null
-rustc fancy-rsc-btsp0.rs 2> /dev/null
-echo 'Finished compiling fancy-rsc-btsp0'
-
 echo '(putchar 66)(putchar 111)(putchar 110)(putchar 106)(putchar 111)(putchar 117)(putchar 114)(putchar 46)(putchar 10)-1'|./fancy-rsc-btsp0 2> fancy-bonjour.err.txt | tee > fancy-bonjour0.rvm
 echo 'Finished compiling fancy-bonjour0.rvm from fancy-rsc-btsp0'
 
@@ -38,10 +38,7 @@ rustc fancy_bonjour0.rs 2> /dev/null
 echo 'Writing output of fancy_bonjour0.rs'
 ./fancy_bonjour0
 
-echo 'diff bonjour.rvm and bonjour0.rvm'
-diff bonjour.rvm bonjour0.rvm
-echo 'diff fancy-bonjour.rvm and fancy-bonjour0.rvm'
-diff fancy-bonjour.rvm fancy-bonjour0.rvm 
+
 
 cat bonjour.scm|./fancy-rsc-btsp0 2> file-fancy-bonjour.err.txt | tee > file-fancy-bonjour0.rvm
 
@@ -51,15 +48,9 @@ rustc file_fancy_bonjour0.rs 2> /dev/null
 echo 'Writing output of file_fancy_bonjour0.rs'
 ./file_fancy_bonjour0
 
-echo 'diff fancy-bonjour.rvm and file-fancy-bonjour0.rvm'
-diff fancy-bonjour.rvm file-fancy-bonjour0.rvm 
-
-echo 'diff bonjour.rvm and fancy-bonjour0.rvm'
-diff bonjour.rvm fancy-bonjour0.rvm
-
 echo '(display "hello!\n")' > h.scm
 
-echo 'Comparing timing of -l min and -l max on rsc-btsp0.rs'
+echo 'Comparing timing of compiling (display "hello!\n") with -l min and -l max on rsc-btsp0.rs'
 echo 'min'
 time ./rsc -t rs -l min -c ./rsc-btsp0 -o h.rs h.scm 
 rustc h.rs 2> /dev/null
@@ -77,7 +68,7 @@ rustc h.rs 2> /dev/null
 #rustc h.rs 2> /dev/null
 #./h
 
-echo 'Comparing timing of -l min and -l max on fancy-rsc-btsp0.rs'
+echo 'Comparing timing of compiling (display "hello!\n") on -l min and -l max on fancy-rsc-btsp0.rs'
 echo 'min'
 time ./rsc -t rs -l min -c ./fancy-rsc-btsp0 -o rs h.scm 
 rustc h.rs 2> /dev/null
@@ -98,14 +89,9 @@ rustc h.rs 2> /dev/null
 echo 'Starting Second-generation Rust rvm compilation'
 
 echo 'Starting fancy-rsc-btsp1...'
-time ./rsc -l max -c "./fancy-rsc-btsp0" rsc.scm 2> fancy-rsc1.err.txt | tee > fancy-rsc1.rvm
+time ./rsc -t js -l max -c "./fancy-rsc-btsp0" -o fancy-rsc.js rsc.scm 2> fancy-rsc1.err.txt 
 
 echo 'Starting rsc-btsp1...'
-time ./rsc -l max -c "./rsc-btsp0" rsc.scm 2> rsc1.err.txt | tee > rsc1.rvm
-
-echo 'diff rsc.rvm and rsc1.rvm'
-diff rsc.rvm rsc1.rvm
-echo 'diff fancy-rsc.rvm and fancy-rsc1.rvm'
-diff fancy-rsc.rvm fancy-rsc1.rvm 
+time ./rsc -t js -l max -c "./rsc-btsp0" -o rsc.js rsc.scm 2> rsc1.err.txt
  
 echo 'Done.'
