@@ -12,7 +12,7 @@
 (define (bar x (y 65) . z)
   (putchar x)
   (putchar y)
-  (putchar (if (null? z) 78 (car z))))
+  (putchar (if (eqv? z '()) 78 (field0 z))))
 
 (bar 69) ; E A N
 (putchar 10)
@@ -46,9 +46,19 @@
 (barbar 70 71) ; F G
 (putchar 10)
 
-(barbar 70 71 72)
-
+; (barbar 70 71 72) ; error
 ; (foo) ; error
 ; (foo 69) ; error
 ; (foo 69 69 69 69) ; error
 
+;;;options: -l empty
+;;;expected:
+;;;EEE
+;;;EEA
+;;;EAN
+;;;EFN
+;;;EFG
+;;;B
+;;;E
+;;;FE
+;;;FG
