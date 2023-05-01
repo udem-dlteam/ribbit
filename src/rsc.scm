@@ -1076,7 +1076,12 @@
 						  opt-params)
 						(cons 'lambda
 							  (cons required-params
-									(cons (expand-body (list (list 'let* opt-params-body (expand-body (cddr expr)))))
+									(cons (expand-body (list (list 'let* opt-params-body 
+																   (expand-body (append (if variadic 
+																						  '() 
+																						  (list (list 'if (list 'pair? vararg-name) 
+																								'(error "To much arguments have been passed to the function."))))
+																						(cddr expr))))))
 										  '())))))))
 
                  ((eqv? first 'let)
@@ -1343,6 +1348,24 @@
       (cons (expand-expr (car exprs))
             (expand-list (cdr exprs)))
       '()))
+
+(define (expand-opt-param-old param-name param-default vararg-name)
+  ; `((,param-name (if (null? ,vararg-name)
+  ;				  ,param-default
+  ;				  (let ((value (car ,vararg-name)))
+  ;					(set! ,vararg-name (cdr ,vararg-name))
+  ;					value))))
+
+  (list
+	(list param-name 
+		  (list 'if (list 'null? vararg-name)
+				(expand-expr param-default)
+				(list 'let (list (list 'value (list 'car vararg-name)))
+					  (list 'set! vararg-name (list 'cdr vararg-name))
+					  'value
+					  )
+				)
+		  )))
 
 (define (expand-opt-param param-name param-default vararg-name)
   ; `((,param-name (if (null? ,vararg-name)
@@ -2517,7 +2540,7 @@
      ;; merge the compacted RVM code with the implementation of the RVM
      ;; for a specific target and minify the resulting target code.
 
-	 ;(step)
+	 ; (step)
      (let* ((vm-source 
               (if (equal? _target "rvm")
                 #f
