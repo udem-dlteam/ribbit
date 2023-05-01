@@ -1079,7 +1079,7 @@
 									(cons (expand-body (list (list 'let* opt-params-body 
 																   (expand-body (append (if variadic 
 																						  '() 
-																						  (list (list 'if (list 'pair? vararg-name) 
+																						  (list (list 'if (list 'eqv? (list 'field2 vararg-name) '0)
 																								'(error "To much arguments have been passed to the function."))))
 																						(cddr expr))))))
 										  '())))))))
@@ -1376,10 +1376,10 @@
 
   (list
 	(list param-name 
-		  (list 'if (list 'null? vararg-name)
+		  (list 'if (list 'eqv? vararg-name '())
 				(expand-expr param-default)
-				(list 'let (list (list 'value (list 'car vararg-name)))
-					  (list 'set! vararg-name (list 'cdr vararg-name))
+				(list 'let (list (list 'value (list 'field0 vararg-name)))
+					  (list 'set! vararg-name (list 'field1 vararg-name))
 					  'value
 					  )
 				)
