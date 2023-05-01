@@ -1036,12 +1036,48 @@
                                             #f)
                                           '())))))
 
-                 ((eqv? first 'lambda)
-                  (let ((params (cadr expr)))
-                    (cons 'lambda
-                          (cons params
-                                (cons (expand-body (cddr expr))
-                                      '())))))
+				 ((eqv? first 'lambda)
+				  (let* ((params (cadr expr)) 
+						 (opt-params '())
+						 (required-params '())
+						 (variadic (or (symbol? params) (not (eq? (last-item params) '()))))
+						 (nb-params (if variadic (improper-length params) (length params))))
+					;; Gather all optional params from the parameter list
+					(let loop ((i 0) (params params))
+					  (if (< i nb-params)
+						(let ((param (car params)))
+						  (cond 
+							((and (symbol? param) (null? opt-params)) 
+							 (set! required-params (append required-params (cons param '())))
+							 (loop (+ 1 i) (cdr params)))
+
+							((pair? param)
+							 (set! opt-params (append opt-params (cons param '()))) 
+							 (loop (+ 1 i) (cdr params)))
+
+							(else (error "Cannot put non-optional arguments after optional ones.")))
+						  )
+						))
+					(if (null? opt-params)
+					  (cons 'lambda
+							(cons params
+								  (cons (expand-body (cddr expr))
+										'())))
+					  ;; Add the check for the optional params 
+					  (let ((vararg-name (if variadic (last-item params) '##vararg))
+							 (opt-params-body '()))
+						(if (pair? required-params)
+						  (set-cdr! (list-tail required-params (- (length required-params) 1)) vararg-name)
+						  (set! required-params vararg-name)
+						)
+						(for-each
+						  (lambda (opt-param)
+							(set! opt-params-body (append opt-params-body (expand-opt-param (car opt-param) (cadr opt-param) vararg-name))))
+						  opt-params)
+						(cons 'lambda
+							  (cons required-params
+									(cons (expand-body (list (list 'let* opt-params-body (expand-body (cddr expr)))))
+										  '())))))))
 
                  ((eqv? first 'let)
                   (let ((x (cadr expr)))
@@ -1307,6 +1343,24 @@
       (cons (expand-expr (car exprs))
             (expand-list (cdr exprs)))
       '()))
+
+(define (expand-opt-param param-name param-default vararg-name)
+  ; `((,param-name (if (null? ,vararg-name)
+  ;				  ,param-default
+  ;				  (let ((value (car ,vararg-name)))
+  ;					(set! ,vararg-name (cdr ,vararg-name))
+  ;					value))))
+
+  (list
+	(list param-name 
+		  (list 'if (list 'null? vararg-name)
+				(expand-expr param-default)
+				(list 'let (list (list 'value (list 'car vararg-name)))
+					  (list 'set! vararg-name (list 'cdr vararg-name))
+					  'value
+					  )
+				)
+		  )))
 
 ;;;----------------------------------------------------------------------------
 
@@ -2463,7 +2517,7 @@
      ;; merge the compacted RVM code with the implementation of the RVM
      ;; for a specific target and minify the resulting target code.
 
-
+	 ;(step)
      (let* ((vm-source 
               (if (equal? _target "rvm")
                 #f

@@ -477,6 +477,18 @@
         (proc (car lst))
         (for-each proc (cdr lst)))
       #f))
+(define (foo x y (z 65))
+  (putchar x)
+  (putchar y)
+  (putchar z))
+
+(foo 69 69 69) ; E E E
+(foo 69 69) ; E E A
+; (foo) ; error
+; (foo 69) ; error
+; (foo 69 69 69 69) ; error
+
+
 
 ;; First-class continuations.
 
@@ -897,6 +909,7 @@
 (define (list3 a b c) (cons a (list2 b c)))
 (define (list2 a b) (cons a (list1 b)))
 (define (list1 a) (cons a '()))
+(define (list . args) args)
 
 (define (comp-bind cte var expr body cont)
   (comp cte
