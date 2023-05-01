@@ -46,6 +46,8 @@
 (barbar 70 71) ; F G
 (putchar 10)
 
+(barbar 70 71 72)
+
 ; (foo) ; error
 ; (foo 69) ; error
 ; (foo 69 69 69 69) ; error
