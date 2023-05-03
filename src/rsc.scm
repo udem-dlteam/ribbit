@@ -2526,7 +2526,6 @@
      ;; merge the compacted RVM code with the implementation of the RVM
      ;; for a specific target and minify the resulting target code.
 
-	 ; (step)
      (let* ((vm-source 
               (if (equal? _target "rvm")
                 #f
