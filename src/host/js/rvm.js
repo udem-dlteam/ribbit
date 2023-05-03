@@ -14,73 +14,73 @@ debug = false;
 
 lengthAttr = "length";
 
-nodejs = ((function () { return this !== this.window; })()); //node
-if (nodejs) { // in nodejs? //node
+// @@(feature (not web)
+// Implement putchar/getchar to the terminal 
 
-  // Implement putchar/getchar to the terminal //node
+node_fs = require("fs"); 
 
-  node_fs = require("fs"); //node
+putchar = (c) => { 
+    let buffer = Buffer.alloc(1); 
+    buffer[0] = c; 
+    node_fs.writeSync(1, buffer, 0, 1); 
+    return c; 
+}; 
 
-  putchar = (c) => { //node
-    let buffer = Buffer.alloc(1); //node
-    buffer[0] = c; //node
-    node_fs.writeSync(1, buffer, 0, 1); //node
-    return c; //node
-  }; //node
+getchar_sync = () => { 
+    let buffer = Buffer.alloc(1); 
+    if (node_fs.readSync(0, buffer, 0, 1)) 
+        return buffer[0]; 
+    return -1; 
+}; 
 
-  getchar_sync = () => { //node
-    let buffer = Buffer.alloc(1); //node
-    if (node_fs.readSync(0, buffer, 0, 1)) //node
-      return buffer[0]; //node
-    return -1; //node
-  }; //node
+getchar = () => { 
+    push(pos<input[lengthAttr] ? get_byte() : getchar_sync()); 
+    return true; // indicate that no further waiting is necessary 
+}; 
 
-  getchar = () => { //node
-    push(pos<input[lengthAttr] ? get_byte() : getchar_sync()); //node
-    return true; // indicate that no further waiting is necessary //node
-  }; //node
+sym2str = (s) => chars2str(s[1][0]);  //debug
+chars2str = (s) => (s===NIL) ? "" : (String.fromCharCode(s[0])+chars2str(s[1]));  //debug
 
-  sym2str = (s) => chars2str(s[1][0]); //node //debug
-  chars2str = (s) => (s===NIL) ? "" : (String.fromCharCode(s[0])+chars2str(s[1])); //node //debug
-  show_opnd = (o) => is_rib(o) ? ("sym " + sym2str(o)) : ("int " + o); //node //debug
-  show_stack = () => { //node //debug
-    let s = stack; //node //debug
-    let r = []; //node //debug
-    while (!s[2]) { r[r[lengthAttr]]=s[0]; s=s[1]; } //node //debug
-    console.log(require("util").inspect(r, {showHidden: false, depth: 2}).replace(/\n/g, "").replace(/  /g, " ")); //node //debug
-  } //node //debug
+// @@(feature (or debug debug-trace)
+show_opnd = (o) => is_rib(o) ? ("sym " + sym2str(o)) : ("int " + o);  //debug
+show_stack = () => {  //debug
+    let s = stack;  //debug
+    let r = [];  //debug
+    while (!s[2]) { r[r[lengthAttr]]=s[0]; s=s[1]; }  //debug
+    console.log(require("util").inspect(r, {showHidden: false, depth: 2}).replace(/\n/g, "").replace(/  /g, " "));  //debug
+}  //debug
+// )@@
+// )@@
 
-} else { // in web browser //node
+// @@(feature web
+// Implement a simple console as a textarea in the web page
 
-  // Implement a simple console as a textarea in the web page
+domdoc = document;
+selstart = 0;
+addEventListenerAttr = "addEventListener";
+selectionStartAttr = "selectionStart";
 
-  domdoc = document;
-  selstart = 0;
-  addEventListenerAttr = "addEventListener";
-  selectionStartAttr = "selectionStart";
-
-  domdoc[addEventListenerAttr]("DOMContentLoaded", () => {
+domdoc[addEventListenerAttr]("DOMContentLoaded", () => {
     dombody = domdoc.body;
     txtarea = dombody.appendChild(domdoc.createElement("textarea"));
     txtarea.style = "width:100%;height:50vh;";
     dombody[addEventListenerAttr]("keypress", (e) => {
-      let x = txtarea[selectionStartAttr];
-      if (x<selstart) selstart=x;
-      if (e.keyCode==13) {
-        e.preventDefault();
-        input += txtarea.value.slice(selstart,x)+"\n";
-        putchar(10);
-        run(); // wake up VM
-      }
+        let x = txtarea[selectionStartAttr];
+        if (x<selstart) selstart=x;
+        if (e.keyCode==13) {
+            e.preventDefault();
+            input += txtarea.value.slice(selstart,x)+"\n";
+            putchar(10);
+            run(); // wake up VM
+        }
     });
     run();
-  });
+});
 
-  putchar = (c) => (selstart=txtarea[selectionStartAttr]=(txtarea.value += String.fromCharCode(c))[lengthAttr], c);
+putchar = (c) => (selstart=txtarea[selectionStartAttr]=(txtarea.value += String.fromCharCode(c))[lengthAttr], c);
 
-  getchar = () => pos<input[lengthAttr] && push(get_byte());
-} //node
-
+getchar = () => pos<input[lengthAttr] && push(get_byte());
+// )@@
 // VM
 
 // @@(feature (or error-msg debug) (use scm2str)
@@ -441,5 +441,7 @@ run = () => {
 };
 
 // @@(location start)@@
-if (nodejs) run(); //node
+// @@(feature (not web)
+run(); 
+// )@@
 // @@(location end)@@
