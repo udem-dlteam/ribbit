@@ -897,6 +897,7 @@
 (define (list3 a b c) (cons a (list2 b c)))
 (define (list2 a b) (cons a (list1 b)))
 (define (list1 a) (cons a '()))
+(define (list . args) args)
 
 (define (comp-bind cte var expr body cont)
   (comp cte
