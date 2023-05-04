@@ -17,7 +17,7 @@ lengthAttr = "length";
 // @@(feature (not web)
 // Implement putchar/getchar to the terminal 
 
-node_fs = require("fs"); 
+node_fs = require("fs");
 
 putchar = (c) => { 
     let buffer = Buffer.alloc(1); 
@@ -101,6 +101,8 @@ pop = () => { let x = stack[0]; stack = stack[1]; return x; };
 
 FALSE = [0,0,5]; TRUE = [0,0,5]; NIL = [0,0,5];
 
+EOF = [0,0,5]; // @@(feature io)@@
+
 symtbl = NIL;
 n = get_int(0);
 while (n-- > 0) symtbl=[[0,[NIL,0,3],2],symtbl,0]; // symbols with empty names
@@ -150,6 +152,7 @@ set_global([0,symtbl,1]); // primitive 0
 set_global(FALSE);
 set_global(TRUE);
 set_global(NIL);
+set_global(EOF); // @@(feature io)@@
 
 // RVM core
 
@@ -302,8 +305,17 @@ scm2host = (r) => {
 
 
 // @@(feature foreign
-foreign = (r) => [0, r, 6] // 6 is to tag a foreign object
+foreign = r => [0, r, 6] // 6 is to tag a foreign object
 // )@@
+
+// @@(feature io
+// [file_descriptor, [cursor, last_char, is_open], input_file_type]
+make_input_port = fd => [fd,[0,NIL,TRUE],8];
+
+// [file_descriptor, is_open, write_file_type]
+make_output_port = fd => [fd,TRUE,9];
+// )@@
+
 
 // @@(feature host_call (use scm2list)
 // f is a foreign object representing a function
