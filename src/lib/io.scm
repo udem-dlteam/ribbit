@@ -30,8 +30,7 @@
      (use io)
      "prim1(port => {
         let buf=Buffer.alloc(1); 
-        let ch = node_fs.readSync(port[0], buf, {position: port[1][0]++}) === 0 ? EOF : buf[0]; 
-        port[1][1] = ch; 
+        let ch = node_fs.readSync(port[0], buf, {position: port[0] === 0 ? null : port[1][0]++}) === 0 ? EOF : buf[0]; 
         return ch;
       }),"
    )
@@ -41,18 +40,6 @@
      (use io)
      "prim2((port, ch) => node_fs.writeSync(port[0], String.fromCodePoint(ch), null, 'utf8')),"
    )
-
-   (define-primitive
-     (current-input-port)
-     (use io)
-     "() => push(make_input_port(0)),"
-     )
-
-   (define-primitive
-     (current-output-port)
-     (use io)
-     "() => push(make_output_port(1)),"
-     )
 
    (define-primitive
      (close-input-port port)
@@ -79,30 +66,65 @@
      )
   ))
 
+(define default-input-port
+  (rib 0 (rib 0 '() #t) 8)) ;; stdin
+
+(define default-output-port
+  (rib 1 #t 9))  ;; stdout
+
+(define (current-input-port)
+  default-input-port)
+
+(define (current-output-port)
+  default-output-port)
 ;; ---------------------- INPUT ---------------------- ;;
+
+(define (call-with-input-file filename proc)
+  (let* ((port (open-input-file filename))
+         (result (proc port)))
+    (close-input-port port)
+    result))
 
 (define (input-port-close? port)
   (eqv? (field2 (field1 port)) #f))
 
-(define (read-char (port (current-input-port)))
+
+(define (read (port (current-input-port)))
   (if (input-port-close? port)
     (error "Cannot read from a closed port")
-    (##read-char port))
-  )
+    (error "TODO")))
 
-#| (define (peek-char (port (current-input-port)))
-  (if (eqv? (##get-last-char port) '())
-    (let ((ch (##read-char port)))
-      (field0-set! port (- (field0 port) 1))
-      ch
-      )
-    (##get-last-char port)
-    )) |#
-
-(define (peek-char (port (current-input-port)))
+(define (##get-last-char port)
   (field1 (field1 port)))
 
+(define (##set-last-char port ch)
+  (field1-set! (field1 port) ch))
+
+(define (read-char (port (current-input-port))) ;; ????????
+  (if (input-port-close? port)
+    (error "Cannot read from a closed port"))
+  (if (eqv? (##get-last-char port) '())
+    (##read-char port)
+    (let ((ch (##get-last-char port)))
+      (##set-last-char port '())
+      ch)))
+
+(define (peek-char (port (current-input-port)))
+  (if (input-port-close? port)
+    (error "Cannot read from a closed port"))
+  (if (eqv? (##get-last-char port) '())
+    (let ((ch (##read-char port)))
+      (##set-last-char port ch)
+      ch)
+    (##get-last-char port)))
+
 ;; ---------------------- OUTPUT ---------------------- ;;
+
+(define (call-with-output-file filename proc)
+  (let* ((port (open-output-file filename))
+         (result (proc port)))
+    (close-output-port port)
+    result))
 
 (define (write-char ch (port (current-output-port)))
   (##write-char ch port))

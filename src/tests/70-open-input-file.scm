@@ -3,10 +3,13 @@
 (display (input-port? data-file))
 (newline)
 
-(display (read-char data-file))
+(display (peek-char data-file))
 (newline)
 
 (display (peek-char data-file))
+(newline)
+
+(display (read-char data-file))
 (newline)
 
 (display (read-char data-file))
@@ -24,6 +27,7 @@
 ;;;options: -l io 
 ;;;expected:
 ;;;#t
+;;;66
 ;;;66
 ;;;66
 ;;;10
