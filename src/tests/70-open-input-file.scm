@@ -21,11 +21,11 @@
 (display (input-port-close? data-file))
 (newline)
 
-;;;options: -l min -l io 
+;;;options: -l io 
 ;;;expected:
 ;;;#t
 ;;;66
 ;;;66
-;;;#t
+;;;10
 ;;;#t
 ;;;#t

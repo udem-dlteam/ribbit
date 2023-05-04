@@ -38,20 +38,20 @@
 
    (define-primitive
      (##write-char ch port)
-     (use io scm2str)
-     "prim2((port, ch) => node_fs.writeSync(port[0], scm2str(ch), {encoding: 'utf8'})),"
+     (use io)
+     "prim2((port, ch) => node_fs.writeSync(port[0], String.fromCodePoint(ch), null, 'utf8')),"
    )
 
    (define-primitive
      (current-input-port)
      (use io)
-     "() => make_input_port(0),"
+     "() => push(make_input_port(0)),"
      )
 
    (define-primitive
      (current-output-port)
      (use io)
-     "() => make_output_port(1),"
+     "() => push(make_output_port(1)),"
      )
 
    (define-primitive
@@ -108,78 +108,84 @@
   (##write-char ch port))
 
 (define (newline (port (current-output-port)))
-  (write-char "\n" port))
+  (write-char 10 port))
 
-#| (define (write o)
-  (cond ((string? o)
-         (putchar 34)
-         (write-chars (string->list o))
-         (putchar 34))
+(define (write o (port (current-output-port)))
+  (cond ((eqv? (field2 o) 3) ;; string?
+         (write-char 34 port)
+         (write-chars (string->list o) port)
+         (write-char 34 port))
         (else
-         (display o))))
+         (display o port))))
 
-(define (display o)
-  (cond ((not o)
-         (putchar2 35 102)) ;; #f
+(define (display o (port (current-output-port)))
+  (cond ((eqv? o #f)
+         (write-char 35 port)
+         (write-char 102 port)) ;; #f
         ((eqv? o #t)
-         (putchar2 35 116)) ;; #t
-        ((null? o)
-         (putchar2 40 41)) ;; ()
-        ((pair? o)
-         (putchar 40)  ;; #\(
-         (write (car o))
-         (write-list (cdr o))
-         (putchar 41)) ;; #\)
-        ((symbol? o)
-         (display (symbol->string o)))
-        ((string? o)
-         (write-chars (string->list o)))
+         (write-char 35 port)
+         (write-char 116 port)) ;; #t
+        ((eof-object? o)
+         (display "#!eof" port))
+        ((eqv? o '())
+         (write-char 40 port)
+         (write-char 41 port)) ;; ()
+        ((eqv? (field2 o) 0) ;; pair?
+         (write-char 40 port)  ;; #\(
+         (write (field0 o) port) ;; car
+         (write-list (field1 o) port) ;; cdr
+         (write-char 41 port)) ;; #\)
+        ((eqv? (field2 o) 2) ;; symbol?
+         (display (field1 o) port)) ;; name
+        ((eqv? (field2 o) 3) ;; string?
+         (write-chars (field0 o) port)) ;; chars
 ;;        ((vector? o)
-;;         (putchar 35) ;; #\#
+;;         (write-char 35) ;; #\#
 ;;         (write (vector->list o)))
-        ((procedure? o)
-         (putchar2 35 112)) ;; #p
+        ((eqv? (field2 o) 1) ;; procedure?
+         (write-char 35 port)
+         (write-char 112 port)) ;; #p
         (else
          ;; must be a number
-         (display (number->string o)))))
+         (display (number->string o) port))))
 
-(define (write-list lst)
-  (if (pair? lst)
+(define (write-list lst port)
+  (if (eqv? (field0 lst) 0) ;; pair?
       (begin
-        (putchar 32) ;; #\space
-        (if (pair? lst)
+        (write-char 32 port) ;; #\space
+        (if (eqv? (field2 lst) 0) ;; pair?
             (begin
-              (write (car lst))
-              (write-list (cdr lst)))
+              (write (field0 lst) port) ;; car
+              (write-list (field1 lst) port))  ;; cdr
             #f)) ;; writing dotted pairs is not supported
       #f))
 
-(define (write-chars lst escape?)
- (if (pair? lst)
-     (let ((c (car lst)))
-       (putchar
-        (cond ((not escape?)
-               c)
-              ;#; ;; support for \n in strings
-              ((eqv? c 10) ;; #\newline
-               (putchar 92)
-               110)
-              ((or (eqv? c 34) ;; #\"
-                   (eqv? c 92)) ;; #\\
-               (putchar 92)
-               c)
-              (else
-               c)))
-       (write-chars (cdr lst) escape?))
-     #f))
-
-(define (write-chars lst)
-  (if (pair? lst)
-      (let ((c (car lst)))
-        (putchar c)
-        (write-chars (cdr lst)))
+(define (write-chars lst port)
+  (if (eqv? (field2 lst) 0) ;; pair?
+      (let ((c (field0 lst))) ;; car
+        (write-char c port)
+        (write-chars (field1 lst) port)) ;; cdr
       #f))
 
-(define (write-char c)
-  (putchar c)) |#
+;; ---------------------- UTIL ---------------------- ;;
 
+(define (number->string x)
+  (list->string
+   (if (< x 0)
+       (rib 45 (number->string-aux (- 0 x) '()) 0) ;; cons
+       (number->string-aux x '()))))
+
+(define (number->string-aux x tail)
+  (let ((q (quotient x 10)))
+    (let ((d (+ 48 (- x (* q 10)))))
+      (let ((t (rib d tail 0))) ;; cons
+        (if (< 0 q)
+            (number->string-aux q t)
+            t)))))
+
+(define (list->string lst) (rib lst (length lst) 3)) ;; string
+
+(define (length lst)
+  (if (eqv? lst '())
+    0
+    (+ 1 (length (field1 lst)))))
