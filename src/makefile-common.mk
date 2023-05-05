@@ -39,9 +39,17 @@ check:
 	RSC_COMPILER="${RSC_COMPILER}"; \
 	RSC_DEFAULT="${RSC_DEFAULT}"; \
 	for prog in `ls ../../tests/*.scm tests/*.scm`; do \
+	  setup=`sed -n -e '/;;;setup:/p' $$prog | sed -e 's/^;;;setup://'`; \
+	  cleanup=`sed -n -e '/;;;cleanup:/p' $$prog | sed -e 's/^;;;cleanup://'`; \
 	  options=`sed -n -e '/;;;options:/p' $$prog | sed -e 's/^;;;options://'`; \
 	  fancy_compiler=`sed -n -e '/;;;fancy-compiler/p' $$prog`; \
 	  echo "---------------------- $$prog [options:$$options]"; \
+	  if [ "$$setup" != "" ]; then \
+        sh -c "$$setup"; \
+	    if [ $$? != 0 ]; then \
+			echo "Error in the setup"; \
+		fi; \
+	  fi; \
 	  if [ "$$RSC_DEFAULT" = "$$RSC_COMPILER" ] && [ "$$fancy_compiler" = ";;;fancy-compiler" ]; then \
 	    echo ">>> Skipped because it doesn't use the fancy compiler"; \
 	  else \
@@ -55,6 +63,12 @@ check:
 	    fi; \
 	    sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - test.$$host.out; \
 	    rm -f test.$$host*; \
+	  fi; \
+	  if [ "$$cleanup" != "" ]; then \
+        sh -c "$$cleanup"; \
+	    if [ $$? != 0 ]; then \
+		  echo "Error in the cleanup"; \
+		fi; \
 	  fi; \
 	done
 
