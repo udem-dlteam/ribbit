@@ -90,7 +90,7 @@
 (define (##set-last-char port ch)
   (field1-set! (field1 port) ch))
 
-(define (read-char (port (current-input-port))) ;; ????????
+(define (read-char (port (current-input-port))) 
   (if (input-port-close? port)
     (error "Cannot read from a closed port"))
   (if (eqv? (##get-last-char port) '())
