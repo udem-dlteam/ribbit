@@ -14,6 +14,7 @@
 
 RSC_DEFAULT = ../../rsc
 RSC_COMPILER ?= ${RSC_DEFAULT}
+RSC_TEST_FEATURES ?= ","
 
 all:
 
@@ -38,6 +39,7 @@ check:
 	COMPILER="$(HOST_COMPILER)"; \
 	RSC_COMPILER="${RSC_COMPILER}"; \
 	RSC_DEFAULT="${RSC_DEFAULT}"; \
+	RSC_TEST_FEATURES="${RSC_TEST_FEATURES}"; \
 	for prog in `ls ../../tests/*.scm tests/*.scm`; do \
 	  setup=`sed -n -e '/;;;setup:/p' $$prog | sed -e 's/^;;;setup://'`; \
 	  cleanup=`sed -n -e '/;;;cleanup:/p' $$prog | sed -e 's/^;;;cleanup://'`; \
@@ -53,16 +55,19 @@ check:
 	  if [ "$$RSC_DEFAULT" = "$$RSC_COMPILER" ] && [ "$$fancy_compiler" = ";;;fancy-compiler" ]; then \
 	    echo ">>> Skipped because it doesn't use the fancy compiler"; \
 	  else \
-	    rm -f test.$$host*; \
-	    $$RSC_COMPILER -t $$host $$options -o test.$$host $$prog; \
-	    if [ "$$INTERPRETER" != "" ]; then \
-	      sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | $$INTERPRETER test.$$host > test.$$host.out; \
-	    else \
-	      $$COMPILER test.$$host.exe test.$$host; \
-	      sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | ./test.$$host.exe > test.$$host.out; \
-	    fi; \
-	    sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - test.$$host.out; \
-	    rm -f test.$$host*; \
+	    for test_feature in `echo $$RSC_TEST_FEATURES | sed -e 's/ /,/g' | sed -e 's/,*\;,*/\n/g'`; do \
+		  echo "    >>> [test features: `echo $$test_feature | sed -e 's/,/ /g'`]"; \
+	      rm -f test.$$host*; \
+	      $$RSC_COMPILER -t $$host $$options `echo $$test_feature | sed -e 's/,/ /g'` -o test.$$host $$prog; \
+	      if [ "$$INTERPRETER" != "" ]; then \
+	        sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | $$INTERPRETER test.$$host > test.$$host.out; \
+	      else \
+	        $$COMPILER test.$$host.exe test.$$host; \
+	        sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | ./test.$$host.exe > test.$$host.out; \
+	      fi; \
+	      sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - test.$$host.out; \
+	      rm -f test.$$host*; \
+		done; \
 	  fi; \
 	  if [ "$$cleanup" != "" ]; then \
         sh -c "$$cleanup"; \
