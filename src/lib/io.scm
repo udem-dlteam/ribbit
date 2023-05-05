@@ -172,6 +172,9 @@
 (define (output-port? port)
   (eqv? (field2 port) output-port-type))
 
+(define (output-port-close? port)
+  (eqv? (field1 port) #f))
+
 (define (call-with-output-file filename proc)
   (let* ((port (open-output-file filename))
          (result (proc port)))
@@ -187,7 +190,7 @@
 (define (write o (port (current-output-port)))
   (cond ((eqv? (field2 o) 3) ;; string?
          (write-char 34 port)
-         (write-chars (string->list o) port)
+         (write-chars (field0 o) port)
          (write-char 34 port))
         (else
          (display o port))))
