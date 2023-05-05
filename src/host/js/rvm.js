@@ -101,8 +101,6 @@ pop = () => { let x = stack[0]; stack = stack[1]; return x; };
 
 FALSE = [0,0,5]; TRUE = [0,0,5]; NIL = [0,0,5];
 
-EOF = [0,0,5]; // @@(feature io)@@
-
 symtbl = NIL;
 n = get_int(0);
 while (n-- > 0) symtbl=[[0,[NIL,0,3],2],symtbl,0]; // symbols with empty names
@@ -152,7 +150,6 @@ set_global([0,symtbl,1]); // primitive 0
 set_global(FALSE);
 set_global(TRUE);
 set_global(NIL);
-set_global(EOF); // @@(feature io)@@
 
 // RVM core
 

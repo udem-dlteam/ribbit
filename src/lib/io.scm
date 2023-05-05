@@ -14,23 +14,11 @@
      )
 
    (define-primitive
-     (input-port? port)
-     (use io bool2scm)
-     "prim1(port => bool2scm(port[2] === 8)),"
-     )
-
-   (define-primitive
-     (output-port? port)
-     (use io bool2scm)
-     "prim1(port => bool2scm(port[2] === 9)),"
-     )
-
-   (define-primitive
      (##read-char port)
      (use io)
      "prim1(port => {
         let buf=Buffer.alloc(1); 
-        let ch = node_fs.readSync(port[0], buf, {position: port[0] === 0 ? null : port[1][0]++}) === 0 ? EOF : buf[0]; 
+        let ch = node_fs.readSync(port[0], buf, {position: port[0] === 0 ? null : port[1][0]++}) === 0 ? NIL : buf[0]; 
         return ch;
       }),"
    )
@@ -57,14 +45,12 @@
         node_fs.closeSync(port[0]);
         port[1] = FALSE;
      }}),"
-     )
+     )))
 
-   (define-primitive
-     (eof-object? obj)
-     (use io bool2scm)
-     "prim1(obj => bool2scm(obj === EOF)),"
-     )
-  ))
+(define ##eof (rib 0 0 5))
+
+(define (eof-object? obj)
+  (eqv? obj ##eof))
 
 (define default-input-port
   (rib 0 (rib 0 '() #t) 8)) ;; stdin
@@ -77,7 +63,11 @@
 
 (define (current-output-port)
   default-output-port)
+
 ;; ---------------------- INPUT ---------------------- ;;
+
+(define (input-port? port)
+  (eqv? (field2 port) 8))
 
 (define (call-with-input-file filename proc)
   (let* ((port (open-input-file filename))
@@ -104,7 +94,10 @@
   (if (input-port-close? port)
     (error "Cannot read from a closed port"))
   (if (eqv? (##get-last-char port) '())
-    (##read-char port)
+    (let ((ch (##read-char port)))
+      (if (eqv? ch '())
+        ##eof 
+        ch))
     (let ((ch (##get-last-char port)))
       (##set-last-char port '())
       ch)))
@@ -113,12 +106,15 @@
   (if (input-port-close? port)
     (error "Cannot read from a closed port"))
   (if (eqv? (##get-last-char port) '())
-    (let ((ch (##read-char port)))
+    (let* ((ch (##read-char port)) (ch (if (eqv? ch '()) ##eof ch)))
       (##set-last-char port ch)
       ch)
     (##get-last-char port)))
 
 ;; ---------------------- OUTPUT ---------------------- ;;
+
+(define (output-port? port)
+  (eqv? (field2 port) 9))
 
 (define (call-with-output-file filename proc)
   (let* ((port (open-output-file filename))
