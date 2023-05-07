@@ -1464,10 +1464,10 @@
                                (+ const-proc-short
                                   (+ get-int-short
                                      (+ jump-sym-short
-                                        17))))))
+                                        17)))))) ;; its 3 * 5 + if + const-proc-long
 
-(define jump-start       0)
-(define jump-int-start   (+ jump-start jump-sym-short))
+(define jump-start       0)                             ;;0
+(define jump-int-start   (+ jump-start jump-sym-short)) ;;20
 (define jump-sym-start   (+ jump-int-start 1))
 (define call-start       (+ jump-sym-start 2))
 (define call-int-start   (+ call-start call-sym-short))
@@ -1483,6 +1483,102 @@
 (define const-sym-start  (+ const-int-start 1))
 (define const-proc-start (+ const-sym-start 2))
 (define if-start         (+ const-proc-start (+ const-proc-short 1)))
+
+
+
+
+(pp (cons 'jump-start       jump-start      ))
+(pp (cons 'jump-int-start   jump-int-start  ))
+(pp (cons 'jump-sym-start   jump-sym-start  ))
+(pp (cons 'call-start       call-start      ))
+(pp (cons 'call-int-start   call-int-start  ))
+(pp (cons 'call-sym-start   call-sym-start  ))
+(pp (cons 'set-start        set-start       ))
+(pp (cons 'set-int-start    set-int-start   ))
+(pp (cons 'set-sym-start    set-sym-start   ))
+(pp (cons 'get-start        get-start       ))
+(pp (cons 'get-int-start    get-int-start   ))
+(pp (cons 'get-sym-start    get-sym-start   ))
+(pp (cons 'const-start      const-start     ))
+(pp (cons 'const-int-start  const-int-start ))
+(pp (cons 'const-sym-start  const-sym-start ))
+(pp (cons 'const-proc-start const-proc-start))
+(pp (cons 'if-start         if-start        ))
+
+
+(define old-encoding-92
+  (list 
+    ;; jump
+    (list 'jump-int-short 20)
+    (list 'jump-int-long 1)
+    (list 'jump-sym-long 2)
+
+    (list 'jump-sym-short 0)
+    
+    ;; call
+    (list 'call-sym-short 30)
+    (list 'call-int-long 1)
+    (list 'call-sym-long 2)
+
+    (list 'call-int-short 0)
+
+    ;; set
+    (list 'set-int-long 1)
+    (list 'set-sym-long 2)
+
+    (list 'set-sym-short 0)
+    (list 'set-int-short 0)
+
+    ;; get
+    (list 'get-int-short 10)
+    (list 'get-int-long 1)
+    (list 'get-sym-long 2)
+
+    (list 'get-sym-short 0)
+
+    ;; const
+    (list 'const-int-short 11)
+    (list 'const-int-long 2)
+    (list 'const-sym-long 1)
+    (list 'const-proc-short 4)
+    (list 'const-proc-long 1)
+
+    (list 'const-sym-short 0)
+
+    (list 'if 1)))
+
+(define (calculate-start encoding-table)
+  (define counter 0)
+  (map
+    (lambda (lst) 
+      (let* ((sym (car lst))
+            (size (cadr lst))
+            (return-val (list sym size counter)))
+        (set! counter (+ counter size))
+        return-val))
+    encoding-table))
+
+(pp (calculate-start old-encoding-92))
+
+
+
+
+;; New encoding, for each instruction. Each instruction is taken separately 'int' et 'sym' and 'const' : 
+;;    - Number of short encodings
+;;    - Number of long encodings
+;; New instruction 'skip'.
+;;
+;; + lonely instruction (if)
+
+;; Old encoding : 
+;;    - Assumes 3 long encoding for each pair of intruction. Each pair of instruction has a priority
+;;         either 'int' or 'sym'. Depending on the priority, the short encoding will be for the 'int'
+;;         or 'sym' variant. The 'const' and 'if' is special.
+;;    - 'if' has only one code. It pops the two values on top of the stack and creates the if. Its a merge.
+;;    - 'const' also has the 'proc' variante. This variante allows to push a rib directly.
+
+
+
 
 (define (encode proc exports primitives live-features)
 
@@ -1734,10 +1830,120 @@
                                nparams
                                stream))))))
 
+  (define (enc-inst arg short long encoding-table stream)
+    (let ((short-size  (cadr (assoc short encoding-table)))
+          (long-size   (cadr (assoc long encoding-table)))
+          (short-start (caddr (assoc short encoding-table)))
+          (long-start  (caddr (assoc long encoding-table))))
+
+      (if (< arg short-size)
+        (cons (+ short-start arg)
+              stream)
+        (if (eqv? long-size 2)
+          (encode-long2 long-start arg stream)
+          (encode-long long-start arg stream)))))
+
 
   (define (enc code stream)
     (if (rib? code)
+        (let* ((op (oper code))
+              (arg (opnd code))
+              )
+          (cond ((eqv? op jump/call-op)
+                 (if (eqv? 0 (next code)) ;; jump?
+                     (cond ((number? arg)
+                            (enc-inst arg 'jump-int-short 'jump-int-long old-encoding-92 stream))
+                           ((symbol? o)
+                            (enc-inst (encode-sym arg) 'jump-sym-short 'jump-sym-long old-encoding-92 stream))
+                           (else
+                             (error "can't encode jump" o)))
+
+                     (enc (next code)
+                          (cond ((number? arg)
+                                 (enc-inst arg 'call-int-short 'call-int-long old-encoding-92 stream))
+                                ((symbol? o)
+                                 (enc-inst (encode-sym arg) 'call-sym-short 'call-sym-long old-encoding-92 stream))
+                                (else
+                                  (error "can't encode call" o)))))
+
+                ((eqv? op set-op)
+                 (enc (next code)
+                      (let ((o (opnd code)))
+                        (cond ((number? o)
+                               (encode-long1 set-int-start
+                                             o
+                                             stream))
+                              ((symbol? o)
+                               (encode-long2 set-sym-start
+                                             (encode-sym o)
+                                             stream))
+                              (else
+                               (error "can't encode set" o))))))
+
+                ((eqv? op get-op)
+                 (enc (next code)
+                      (let ((o (opnd code)))
+                        (cond ((number? o)
+                               (if (< o get-int-short)
+                                   (cons (+ get-start o)
+                                         stream)
+                                   (encode-long1 get-int-start
+                                                 o
+                                                 stream)))
+                              ((symbol? o)
+                               (encode-long2 get-sym-start
+                                             (encode-sym o)
+                                             stream))
+                              (else
+                               (error "can't encode get" o))))))
+
+                ((eqv? op const-op)
+                 (enc (next code)
+                      (let ((o (opnd code)))
+                        (cond ((number? o)
+                               (if (< o const-int-short)
+                                   (cons (+ const-start o)
+                                         stream)
+                                   (encode-long1 const-int-start
+                                                 o
+                                                 stream)))
+                              ((symbol? o)
+                               (encode-long2 const-sym-start
+                                             (encode-sym o)
+                                             stream))
+                              ((procedure2? o)
+                               (enc-proc o stream))
+                              (else
+                               (error "can't encode const" o))))))
+
+                ((eqv? op if-op)
+                 (let ((enc-next (enc (next code) '()))
+                       (enc-opnd (enc (opnd code) '())))
+                   (pp 'here)
+                   ;(pp (next code))
+                   (pp enc-next)
+
+                   ;(pp (opnd code))
+                   (pp enc-opnd)
+
+                   (append enc-next
+                           (append enc-opnd
+                                   (cons if-start
+                                         stream)))))
+                 ;(enc (next code)
+                 ;     (enc (opnd code)
+                 ;          (cons if-start
+                 ;                stream)))
+
+                (else
+                 (error "unknown op" op))))
+        (error "rib expected" '())))
+
+
+  (define (enc2 code stream)
+    (if (rib? code)
         (let ((op (oper code)))
+
           (cond ((eqv? op jump/call-op)
                  (if (eqv? 0 (next code)) ;; jump?
 
@@ -1825,10 +2031,23 @@
                                (error "can't encode const" o))))))
 
                 ((eqv? op if-op)
-                 (enc (next code)
-                      (enc (opnd code)
-                           (cons if-start
-                                 stream))))
+                 (let ((enc-next (enc (next code) '()))
+                       (enc-opnd (enc (opnd code) '())))
+                   (pp 'here)
+                   ;(pp (next code))
+                   (pp enc-next)
+
+                   ;(pp (opnd code))
+                   (pp enc-opnd)
+
+                   (append enc-next
+                           (append enc-opnd
+                                   (cons if-start
+                                         stream)))))
+                 ;(enc (next code)
+                 ;     (enc (opnd code)
+                 ;          (cons if-start
+                 ;                stream)))
 
                 (else
                  (error "unknown op" op))))
