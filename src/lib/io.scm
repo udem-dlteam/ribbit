@@ -7,13 +7,13 @@
    (define-primitive 
      (open-input-file filename)
      (use io scm2str)
-     "prim1(filename => make_input_port(node_fs.openSync(scm2str(filename), 'r'))),"
+     "prim1(filename => make_input_port(fs.openSync(scm2str(filename), 'r'))),"
      )
 
    (define-primitive
      (open-output-file filename)
      (use io scm2str)
-     "prim1(filename => make_output_port(node_fs.openSync(scm2str(filename), 'w'))),"
+     "prim1(filename => make_output_port(fs.openSync(scm2str(filename), 'w'))),"
      )
 
    (define-primitive
@@ -21,7 +21,7 @@
      (use io)
      "prim1(port => {
         let buf=Buffer.alloc(1); 
-        let ch = node_fs.readSync(port[0], buf) === 0 ? NIL : buf[0]; 
+        let ch=fs.readSync(port[0], buf) === 0 ? NIL : buf[0]; 
         return ch;
       }),"
    )
@@ -29,14 +29,14 @@
    (define-primitive
      (##write-char ch port)
      (use io)
-     "prim2((port, ch) => node_fs.writeSync(port[0], String.fromCodePoint(ch), null, 'utf8')),"
+     "prim2((port, ch) => fs.writeSync(port[0], String.fromCodePoint(ch), null, 'utf8')),"
    )
 
    (define-primitive
      (close-input-port port)
      (use io)
      "prim1(port => { if (port[1][2] === TRUE) {
-        node_fs.closeSync(port[0]);
+        fs.closeSync(port[0]);
         port[1][2] = FALSE;
      }}),"
      )
@@ -45,7 +45,7 @@
      (close-output-port port)
      (use io)
      "prim1(port => { if (port[1] === TRUE) {
-        node_fs.closeSync(port[0]);
+        fs.closeSync(port[0]);
         port[1] = FALSE;
      }}),"
      ))
@@ -63,31 +63,31 @@
   (define-primitive
     (open-output-file filename)
     (use io scm2str)
-    "prim1(filename => make_output_port(node_fs.openSync(scm2str(filename), 'w'))),"
+    "prim1(filename => make_output_port(fs.openSync(scm2str(filename), 'w'))),"
     )
 
   (define-primitive
     (##read-char port)
     (use io)
     "prim1(port => {
-    let buf=Buffer.alloc(1); 
-    let ch = node_fs.readSync(port[0], buf) === 0 ? NIL : buf[0]; 
-    return ch;
+        let buf=Buffer.alloc(1); 
+        let ch = fs.readSync(port[0], buf) === 0 ? NIL : buf[0]; 
+        return ch;
     }),"
   )
 
   (define-primitive
     (##write-char ch port)
     (use io)
-    "prim2((port, ch) => node_fs.writeSync(port[0], String.fromCodePoint(ch), null, 'utf8')),"
+    "prim2((port, ch) => fs.writeSync(port[0], String.fromCodePoint(ch), null, 'utf8')),"
     )
 
   (define-primitive
     (close-input-port port)
     (use io)
     "prim1(port => { if (port[1][2] === TRUE) {
-    node_fs.closeSync(port[0]);
-    port[1][2] = FALSE;
+        fs.closeSync(port[0]);
+        port[1][2] = FALSE;
     }}),"
   )
 
@@ -95,8 +95,8 @@
      (close-output-port port)
      (use io)
      "prim1(port => { if (port[1] === TRUE) {
-     node_fs.closeSync(port[0]);
-     port[1] = FALSE;
+        fs.closeSync(port[0]);
+        port[1] = FALSE;
      }}),"
    )
    ))

@@ -14,21 +14,21 @@ debug = false;
 
 lengthAttr = "length";
 
-// @@(feature (not web)
+// @@(feature (and nodejs (not web))
 // Implement putchar/getchar to the terminal 
 
-node_fs = require("fs");
+fs = require("fs"); // @@(feature (or io (or getchar putchar)))@@
 
 putchar = (c) => { 
     let buffer = Buffer.alloc(1); 
     buffer[0] = c; 
-    node_fs.writeSync(1, buffer, 0, 1); 
+    fs.writeSync(1, buffer, 0, 1); 
     return c; 
 }; 
 
 getchar_sync = () => { 
     let buffer = Buffer.alloc(1); 
-    if (node_fs.readSync(0, buffer, 0, 1)) 
+    if (fs.readSync(0, buffer, 0, 1)) 
         return buffer[0]; 
     return -1; 
 }; 
@@ -52,7 +52,7 @@ show_stack = () => {  //debug
 // )@@
 // )@@
 
-// @@(feature web
+// @@(feature (and web (not nodejs))
 // Implement a simple console as a textarea in the web page
 
 domdoc = document;
