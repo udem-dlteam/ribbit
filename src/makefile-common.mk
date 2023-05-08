@@ -41,7 +41,7 @@ check:
 	RSC_COMPILER="${RSC_COMPILER}"; \
 	RSC_DEFAULT="${RSC_DEFAULT}"; \
 	RSC_TEST_FEATURES='${RSC_TEST_FEATURES}'; \
-	TEST_FILTER=`echo '${TEST_FILTER}' | sed -e 's/,/\|/g'`; \
+	TEST_FILTER='${TEST_FILTER}'; \
 	for prog in `ls ../../tests/*.scm tests/*.scm | grep -E "$$TEST_FILTER"`; do \
 	  setup=`sed -n -e '/;;;setup:/p' $$prog | sed -e 's/^;;;setup://'`; \
 	  cleanup=`sed -n -e '/;;;cleanup:/p' $$prog | sed -e 's/^;;;cleanup://'`; \
