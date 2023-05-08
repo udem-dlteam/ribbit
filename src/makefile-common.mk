@@ -14,7 +14,8 @@
 
 RSC_DEFAULT = ../../rsc
 RSC_COMPILER ?= ${RSC_DEFAULT}
-RSC_TEST_FEATURES ?= -f+ rest-param ; -f- rest-param
+RSC_TEST_FEATURES ?= ,
+TEST_FILTER ?= *
 
 all:
 
@@ -40,7 +41,8 @@ check:
 	RSC_COMPILER="${RSC_COMPILER}"; \
 	RSC_DEFAULT="${RSC_DEFAULT}"; \
 	RSC_TEST_FEATURES='${RSC_TEST_FEATURES}'; \
-	for prog in `ls ../../tests/*.scm tests/*.scm`; do \
+	TEST_FILTER=`echo '${TEST_FILTER}' | sed -e 's/,/\|/g'`; \
+	for prog in `ls ../../tests/*.scm tests/*.scm | grep -E "$$TEST_FILTER"`; do \
 	  setup=`sed -n -e '/;;;setup:/p' $$prog | sed -e 's/^;;;setup://'`; \
 	  cleanup=`sed -n -e '/;;;cleanup:/p' $$prog | sed -e 's/^;;;cleanup://'`; \
 	  options=`sed -n -e '/;;;options:/p' $$prog | sed -e 's/^;;;options://'`; \
