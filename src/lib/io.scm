@@ -1,105 +1,141 @@
-(define input-port-type 8)
-(define output-port-type 9)
-
 (cond-expand
   ((host js)
 
    (define-primitive 
-     (open-input-file filename)
-     (use io scm2str)
-     "prim1(filename => make_input_port(fs.openSync(scm2str(filename), 'r'))),"
+     (##get-fd-input-file filename)
+     (use node-fs scm2str)
+     "prim1(filename => fs.openSync(scm2str(filename), 'r')),"
      )
 
    (define-primitive
-     (open-output-file filename)
-     (use io scm2str)
-     "prim1(filename => make_output_port(fs.openSync(scm2str(filename), 'w'))),"
+     (##get-fd-output-file filename)
+     (use node-fs scm2str)
+     "prim1(filename => fs.openSync(scm2str(filename), 'w')),"
      )
 
    (define-primitive
      (##read-char port)
-     (use io)
+     (use node-fs)
      "prim1(port => {
-        let buf=Buffer.alloc(1); 
-        let ch=fs.readSync(port[0], buf) === 0 ? NIL : buf[0]; 
-        return ch;
-      }),"
+     let buf=Buffer.alloc(1); 
+     let ch=fs.readSync(port[0], buf) === 0 ? NIL : buf[0]; 
+     return ch;
+     }),"
    )
-
-   (define-primitive
-     (##write-char ch port)
-     (use io)
-     "prim2((port, ch) => fs.writeSync(port[0], String.fromCodePoint(ch), null, 'utf8')),"
-   )
-
-   (define-primitive
-     (close-input-port port)
-     (use io)
-     "prim1(port => { if (port[1][2] === TRUE) {
-        fs.closeSync(port[0]);
-        port[1][2] = FALSE;
-     }}),"
-     )
-
-   (define-primitive
-     (close-output-port port)
-     (use io)
-     "prim1(port => { if (port[1] === TRUE) {
-        fs.closeSync(port[0]);
-        port[1] = FALSE;
-     }}),"
-     ))
-
-  ((host c)
-
-  (define-primitive 
-    (open-input-file filename)
-    (use io scm2str)
-    "{
-        break;
-    }"
-    )
-
-  (define-primitive
-    (open-output-file filename)
-    (use io scm2str)
-    "prim1(filename => make_output_port(fs.openSync(scm2str(filename), 'w'))),"
-    )
-
-  (define-primitive
-    (##read-char port)
-    (use io)
-    "prim1(port => {
-        let buf=Buffer.alloc(1); 
-        let ch = fs.readSync(port[0], buf) === 0 ? NIL : buf[0]; 
-        return ch;
-    }),"
-  )
 
   (define-primitive
     (##write-char ch port)
-    (use io)
+    (use node-fs)
     "prim2((port, ch) => fs.writeSync(port[0], String.fromCodePoint(ch), null, 'utf8')),"
     )
 
   (define-primitive
     (close-input-port port)
-    (use io)
+    (use node-fs)
     "prim1(port => { if (port[1][2] === TRUE) {
-        fs.closeSync(port[0]);
-        port[1][2] = FALSE;
+    fs.closeSync(port[0]);
+    port[1][2] = FALSE;
     }}),"
   )
 
    (define-primitive
      (close-output-port port)
-     (use io)
+     (use node-fs)
      "prim1(port => { if (port[1] === TRUE) {
-        fs.closeSync(port[0]);
-        port[1] = FALSE;
+     fs.closeSync(port[0]);
+     port[1] = FALSE;
      }}),"
-   )
    ))
+
+  ((host c)
+
+   (define-primitive 
+     (##get-fd-input-file filename)
+     (use stdio scm2str)
+     "{
+     PRIM1();
+     char* filename = scm2str(x);
+     FILE* file = fopen(filename, \"r\");
+     if (file == NULL) perror(\"Couldn't open the file\");
+     free((void*) filename);
+     push2(TAG_NUM(file), PAIR_TAG);
+     break;
+     }"
+     )
+
+   (define-primitive
+     (##get-fd-output-file filename)
+     (use stdio scm2str)
+     "{
+     PRIM1();
+     const char* filename = scm2str(x);
+     FILE* file = fopen(filename, \"w\");
+     free(filename);
+     // Manually tagging the file pointer as a number to avoid a bit shift on the pointer
+     push2(TAG_NUM(file), PAIR_TAG);
+     break;
+     }"
+     )
+
+   (define-primitive
+     (##read-char port)
+     (use stdio)
+     "{
+     PRIM1();
+     FILE* file = (FILE*) NUM(x);
+     if (feof(file)) {
+        push2(NIL, PAIR_TAG);
+     } else {
+        char buffer[1];
+        fgets(buffer, 1, file);
+        push2(TAG_NUM(buffer[0]), PAIR_TAG);
+     }
+     break;
+     }"
+     )
+
+   (define-primitive
+     (##write-char ch port)
+     (use stdio)
+     "{
+     break;
+     }"
+     )
+
+   (define-primitive
+     (close-input-port port)
+     (use stdio)
+     "{
+     PRIM1();
+     if (TAG(CDR(x)) == TRUE) {
+        FILE* file = (FILE*) (CAR(x) ^ 1);
+        fclose(file);
+        TAG(CDR(x)) = FALSE;
+     }
+     break;
+     }"
+     )
+
+   (define-primitive
+     (close-output-port port)
+     (use stdio)
+     "{
+     PRIM1();
+     if (CDR(x) == TRUE) {
+        FILE* file = (FILE*) (CAR(x) ^ 1);
+        fclose(file);
+        CDR(x) = FALSE;
+     }
+     break;
+     }"
+     )
+   ))
+
+
+;; ---------------------- EOF & TYPES ---------------------- ;;
+
+(define input-port-type 8)
+(define output-port-type 9)
 
 (define ##eof (rib 0 0 5))
 
@@ -112,17 +148,18 @@
 (define stdout-port
   (rib 1 #t output-port-type))  ;; stdout
 
-(define (current-input-port)
-  stdin-port)
-
-(define (current-output-port)
-  stdout-port)
-
 
 ;; ---------------------- INPUT ---------------------- ;;
 
+(define (open-input-file filename)
+  ;; (file_descriptor, (cursor, last_char, is_open), input_file_type)
+  (rib (##get-fd-input-file filename) (rib 0 '() #t) input-port-type))
+
 (define (input-port? port)
   (eqv? (field2 port) input-port-type))
+
+(define (current-input-port)
+  stdin-port)
 
 (define (call-with-input-file filename proc)
   (let* ((port (open-input-file filename))
@@ -132,7 +169,6 @@
 
 (define (input-port-close? port)
   (eqv? (field2 (field1 port)) #f))
-
 
 (define (read (port (current-input-port)))
   (if (input-port-close? port)
@@ -169,8 +205,15 @@
 
 ;; ---------------------- OUTPUT ---------------------- ;;
 
+(define (open-output-file filename)
+  ;; (file_descriptor, is_open, write_file_type)
+  (rib (##get-fd-output-file filename) #t output-port-type))
+
 (define (output-port? port)
   (eqv? (field2 port) output-port-type))
+
+(define (current-output-port)
+  stdout-port)
 
 (define (output-port-close? port)
   (eqv? (field1 port) #f))
