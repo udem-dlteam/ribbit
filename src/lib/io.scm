@@ -1,6 +1,16 @@
 (cond-expand
   ((host js)
 
+    (define-primitive
+      (##stdin)
+      (use node-fs)
+      "() => push(0),")
+
+    (define-primitive
+      (##stdout)
+      (use node-fs)
+      "() => push(1),")
+
    (define-primitive 
      (##get-fd-input-file filename)
      (use node-fs scm2str)
@@ -49,6 +59,24 @@
 
   ((host c)
 
+   (define-primitive
+     (##stdin)
+     (use stdio)
+     "{
+     FILE* file = fdopen(0, \"r\");
+     push2((long) file | 1, PAIR_TAG);
+     break;
+     }")
+
+   (define-primitive
+     (##stdout)
+     (use stdio)
+     "{
+     FILE* file = fdopen(1, \"w\");
+     push2((long) file | 1, PAIR_TAG);
+     break;
+     }")
+
    (define-primitive 
      (##get-fd-input-file filename)
      (use stdio scm2str)
@@ -56,9 +84,9 @@
      PRIM1();
      char* filename = scm2str(x);
      FILE* file = fopen(filename, \"r\");
-     if (file == NULL) perror(\"Couldn't open the file\");
+     if (file == NULL) perror(\"Couldn't open the file\\n\");
+     push2((long) file | 1, PAIR_TAG);
      free((void*) filename);
-     push2(TAG_NUM(file), PAIR_TAG);
      break;
      }"
      )
@@ -68,11 +96,10 @@
      (use stdio scm2str)
      "{
      PRIM1();
-     const char* filename = scm2str(x);
+     char* filename = scm2str(x);
      FILE* file = fopen(filename, \"w\");
-     free(filename);
-     // Manually tagging the file pointer as a number to avoid a bit shift on the pointer
-     push2(TAG_NUM(file), PAIR_TAG);
+     push2((long) file | 1, PAIR_TAG);
+     free((void *) filename);
      break;
      }"
      )
@@ -82,12 +109,12 @@
      (use stdio)
      "{
      PRIM1();
-     FILE* file = (FILE*) NUM(x);
-     if (feof(file)) {
+     FILE* file = (FILE*) ((long) CAR(x) ^ 1);
+     if (feof(file) != 0) {
         push2(NIL, PAIR_TAG);
      } else {
         char buffer[1];
-        fgets(buffer, 1, file);
+        fread(buffer, 1, 1, file);
         push2(TAG_NUM(buffer[0]), PAIR_TAG);
      }
      break;
@@ -98,6 +125,15 @@
      (##write-char ch port)
      (use stdio)
      "{
+     PRIM2();
+     FILE* file = (FILE*) ((long) CAR(y) ^ 1);
+     char buffer[1] = {(char) NUM(x)};
+     int success = fwrite(buffer, 1, 1, file);
+     if (success != 1) {
+        perror(\"WHAT\");
+     }
+     fflush(file);
+     push2(TRUE, PAIR_TAG);
      break;
      }"
      )
@@ -108,10 +144,11 @@
      "{
      PRIM1();
      if (TAG(CDR(x)) == TRUE) {
-        FILE* file = (FILE*) (CAR(x) ^ 1);
+        FILE* file = (FILE*) ((long) CAR(x) ^ 1);
         fclose(file);
         TAG(CDR(x)) = FALSE;
      }
+     push2(TRUE, PAIR_TAG);
      break;
      }"
      )
@@ -122,10 +159,11 @@
      "{
      PRIM1();
      if (CDR(x) == TRUE) {
-        FILE* file = (FILE*) (CAR(x) ^ 1);
+        FILE* file = (FILE*) ((long) CAR(x) ^ 1);
         fclose(file);
         CDR(x) = FALSE;
      }
+     push2(TRUE, PAIR_TAG);
      break;
      }"
      )
@@ -143,10 +181,10 @@
   (eqv? obj ##eof))
 
 (define stdin-port
-  (rib 0 (rib 0 '() #t) input-port-type)) ;; stdin
+  (rib (##stdin) (rib 0 '() #t) input-port-type)) ;; stdin
 
 (define stdout-port
-  (rib 1 #t output-port-type))  ;; stdout
+  (rib (##stdout) #t output-port-type))  ;; stdout
 
 
 ;; ---------------------- INPUT ---------------------- ;;
@@ -186,9 +224,7 @@
     (error "Cannot read from a closed port"))
   (if (eqv? (##get-last-char port) '())
     (let ((ch (##read-char port)))
-      (if (eqv? ch '())
-        ##eof 
-        ch))
+      (if (eqv? ch '()) ##eof ch))
     (let ((ch (##get-last-char port)))
       (##set-last-char port '())
       ch)))
@@ -250,6 +286,8 @@
         ((eqv? o '())
          (write-char 40 port)
          (write-char 41 port)) ;; ()
+        ((eqv? (rib? o) #f)
+         (display (number->string o) port))
         ((eqv? (field2 o) 0) ;; pair?
          (write-char 40 port)  ;; #\(
          (write (field0 o) port) ;; car
