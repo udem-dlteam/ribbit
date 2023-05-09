@@ -17,7 +17,7 @@ lengthAttr = "length";
 // @@(feature (and nodejs (not web))
 // Implement putchar/getchar to the terminal 
 
-fs = require("fs"); // @@(feature (or io (or getchar putchar)))@@
+fs = require("fs"); // @@(feature (or node-fs (or getchar putchar)))@@
 
 putchar = (c) => { 
     let buffer = Buffer.alloc(1); 
@@ -304,15 +304,6 @@ scm2host = (r) => {
 // @@(feature foreign
 foreign = r => [0, r, 6] // 6 is to tag a foreign object
 // )@@
-
-// @@(feature io
-// [file_descriptor, [cursor, last_char, is_open], input_file_type]
-make_input_port = fd => [fd,[0,NIL,TRUE],8];
-
-// [file_descriptor, is_open, write_file_type]
-make_output_port = fd => [fd,TRUE,9];
-// )@@
-
 
 // @@(feature host_call (use scm2list)
 // f is a foreign object representing a function
