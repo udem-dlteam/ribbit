@@ -15,5 +15,5 @@
 ;;;options: -l io 
 ;;;expected:
 ;;;#t
-;;;"abc"
+;;;("abc" 1 (1 2 3) #f #t (list "xyz" 1 2))
 ;;;#t

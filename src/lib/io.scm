@@ -238,7 +238,7 @@
     (error "Cannot read from a closed port"))
 
   (let ((c (peek-char-non-whitespace port)))
-    (cond ((< c 0)
+    (cond ((eof-object? c)
            c)
           ((eqv? c 40) ;; #\(
            (read-char port) ;; skip "("
@@ -253,19 +253,19 @@
                     (read-char port) ;; skip "t"
                     #t)
                    (else ;; assume it is #\(
-                    (list->vector (read port))))))
+                     (list->vector (read port))))))
           ((eqv? c 39) ;; #\'
            (read-char port) ;; skip "'"
            (rib 'quote (rib (read port) '() 0) 0))
-;;          ((eqv? c 34) ;; #\"
-;;           (read-char) ;; skip """
-;;           (list->string (read-chars '())))
+          ;; ((eqv? c 34) ;; #\"
+          ;;  (read-char) ;; skip """
+          ;;  (list->string (read-chars '())))
           (else
-           (read-char port) ;; skip first char
-           (let ((s (list->string (rib c (read-symbol port) 0))))
-             (let ((n (string->number s)))
-               (or n
-                   (string->symbol s))))))))
+            (read-char port) ;; skip first char
+            (let ((s (list->string (rib c (read-symbol port) 0))))
+              (let ((n (string->number s)))
+                (or n
+                    (string->symbol s))))))))
 
 (define (read-list port)
   (let ((c (peek-char-non-whitespace port)))
@@ -305,7 +305,7 @@
 (define (peek-char-non-whitespace port)
   (let ((c (peek-char port)))
     (if (eof-object? c) ;; eof?
-        -1
+        c
         (if (< 32 c) ;; above #\space ?
             (if (eqv? c 59) ;; #\;
                 (skip-comment port)
@@ -351,7 +351,7 @@
   (write-char 10 port))
 
 (define (write o (port (current-output-port)))
-  (cond ((eqv? (field2 o) 3) ;; string?
+  (cond ((and (rib? o) (eqv? (field2 o) 3)) ;; string?
          (write-char 34 port)
          (write-chars (field0 o) port)
          (write-char 34 port))
@@ -392,7 +392,7 @@
          (display (number->string o) port))))
 
 (define (write-list lst port)
-  (if (eqv? (field0 lst) 0) ;; pair?
+  (if (eqv? (field2 lst) 0) ;; pair?
       (begin
         (write-char 32 port) ;; #\space
         (if (eqv? (field2 lst) 0) ;; pair?
