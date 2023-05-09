@@ -18,6 +18,12 @@
 (display (eof-object? (read-char data-file)))
 (newline)
 
+(display (eof-object? (read-char data-file)))
+(newline)
+
+(display (eof-object? (read-char data-file)))
+(newline)
+
 (close-input-port data-file)
 (close-input-port data-file)
 
@@ -31,5 +37,7 @@
 ;;;66
 ;;;66
 ;;;10
+;;;#t
+;;;#t
 ;;;#t
 ;;;#t
