@@ -186,6 +186,15 @@
 
 ;; ---------------------- INPUT ---------------------- ;;
 
+(define (##get-last-char port)
+  (field1 (field1 port)))
+
+(define (##set-last-char port ch)
+  (field1-set! (field1 port) ch))
+
+(define (input-port-close? port)
+  (eqv? (field2 (field1 port)) #f))
+
 (define (open-input-file filename)
   ;; (file_descriptor, (cursor, last_char, is_open), input_file_type)
   (rib (##get-fd-input-file filename) (rib 0 '() #t) input-port-type))
@@ -201,20 +210,6 @@
          (result (proc port)))
     (close-input-port port)
     result))
-
-(define (input-port-close? port)
-  (eqv? (field2 (field1 port)) #f))
-
-(define (read (port (current-input-port)))
-  (if (input-port-close? port)
-    (error "Cannot read from a closed port")
-    (error "TODO")))
-
-(define (##get-last-char port)
-  (field1 (field1 port)))
-
-(define (##set-last-char port ch)
-  (field1-set! (field1 port) ch))
 
 (define (read-char (port (current-input-port))) 
   (if (input-port-close? port)
@@ -235,92 +230,6 @@
       ch)
     (##get-last-char port)))
 
-
-;; ---------------------- OUTPUT ---------------------- ;;
-
-(define (open-output-file filename)
-  ;; (file_descriptor, is_open, write_file_type)
-  (rib (##get-fd-output-file filename) #t output-port-type))
-
-(define (output-port? port)
-  (eqv? (field2 port) output-port-type))
-
-(define (current-output-port)
-  stdout-port)
-
-(define (output-port-close? port)
-  (eqv? (field1 port) #f))
-
-(define (call-with-output-file filename proc)
-  (let* ((port (open-output-file filename))
-         (result (proc port)))
-    (close-output-port port)
-    result))
-
-(define (write-char ch (port (current-output-port)))
-  (##write-char ch port))
-
-(define (newline (port (current-output-port)))
-  (write-char 10 port))
-
-(define (write o (port (current-output-port)))
-  (cond ((eqv? (field2 o) 3) ;; string?
-         (write-char 34 port)
-         (write-chars (field0 o) port)
-         (write-char 34 port))
-        (else
-         (display o port))))
-
-(define (display o (port (current-output-port)))
-  (cond ((eqv? o #f)
-         (write-char 35 port)
-         (write-char 102 port)) ;; #f
-        ((eqv? o #t)
-         (write-char 35 port)
-         (write-char 116 port)) ;; #t
-        ((eof-object? o)
-         (display "#!eof" port))
-        ((eqv? o '())
-         (write-char 40 port)
-         (write-char 41 port)) ;; ()
-        ((eqv? (rib? o) #f)
-         (display (number->string o) port))
-        ((eqv? (field2 o) 0) ;; pair?
-         (write-char 40 port)  ;; #\(
-         (write (field0 o) port) ;; car
-         (write-list (field1 o) port) ;; cdr
-         (write-char 41 port)) ;; #\)
-        ((eqv? (field2 o) 2) ;; symbol?
-         (display (field1 o) port)) ;; name
-        ((eqv? (field2 o) 3) ;; string?
-         (write-chars (field0 o) port)) ;; chars
-;;        ((vector? o)
-;;         (write-char 35) ;; #\#
-;;         (write (vector->list o)))
-        ((eqv? (field2 o) 1) ;; procedure?
-         (write-char 35 port)
-         (write-char 112 port)) ;; #p
-        (else
-         ;; must be a number
-         (display (number->string o) port))))
-
-(define (write-list lst port)
-  (if (eqv? (field0 lst) 0) ;; pair?
-      (begin
-        (write-char 32 port) ;; #\space
-        (if (eqv? (field2 lst) 0) ;; pair?
-            (begin
-              (write (field0 lst) port) ;; car
-              (write-list (field1 lst) port))  ;; cdr
-            #f)) ;; writing dotted pairs is not supported
-      #f))
-
-(define (write-chars lst port)
-  (if (eqv? (field2 lst) 0) ;; pair?
-      (let ((c (field0 lst))) ;; car
-        (write-char c port)
-        (write-chars (field1 lst) port)) ;; cdr
-      #f))
 
 ;; ---------------------- READ ---------------------- ;;
 
@@ -411,6 +320,93 @@
         (if (eqv? c 10) ;; #\newline
             (peek-char-non-whitespace port)
             (skip-comment port)))))
+
+
+;; ---------------------- OUTPUT ---------------------- ;;
+
+(define (open-output-file filename)
+  ;; (file_descriptor, is_open, write_file_type)
+  (rib (##get-fd-output-file filename) #t output-port-type))
+
+(define (output-port? port)
+  (eqv? (field2 port) output-port-type))
+
+(define (current-output-port)
+  stdout-port)
+
+(define (output-port-close? port)
+  (eqv? (field1 port) #f))
+
+(define (call-with-output-file filename proc)
+  (let* ((port (open-output-file filename))
+         (result (proc port)))
+    (close-output-port port)
+    result))
+
+(define (write-char ch (port (current-output-port)))
+  (##write-char ch port))
+
+(define (newline (port (current-output-port)))
+  (write-char 10 port))
+
+(define (write o (port (current-output-port)))
+  (cond ((eqv? (field2 o) 3) ;; string?
+         (write-char 34 port)
+         (write-chars (field0 o) port)
+         (write-char 34 port))
+        (else
+         (display o port))))
+
+(define (display o (port (current-output-port)))
+  (cond ((eqv? o #f)
+         (write-char 35 port)
+         (write-char 102 port)) ;; #f
+        ((eqv? o #t)
+         (write-char 35 port)
+         (write-char 116 port)) ;; #t
+        ((eof-object? o)
+         (display "#!eof" port))
+        ((eqv? o '())
+         (write-char 40 port)
+         (write-char 41 port)) ;; ()
+        ((eqv? (rib? o) #f)
+         (display (number->string o) port))
+        ((eqv? (field2 o) 0) ;; pair?
+         (write-char 40 port)  ;; #\(
+         (write (field0 o) port) ;; car
+         (write-list (field1 o) port) ;; cdr
+         (write-char 41 port)) ;; #\)
+        ((eqv? (field2 o) 2) ;; symbol?
+         (display (field1 o) port)) ;; name
+        ((eqv? (field2 o) 3) ;; string?
+         (write-chars (field0 o) port)) ;; chars
+;;        ((vector? o)
+;;         (write-char 35) ;; #\#
+;;         (write (vector->list o)))
+        ((eqv? (field2 o) 1) ;; procedure?
+         (write-char 35 port)
+         (write-char 112 port)) ;; #p
+        (else
+         ;; must be a number
+         (display (number->string o) port))))
+
+(define (write-list lst port)
+  (if (eqv? (field0 lst) 0) ;; pair?
+      (begin
+        (write-char 32 port) ;; #\space
+        (if (eqv? (field2 lst) 0) ;; pair?
+            (begin
+              (write (field0 lst) port) ;; car
+              (write-list (field1 lst) port))  ;; cdr
+            #f)) ;; writing dotted pairs is not supported
+      #f))
+
+(define (write-chars lst port)
+  (if (eqv? (field2 lst) 0) ;; pair?
+      (let ((c (field0 lst))) ;; car
+        (write-char c port)
+        (write-chars (field1 lst) port)) ;; cdr
+      #f))
 
 
 ;; ---------------------- UTIL ---------------------- ;;
