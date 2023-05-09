@@ -110,13 +110,10 @@
      "{
      PRIM1();
      FILE* file = (FILE*) ((long) CAR(x) ^ 1);
-     if (feof(file) != 0) {
-        push2(NIL, PAIR_TAG);
-     } else {
-        char buffer[1];
-        fread(buffer, 1, 1, file);
-        push2(TAG_NUM(buffer[0]), PAIR_TAG);
-     }
+     char buffer[1];
+     int bytes_read = fread(buffer, 1, 1, file);
+     if (!bytes_read) push2(NIL, PAIR_TAG);
+     else push2(TAG_NUM(buffer[0]), PAIR_TAG);
      break;
      }"
      )
