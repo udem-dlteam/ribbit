@@ -256,13 +256,13 @@
                     (list->vector (read port))))))
           ((eqv? c 39) ;; #\'
            (read-char port) ;; skip "'"
-           (cons 'quote (cons (read port) '())))
+           (rib 'quote (rib (read port) '() 0) 0))
 ;;          ((eqv? c 34) ;; #\"
 ;;           (read-char) ;; skip """
 ;;           (list->string (read-chars '())))
           (else
            (read-char port) ;; skip first char
-           (let ((s (list->string (cons c (read-symbol port)))))
+           (let ((s (list->string (rib c (read-symbol port) 0))))
              (let ((n (string->number s)))
                (or n
                    (string->symbol s))))))))
@@ -274,17 +274,18 @@
           (read-char port) ;; skip ")"
           '())
         (let ((first (read port)))
-          (cons first (read-list port))))))
+          (rib first (read-list port) 0)))))
 
 (define (read-symbol port)
   (let ((c (peek-char port)))
     (if (or (eqv? c 40) ;; #\(
             (eqv? c 41) ;; #\)
-            (< c 33)) ;; whitespace or eof?
+            (eof-object? c)
+            (< c 33)) ;; whitespace
         '()
         (begin
           (read-char port)
-          (cons c (read-symbol port))))))
+          (rib c (read-symbol port) 0)))))
 
 ;;(define (read-chars lst)
 ;;  (let ((c (read-char)))
@@ -315,7 +316,7 @@
 
 (define (skip-comment port)
   (let ((c (read-char port)))
-    (if (< c 0) ;; eof?
+    (if (eof-object? c)
         c
         (if (eqv? c 10) ;; #\newline
             (peek-char-non-whitespace port)
@@ -409,8 +410,15 @@
       #f))
 
 
+
+;; ---------------------- LOAD ---------------------- ;;
+(define (load filename)
+  )
+
+
 ;; ---------------------- UTIL ---------------------- ;;
 
+(define string->list field0)
 (define (list->string lst) (rib lst (length lst) 3)) ;; string
 (define (list->vector lst) (rib lst (length lst) vector-type)) 
 
@@ -430,24 +438,25 @@
 
 (define (string->number str)
   (let ((lst (string->list str)))
-    (if (null? lst)
+    (if (eqv? lst '())
         #f
-        (if (eqv? (car lst) 45)
-            (string->number-aux (cdr lst))
+        (if (eqv? (field0 lst) 45) ;; car
+            (string->number-aux (field1 lst)) ;; cdr
             (let ((n (string->number-aux lst)))
               (and n (- 0 n)))))))
 
 (define (string->number-aux lst)
-  (if (null? lst)
+  (if (eqv? lst '())
       #f
       (string->number-aux2 lst 0)))
 
 (define (string->number-aux2 lst n)
-  (if (pair? lst)
-      (let ((c (car lst)))
+  (if (and (rib? lst) (eqv? (field2 lst) 0)) ;; pair?
+    (let ((c (field0 lst))) ;; car
         (and (< 47 c)
              (< c 58)
-             (string->number-aux2 (cdr lst) (- (* 10 n) (- c 48)))))
+             (string->number-aux2 (field1 lst) ;; cdr
+                                  (- (* 10 n) (- c 48)))))
       n))
 
 (define (length lst)
@@ -457,3 +466,30 @@
 
 
 
+(define symtbl (field1 rib)) ;; get symbol table
+
+(define (string->uninterned-symbol str) (rib #f str 2)) ;; 2 is symbol-type
+
+(define (string->symbol str)
+  (string->symbol-aux str symtbl))
+
+(define (string->symbol-aux str syms)
+  (if (and (rib? syms) (eqv? (field2 syms) 0)) ;; pair?
+    (let ((sym (field0 syms)))
+      (if (equal? (field1 sym) str)
+        sym
+        (string->symbol-aux str (field1 syms))))
+    (let ((sym (string->uninterned-symbol str)))
+      (set! symtbl (rib sym symtbl 0))
+      sym)))
+
+
+(define (equal? x y)
+  (or (eqv? x y)
+      (and (rib? x)
+           (if (eqv? (field2 x) 5) ;; 5 is singleton-type
+             #f
+             (and (rib? y)
+                  (equal? (field2 x) (field2 y))
+                  (equal? (field1 x) (field1 y))
+                  (equal? (field0 x) (field0 y)))))))
