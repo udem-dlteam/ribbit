@@ -11,7 +11,7 @@ import Data.IORef
 import GHC.IO
 import System.Environment
 import System.IO
-import Data.Bits -- @@(feature arity-check)@@
+import Data.Bits 
 
 -- Utils
 
@@ -255,18 +255,22 @@ eval pc = do
    case c of
     RibRef r -> do
      c2 <- cons (RibInt 0) o
+     let s2 = c2
      RibInt arity <- read0 c
-     -- @@(feature arity-check
      let nparams = shiftR arity 1
+     -- @@(feature arity-check
      let isVariadic = (arity .&. 1) == 1
      when ((isVariadic && (nparams > nargs1)) || (not isVariadic && (nparams /= nargs1))) (error "*** Unexpected number of arguments nargs")
      -- )@@
      -- @@(feature rest-param (use arity-check)
      let nargs = nargs1 - nparams
-     rest <- if isVariadic then foldrM (\_ args -> pop >>= flip cons args) c2 [1..nargs]  else pure ribNil
-     s <- if rest /= ribNil then cons rest c2 else pure c2
+     s2 <- if isVariadic then do 
+       rest <- foldrM (\_ args -> pop >>= flip cons args) ribNil [1..nargs] 
+       cons rest s2
+       else pure s2
+
      -- )@@
-     s2 <- foldrM (\_ args -> pop >>= flip cons args) s [1..nparams] -- while nargs:s2=[pop(),s2,0];nargs-=1
+     s2 <- foldrM (\_ args -> pop >>= flip cons args) s2 [1..nparams] -- while nargs:s2=[pop(),s2,0];nargs-=1
      read2 pc >>= \case
       -- call
       o@RibRef {} -> do
