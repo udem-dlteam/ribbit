@@ -11,7 +11,7 @@ import Data.IORef
 import GHC.IO
 import System.Environment
 import System.IO
-
+import Data.Bits -- @@(feature arity-check)@@
 
 -- Utils
 
@@ -62,7 +62,7 @@ mkInstr tag r1 r2 = toRib =<< RibObj <$> toRib tag <*> toRib r1 <*> toRib r2
 
 -- readN :: (RibObj -> Rib) -> Rib -> IO Rib -- Debug
 readN f (RibRef r) = f <$> readRef r
--- readN f (RibInt n) = error $ "readN: RibInt " <> show n <> " is not a pointer" -- Debug
+readN f (RibInt n) = error $ "readN: RibInt " <> show n <> " is not a pointer" -- Debug
 
 -- writeN :: (RibObj -> RibObj) -> Rib -> IO () -- Debug
 writeN f (RibRef r) = readRef r >>= writeRef r . f
@@ -134,7 +134,7 @@ push v = getStack >>= cons v >>= setStack
 
 -- pop :: IO Rib -- Debug
 pop = getStack >>= \case RibRef r -> readRef r >>= \(RibObj top rest _) -> setStack rest >> pure top
- -- RibInt _ -> error "Empty stack" -- Debug
+-- RibInt _ -> error "Empty stack" -- Debug
 
 -- Primitives
 
@@ -250,12 +250,23 @@ eval pc = do
   RibInt 0 -> do
    -- traceShowM "jump/call"
    o <- getOpnd o >>= read0
+   RibInt nargs1 <- pop -- @@(feature arity-check)@@
    c <- read0 o
    case c of
     RibRef r -> do
      c2 <- cons (RibInt 0) o
      RibInt arity <- read0 c
-     s2 <- foldrM (\_ args -> pop >>= flip cons args) c2 [1..arity] -- while nargs:s2=[pop(),s2,0];nargs-=1
+     -- @@(feature arity-check
+     let nparams = shiftR arity 1
+     let isVariadic = (arity .&. 1) == 1
+     when ((isVariadic && (nparams > nargs1)) || (not isVariadic && (nparams /= nargs1))) (error "*** Unexpected number of arguments nargs")
+     -- )@@
+     -- @@(feature rest-param (use arity-check)
+     let nargs = nargs1 - nparams
+     rest <- if isVariadic then foldrM (\_ args -> pop >>= flip cons args) c2 [1..nargs]  else pure ribNil
+     s <- if rest /= ribNil then cons rest c2 else pure c2
+     -- )@@
+     s2 <- foldrM (\_ args -> pop >>= flip cons args) s [1..nparams] -- while nargs:s2=[pop(),s2,0];nargs-=1
      read2 pc >>= \case
       -- call
       o@RibRef {} -> do
