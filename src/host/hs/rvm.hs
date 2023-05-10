@@ -62,7 +62,7 @@ mkInstr tag r1 r2 = toRib =<< RibObj <$> toRib tag <*> toRib r1 <*> toRib r2
 
 -- readN :: (RibObj -> Rib) -> Rib -> IO Rib -- Debug
 readN f (RibRef r) = f <$> readRef r
-readN f (RibInt n) = error $ "readN: RibInt " <> show n <> " is not a pointer" -- Debug
+-- readN f (RibInt n) = error $ "readN: RibInt " <> show n <> " is not a pointer" -- Debug
 
 -- writeN :: (RibObj -> RibObj) -> Rib -> IO () -- Debug
 writeN f (RibRef r) = readRef r >>= writeRef r . f
