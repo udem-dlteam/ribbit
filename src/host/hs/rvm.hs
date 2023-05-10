@@ -268,7 +268,6 @@ eval pc = do
        rest <- foldrM (\_ args -> pop >>= flip cons args) ribNil [1..nargs] 
        cons rest s2
        else pure s2
-
      -- )@@
      s2 <- foldrM (\_ args -> pop >>= flip cons args) s2 [1..nparams] -- while nargs:s2=[pop(),s2,0];nargs-=1
      read2 pc >>= \case
