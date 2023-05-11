@@ -1077,7 +1077,7 @@
                                                                    (expand-body (append (if variadic 
                                                                                           '() 
                                                                                           (list (list 'if (list 'eqv? (list 'field2 vararg-name) '0)
-                                                                                                      '(error "To much arguments have been passed to the function."))))
+                                                                                                      '(error "Too many arguments were passed to the function."))))
                                                                                         (cddr expr))))))
                                           '())))))))
 
