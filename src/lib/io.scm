@@ -1,27 +1,25 @@
 (cond-expand
   ((host js)
 
-    (define-primitive
-      (##stdin)
-      (use node-fs)
-      "() => push(0),")
+   (define-primitive
+     (##stdin)
+     (use node-fs)
+     "() => push(0),")
 
-    (define-primitive
-      (##stdout)
-      (use node-fs)
-      "() => push(1),")
+   (define-primitive
+     (##stdout)
+     (use node-fs)
+     "() => push(1),")
 
    (define-primitive 
      (##get-fd-input-file filename)
      (use node-fs scm2str)
-     "prim1(filename => fs.openSync(scm2str(filename), 'r')),"
-     )
+     "prim1(filename => fs.openSync(scm2str(filename), 'r')),")
 
    (define-primitive
      (##get-fd-output-file filename)
      (use node-fs scm2str)
-     "prim1(filename => fs.openSync(scm2str(filename), 'w')),"
-     )
+     "prim1(filename => fs.openSync(scm2str(filename), 'w')),")
 
    (define-primitive
      (##read-char port)
@@ -30,23 +28,20 @@
      let buf=Buffer.alloc(1); 
      let ch=fs.readSync(port[0], buf) === 0 ? NIL : buf[0]; 
      return ch;
-     }),"
-   )
+     }),")
 
-  (define-primitive
-    (##write-char ch port)
-    (use node-fs)
-    "prim2((port, ch) => fs.writeSync(port[0], String.fromCodePoint(ch), null, 'utf8')),"
-    )
+   (define-primitive
+     (##write-char ch port)
+     (use node-fs)
+     "prim2((port, ch) => fs.writeSync(port[0], String.fromCodePoint(ch), null, 'utf8')),")
 
-  (define-primitive
-    (close-input-port port)
-    (use node-fs)
-    "prim1(port => { if (port[1][2] === TRUE) {
-    fs.closeSync(port[0]);
-    port[1][2] = FALSE;
-    }}),"
-  )
+   (define-primitive
+     (close-input-port port)
+     (use node-fs)
+     "prim1(port => { if (port[1][2] === TRUE) {
+     fs.closeSync(port[0]);
+     port[1][2] = FALSE;
+     }}),")
 
    (define-primitive
      (close-output-port port)
@@ -54,117 +49,154 @@
      "prim1(port => { if (port[1] === TRUE) {
      fs.closeSync(port[0]);
      port[1] = FALSE;
-     }}),"
-   ))
+     }}),"))
 
-  ((host c)
+   ((host c)
 
-   (define-primitive
-     (##stdin)
-     (use stdio)
-     "{
-     FILE* file = fdopen(0, \"r\");
-     push2((long) file | 1, PAIR_TAG);
-     break;
-     }")
+    (define-primitive
+      (##stdin)
+      (use stdio)
+      "{
+      FILE* file = fdopen(0, \"r\");
+      push2((long) file | 1, PAIR_TAG);
+      break;
+      }")
 
-   (define-primitive
-     (##stdout)
-     (use stdio)
-     "{
-     FILE* file = fdopen(1, \"w\");
-     push2((long) file | 1, PAIR_TAG);
-     break;
-     }")
+    (define-primitive
+      (##stdout)
+      (use stdio)
+      "{
+      FILE* file = fdopen(1, \"w\");
+      push2((long) file | 1, PAIR_TAG);
+      break;
+      }")
 
-   (define-primitive 
-     (##get-fd-input-file filename)
-     (use stdio scm2str)
-     "{
-     PRIM1();
-     char* filename = scm2str(x);
-     FILE* file = fopen(filename, \"r\");
-     if (file == NULL) perror(\"Couldn't open the file\\n\");
-     push2((long) file | 1, PAIR_TAG);
-     free((void*) filename);
-     break;
-     }"
+    (define-primitive 
+      (##get-fd-input-file filename)
+      (use stdio scm2str)
+      "{
+      PRIM1();
+      char* filename = scm2str(x);
+      FILE* file = fopen(filename, \"r\");
+      if (file == NULL) perror(\"Couldn't open the file\\n\");
+      push2((long) file | 1, PAIR_TAG);
+      free((void*) filename);
+      break;
+      }")
+
+    (define-primitive
+      (##get-fd-output-file filename)
+      (use stdio scm2str)
+      "{
+      PRIM1();
+      char* filename = scm2str(x);
+      FILE* file = fopen(filename, \"w\");
+      push2((long) file | 1, PAIR_TAG);
+      free((void *) filename);
+      break;
+      }")
+
+    (define-primitive
+      (##read-char port)
+      (use stdio)
+      "{
+      PRIM1();
+      FILE* file = (FILE*) ((long) CAR(x) ^ 1);
+      char buffer[1];
+      int bytes_read = fread(buffer, 1, 1, file);
+      if (!bytes_read) push2(NIL, PAIR_TAG);
+      else push2(TAG_NUM(buffer[0]), PAIR_TAG);
+      break;
+      }")
+
+    (define-primitive
+      (##write-char ch port)
+      (use stdio)
+      "{
+      PRIM2();
+      FILE* file = (FILE*) ((long) CAR(y) ^ 1);
+      char buffer[1] = {(char) NUM(x)};
+      int success = fwrite(buffer, 1, 1, file);
+      if (success != 1) {
+      perror(\"WHAT\");
+      }
+      fflush(file);
+      push2(TRUE, PAIR_TAG);
+      break;
+      }")
+
+    (define-primitive
+      (close-input-port port)
+      (use stdio)
+      "{
+      PRIM1();
+      if (TAG(CDR(x)) == TRUE) {
+      FILE* file = (FILE*) ((long) CAR(x) ^ 1);
+      fclose(file);
+      TAG(CDR(x)) = FALSE;
+      }
+      push2(TRUE, PAIR_TAG);
+      break;
+      }")
+
+    (define-primitive
+      (close-output-port port)
+      (use stdio)
+      "{
+      PRIM1();
+      if (CDR(x) == TRUE) {
+      FILE* file = (FILE*) ((long) CAR(x) ^ 1);
+      fclose(file);
+      CDR(x) = FALSE;
+      }
+      push2(TRUE, PAIR_TAG);
+      break;
+      }"))
+
+    ((host hs)
+
+     (define-feature io-handle (foreign "    | RibHandle !Handle"))
+
+     (define-primitive
+       (##stdin)
+       (use io-handle)
+       " , push . RibForeign $ RibHandle stdin")
+
+     (define-primitive
+       (##stdout)
+       (use io-handle)
+       " , push . RibForeign $ RibHandle stdout")
+
+     (define-primitive 
+       (##get-fd-input-file filename)
+       (use node-fs scm2str)
+       " , prim1 $ \\filename openFile >>= ")
+
+     (define-primitive
+       (##get-fd-output-file filename)
+       (use node-fs scm2str)
+       "")
+
+     (define-primitive
+       (##read-char port)
+       (use node-fs)
+       "")
+
+     (define-primitive
+       (##write-char ch port)
+       (use node-fs)
+       "")
+
+     (define-primitive
+       (close-input-port port)
+       (use node-fs)
+       "")
+
+     (define-primitive
+       (close-output-port port)
+       (use node-fs)
+       ""))
      )
-
-   (define-primitive
-     (##get-fd-output-file filename)
-     (use stdio scm2str)
-     "{
-     PRIM1();
-     char* filename = scm2str(x);
-     FILE* file = fopen(filename, \"w\");
-     push2((long) file | 1, PAIR_TAG);
-     free((void *) filename);
-     break;
-     }"
-     )
-
-   (define-primitive
-     (##read-char port)
-     (use stdio)
-     "{
-     PRIM1();
-     FILE* file = (FILE*) ((long) CAR(x) ^ 1);
-     char buffer[1];
-     int bytes_read = fread(buffer, 1, 1, file);
-     if (!bytes_read) push2(NIL, PAIR_TAG);
-     else push2(TAG_NUM(buffer[0]), PAIR_TAG);
-     break;
-     }"
-     )
-
-   (define-primitive
-     (##write-char ch port)
-     (use stdio)
-     "{
-     PRIM2();
-     FILE* file = (FILE*) ((long) CAR(y) ^ 1);
-     char buffer[1] = {(char) NUM(x)};
-     int success = fwrite(buffer, 1, 1, file);
-     if (success != 1) {
-        perror(\"WHAT\");
-     }
-     fflush(file);
-     push2(TRUE, PAIR_TAG);
-     break;
-     }"
-     )
-
-   (define-primitive
-     (close-input-port port)
-     (use stdio)
-     "{
-     PRIM1();
-     if (TAG(CDR(x)) == TRUE) {
-        FILE* file = (FILE*) ((long) CAR(x) ^ 1);
-        fclose(file);
-        TAG(CDR(x)) = FALSE;
-     }
-     push2(TRUE, PAIR_TAG);
-     break;
-     }"
-     )
-
-   (define-primitive
-     (close-output-port port)
-     (use stdio)
-     "{
-     PRIM1();
-     if (CDR(x) == TRUE) {
-        FILE* file = (FILE*) ((long) CAR(x) ^ 1);
-        fclose(file);
-        CDR(x) = FALSE;
-     }
-     push2(TRUE, PAIR_TAG);
-     break;
-     }"
-     )
-   ))
 
 
 ;; ---------------------- EOF & TYPES ---------------------- ;;

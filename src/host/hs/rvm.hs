@@ -12,6 +12,7 @@ import GHC.IO
 import System.Environment
 import System.IO
 import Data.Bits 
+import Data.Dynamic
 
 -- Utils
 
@@ -33,7 +34,11 @@ pair a b = (a,b)
 
 -- Rib Objects
 
-data Rib = RibInt !Int | RibRef !(IORef RibObj) deriving (Eq)
+data RibForeign = RibInt2 !Int
+    -- @@(location foreign)@@
+    deriving (Eq)
+
+data Rib = RibInt !Int | RibRef !(IORef RibObj) | RibForeign !RibForeign deriving (Eq)
 
 data RibObj = RibObj { field0 :: !Rib, field1 :: !Rib, field2 :: !Rib} deriving (Eq)
 
@@ -108,7 +113,7 @@ toRibString chars = toRibList (ord <$> chars) >>= flip mkStr (length chars)
 
 -- toRibSymbol :: String -> IO Rib -- Debug
 toRibSymbol = (=<<) (mkSymb (RibInt 0)) . toRibString
-
+foldRib f
 
 -- VM
 
