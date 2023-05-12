@@ -22,182 +22,152 @@
      "prim1(filename => fs.openSync(scm2str(filename), 'w')),")
 
    (define-primitive
-     (##read-char port)
+     (##read-char fd)
      (use node-fs)
-     "prim1(port => {
+     "prim1(fd => {
      let buf=Buffer.alloc(1); 
-     let ch=fs.readSync(port[0], buf) === 0 ? NIL : buf[0]; 
+     let ch=fs.readSync(fd, buf) === 0 ? NIL : buf[0]; 
      return ch;
      }),")
 
    (define-primitive
-     (##write-char ch port)
+     (##write-char ch fd)
      (use node-fs)
-     "prim2((port, ch) => fs.writeSync(port[0], String.fromCodePoint(ch), null, 'utf8')),")
+     "prim2((fd, ch) => fs.writeSync(fd, String.fromCodePoint(ch), null, 'utf8')),")
 
    (define-primitive
-     (close-input-port port)
+     (##close-input-port fd)
      (use node-fs)
-     "prim1(port => { if (port[1][2] === TRUE) {
-     fs.closeSync(port[0]);
-     port[1][2] = FALSE;
-     }}),")
+     "prim1(fd => fs.closeSync(fd)),")
+
+   (define ##close-output-port ##close-input-port))
+   
+  ((host c)
 
    (define-primitive
-     (close-output-port port)
-     (use node-fs)
-     "prim1(port => { if (port[1] === TRUE) {
-     fs.closeSync(port[0]);
-     port[1] = FALSE;
-     }}),"))
+     (##stdin)
+     (use stdio)
+     "{
+     FILE* file = fdopen(0, \"r\");
+     push2((long) file | 1, PAIR_TAG);
+     break;
+     }")
 
-   ((host c)
+   (define-primitive
+     (##stdout)
+     (use stdio)
+     "{
+     FILE* file = fdopen(1, \"w\");
+     push2((long) file | 1, PAIR_TAG);
+     break;
+     }")
 
-    (define-primitive
-      (##stdin)
-      (use stdio)
-      "{
-      FILE* file = fdopen(0, \"r\");
-      push2((long) file | 1, PAIR_TAG);
-      break;
-      }")
+   (define-primitive 
+     (##get-fd-input-file filename)
+     (use stdio scm2str)
+     "{
+     PRIM1();
+     char* filename = scm2str(x);
+     FILE* file = fopen(filename, \"r\");
+     if (file == NULL) perror(\"Couldn't open the file\\n\");
+     push2((long) file | 1, PAIR_TAG);
+     free((void*) filename);
+     break;
+     }")
 
-    (define-primitive
-      (##stdout)
-      (use stdio)
-      "{
-      FILE* file = fdopen(1, \"w\");
-      push2((long) file | 1, PAIR_TAG);
-      break;
-      }")
+   (define-primitive
+     (##get-fd-output-file filename)
+     (use stdio scm2str)
+     "{
+     PRIM1();
+     char* filename = scm2str(x);
+     FILE* file = fopen(filename, \"w\");
+     push2((long) file | 1, PAIR_TAG);
+     free((void *) filename);
+     break;
+     }")
 
-    (define-primitive 
-      (##get-fd-input-file filename)
-      (use stdio scm2str)
-      "{
-      PRIM1();
-      char* filename = scm2str(x);
-      FILE* file = fopen(filename, \"r\");
-      if (file == NULL) perror(\"Couldn't open the file\\n\");
-      push2((long) file | 1, PAIR_TAG);
-      free((void*) filename);
-      break;
-      }")
+   (define-primitive
+     (##read-char fd)
+     (use stdio)
+     "{
+     PRIM1();
+     FILE* file = (FILE*) ((long) x ^ 1);
+     char buffer[1];
+     int bytes_read = fread(buffer, 1, 1, file);
+     if (!bytes_read) push2(NIL, PAIR_TAG);
+     else push2(TAG_NUM(buffer[0]), PAIR_TAG);
+     break;
+     }")
 
-    (define-primitive
-      (##get-fd-output-file filename)
-      (use stdio scm2str)
-      "{
-      PRIM1();
-      char* filename = scm2str(x);
-      FILE* file = fopen(filename, \"w\");
-      push2((long) file | 1, PAIR_TAG);
-      free((void *) filename);
-      break;
-      }")
+   (define-primitive
+     (##write-char ch fd)
+     (use stdio)
+     "{
+     PRIM2();
+     FILE* file = (FILE*) ((long) y ^ 1);
+     char buffer[1] = {(char) NUM(x)};
+     int success = fwrite(buffer, 1, 1, file);
+     if (success != 1) {
+     perror(\"WHAT\");
+     }
+     fflush(file);
+     push2(TRUE, PAIR_TAG);
+     break;
+     }")
 
-    (define-primitive
-      (##read-char port)
-      (use stdio)
-      "{
-      PRIM1();
-      FILE* file = (FILE*) ((long) CAR(x) ^ 1);
-      char buffer[1];
-      int bytes_read = fread(buffer, 1, 1, file);
-      if (!bytes_read) push2(NIL, PAIR_TAG);
-      else push2(TAG_NUM(buffer[0]), PAIR_TAG);
-      break;
-      }")
+   (define-primitive
+     (##close-input-port fd)
+     (use stdio)
+     "{
+     PRIM1();
+     FILE* file = (FILE*) ((long) x ^ 1);
+     fclose(file);
+     break;
+     }")
 
-    (define-primitive
-      (##write-char ch port)
-      (use stdio)
-      "{
-      PRIM2();
-      FILE* file = (FILE*) ((long) CAR(y) ^ 1);
-      char buffer[1] = {(char) NUM(x)};
-      int success = fwrite(buffer, 1, 1, file);
-      if (success != 1) {
-      perror(\"WHAT\");
-      }
-      fflush(file);
-      push2(TRUE, PAIR_TAG);
-      break;
-      }")
+   (define ##close-output-port ##close-input-port))
 
-    (define-primitive
-      (close-input-port port)
-      (use stdio)
-      "{
-      PRIM1();
-      if (TAG(CDR(x)) == TRUE) {
-      FILE* file = (FILE*) ((long) CAR(x) ^ 1);
-      fclose(file);
-      TAG(CDR(x)) = FALSE;
-      }
-      push2(TRUE, PAIR_TAG);
-      break;
-      }")
+  ((host hs)
 
-    (define-primitive
-      (close-output-port port)
-      (use stdio)
-      "{
-      PRIM1();
-      if (CDR(x) == TRUE) {
-      FILE* file = (FILE*) ((long) CAR(x) ^ 1);
-      fclose(file);
-      CDR(x) = FALSE;
-      }
-      push2(TRUE, PAIR_TAG);
-      break;
-      }"))
+   (define-feature io-handle (foreign "    | RibHandle !Handle"))
 
-    ((host hs)
+   (define-primitive
+     (##stdin)
+     (use io-handle)
+     " , push . RibForeign $ RibHandle stdin")
 
-     (define-feature io-handle (foreign "    | RibHandle !Handle"))
+   (define-primitive
+     (##stdout)
+     (use io-handle)
+     " , push . RibForeign $ RibHandle stdout")
 
-     (define-primitive
-       (##stdin)
-       (use io-handle)
-       " , push . RibForeign $ RibHandle stdin")
+   (define-primitive 
+     (##get-fd-input-file filename)
+     (use io-handle scm2str)
+     " , prim1 $ \\filename -> scm2str filename >>= (\\x -> openFile x ReadMode) >>= (pure . RibForeign . RibHandle)")
 
-     (define-primitive
-       (##stdout)
-       (use io-handle)
-       " , push . RibForeign $ RibHandle stdout")
+   (define-primitive
+     (##get-fd-output-file filename)
+     (use io-handle scm2str)
+     " , prim1 $ \\filename -> scm2str filename >>= (\\x -> openFile x WriteMode) >>= (pure . RibForeign . RibHandle)")
 
-     (define-primitive 
-       (##get-fd-input-file filename)
-       (use node-fs scm2str)
-       " , prim1 $ \\filename openFile >>= ")
+   (define-primitive
+     (##read-char fd)
+     (use io-handle)
+     " , prim1 $ \\(RibForeign (RibHandle handle)) -> hIsEOF handle >>= \\eof -> if eof then return ribNil else hGetChar handle >>= (pure . RibInt . ord)")
 
-     (define-primitive
-       (##get-fd-output-file filename)
-       (use node-fs scm2str)
-       "")
+   (define-primitive
+     (##write-char ch fd)
+     (use io-handle)
+     " , prim2 $ \\(RibInt ch) (RibForeign (RibHandle handle)) -> hPutChar handle (chr ch) >> pure ribTrue")
 
-     (define-primitive
-       (##read-char port)
-       (use node-fs)
-       "")
+   (define-primitive
+     (##close-input-port fd)
+     (use io-handle)
+     " , prim1 $ \\(RibForeign (RibHandle handle)) -> hClose handle >> pure ribTrue")
 
-     (define-primitive
-       (##write-char ch port)
-       (use node-fs)
-       "")
-
-     (define-primitive
-       (close-input-port port)
-       (use node-fs)
-       "")
-
-     (define-primitive
-       (close-output-port port)
-       (use node-fs)
-       ""))
-     )
-
+   (define ##close-output-port ##close-input-port)))
 
 ;; ---------------------- EOF & TYPES ---------------------- ;;
 
@@ -218,6 +188,18 @@
 
 ;; ---------------------- INPUT ---------------------- ;;
 
+(define (open-input-file filename)
+  ;; (file_descriptor, (cursor, last_char, is_open), input_file_type)
+  (rib (##get-fd-input-file filename) (rib 0 '() #t) input-port-type))
+
+(define (close-input-port port)
+  (if (field2 (field1 port))
+    (begin 
+      (field2-set! (field1 port) #f)
+      (##close-input-port (field0 port)))))
+
+(define (input-port? port)
+  (eqv? (field2 port) input-port-type))
 (define (##get-last-char port)
   (field1 (field1 port)))
 
@@ -226,13 +208,6 @@
 
 (define (input-port-close? port)
   (eqv? (field2 (field1 port)) #f))
-
-(define (open-input-file filename)
-  ;; (file_descriptor, (cursor, last_char, is_open), input_file_type)
-  (rib (##get-fd-input-file filename) (rib 0 '() #t) input-port-type))
-
-(define (input-port? port)
-  (eqv? (field2 port) input-port-type))
 
 (define (current-input-port)
   stdin-port)
@@ -247,7 +222,7 @@
   (if (input-port-close? port)
     (error "Cannot read from a closed port"))
   (if (eqv? (##get-last-char port) '())
-    (let ((ch (##read-char port)))
+    (let ((ch (##read-char (field0 port))))
       (if (eqv? ch '()) ##eof ch))
     (let ((ch (##get-last-char port)))
       (##set-last-char port '())
@@ -257,7 +232,7 @@
   (if (input-port-close? port)
     (error "Cannot read from a closed port"))
   (if (eqv? (##get-last-char port) '())
-    (let* ((ch (##read-char port)) (ch (if (eqv? ch '()) ##eof ch)))
+    (let* ((ch (##read-char (field0 port))) (ch (if (eqv? ch '()) ##eof ch)))
       (##set-last-char port ch)
       ch)
     (##get-last-char port)))
@@ -361,6 +336,12 @@
   ;; (file_descriptor, is_open, write_file_type)
   (rib (##get-fd-output-file filename) #t output-port-type))
 
+(define (close-output-port port)
+  (if (field1 port)
+    (begin 
+      (field1-set! port #f)
+      (##close-output-port (field0 port)))))
+
 (define (output-port? port)
   (eqv? (field2 port) output-port-type))
 
@@ -377,7 +358,7 @@
     result))
 
 (define (write-char ch (port (current-output-port)))
-  (##write-char ch port))
+  (##write-char ch (field0 port)))
 
 (define (newline (port (current-output-port)))
   (write-char 10 port))

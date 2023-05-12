@@ -11,7 +11,7 @@ import Data.IORef
 import GHC.IO
 import System.Environment
 import System.IO
-import Data.Bits 
+import Data.Bits
 import Data.Dynamic
 
 -- Utils
@@ -49,6 +49,8 @@ class ToRib a where toRib :: a -> IO Rib
 
 -- Rien à faire, on a déjà un IORef Rib
 instance ToRib Rib where toRib = pure
+
+instance ToRib RibForeign where toRib = pure . RibForeign
 
 -- On crée une référence pour le Rib
 instance ToRib RibObj where toRib = fmap RibRef . newRef
@@ -113,7 +115,21 @@ toRibString chars = toRibList (ord <$> chars) >>= flip mkStr (length chars)
 
 -- toRibSymbol :: String -> IO Rib -- Debug
 toRibSymbol = (=<<) (mkSymb (RibInt 0)) . toRibString
-foldRib f
+
+scm2str2 :: IORef RibObj -> IO String -- Debug
+scm2str2 rib = do
+    (RibObj (RibInt char) next (RibInt tag)) <- readRef rib
+    case (next, tag) of
+        (RibRef next, 0) -> do
+            rest <- scm2str2 next
+            return $ chr char : rest
+        (_, 5) -> pure []
+        _ -> error "scm2str: not a string" -- Debug
+
+scm2str :: Rib -> IO String
+scm2str (RibRef rib) = do
+    (RibObj (RibRef chars) len tag) <- readRef rib
+    scm2str2 chars
 
 -- VM
 
@@ -162,7 +178,7 @@ close = do
 
 -- primitives :: [Prim] -- Debug
 primitives =
- [ 
+ [
 -- @@(primitives (gen body)
  prim3 (\(c,b,a) -> toRib $ RibObj a b c)                    -- @@(primitive (rib a b c))@@
  , prim1 pure                                                -- @@(primitive (id x))@@
@@ -269,8 +285,8 @@ eval pc = do
      -- )@@
      -- @@(feature rest-param (use arity-check)
      let nargs = nargs1 - nparams
-     s2 <- if isVariadic then do 
-       rest <- foldrM (\_ args -> pop >>= flip cons args) ribNil [1..nargs] 
+     s2 <- if isVariadic then do
+       rest <- foldrM (\_ args -> pop >>= flip cons args) ribNil [1..nargs]
        cons rest s2
        else pure s2
      -- )@@
