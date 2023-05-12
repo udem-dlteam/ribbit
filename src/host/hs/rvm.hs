@@ -34,7 +34,7 @@ pair a b = (a,b)
 
 -- Rib Objects
 
-data RibForeign = RibInt2 !Int
+data RibForeign = Ignore 
     -- @@(location foreign)@@
     deriving (Eq)
 
@@ -116,12 +116,12 @@ toRibString chars = toRibList (ord <$> chars) >>= flip mkStr (length chars)
 -- toRibSymbol :: String -> IO Rib -- Debug
 toRibSymbol = (=<<) (mkSymb (RibInt 0)) . toRibString
 
-scm2str2 :: IORef RibObj -> IO String -- Debug
-scm2str2 rib = do
+scmChars2str :: IORef RibObj -> IO String -- Debug
+scmChars2str rib = do
     (RibObj (RibInt char) next (RibInt tag)) <- readRef rib
     case (next, tag) of
         (RibRef next, 0) -> do
-            rest <- scm2str2 next
+            rest <- scmChars2str next
             return $ chr char : rest
         (_, 5) -> pure []
         _ -> error "scm2str: not a string" -- Debug
@@ -129,7 +129,7 @@ scm2str2 rib = do
 scm2str :: Rib -> IO String
 scm2str (RibRef rib) = do
     (RibObj (RibRef chars) len tag) <- readRef rib
-    scm2str2 chars
+    scmChars2str chars
 
 -- VM
 
