@@ -1,4 +1,6 @@
-// Host c annoté avec notre langage d'annotation
+// fr: Host c annoté avec notre langage d'annotation
+//
+// en: Host c annotated with our annotation language
 
 /*
  * The Ribbit VM implementation in C

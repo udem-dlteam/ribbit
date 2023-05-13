@@ -1,5 +1,8 @@
-;; Maintenant, nous allons compiler le fichier suivant avec rsc
-;; Ce fichier affiche $, mais utilise des primitives !
+;; fr: Maintenant, nous allons compiler le fichier suivant avec rsc
+;;     Ce fichier affiche $, mais utilise des primitives !
+;; 
+;; en: Now we will compile the following file with rsc
+;;     This file displays $, but uses primitives!
 ;; $ gsi rsc.scm -t py -l empty ../presentation/07.1.scm -o ../presentation/07.2.py
 ;; $ gsi rsc.scm -t c -l empty ../presentation/07.1.scm -o ../presentation/07.2.c
 ;; $ gsi rsc.scm -t js -l empty ../presentation/07.1.scm -o ../presentation/07.2.js

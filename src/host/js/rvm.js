@@ -83,6 +83,13 @@ if (nodejs) { // in nodejs? //node
 
 // VM
 
+// @@(feature (or error-msg debug) (use scm2str)
+halt = () => {
+	const error_msg = new Error(scm2str(pop()));
+	throw error_msg;
+}
+// )@@
+
 // build the symbol table
 
 pos = 0;

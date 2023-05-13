@@ -642,33 +642,33 @@
                   (let* ((params (cadr expr))
                          (variadic (or (symbol? params) (not (eq? (last-item params) '()))))
                          (nb-params
-                            (if variadic
-                              (improper-length params)
-                              (length params)))
+                           (if variadic
+                             (improper-length params)
+                             (length params)))
                          (params 
                            (if variadic
                              (improper-list->list params '())
                              params)))
                     (rib const-op
                          (make-procedure
-                          (rib (+ (* 2 nb-params) (if variadic 1 0))
-                               0
-                               (comp-begin (ctx-cte-set
-                                             ctx
-                                             (extend params
-                                                     (cons #f
-                                                           (cons #f
-                                                                 (ctx-cte ctx)))))
-                                           (cddr expr)
-                                           tail))
-                          '())
+                           (rib (+ (* 2 nb-params) (if variadic 1 0))
+                                0
+                                (comp-begin (ctx-cte-set
+                                              ctx
+                                              (extend params
+                                                      (cons #f
+                                                            (cons #f
+                                                                  (ctx-cte ctx)))))
+                                            (cddr expr)
+                                            tail))
+                           '())
                          (if (null? (ctx-cte ctx))
-                             cont
-                             (add-nb-args
-                               ctx
-                               1
-                               (gen-call (use-symbol ctx 'close) 
-                                         cont))))))
+                           cont
+                           (add-nb-args
+                             ctx
+                             1
+                             (gen-call (use-symbol ctx 'close) 
+                                       cont))))))
 
                  ((eqv? first 'begin)
                   (comp-begin ctx (cdr expr) cont))
@@ -1037,11 +1037,52 @@
                                           '())))))
 
                  ((eqv? first 'lambda)
-                  (let ((params (cadr expr)))
-                    (cons 'lambda
-                          (cons params
-                                (cons (expand-body (cddr expr))
-                                      '())))))
+                  (let* ((params (cadr expr)) 
+                         (opt-params '())
+                         (required-params '())
+                         (variadic (or (symbol? params) (not (eq? (last-item params) '()))))
+                         (nb-params (if variadic (improper-length params) (length params))))
+                    ;; Gather all optional params from the parameter list
+                    (let loop ((i 0) (params params))
+                      (if (< i nb-params)
+                        (let ((param (car params)))
+                          (cond 
+                            ((and (symbol? param) (null? opt-params)) 
+                             (set! required-params (append required-params (cons param '())))
+                             (loop (+ 1 i) (cdr params)))
+
+                            ((pair? param)
+                             (set! opt-params (append opt-params (cons param '()))) 
+                             (loop (+ 1 i) (cdr params)))
+
+                            (else (error "Cannot put non-optional arguments after optional ones.")))
+                          )
+                        ))
+                    (if (null? opt-params)
+                      (cons 'lambda
+                            (cons params
+                                  (cons (expand-body (cddr expr))
+                                        '())))
+                      ;; Add the check for the optional params 
+                      (let ((vararg-name (if variadic (last-item params) '##vararg))
+                            (opt-params-body '()))
+                        (if (pair? required-params)
+                          (set-cdr! (list-tail required-params (- (length required-params) 1)) vararg-name)
+                          (set! required-params vararg-name)
+                          )
+                        (for-each
+                          (lambda (opt-param)
+                            (set! opt-params-body (append opt-params-body (expand-opt-param (car opt-param) (cadr opt-param) vararg-name))))
+                          opt-params)
+                        (cons 'lambda
+                              (cons required-params
+                                    (cons (expand-body (list (list 'let* opt-params-body 
+                                                                   (expand-body (append (if variadic 
+                                                                                          '() 
+                                                                                          (list (list 'if (list 'eqv? (list 'field2 vararg-name) '0)
+                                                                                                      '(error "Too many arguments were passed to the function."))))
+                                                                                        (cddr expr))))))
+                                          '())))))))
 
                  ((eqv? first 'let)
                   (let ((x (cadr expr)))
@@ -1308,6 +1349,28 @@
             (expand-list (cdr exprs)))
       '()))
 
+
+(define (expand-opt-param param-name param-default vararg-name)
+  ; `((,param-name (if (null? ,vararg-name)
+  ;                  ,param-default
+  ;                  (let ((value (car ,vararg-name)))
+  ;                    (set! ,vararg-name (cdr ,vararg-name))
+  ;                    value))))
+
+  ;; If this part is not performant enough, replace the set! with a
+  ;; (vararg (if (eqv? vararg '()) '() (field1 vararg)))
+  ;; after every optional arg clause
+  (list
+    (list param-name 
+          (list 'if (list 'eqv? vararg-name '())
+                (expand-expr param-default)
+                (list 'let (list (list 'value (list 'field0 vararg-name)))
+                      (list 'set! vararg-name (list 'field1 vararg-name))
+                      'value
+                      )
+                )
+          )))
+
 ;;;----------------------------------------------------------------------------
 
 ;; Global variable liveness analysis.
@@ -1401,7 +1464,7 @@
                     (let ((var (cadr expr)))
                       (let ((val (caddr expr)))
                         (if (in? var cte) ;; local var?
-                            (liveness val cte #f)
+                          (liveness val cte #f)
                             (begin
                               (if export-all? (add var))
                               (let ((g (live? var live-globals))) ;; variable live?
@@ -2474,7 +2537,6 @@
      ;; source code from files and it supports various options.  It can
      ;; merge the compacted RVM code with the implementation of the RVM
      ;; for a specific target and minify the resulting target code.
-
 
      (let* ((vm-source 
               (if (equal? _target "rvm")

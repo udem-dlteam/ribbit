@@ -1,7 +1,10 @@
-// Pour exécuter :
+// fr: Pour exécuter :
+// en: To execute:
+//
 //  $ gcc ../presentation/07.2.c -o 07.2.exe && ./07.2.exe
 
-// Fichier commence ici
+// fr: Fichier commence ici
+// end: File starts here
 //                |
 //                v
 

@@ -54,6 +54,23 @@ prim_square:
 
     (define-primitive (square a)
       "\tdd   prim_square\n"))
+   ((host pro)
+      (define-primitive (square a) "_) :-
+  narg_check(1, Stack, Stack0, square),
+  pop(Stack0, X, Stack1),
+  N is X * X,
+  push(Stack1, N, NewStack).
+"))
+
+   ((host clj)
+      (define-primitive (square a)
+        "(prim1 (fn [x] (* x x)))\n"))
+
+  ((host zig)
+   (define-primitive (square a)
+     "const val: RibField = self.stackPop();
+try self.stackPush(num(val.num * val.num));
+},\n"))
 
    (else
      (define-primitive (square a)

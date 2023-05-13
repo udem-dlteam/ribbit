@@ -1,5 +1,7 @@
 
-Regardons comment les différentes VMs implémentent les primitives
+fr: Regardons comment les différentes VMs implémentent les primitives
+
+en: Let's see how different VMs implement the primitives
 
 
 ======== js
