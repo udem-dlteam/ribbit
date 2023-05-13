@@ -1532,53 +1532,54 @@
   (map
     (lambda (lst) 
       (let* ((sym (car lst))
-            (size (cadr lst))
-            (return-val (list sym size counter)))
+             (size (cadr lst))
+             (return-val (list3 sym size counter)))
         (set! counter (+ counter size))
         return-val))
     encoding-table))
 
 (define old-encoding-92
   (calculate-start 
-    (list 
+    '( 
       ;; jump
-      (list (list 'jump 'sym 'short) 20)
-      (list (list 'jump 'int 'long)  1)
-      (list (list 'jump 'sym 'long)  2)
+      ((jump sym short) 20)
+      ((jump int long)  1)
+      ((jump sym long)  2)
 
-      (list (list 'jump 'int 'short) 0)
+      ((jump int short) 0)
 
       ;; call
-      (list (list 'call 'sym 'short) 30)
-      (list (list 'call 'int 'long)  1)
-      (list (list 'call 'sym 'long)  2)
+      ((call sym short) 30)
+      ((call int long)  1)
+      ((call sym long)  2)
 
-      (list (list 'call 'int 'short) 0)
+      ((call int short) 0)
 
       ;; set
-      (list (list 'set 'int 'long)   1)
-      (list (list 'set 'sym 'long)   2)
+      ((set int long)   1)
+      ((set sym long)   2)
 
-      (list (list 'set 'sym 'short)  0)
-      (list (list 'set 'int 'short)  0)
+      ((set sym short)  0)
+      ((set int short)  0)
 
       ;; get
-      (list (list 'get 'int 'short)  10)
-      (list (list 'get 'int 'long)   1)
-      (list (list 'get 'sym 'long)   2)
+      ((get int short)  10)
+      ((get int long)   1)
+      ((get sym long)   2)
 
-      (list (list 'get 'sym 'short)  0)
+      ((get sym short)  0)
 
       ;; const
-      (list (list 'const 'int 'short)  11)
-      (list (list 'const 'int 'long)   1)
-      (list (list 'const 'sym 'long)   2)
-      (list (list 'const 'proc 'short) 4)
-      (list (list 'const 'proc 'long)  1)
+      ((const int short)  11)
+      ((const int long)   1)
+      ((const sym long)   2)
 
-      (list (list 'const 'sym 'short) 0)
+      ((const proc short) 4)
+      ((const proc long)  1)
 
-      (list 'if 1))))
+      ((const sym short) 0)
+
+      (if 1))))
 
 (define eb 92)
 (define eb/2 (quotient 92 2))
@@ -1826,8 +1827,8 @@
               (encode-n-aux q t end))))))
 
   (define (enc-inst arg op-sym arg-sym encoding-table stream)
-    (let* ((short-key   (list op-sym arg-sym 'short))
-           (long-key    (list op-sym arg-sym 'long))
+    (let* ((short-key   (list3 op-sym arg-sym 'short))
+           (long-key    (list3 op-sym arg-sym 'long))
            (short-size  (encoding-size encoding-table short-key))
            (long-size   (encoding-size encoding-table long-key))
            (short-start (encoding-start encoding-table short-key))
@@ -1930,7 +1931,7 @@
           (table->list syms))))
 
     (let loop1 ((i 0) (lst lst) (symbols '()))
-      (if (and (pair? lst) (< i (encoding-start old-encoding-92 (list 'call 'sym 'short))))
+      (if (and (pair? lst) (< i (encoding-start old-encoding-92 '(call sym short))))
           (let ((s (car lst)))
             (let ((sym (car s)))
               (let ((descr (cdr s)))
