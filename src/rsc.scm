@@ -1631,14 +1631,16 @@
       ((skip int short) 10)
       ((skip int long)  1)
 
-      (if 1)
-      )))
+      (if 1))))
 
 (define (encoding-inst-size encoding entry)
-  (cadr (assoc entry encoding)))
+  (cadr (encoding-inst-get encoding entry)))
 
 (define (encoding-inst-start encoding entry)
-  (caddr (assoc entry encoding)))
+  (caddr (encoding-inst-get encoding entry)))
+
+(define (encoding-inst-get encoding entry)
+  (assoc entry encoding))
 
 (define (encoding-size encoding)
   (fold + 0 (map cadr encoding)))
@@ -1907,6 +1909,13 @@
              encoding
              (enc-inst nparams 'const 'proc encoding stream)))))
 
+  (define (list-count-eqv? left right nb)
+    (if (and (pair? left)
+             (pair?  right)
+             (eqv? (car left) (car right)))
+      (list-count-eqv? (cdr left) (cdr right) (+ 1 nb))
+      nb))
+
   (define (enc code encoding stream)
     (if (rib? code)
       (let* ((op (oper code))
@@ -1958,11 +1967,23 @@
                     encoded-inst))))
           ((eqv? op if-op) ;; special case for if
            (let ((enc-next (enc (next code) encoding '()))
-                 (enc-opnd (enc (opnd code) encoding '())))
-             (append enc-next
-                     (append enc-opnd
-                             (cons (encoding-inst-start encoding 'if)
-                                   stream)))))
+                 (enc-opnd (enc (opnd code) encoding '()))
+                 (tail     (cons (encoding-inst-start encoding 'if) stream)))
+
+             (if (encoding-inst-get encoding '(skip int long)) ;; if optimization
+               (let ((nb-similar (list-count-eqv? enc-next enc-opnd 0)))
+                 (append enc-next
+                         (enc-inst 
+                           (- (length enc-next) nb-similar)
+                           'skip
+                           'int
+                           encoding
+                           (append
+                             (list-tail enc-opnd nb-similar)
+                                 tail))))
+               (append enc-next
+                       (append enc-opnd
+                               tail)))))
           (else 
             (error "Cannot encode instruction" code))))
       (error "Rib expected, got :" code)))
