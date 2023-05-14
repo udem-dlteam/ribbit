@@ -91,7 +91,12 @@
                 (lambda (port) (read-line port #f)))))
          (del-file tmpin)
          (del-file tmpout)
-         out))))
+         out)))
+   (define list1 list)
+   (define list2 list)
+   (define list3 list)
+
+   )
 
   (else
 
@@ -1538,7 +1543,7 @@
         return-val))
     encoding-table))
 
-(define old-encoding-92
+(define encoding-original-92
   (calculate-start 
     '( 
       ;; jump
@@ -1581,16 +1586,66 @@
 
       (if 1))))
 
-(define eb 92)
-(define eb/2 (quotient 92 2))
 
-(define (encoding-size encoding entry)
+(define encoding-skip-92
+  (calculate-start 
+    '( 
+      ;; jump
+      ((jump sym short) 20)
+      ((jump int long)  1)
+      ((jump sym long)  2)
+
+      ((jump int short) 0)
+
+      ;; call
+      ((call sym short) 19)
+      ((call int long)  1)
+      ((call sym long)  2)
+
+      ((call int short) 0)
+
+      ;; set
+      ((set int long)   1)
+      ((set sym long)   2)
+
+      ((set sym short)  0)
+      ((set int short)  0)
+
+      ;; get
+      ((get int short)  10)
+      ((get int long)   1)
+      ((get sym long)   2)
+
+      ((get sym short)  0)
+
+      ;; const
+      ((const int short)  11)
+      ((const int long)   1)
+      ((const sym long)   2)
+
+      ((const proc short) 4)
+      ((const proc long)  1)
+
+      ((const sym short) 0)
+
+      ((skip int short) 10)
+      ((skip int long)  1)
+
+      (if 1)
+      )))
+
+(define (encoding-inst-size encoding entry)
   (cadr (assoc entry encoding)))
 
-(define (encoding-start encoding entry)
+(define (encoding-inst-start encoding entry)
   (caddr (assoc entry encoding)))
 
-(define (encode proc exports primitives live-features)
+(define (encoding-size encoding)
+  (fold + 0 (map cadr encoding)))
+
+(define (encode proc exports primitives live-features encoding)
+
+  (define eb/2 (quotient (encoding-size encoding) 2))
 
   (define syms (make-table))
 
@@ -1829,10 +1884,10 @@
   (define (enc-inst arg op-sym arg-sym encoding-table stream)
     (let* ((short-key   (list3 op-sym arg-sym 'short))
            (long-key    (list3 op-sym arg-sym 'long))
-           (short-size  (encoding-size encoding-table short-key))
-           (long-size   (encoding-size encoding-table long-key))
-           (short-start (encoding-start encoding-table short-key))
-           (long-start  (encoding-start encoding-table long-key)))
+           (short-size  (encoding-inst-size encoding-table short-key))
+           (long-size   (encoding-inst-size encoding-table long-key))
+           (short-start (encoding-inst-start encoding-table short-key))
+           (long-start  (encoding-inst-start encoding-table long-key)))
 
       (if (< arg short-size)
         (cons (+ short-start arg)
@@ -1845,13 +1900,14 @@
           (else
             (error "Invalid long size, should be at least one and less than 2" long-size))))))
 
-  (define (enc-proc arg stream)
+  (define (enc-proc arg encoding stream)
     (let ((code (procedure-code arg)))
       (let ((nparams (field0 code)))
         (enc (next code)
-             (enc-inst nparams 'const 'proc old-encoding-92 stream)))))
+             encoding
+             (enc-inst nparams 'const 'proc encoding stream)))))
 
-  (define (enc code stream)
+  (define (enc code encoding stream)
     (if (rib? code)
       (let* ((op (oper code))
              (arg (opnd code))
@@ -1884,7 +1940,7 @@
         (cond 
           ((and (eq? op-sym 'const) ;; special case for encoding procedures
                 (eq? arg-sym 'proc))
-           (enc next-op (enc-proc arg stream)))
+           (enc next-op encoding (enc-proc arg encoding stream)))
           ((not (eq? 'special op-sym)) ;; "normal" encoding  
            (let ((encoded-inst 
                    (enc-inst 
@@ -1893,18 +1949,19 @@
                        arg)
                      op-sym 
                      arg-sym 
-                     old-encoding-92 
+                     encoding 
                      stream)))
              (if (eq? 'jump op-sym)
                encoded-inst
                (enc next-op
+                    encoding
                     encoded-inst))))
           ((eqv? op if-op) ;; special case for if
-           (let ((enc-next (enc (next code) '()))
-                 (enc-opnd (enc (opnd code) '())))
+           (let ((enc-next (enc (next code) encoding '()))
+                 (enc-opnd (enc (opnd code) encoding '())))
              (append enc-next
                      (append enc-opnd
-                             (cons (encoding-start old-encoding-92 'if)
+                             (cons (encoding-inst-start encoding 'if)
                                    stream)))))
           (else 
             (error "Cannot encode instruction" code))))
@@ -1931,7 +1988,7 @@
           (table->list syms))))
 
     (let loop1 ((i 0) (lst lst) (symbols '()))
-      (if (and (pair? lst) (< i (encoding-start old-encoding-92 '(call sym short))))
+      (if (and (pair? lst) (< i (encoding-inst-start encoding '(call sym short))))
           (let ((s (car lst)))
             (let ((sym (car s)))
               (let ((descr (cdr s)))
@@ -1967,7 +2024,7 @@
                             (loop4 (cdr symbols*))
 
                             (let ((stream
-                                    (enc-proc proc '())))
+                                    (enc-proc proc encoding '())))
                               (string-append
                                (stream->string
                                 (encode-n (- (length symbols)
@@ -2394,7 +2451,7 @@
   (let ((file-content (call-with-input-file path (lambda (port) (read-line port #f)))))
        (if (eof-object? file-content) "" file-content)))
 
-(define (generate-code target verbosity input-path rvm-path minify? host-file proc-exports-and-features) ;features-enabled features-disabled source-vm
+(define (generate-code target verbosity input-path rvm-path minify? host-file encoding proc-exports-and-features) ;features-enabled features-disabled source-vm
   (let* ((proc
            (vector-ref proc-exports-and-features 0))
          (exports
@@ -2408,7 +2465,12 @@
          (encode (lambda (bits)
                    (let ((input (string-append 
                                   (if (eqv? bits 92)
-                                    (encode proc exports primitives live-features)
+                                    (encode 
+                                      proc 
+                                      exports 
+                                      primitives 
+                                      live-features
+                                      encoding)
                                     (error "Cannot encode program with this number of bits" bits))
                                   (if input-path
                                     (string-from-file input-path)
@@ -2503,6 +2565,7 @@
     #f     ;; rvm-path
     #f     ;; minify?
     #f     ;; host-file
+    encoding-original-92
     (compile-program
      0    ;; verbosity
      #f   ;; parsed-vm
@@ -2532,7 +2595,7 @@
                            primitives
                            features-enabled
                            features-disabled
-                          )
+                           encoding)
 
      ;; This version of the compiler reads the program and runtime library
      ;; source code from files and it supports various options.  It can
@@ -2550,6 +2613,7 @@
                 #f
                 (parse-host-file
                   (string->list* vm-source)))))
+
        (set! target _target)
 
        (write-target-code
@@ -2561,6 +2625,7 @@
            rvm-path
            minify?
            host-file
+           encoding
            (compile-program
              verbosity
              host-file
@@ -2583,7 +2648,8 @@
                (primitives #f)
                (features-enabled '())
                (features-disabled '())
-               (rvm-path #f))
+               (rvm-path #f)
+               (encoding-name "original-92"))
 
            (let loop ((args (cdr args)))
              (if (pair? args)
@@ -2606,6 +2672,9 @@
                           (loop rest))
                          ((and (pair? rest) (member arg '("-p" "--primitives")))
                           (set! primitives (read (open-input-string (car rest))))
+                          (loop (cdr rest)))
+                         ((and (pair? rest) (member arg '("-e" "--encoding")))
+                          (set! encoding-name (car rest))
                           (loop (cdr rest)))
                          ((and (pair? rest) (member arg '("-r" "--rvm")))
                           (set! rvm-path (car rest))
@@ -2666,7 +2735,22 @@
                  verbosity
                  primitives
                  features-enabled
-                 features-disabled)))))
+                 features-disabled
+                 (cond
+                   ((string=? "original-92" encoding-name)
+                    (if (not (eqv? (encoding-size encoding-original-92) 92)) 
+                      (error 
+                        "encoding-original-92 is not on 92 instructions, but on : " 
+                        (encoding-size encoding-original-92)))
+                    encoding-original-92)
+                   ((string=? "skip-92" encoding-name)
+                    (if (not (eqv? (encoding-size encoding-skip-92) 92)) 
+                      (error 
+                        "encoding-skip-92 is not on 92 instructions, but on : " 
+                        (encoding-size encoding-skip-92)))
+                    encoding-skip-92)
+                   (else
+                     (error "Cannot find encoding :" encoding-name))))))))
 
    (parse-cmd-line (cmd-line))
 
