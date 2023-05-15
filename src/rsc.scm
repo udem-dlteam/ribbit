@@ -1009,6 +1009,8 @@
 
 (define defined-features '()) ;; used as parameters for expand-functions
 
+(define pwd (current-directory))
+
 (define (expand-expr expr)
 
   (cond ((symbol? expr)
@@ -1210,7 +1212,12 @@
                         feature-location-code-pairs)
                       '#f)))
 
-
+                 ((eqv? first '##include)
+                  (let ((old-pwd pwd) (file-path (path-expand (cadr expr) pwd)))
+                    (set! pwd (path-directory file-path))
+                    (let ((result (expand-begin (read-from-file file-path))))
+                      (set! pwd old-pwd)
+                      result)))
 
                  ((eqv? first 'and)
                   (expand-expr
@@ -2005,11 +2012,11 @@
     (%read-all port)))
 
 (define (read-library lib-path)
-  (read-from-file
+  (list (list '##include 
    (if (equal? (rsc-path-extension lib-path) "")
        (path-expand (string-append lib-path ".scm")
                     (path-expand "lib" (root-dir)))
-       lib-path)))
+       lib-path))))
 
 (define (read-program lib-path src-path)
   (append (apply append (map read-library lib-path))
