@@ -35,7 +35,7 @@ pair a b = (a,b)
 -- Rib Objects
 
 data RibForeign = Ignore 
-    -- @@(location foreign)@@
+    -- @@(location hs/foreign-type)@@
     deriving (Eq)
 
 data Rib = RibInt !Int | RibRef !(IORef RibObj) | RibForeign !RibForeign deriving (Eq)

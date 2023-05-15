@@ -17,7 +17,7 @@ lengthAttr = "length";
 // @@(feature (and nodejs (not web))
 // Implement putchar/getchar to the terminal 
 
-fs = require("fs"); // @@(feature (or node-fs (or getchar putchar)))@@
+fs = require("fs"); // @@(feature (or js/node/fs (or getchar putchar)))@@
 
 putchar = (c) => { 
     let buffer = Buffer.alloc(1); 
