@@ -12,10 +12,28 @@
 (define string? (instance? string-type))
 (define vector? (instance? vector-type))
 (define procedure? (instance? procedure-type))
-;;(define char? integer?)
 (define (null? obj) (eqv? obj '()))
 
+(define (integer? obj) (not (rib? obj)))
 
+(define (list? obj)
+  (list?-aux obj obj))
+
+(define (list?-aux fast slow)
+  (if (pair? fast)
+      (let ((fast (field1 fast)))
+        (cond ((eq? fast slow)
+               #f)
+              ((pair? fast)
+               (list?-aux (field1 fast) (field1 slow)))
+              (else
+               (null? fast))))
+      (null? fast)))
+
+(define (length lst)
+  (if (pair? lst)
+      (+ 1 (length (field1 lst)))
+      0))
 
 ;; ---------------------- CONVERSIONS ---------------------- ;;
 
@@ -87,8 +105,9 @@
       n))
 
 
-;; ---------------------- UTILS ---------------------- ;;
+;; ---------------------- EQUALITY ---------------------- ;;
 
+(define eq? eqv?)
 
 (define (equal? x y)
   (or (eqv? x y)

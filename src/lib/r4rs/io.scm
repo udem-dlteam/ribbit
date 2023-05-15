@@ -3,27 +3,27 @@
 
    (define-primitive
      (##stdin)
-     (use node-fs)
+     (use js/node/fs)
      "() => push(0),")
 
    (define-primitive
      (##stdout)
-     (use node-fs)
+     (use js/node/fs)
      "() => push(1),")
 
    (define-primitive 
      (##get-fd-input-file filename)
-     (use node-fs scm2str)
+     (use js/node/fs scm2str)
      "prim1(filename => fs.openSync(scm2str(filename), 'r')),")
 
    (define-primitive
      (##get-fd-output-file filename)
-     (use node-fs scm2str)
+     (use js/node/fs scm2str)
      "prim1(filename => fs.openSync(scm2str(filename), 'w')),")
 
    (define-primitive
      (##read-char fd)
-     (use node-fs)
+     (use js/node/fs)
      "prim1(fd => {
      let buf=Buffer.alloc(1); 
      let ch=fs.readSync(fd, buf) === 0 ? NIL : buf[0]; 
@@ -32,12 +32,12 @@
 
    (define-primitive
      (##write-char ch fd)
-     (use node-fs)
+     (use js/node/fs)
      "prim2((fd, ch) => fs.writeSync(fd, String.fromCodePoint(ch), null, 'utf8')),")
 
    (define-primitive
      (##close-input-port fd)
-     (use node-fs)
+     (use js/node/fs)
      "prim1(fd => fs.closeSync(fd)),")
 
    (define ##close-output-port ##close-input-port))
@@ -46,7 +46,7 @@
 
    (define-primitive
      (##stdin)
-     (use stdio)
+     (use c/stdio)
      "{
      FILE* file = fdopen(0, \"r\");
      push2((long) file | 1, PAIR_TAG);
@@ -55,7 +55,7 @@
 
    (define-primitive
      (##stdout)
-     (use stdio)
+     (use c/stdio)
      "{
      FILE* file = fdopen(1, \"w\");
      push2((long) file | 1, PAIR_TAG);
@@ -64,7 +64,7 @@
 
    (define-primitive 
      (##get-fd-input-file filename)
-     (use stdio scm2str)
+     (use c/stdio scm2str)
      "{
      PRIM1();
      char* filename = scm2str(x);
@@ -77,7 +77,7 @@
 
    (define-primitive
      (##get-fd-output-file filename)
-     (use stdio scm2str)
+     (use c/stdio scm2str)
      "{
      PRIM1();
      char* filename = scm2str(x);
@@ -89,7 +89,7 @@
 
    (define-primitive
      (##read-char fd)
-     (use stdio)
+     (use c/stdio)
      "{
      PRIM1();
      FILE* file = (FILE*) ((long) x ^ 1);
@@ -102,7 +102,7 @@
 
    (define-primitive
      (##write-char ch fd)
-     (use stdio)
+     (use c/stdio)
      "{
      PRIM2();
      FILE* file = (FILE*) ((long) y ^ 1);
@@ -118,7 +118,7 @@
 
    (define-primitive
      (##close-input-port fd)
-     (use stdio)
+     (use c/stdio)
      "{
      PRIM1();
      FILE* file = (FILE*) ((long) x ^ 1);
@@ -130,41 +130,41 @@
 
   ((host hs)
 
-   (define-feature io-handle (foreign "    | RibHandle !Handle"))
+   (define-feature hs/io-handle (hs/foreign-type "    | RibHandle !Handle"))
 
    (define-primitive
      (##stdin)
-     (use io-handle)
+     (use hs/io-handle)
      " , push . RibForeign $ RibHandle stdin")
 
    (define-primitive
      (##stdout)
-     (use io-handle)
+     (use hs/io-handle)
      " , push . RibForeign $ RibHandle stdout")
 
    (define-primitive 
      (##get-fd-input-file filename)
-     (use io-handle scm2str)
+     (use hs/io-handle scm2str)
      " , prim1 $ \\filename -> scm2str filename >>= (\\x -> openFile x ReadMode) >>= (pure . RibForeign . RibHandle)")
 
    (define-primitive
      (##get-fd-output-file filename)
-     (use io-handle scm2str)
+     (use hs/io-handle scm2str)
      " , prim1 $ \\filename -> scm2str filename >>= (\\x -> openFile x WriteMode) >>= (pure . RibForeign . RibHandle)")
 
    (define-primitive
      (##read-char fd)
-     (use io-handle)
+     (use hs/io-handle)
      " , prim1 $ \\(RibForeign (RibHandle handle)) -> hIsEOF handle >>= \\eof -> if eof then return ribNil else hGetChar handle >>= (pure . RibInt . ord)")
 
    (define-primitive
      (##write-char ch fd)
-     (use io-handle)
+     (use hs/io-handle)
      " , prim2 $ \\(RibInt ch) (RibForeign (RibHandle handle)) -> hPutChar handle (chr ch) >> pure ribTrue")
 
    (define-primitive
      (##close-input-port fd)
-     (use io-handle)
+     (use hs/io-handle)
      " , prim1 $ \\(RibForeign (RibHandle handle)) -> hClose handle >> pure ribTrue")
 
    (define ##close-output-port ##close-input-port)))
@@ -427,82 +427,3 @@
 ;; ---------------------- LOAD ---------------------- ;;
 (define (load filename)
   )
-
-
-;; ---------------------- UTIL ---------------------- ;;
-
-(define string->list field0)
-(define (list->string lst) (rib lst (length lst) 3)) ;; string
-(define (list->vector lst) (rib lst (length lst) vector-type)) 
-
-(define (number->string x)
-  (list->string
-   (if (< x 0)
-       (rib 45 (number->string-aux (- 0 x) '()) 0) ;; cons
-       (number->string-aux x '()))))
-
-(define (number->string-aux x tail)
-  (let ((q (quotient x 10)))
-    (let ((d (+ 48 (- x (* q 10)))))
-      (let ((t (rib d tail 0))) ;; cons
-        (if (< 0 q)
-            (number->string-aux q t)
-            t)))))
-
-(define (string->number str)
-  (let ((lst (string->list str)))
-    (if (eqv? lst '())
-        #f
-        (if (eqv? (field0 lst) 45) ;; car
-            (string->number-aux (field1 lst)) ;; cdr
-            (let ((n (string->number-aux lst)))
-              (and n (- 0 n)))))))
-
-(define (string->number-aux lst)
-  (if (eqv? lst '())
-      #f
-      (string->number-aux2 lst 0)))
-
-(define (string->number-aux2 lst n)
-  (if (and (rib? lst) (eqv? (field2 lst) 0)) ;; pair?
-    (let ((c (field0 lst))) ;; car
-        (and (< 47 c)
-             (< c 58)
-             (string->number-aux2 (field1 lst) ;; cdr
-                                  (- (* 10 n) (- c 48)))))
-      n))
-
-(define (length lst)
-  (if (eqv? lst '())
-    0
-    (+ 1 (length (field1 lst)))))
-
-
-
-(define symtbl (field1 rib)) ;; get symbol table
-
-(define (string->uninterned-symbol str) (rib #f str 2)) ;; 2 is symbol-type
-
-(define (string->symbol str)
-  (string->symbol-aux str symtbl))
-
-(define (string->symbol-aux str syms)
-  (if (and (rib? syms) (eqv? (field2 syms) 0)) ;; pair?
-    (let ((sym (field0 syms)))
-      (if (equal? (field1 sym) str)
-        sym
-        (string->symbol-aux str (field1 syms))))
-    (let ((sym (string->uninterned-symbol str)))
-      (set! symtbl (rib sym symtbl 0))
-      sym)))
-
-
-(define (equal? x y)
-  (or (eqv? x y)
-      (and (rib? x)
-           (if (eqv? (field2 x) 5) ;; 5 is singleton-type
-             #f
-             (and (rib? y)
-                  (equal? (field2 x) (field2 y))
-                  (equal? (field1 x) (field1 y))
-                  (equal? (field0 x) (field0 y)))))))

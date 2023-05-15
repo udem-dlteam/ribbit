@@ -2,39 +2,8 @@
 
 ;; This is the "max" version with most of the R4RS predefined procedures.
 
-(define pair-type      0)
-(define procedure-type 1)
-(define symbol-type    2)
-(define string-type    3)
-(define vector-type    4)
-(define singleton-type 5)
-
-(define (instance? type) (lambda (o) (and (rib? o) (eqv? (field2 o) type))))
-
-(define pair? (instance? pair-type))
-;;;----------------------------------------------------------------------------
-
-;; Booleans (R4RS section 6.1).
-
-(define (not x) (eqv? x #f))
-
-(define (boolean? obj) (or (eqv? obj #t) (not obj)))
-
-;;;----------------------------------------------------------------------------
-
-;; Equivalence predicates (R4RS section 6.2).
-
-(define eq? eqv?)
-
-(define (equal? x y)
-  (or (eqv? x y)
-      (and (rib? x)
-           (if (eqv? (field2 x) singleton-type)
-               #f
-               (and (rib? y)
-                    (equal? (field2 x) (field2 y))
-                    (equal? (field1 x) (field1 y))
-                    (equal? (field0 x) (field0 y)))))))
+(##include "./types.scm")
+(##include "./io.scm")
 
 ;;;----------------------------------------------------------------------------
 
@@ -78,21 +47,6 @@
 (define (cdddar pair) (cdddr (field0 pair)))
 (define (cddddr pair) (cdddr (field1 pair)))
 
-(define (null? obj) (eqv? obj '()))
-
-(define (list? obj)
-  (list?-aux obj obj))
-
-(define (list?-aux fast slow)
-  (if (pair? fast)
-      (let ((fast (cdr fast)))
-        (cond ((eq? fast slow)
-               #f)
-              ((pair? fast)
-               (list?-aux (cdr fast) (cdr slow)))
-              (else
-               (null? fast))))
-      (null? fast)))
 
 (define (list . args) args)
 
@@ -179,36 +133,12 @@
 
 ;; Symbols (R4RS section 6.4).
 
-(define symbol? (instance? symbol-type))
-(define (string->uninterned-symbol str) (rib #f str symbol-type))
-(define symbol->string field1)
 (define global-var-ref field0)
 (define global-var-set! field0-set!)
-
-;; Symbol table.
-
-(define (string->symbol str)
-  (string->symbol-aux str symtbl))
-
-(define (string->symbol-aux str syms)
-  (if (pair? syms)
-      (let ((sym (field0 syms)))
-        (if (equal? (field1 sym) str)
-            sym
-            (string->symbol-aux str (field1 syms))))
-      (let ((sym (string->uninterned-symbol str)))
-        (set! symtbl (cons sym symtbl))
-        sym)))
-
-(define symtbl (field1 rib)) ;; get symbol table
-
-(field1-set! rib 0) ;; release symbol table if not otherwise needed
 
 ;;;----------------------------------------------------------------------------
 
 ;; Numbers (R4RS section 6.5).
-
-(define (integer? obj) (not (rib? obj)))
 
 ;;(define rational? integer?)
 ;;(define real? rational?)
@@ -303,47 +233,6 @@
 ;;(define (exact->inexact x) ...)
 ;;(define (inexact->exact x) ...)
 
-;; Integer to string conversion.
-
-(define (number->string x)
-  (list->string
-   (if (< x 0)
-       (cons 45 (number->string-aux (- 0 x) '()))
-       (number->string-aux x '()))))
-
-(define (number->string-aux x tail)
-  (let ((q (quotient x 10)))
-    (let ((d (+ 48 (- x (* q 10)))))
-      (let ((t (cons d tail)))
-        (if (< 0 q)
-            (number->string-aux q t)
-            t)))))
-
-;; String to integer conversion.
-
-(define (string->number str)
-  (let ((lst (string->list str)))
-    (if (null? lst)
-        #f
-        (if (eqv? (car lst) 45)
-            (string->number-aux (cdr lst))
-            (let ((n (string->number-aux lst)))
-              (and n (- 0 n)))))))
-
-(define (string->number-aux lst)
-  (if (null? lst)
-      #f
-      (string->number-aux2 lst 0)))
-
-(define (string->number-aux2 lst n)
-  (if (pair? lst)
-      (let ((c (car lst)))
-        (and (< 47 c)
-             (< c 58)
-             (string->number-aux2 (cdr lst) (- (* 10 n) (- c 48)))))
-      n))
-
-;;;----------------------------------------------------------------------------
 
 ;; Characters (R4RS section 6.6).
 
@@ -377,9 +266,6 @@
 
 ;; Strings (R4RS section 6.7).
 
-(define string? (instance? string-type))
-(define (list->string lst) (rib lst (length lst) string-type))
-(define string->list field0)
 (define string-length field1)
 (define (string-ref str i) (list-ref (field0 str) i))
 (define (string-set! str i x) (list-set! (field0 str) i x))
@@ -441,9 +327,6 @@
 
 ;; Vectors (R4RS section 6.8).
 
-(define vector? (instance? vector-type))
-(define (list->vector lst) (rib lst (length lst) vector-type))
-(define vector->list field0)
 (define vector-length field1)
 (define (vector-ref vect i) (list-ref (field0 vect) i))
 (define (vector-set! vect i x) (list-set! (field0 vect) i x))
@@ -459,7 +342,6 @@
 
 ;; Control features (R4RS section 6.9).
 
-(define procedure? (instance? procedure-type))
 (define (make-procedure code env) (rib code env procedure-type))
 (define procedure-code field0)
 (define procedure-env field1)
@@ -509,242 +391,6 @@
 ;;(define (transcript-on filename) ...)
 ;;(define (transcript-off) ...)
 
-;; Character I/O (characters are represented with integers).
-
-(define eof -1)
-(define (eof-object? obj) (eqv? obj eof))
-
-(define empty -2)
-(define buffer empty)
-
-(define (read-char)
-  (let ((c buffer))
-    (if (eqv? c eof)
-        c
-        (read-char-aux
-         (if (eqv? c empty)
-             (getchar)
-             c)))))
-
-(define (read-char-aux c)
-  (set! buffer c)
-  (if (eqv? c eof)
-      c
-      (begin
-        (set! buffer empty)
-        c)))
-
-(define (peek-char)
-  (let ((c (read-char)))
-    (set! buffer c)
-    c))
-
-;;;----------------------------------------------------------------------------
-
-;; The read procedure.
-
-(define (read)
-  (let ((c (peek-char-non-whitespace)))
-    (cond ((< c 0)
-           c)
-          ((eqv? c 40) ;; #\(
-           (read-char) ;; skip "("
-           (read-list))
-          ((eqv? c 35) ;; #\#
-           (read-char) ;; skip "#"
-           (let ((c (peek-char)))
-             (cond ((eqv? c 102) ;; #\f
-                    (read-char) ;; skip "f"
-                    #f)
-                   ((eqv? c 116) ;; #\t
-                    (read-char) ;; skip "t"
-                    #t)
-                   ((or (eqv? c 120) (eqv? c 88)) ;; #\x or #\X
-                    (read-char) ;; skip "x"
-                    (let ((c (peek-char)))
-                      (if (eqv? c 45)
-                          (begin
-                            (read-char)
-                            (read-hex 0))
-                          (- 0 (read-hex 0)))))
-                   (else ;; assume it is #\(
-                    (list->vector (read))))))
-          ((eqv? c 39) ;; #\'
-           (read-char) ;; skip "'"
-           (cons 'quote (cons (read) '())))
-          ((eqv? c 34) ;; #\"
-           (read-char) ;; skip """
-           (list->string (read-chars '())))
-          (else
-           (read-char) ;; skip first char
-           (let ((s (list->string (cons c (read-symbol)))))
-             (let ((n (string->number s)))
-               (or n
-                   (string->symbol s))))))))
-
-(define (read-hex accu)
-  (let ((c (peek-char)))
-    (if (and (< 47 c) (< c 58))
-        (begin
-          (read-char)
-          (read-hex (- (* 16 accu) (- c 48))))
-        (if (and (< 64 c) (< c 71))
-            (begin
-              (read-char)
-              (read-hex (- (* 16 accu) (- c 55))))
-            (if (and (< 96 c) (< c 103))
-                (begin
-                  (read-char)
-                  (read-hex (- (* 16 accu) (- c 87))))
-                accu)))))
-
-(define (read-list)
-  (let ((c (peek-char-non-whitespace)))
-    (if (eqv? c 41) ;; #\)
-        (begin
-          (read-char) ;; skip ")"
-          '())
-        (let ((first (read)))
-          (cons first (read-list))))))
-
-(define (read-symbol)
-  (let ((c (peek-char)))
-    (if (or (eqv? c 40) ;; #\(
-            (eqv? c 41) ;; #\)
-            (< c 33)) ;; whitespace or eof?
-        '()
-        (begin
-          (read-char)
-          (cons c (read-symbol))))))
-
-(define (read-chars lst)
-  (let ((c (read-char)))
-    (cond ((eof-object? c)
-           '())
-          ((eqv? c 34) ;; #\"
-           (reverse lst))
-          ((eqv? c 92) ;; #\\
-;;           #; ;; no support for \n in strings
-;;           (read-chars (cons (read-char) lst))
-           ;#; ;; support for \n in strings
-           (let ((c2 (read-char)))
-             (read-chars
-              (cons (cond
-                     ;#; ;; support for \n in strings
-                     ((eqv? c2 110) 10) ;; #\n
-                     ;#; ;; support for \r in strings
-                     ((eqv? c2 114) 13) ;; #\r
-                     ;#; ;; support for \t in strings
-                     ((eqv? c2 116) 9)  ;; #\t
-                     (else          c2))
-                    lst))))
-          (else
-           (read-chars (cons c lst))))))
-
-(define (peek-char-non-whitespace)
-  (let ((c (peek-char)))
-    (if (eof-object? c) ;; eof?
-        -1
-        (if (< 32 c) ;; above #\space ?
-            (if (eqv? c 59) ;; #\;
-                (skip-comment)
-                c)
-            (begin
-              (read-char)
-              (peek-char-non-whitespace))))))
-
-(define (skip-comment)
-  (let ((c (read-char)))
-    (if (< c 0) ;; eof?
-        c
-        (if (eqv? c 10) ;; #\newline
-            (peek-char-non-whitespace)
-            (skip-comment)))))
-
-;;;----------------------------------------------------------------------------
-
-;; The write procedure.
-
-(define (write o)
-  (cond ((string? o)
-         (putchar 34)
-         (write-chars (string->list o) #t)
-         (putchar 34))
-        (else
-         (display o))))
-
-(define (display o)
-  (cond ((not o)
-         (putchar2 35 102)) ;; #f
-        ((eqv? o #t)
-         (putchar2 35 116)) ;; #t
-        ((null? o)
-         (putchar2 40 41)) ;; ()
-        ((pair? o)
-         (putchar 40)  ;; #\(
-         (write (car o))
-         (write-list (cdr o))
-         (putchar 41)) ;; #\)
-        ((symbol? o)
-         (display (symbol->string o)))
-        ((string? o)
-         (write-chars (string->list o) #f))
-        ((vector? o)
-         (putchar 35) ;; #\#
-         (write (vector->list o)))
-        ((procedure? o)
-         (putchar2 35 112)) ;; #p
-        (else
-         ;; must be a number
-         (display (number->string o)))))
-
-(define (write-list lst)
-  (if (pair? lst)
-      (begin
-        (putchar 32) ;; #\space
-        (if (pair? lst)
-            (begin
-              (write (car lst))
-              (write-list (cdr lst)))
-            #f)) ;; writing dotted pairs is not supported
-
-      #f))
-
-(define (write-chars lst escape?)
-  (if (pair? lst)
-      (let ((c (car lst)))
-        (putchar
-         (cond ((not escape?)
-                c)
-               ;#; ;; support for \n in strings
-               ((eqv? c 10) ;; #\newline
-                (putchar 92) ;; #\\
-                110)         ;; #\n
-               ;#; ;; support for \r in strings
-               ((eqv? c 13) ;; #\return
-                (putchar 92) ;; #\\
-                114)         ;; #\r
-               ;#; ;; support for \t in strings
-               ((eqv? c 9) ;; #\tab
-                (putchar 92) ;; #\\
-                116)         ;; #\t
-               ((or (eqv? c 34) ;; #\"
-                    (eqv? c 92)) ;; #\\
-                (putchar 92) ;; #\\
-                c)
-               (else
-                c)))
-        (write-chars (cdr lst) escape?))
-      #f))
-
-(define write-char putchar)
-
-(define (newline)
-  (putchar 10))
-
-(define (putchar2 c1 c2)
-  (putchar c1)
-  (putchar c2))
 
 ;;;----------------------------------------------------------------------------
 
