@@ -1890,10 +1890,10 @@
               t
               (encode-n-aux q t end))))))
 
-  (define (if-similarity-analysis root)
+  (define (linearize-ifs root)
     (define table '())
 
-    (define (sublist-eqv? left right result)
+    (define (sublist-eqv? left right(lambda (l) (map - l)) result)
       (if (and (pair? left)
                (pair?  right)
                (eqv? (field0 (car left)) 
@@ -1903,35 +1903,38 @@
         (sublist-eqv? (cdr left) (cdr right) (cons (car left) result))
         (reverse result)))
 
-    (define (analyse-proc root rev)
-      (analyse (next (procedure-code root)) '()))
+    (define (linearize-proc root rev)
+      (linearize (next (procedure-code root)) '()))
     
     ;; here rev means reverse. We chain the instruction in reverse order to check
     ;;   if they are similar to a certain amount
-    (define (analyse root rev)
+    (define (linearize root cont)
       (cond
-        ((assq root table)
+        #;((assq root table)    ;; optimization
          (cadr (assq root table)))
         ((eqv? (oper root) if-op)
-         (let ((return (cons root 'tbd)))
-           (set! table (cons return table))
+         (let (#;(return (cons root 'tbd)))
+           #;(set! table (cons return table))
            (let* ((branch-true (opnd root))
                   (branch-false (next root))
-                  (rev-true (analyse branch-true '()))
-                  (rev-false (analyse branch-false '()))
-                  (_ (pp rev-true))
+                  (lin-true  (linearize branch-true '()))
+                  (lin-false (linearize branch-false '()))
+                  (rev-true  (reverse-inst lin-true))
+                  (rev-false (reverse-inst lin-false))
+                  #;(_ (pp rev-true))
                   (sublist-eqv (sublist-eqv? rev-true rev-false '())))
-             (set-cdr! return (cons sublist-eqv (- (length rev-true) (length sublist-eqv))))
-             sublist-eqv)))
+             #;(set-cdr! return (cons sublist-eqv (- (length rev-true) (length sublist-eqv))))
+             
+             )))
         ((and (eqv? (oper root) const-op) (procedure2? (opnd root)))
-         (analyse-proc (opnd root) '())
-         (analyse (next root) (cons root rev)))
+         (linearize-proc (opnd root) '())
+         (linearize (next root) (cons root rev)))
         ((rib? (next root))
-         (analyse (next root) (cons root rev)))
+         (linearize (next root) (cons root rev)))
         (else
           (cons root rev))))
 
-    (analyse-proc root '())
+    (linearize-proc root '())
     
     
     (map (lambda (pair) (list2 (car pair) (cddr pair))) table))

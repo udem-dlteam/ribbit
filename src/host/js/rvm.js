@@ -129,10 +129,16 @@ while (1) {
   n = x;
   d = 0;
   op = -1;
-  while ((d=[20,30,0,10,11,4][++op])+2<n) n -= d+3;
-  if (x>90)
+  while ((d=[20,20,0,10,11,4,9][++op])+(5>op)*2<n) n -= d+(4<op?1:3);
+  console.log("code : ", x, " arg : ", n, "d : ", d, "op : ", op)
+  if (x>90) 
     n = pop();
   else {
+    if (5<op){
+        console.log("SKIP ", n)
+        stack[0] = list_tail(stack[0], n); 
+        continue;
+    } // skip instruction
     if (!op) stack = [0,stack,0];
     n = n>=d ? (n==d ? get_int(0) : symbol_ref(get_int(n-d-1))) : op<3 ? symbol_ref(n) : n;
     if (4<op) {
