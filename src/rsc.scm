@@ -10,6 +10,8 @@
 
 ;; Tested with Gambit v4.7.5 and above, Guile 3.0.7, Chicken 5.2.0 and Kawa 3.1
 
+(define pp (lambda (x) x))
+
 (cond-expand
 
  ((and chicken compiling)
@@ -1598,7 +1600,7 @@
       ((jump int short) 0)
 
       ;; call
-      ((call sym short) 19)
+      ((call sym short) 20)
       ((call int long)  1)
       ((call sym long)  2)
 
@@ -1628,10 +1630,15 @@
 
       ((const sym short) 0)
 
-      ((skip int short) 10)
+
+      ((skip int short) 9)
       ((skip int long)  1)
 
-      (if 1))))
+      (if 1)
+
+      )))
+
+(pp encoding-skip-92)
 
 (define (encoding-inst-size encoding entry)
   (cadr (encoding-inst-get encoding entry)))
@@ -1883,6 +1890,52 @@
               t
               (encode-n-aux q t end))))))
 
+  (define (if-similarity-analysis root)
+    (define table '())
+
+    (define (sublist-eqv? left right result)
+      (if (and (pair? left)
+               (pair?  right)
+               (eqv? (field0 (car left)) 
+                     (field0 (car right)))
+               (eqv? (field1 (car left))
+                     (field1 (car right))))
+        (sublist-eqv? (cdr left) (cdr right) (cons (car left) result))
+        (reverse result)))
+
+    (define (analyse-proc root rev)
+      (analyse (next (procedure-code root)) '()))
+    
+    ;; here rev means reverse. We chain the instruction in reverse order to check
+    ;;   if they are similar to a certain amount
+    (define (analyse root rev)
+      (cond
+        ((assq root table)
+         (cadr (assq root table)))
+        ((eqv? (oper root) if-op)
+         (let ((return (cons root 'tbd)))
+           (set! table (cons return table))
+           (let* ((branch-true (opnd root))
+                  (branch-false (next root))
+                  (rev-true (analyse branch-true '()))
+                  (rev-false (analyse branch-false '()))
+                  (_ (pp rev-true))
+                  (sublist-eqv (sublist-eqv? rev-true rev-false '())))
+             (set-cdr! return (cons sublist-eqv (- (length rev-true) (length sublist-eqv))))
+             sublist-eqv)))
+        ((and (eqv? (oper root) const-op) (procedure2? (opnd root)))
+         (analyse-proc (opnd root) '())
+         (analyse (next root) (cons root rev)))
+        ((rib? (next root))
+         (analyse (next root) (cons root rev)))
+        (else
+          (cons root rev))))
+
+    (analyse-proc root '())
+    
+    
+    (map (lambda (pair) (list2 (car pair) (cddr pair))) table))
+
   (define (enc-inst arg op-sym arg-sym encoding-table stream)
     (let* ((short-key   (list3 op-sym arg-sym 'short))
            (long-key    (list3 op-sym arg-sym 'long))
@@ -1902,21 +1955,21 @@
           (else
             (error "Invalid long size, should be at least one and less than 2" long-size))))))
 
-  (define (enc-proc arg encoding stream)
+  (define (encode-to-stream proc encoding)
+    (let ((if-table (if-similarity-analysis proc)))
+      (pp if-table)
+
+      (enc-proc proc encoding if-table '())))
+
+  (define (enc-proc arg encoding if-table stream)
     (let ((code (procedure-code arg)))
       (let ((nparams (field0 code)))
         (enc (next code)
              encoding
+             if-table
              (enc-inst nparams 'const 'proc encoding stream)))))
 
-  (define (list-count-eqv? left right nb)
-    (if (and (pair? left)
-             (pair?  right)
-             (eqv? (car left) (car right)))
-      (list-count-eqv? (cdr left) (cdr right) (+ 1 nb))
-      nb))
-
-  (define (enc code encoding stream)
+  (define (enc code encoding if-table stream)
     (if (rib? code)
       (let* ((op (oper code))
              (arg (opnd code))
@@ -1949,8 +2002,8 @@
         (cond 
           ((and (eq? op-sym 'const) ;; special case for encoding procedures
                 (eq? arg-sym 'proc))
-           (enc next-op encoding (enc-proc arg encoding stream)))
-          ((not (eq? 'special op-sym)) ;; "normal" encoding  
+           (enc next-op encoding if-table (enc-proc arg encoding if-table stream)))
+          ((not (eq? 'special op-sym)) ;; "normal" encoding
            (let ((encoded-inst 
                    (enc-inst 
                      (if (eq? arg-sym 'sym)
@@ -1964,23 +2017,26 @@
                encoded-inst
                (enc next-op
                     encoding
+                    if-table
                     encoded-inst))))
           ((eqv? op if-op) ;; special case for if
-           (let ((enc-next (enc (next code) encoding '()))
-                 (enc-opnd (enc (opnd code) encoding '()))
+           (let ((enc-next (enc (next code) encoding if-table '()))
+                 (enc-opnd (enc (opnd code) encoding if-table '()))
                  (tail     (cons (encoding-inst-start encoding 'if) stream)))
 
              (if (encoding-inst-get encoding '(skip int long)) ;; if optimization
                (let ((nb-similar (list-count-eqv? enc-next enc-opnd 0)))
-                 (append enc-next
-                         (enc-inst 
-                           (- (length enc-next) nb-similar)
-                           'skip
-                           'int
-                           encoding
-                           (append
-                             (list-tail enc-opnd nb-similar)
-                                 tail))))
+
+                 (append 
+                   enc-next
+                   (enc-inst 
+                     (- (length enc-next) nb-similar)
+                     'skip
+                     'int
+                     encoding
+                     (append
+                       (list-tail enc-opnd nb-similar)
+                       tail))))
                (append enc-next
                        (append enc-opnd
                                tail)))))
@@ -2044,8 +2100,8 @@
                                  (string=? (symbol->str (car symbols*)) ""))
                             (loop4 (cdr symbols*))
 
-                            (let ((stream
-                                    (enc-proc proc encoding '())))
+                            (let ((stream (encode-to-stream proc encoding)))
+                              (pp (cons 'stream stream))
                               (string-append
                                (stream->string
                                 (encode-n (- (length symbols)
