@@ -13,6 +13,7 @@
 (newline)
 
 ;;;options: -l io 
+;;;fancy-compiler
 ;;;expected:
 ;;;#t
 ;;;("abc" 1 (1 2 3) #f #t (list "xyz" 1 2))

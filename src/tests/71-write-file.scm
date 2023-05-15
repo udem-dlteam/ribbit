@@ -31,6 +31,7 @@
 
 ;;;cleanup: rm ../../tests/data/71-output-data.txt
 ;;;options: -l io 
+;;;fancy-compiler
 ;;;expected:
 ;;;output-port? #t
 ;;;File content: "bonjour"

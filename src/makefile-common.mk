@@ -43,8 +43,12 @@ check:
 	RSC_DEFAULT="${RSC_DEFAULT}"; \
 	RSC_TEST_FEATURES='${RSC_MUST_TEST_FEATURES}'; \
 	TEST_FEATURES='${TEST_FEATURES}'; \
+	IS_FANCY="$$([ "$$RSC_DEFAULT" != "$$RSC_COMPILER" ] && echo "yes")"; \
 	if [ "$$TEST_FEATURES" != "." ]; then \
 	  RSC_TEST_FEATURES="$$RSC_TEST_FEATURES;$$TEST_FEATURES"; \
+	fi; \
+	if [ "$$IS_FANCY" != "yes" ]; then \
+	  RSC_TEST_FEATURES=","; \
 	fi; \
 	TEST_FILTER='${TEST_FILTER}'; \
 	for prog in `ls ../../tests/*.scm tests/*.scm | grep -E "$$TEST_FILTER"`; do \
@@ -59,7 +63,7 @@ check:
 			echo "Error in the setup"; \
 		fi; \
 	  fi; \
-	  if [ "$$RSC_DEFAULT" = "$$RSC_COMPILER" ] && [ "$$fancy_compiler" = ";;;fancy-compiler" ]; then \
+	  if [ "$$IS_FANCY" != "yes" ] && [ "$$fancy_compiler" = ";;;fancy-compiler" ]; then \
 	    echo ">>> Skipped because it doesn't use the fancy compiler"; \
 	  else \
 	    for test_feature in `echo $$RSC_TEST_FEATURES | sed -e 's/ /,/g' | sed -e 's/,*\;,*/\n/g'`; do \

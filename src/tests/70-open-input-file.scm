@@ -39,6 +39,7 @@
 (newline)
 
 ;;;options: -l io 
+;;;fancy-compiler
 ;;;expected:
 ;;;#t
 ;;;peek1: 66
