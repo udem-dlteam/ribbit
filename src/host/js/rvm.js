@@ -13,11 +13,13 @@ debug = false;
 
 
 lengthAttr = "length";
+isNode = process?.versions?.node != null;
+if (isNode) { // @@(feature (and js/node js/web))@@
 
-// @@(feature (and nodejs (not web))
+// @@(feature js/node
 // Implement putchar/getchar to the terminal 
 
-fs = require("fs"); // @@(feature (or js/node/fs (or getchar putchar)))@@
+fs = require("fs"); // @@(feature (or js/node/fs getchar putchar))@@
 
 putchar = (c) => { 
     let buffer = Buffer.alloc(1); 
@@ -52,9 +54,12 @@ show_stack = () => {  //debug
 // )@@
 // )@@
 
-// @@(feature (and web (not nodejs))
-// Implement a simple console as a textarea in the web page
 
+} else { // @@(feature (and js/node js/web))@@
+
+// @@(feature js/web
+
+// Implement a simple console as a textarea in the web page
 domdoc = document;
 selstart = 0;
 addEventListenerAttr = "addEventListener";
@@ -81,6 +86,12 @@ putchar = (c) => (selstart=txtarea[selectionStartAttr]=(txtarea.value += String.
 
 getchar = () => pos<input[lengthAttr] && push(get_byte());
 // )@@
+
+} // @@(feature (and js/node js/web))@@
+
+
+// --------------------------------------------------------------
+
 // VM
 
 // @@(feature (or error-msg debug) (use scm2str)
@@ -441,7 +452,5 @@ run = () => {
 };
 
 // @@(location start)@@
-// @@(feature (not web)
-run(); 
-// )@@
+if (isNode) run();
 // @@(location end)@@
