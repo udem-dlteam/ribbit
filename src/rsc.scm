@@ -2014,8 +2014,11 @@
 (define (read-library lib-path)
   (list (list '##include 
    (if (equal? (rsc-path-extension lib-path) "")
-       (path-expand (string-append lib-path ".scm")
-                    (path-expand "lib" (root-dir)))
+       (let* ((path (path-expand lib-path (path-expand "lib" (root-dir))))
+             (file-path (string-append path ".scm")))
+         (if (file-exists? file-path)
+           file-path
+           (path-expand "core.scm" path)))
        lib-path))))
 
 (define (read-program lib-path src-path)
