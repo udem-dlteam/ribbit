@@ -599,7 +599,66 @@
     (improper-list->list (cdr lst1) (cons (car lst1) lst2))
     (reverse (cons lst1 lst2))))
 
-    
+(define c-rib-hash '())
+
+(define (hash-string str)
+  (modulo (fold + (map char->integer (string->list str)) 0)) 64)
+
+;(define (c-rib-eq? c-rib1 c-rib2)
+;  (and
+;    (eqv? (oper c-rib1) (oper c-rib2))
+;    (and (number?
+
+(define (hash-rib field0 field1 field2) 
+
+  ;; This is a hashing function on 512 codes
+  ;; 32 bits are reserved for each instruction
+
+  (define (op->hash op)
+    (cond
+      ((eq? op jump/call) 0)
+      ((eq? op set-op)    1)
+      ((eq? op get-op)    2)
+      ((eq? op const-op)  3)
+      ((eq? op if-op)     4)
+      (else (error "Cannot hash the following instruction : " op))))
+
+  (define (opnd->hash opnd)
+    (cond
+      ((symbol? opnd)
+       (hash-string (symbol->string opnd)))
+      ((number? opnd)
+       opnd)
+      ((rib? opnd)
+       (c-rib-hash opnd))
+      (else (error "Cannot hash the following opnd in a c-rib" opnd))))
+
+  (define (next->hash next)
+    (cond
+      ((number? next)
+       0)
+      ((rib? next)
+       (c-rib-hash next))
+      (else
+        (error "Cannot hash the next of the following c-rib" next))))
+
+  (* (op->hash field0) 
+     (modulo (opnd->hash field1) 64)
+     (modulo (next->hash field2) 64)))
+
+
+
+  
+  
+
+(define (c-rib-hash c-rib)
+  (vector-ref c-rib 4))
+
+(define (c-rib field0 field1 field2)
+  (define hash (hash-rib field0 field1 field2))
+  (vector field0 field1 field2 hash))
+  
+  
 
 (define (comp ctx expr cont)
   ;(pp (list 'comp (ctx-cte ctx) expr cont))
@@ -1890,10 +1949,10 @@
               t
               (encode-n-aux q t end))))))
 
-  (define (linearize-ifs root)
+  (define (if-similarity-analysis root)
     (define table '())
 
-    (define (sublist-eqv? left right(lambda (l) (map - l)) result)
+    (define (sublist-eqv? left right result)
       (if (and (pair? left)
                (pair?  right)
                (eqv? (field0 (car left)) 
@@ -1903,38 +1962,35 @@
         (sublist-eqv? (cdr left) (cdr right) (cons (car left) result))
         (reverse result)))
 
-    (define (linearize-proc root rev)
-      (linearize (next (procedure-code root)) '()))
+    (define (analyse-proc root rev)
+      (analyse (next (procedure-code root)) '()))
     
     ;; here rev means reverse. We chain the instruction in reverse order to check
     ;;   if they are similar to a certain amount
-    (define (linearize root cont)
+    (define (analyse root rev)
       (cond
-        #;((assq root table)    ;; optimization
+        ((assq root table)
          (cadr (assq root table)))
         ((eqv? (oper root) if-op)
-         (let (#;(return (cons root 'tbd)))
-           #;(set! table (cons return table))
+         (let ((return (cons root 'tbd)))
+           (set! table (cons return table))
            (let* ((branch-true (opnd root))
                   (branch-false (next root))
-                  (lin-true  (linearize branch-true '()))
-                  (lin-false (linearize branch-false '()))
-                  (rev-true  (reverse-inst lin-true))
-                  (rev-false (reverse-inst lin-false))
-                  #;(_ (pp rev-true))
+                  (rev-true (analyse branch-true '()))
+                  (rev-false (analyse branch-false '()))
+                  (_ (pp rev-true))
                   (sublist-eqv (sublist-eqv? rev-true rev-false '())))
-             #;(set-cdr! return (cons sublist-eqv (- (length rev-true) (length sublist-eqv))))
-             
-             )))
+             (set-cdr! return (cons sublist-eqv (- (length rev-true) (length sublist-eqv))))
+             sublist-eqv)))
         ((and (eqv? (oper root) const-op) (procedure2? (opnd root)))
-         (linearize-proc (opnd root) '())
-         (linearize (next root) (cons root rev)))
+         (analyse-proc (opnd root) '())
+         (analyse (next root) (cons root rev)))
         ((rib? (next root))
-         (linearize (next root) (cons root rev)))
+         (analyse (next root) (cons root rev)))
         (else
           (cons root rev))))
 
-    (linearize-proc root '())
+    (analyse-proc root '())
     
     
     (map (lambda (pair) (list2 (car pair) (cddr pair))) table))
