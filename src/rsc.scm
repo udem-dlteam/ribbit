@@ -2018,7 +2018,7 @@
              (file-path (string-append path ".scm")))
          (if (file-exists? file-path)
            file-path
-           (path-expand "core.scm" path)))
+           (error (string-append "The path needs to point to an existing file. Error while trying to include library at " file-path))))
        lib-path))))
 
 (define (read-program lib-path src-path)

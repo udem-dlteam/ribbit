@@ -30,10 +30,6 @@
                (null? fast))))
       (null? fast)))
 
-(define (length lst)
-  (if (pair? lst)
-      (+ 1 (length (field1 lst)))
-      0))
 
 ;; ---------------------- CONVERSIONS ---------------------- ;;
 
@@ -104,6 +100,11 @@
                (- (* 10 n) (- c 48)))))
       n))
 
+
+(define (length lst)
+  (if (pair? lst)
+      (+ 1 (length (field1 lst)))
+      0))
 
 ;; ---------------------- EQUALITY ---------------------- ;;
 
