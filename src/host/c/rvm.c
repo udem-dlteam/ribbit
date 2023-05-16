@@ -404,6 +404,22 @@ void show_operand(obj o) {
 
 #endif
 
+// @@(feature scm2str
+char* scm2str(obj s) {
+    int length = (int) NUM(CDR(s)); 
+    rib* current = RIB(CAR(s));
+    char* str = malloc(length + 1);
+    for (int i = 0; i < length; i++) {
+        str[i] = (char) NUM(CAR(current));
+        current = RIB(CDR(current));
+    }
+
+    str[length] = '\0';
+
+    return str;
+};
+// )@@
+
 // @@(feature bool2scm 
 obj bool2scm(bool x) { return x ? CAR(FALSE) : FALSE; }
 // )@@
@@ -678,7 +694,7 @@ void run() {
         // @@(feature arity-check
         num vari = NUM(CAR(code))&1;  
         if ((!vari && nparams != nargs)||(vari && nparams > nargs)){
-            printf("*** Unexpected number of arguments nargs: %d nparams: %d vari: %b", nargs, nparams, vari);
+            printf("*** Unexpected number of arguments nargs: %ld nparams: %ld vari: %ld\n", nargs, nparams, vari);
             exit(1);
         }
         // )@@

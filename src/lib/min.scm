@@ -538,9 +538,9 @@
   (let ((c (read-char)))
     (set! buffer c)
     c))
-
-;;;----------------------------------------------------------------------------
-
+;;
+;; ;;;----------------------------------------------------------------------------
+;;
 ;; The read procedure.
 
 (define (read)
@@ -628,10 +628,10 @@
             (peek-char-non-whitespace)
             (skip-comment)))))
 
-;;;----------------------------------------------------------------------------
-
-;; The write procedure.
-
+;; ;;;----------------------------------------------------------------------------
+;;
+;; ;; The write procedure.
+;;
 (define (write o)
   (cond ((string? o)
          (putchar 34)
@@ -676,24 +676,24 @@
             #f)) ;; writing dotted pairs is not supported
       #f))
 
-;;(define (write-chars lst escape?)
-;;  (if (pair? lst)
-;;      (let ((c (car lst)))
-;;        (putchar
-;;         (cond ((not escape?)
-;;                c)
-;;               ;#; ;; support for \n in strings
-;;               ((eqv? c 10) ;; #\newline
-;;                (putchar 92)
-;;                110)
-;;               ((or (eqv? c 34) ;; #\"
-;;                    (eqv? c 92)) ;; #\\
-;;                (putchar 92)
-;;                c)
-;;               (else
-;;                c)))
-;;        (write-chars (cdr lst) escape?))
-;;      #f))
+(define (write-chars lst escape?)
+ (if (pair? lst)
+     (let ((c (car lst)))
+       (putchar
+        (cond ((not escape?)
+               c)
+              ;#; ;; support for \n in strings
+              ((eqv? c 10) ;; #\newline
+               (putchar 92)
+               110)
+              ((or (eqv? c 34) ;; #\"
+                   (eqv? c 92)) ;; #\\
+               (putchar 92)
+               c)
+              (else
+               c)))
+       (write-chars (cdr lst) escape?))
+     #f))
 
 (define (write-chars lst)
   (if (pair? lst)
