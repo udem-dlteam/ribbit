@@ -1,4 +1,4 @@
-(##include-once "./types.scm")
+(##include "./types.scm")
 
 ;; Pairs and lists (R4RS section 6.3).
 

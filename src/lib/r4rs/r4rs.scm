@@ -4,9 +4,9 @@
 (##include "./bool.scm")
 (##include "./io.scm")
 (##include "./pair-list.scm")
-(##include "./numbers.scm")
-(##include "./strings.scm")
-(##include "./vectors.scm")
+(##include "./number.scm")
+(##include "./string.scm")
+(##include "./vector.scm")
 
 ;;;----------------------------------------------------------------------------
 
