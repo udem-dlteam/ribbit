@@ -10,8 +10,6 @@
 #define DEBUG
 #endif
 
-
-
 #ifdef DEBUG
 
 #include <stdio.h>
@@ -27,6 +25,15 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+
+#endif
+
+#define ARG_V // @@(feature argv)@@
+
+#ifdef ARG_V
+
+char** argv=NULL;
+int argc=0;
 
 #endif
 
@@ -417,6 +424,30 @@ char* scm2str(obj s) {
     str[length] = '\0';
 
     return str;
+};
+// )@@
+
+
+// @@(feature str2scm
+obj str2scm(char* s) {
+    obj chrs = NIL;
+    int i = 0;
+
+    while (s[i++]);
+
+    for (int j = i - 1; j >= 0; j--) chrs = TAG_RIB(alloc_rib(TAG_NUM(s[j]), chrs, PAIR_TAG));
+
+    return TAG_RIB(alloc_rib(chrs, TAG_NUM(i), STRING_TAG));
+}
+// )@@
+
+// @@(feature list2scm (use str2scm)
+obj list2scm(char **s, int length) {
+    obj list = NIL;
+    for (int i = length - 1; i >= 0; i--)
+        list = TAG_RIB(alloc_rib(str2scm(s[i]), list, PAIR_TAG));
+    
+    return list;
 };
 // )@@
 
@@ -936,7 +967,15 @@ void init() {
   run();
 }
 
-#ifndef NOSTART
+#ifdef ARG_V
+
+int main(int _argc, char* _argv[]) { 
+    argc=_argc;
+    argv=_argv;
+    init(); 
+}
+
+#else
 
 int main() { init(); }
 

@@ -923,6 +923,7 @@
         '()
         live))
 
+
 (define (compile-program verbosity parsed-vm features-enabled features-disabled program)
   (let* ((exprs-and-exports
            (extract-exports program))
@@ -957,6 +958,8 @@
 
          (expansion
            (add-feature-variables live-symbols (or live-features '()) expansion))
+
+         ;; (_ (pp expansion))
 
          (primitives
            (if parsed-vm
@@ -1009,7 +1012,9 @@
 
 (define defined-features '()) ;; used as parameters for expand-functions
 
+;; For includes
 (define pwd (current-directory))
+(define included-files '())
 
 (define (expand-expr expr)
 
@@ -1218,6 +1223,19 @@
                     (let ((result (expand-begin (read-from-file file-path))))
                       (set! pwd old-pwd)
                       result)))
+
+                 ((eqv? first '##include-once)
+                  (let ((old-pwd pwd) (file-path (path-normalize (path-expand (cadr expr) pwd))))
+                    (if (not (member file-path included-files))
+                      (begin
+                        (set! pwd (path-directory file-path))
+                        (let ((result (expand-begin (read-from-file file-path))))
+                          (set! included-files (cons file-path included-files))
+                          (set! pwd old-pwd)
+                          result))
+                      (begin 
+                        (display (string-append "Skip including already included file: \"" file-path "\".\n"))
+                        '()))))
 
                  ((eqv? first 'and)
                   (expand-expr
