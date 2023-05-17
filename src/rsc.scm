@@ -92,11 +92,10 @@
          (del-file tmpin)
          (del-file tmpout)
          out)))
+
    (define list1 list)
    (define list2 list)
-   (define list3 list)
-
-   )
+   (define list3 list))
 
   (else
 
@@ -1043,7 +1042,7 @@
 
     (cons 'begin
           (append to-add
-                  (cdr expansion)))))
+                  (cons expansion '())))))
 
 (define (detect-features live)
   (fold (lambda (x acc)
@@ -1129,6 +1128,11 @@
     ;    (lambda (x y) (< (car x) (car y))) 
     ;    (map (lambda (pair)
     ;           (cons (car pair) (map display-c-rib (cdr pair)))) (table->list hash-table-c-ribs))))
+
+    (if (>= verbosity 3)
+      (begin
+        (display "*** Code expansion: \n")
+        (pp expansion)))
 
     (if (>= verbosity 3)
       (begin 
@@ -2034,54 +2038,18 @@
       (let ((r (- n (* q eb/2))))
         (let ((t (cons (if (eqv? stream end) r (+ r eb/2)) stream)))
           (if (= q 0)
-              t
-              (encode-n-aux q t end))))))
+            t
+            (encode-n-aux q t end))))))
 
-  (define (if-similarity-analysis root)
-    (define table '())
-
-    (define (sublist-eqv? left right result)
-      (if (and (pair? left)
-               (pair?  right)
-               (eqv? (field0 (car left)) 
-                     (field0 (car right)))
-               (eqv? (field1 (car left))
-                     (field1 (car right))))
-        (sublist-eqv? (cdr left) (cdr right) (cons (car left) result))
-        (reverse result)))
-
-    (define (analyse-proc root rev)
-      (analyse (next (procedure-code root)) '()))
-    
-    ;; here rev means reverse. We chain the instruction in reverse order to check
-    ;;   if they are similar to a certain amount
-    (define (analyse root rev)
-      (cond
-        ((assq root table)
-         (cadr (assq root table)))
-        ((eqv? (oper root) if-op)
-         (let ((return (cons root 'tbd)))
-           (set! table (cons return table))
-           (let* ((branch-true (opnd root))
-                  (branch-false (next root))
-                  (rev-true (analyse branch-true '()))
-                  (rev-false (analyse branch-false '()))
-                  ;(_ (pp rev-true))
-                  (sublist-eqv (sublist-eqv? rev-true rev-false '())))
-             (set-cdr! return (cons sublist-eqv (- (length rev-true) (length sublist-eqv))))
-             sublist-eqv)))
-        ((and (eqv? (oper root) const-op) (procedure2? (opnd root)))
-         (analyse-proc (opnd root) '())
-         (analyse (next root) (cons root rev)))
-        ((rib? (next root))
-         (analyse (next root) (cons root rev)))
-        (else
-          (cons root rev))))
-
-    (analyse-proc root '())
-    
-    
-    (map (lambda (pair) (list2 (car pair) (cddr pair))) table))
+  (define (sublist-eq? left right result)
+    (if (and (pair? left)
+             (pair?  right)
+             (eqv? (field0 (car left)) 
+                   (field0 (car right)))
+             (eqv? (field1 (car left))
+                   (field1 (car right))))
+      (sublist-eq? (cdr left) (cdr right) (cons (car left) result))
+      (reverse result)))
 
   (define (enc-inst arg op-sym arg-sym encoding-table stream)
     (let* ((short-key   (list3 op-sym arg-sym 'short))
@@ -2103,93 +2071,105 @@
             (error "Invalid long size, should be at least one and less than 2" long-size))))))
 
   (define (encode-to-stream proc encoding)
-    (let ((if-table (if-similarity-analysis proc)))
-      ;(pp if-table)
+    (enc-proc proc encoding #f '()))
 
-      (enc-proc proc encoding if-table '())))
-
-  (define (enc-proc arg encoding if-table stream)
+  (define (enc-proc arg encoding limit stream)
     (let ((code (procedure-code arg)))
       (let ((nparams (field0 code)))
-        (enc (next code)
-             encoding
-             if-table
-             (enc-inst nparams 'const 'proc encoding stream)))))
+        (if (or (eq? limit #f) (> limit 0))
+          (enc (next code)
+               encoding
+               (and limit (- limit 1))
+               (enc-inst nparams 'const 'proc encoding stream))
+          steam))))
 
-  (define (enc code encoding if-table stream)
-    (if (rib? code)
-      (let* ((op (oper code))
-             (arg (opnd code))
-             (next-op (next code))
-             (op-sym
-               (cond ((eqv? op jump/call-op)
-                      (if (eqv? 0 next-op)
-                        'jump
-                        'call))
-                     ((eqv? op set-op)
-                      'set)
-                     ((eqv? op get-op)
-                      'get)
-                     ((eqv? op const-op)
-                      'const)
-                     (else
-                       'special)))
-             (arg-sym
-               (cond ((eqv? 'special op-sym)
-                      'special)
-                     ((number? arg)
-                      'int)
-                     ((symbol? arg)
-                      'sym)
-                     ((and (procedure2? arg) (eqv? 'const op-sym))
-                      'proc)
-                     (else 
-                       (error (string-append "can't encode " (symbol->string op-sym))
-                              code)))))
-        (cond 
-          ((and (eq? op-sym 'const) ;; special case for encoding procedures
-                (eq? arg-sym 'proc))
-           (enc next-op encoding if-table (enc-proc arg encoding if-table stream)))
-          ((not (eq? 'special op-sym)) ;; "normal" encoding
-           (let ((encoded-inst 
-                   (enc-inst 
-                     (if (eq? arg-sym 'sym)
-                       (encode-sym arg)
-                       arg)
-                     op-sym 
-                     arg-sym 
-                     encoding 
-                     stream)))
-             (if (eq? 'jump op-sym)
-               encoded-inst
-               (enc next-op
-                    encoding
-                    if-table
-                    encoded-inst))))
-          ((eqv? op if-op) ;; special case for if
-           (let ((enc-next (enc (next code) encoding if-table '()))
-                 (enc-opnd (enc (opnd code) encoding if-table '()))
-                 (tail     (cons (encoding-inst-start encoding 'if) stream)))
+  (define (reverse-code code tail)
+    (if (rib? (next code))
+      (reverse-code (next code) (cons code tail))
+      (cons code tail)))
 
+  (define (enc code encoding limit stream)
+    (cond 
+      ((not (rib? code)) (error "Rib expected, got :" code))
+      ((and limit (<= limit 0)) stream)
+      (else
+        (let* ((op (oper code))
+               (arg (opnd code))
+               (next-op (next code))
+               (op-sym
+                 (cond ((eqv? op jump/call-op)
+                        (if (eqv? 0 next-op)
+                          'jump
+                          'call))
+                       ((eqv? op set-op)
+                        'set)
+                       ((eqv? op get-op)
+                        'get)
+                       ((eqv? op const-op)
+                        'const)
+                       (else
+                         'special)))
+               (arg-sym
+                 (cond ((eqv? 'special op-sym)
+                        'special)
+                       ((number? arg)
+                        'int)
+                       ((symbol? arg)
+                        'sym)
+                       ((and (procedure2? arg) (eqv? 'const op-sym))
+                        'proc)
+                       (else 
+                         (error (string-append "can't encode " (symbol->string op-sym))
+                                code)))))
+          (cond 
+            ((and (eq? op-sym 'const) ;; special case for encoding procedures
+                  (eq? arg-sym 'proc))
+             (enc next-op encoding (and limit (- limit 1)) (enc-proc arg encoding #f stream)))
+            ((not (eq? 'special op-sym)) ;; "normal" encoding
+             (let ((encoded-inst 
+                     (enc-inst 
+                       (if (eq? arg-sym 'sym)
+                         (encode-sym arg)
+                         arg)
+                       op-sym 
+                       arg-sym 
+                       encoding 
+                       stream)))
+               (if (eq? 'jump op-sym)
+                 encoded-inst
+                 (enc next-op
+                      encoding
+                      (and limit (- limit 1))
+                      encoded-inst))))
+            ((eqv? op if-op) ;; special case for if
              (if (encoding-inst-get encoding '(skip int long)) ;; if optimization
-               (let ((nb-similar (list-count-eqv? enc-next enc-opnd 0)))
+               (let* ((enc-next (enc (next code) encoding (and limit (- limit 1)) '()))
+                      (rev-next (reverse-code (next code) '()))
+                      (rev-opnd (reverse-code (opnd code) '()))
+                      (sublist  (sublist-eq? rev-next rev-opnd '()))
+                      (sublist-length (length sublist))
+                      (opnd-different-length (- (length rev-opnd) sublist-length))
+                      (next-different-length (- (length rev-next) sublist-length))
+                      (tail     (cons (encoding-inst-start encoding 'if) stream)))
+                 (append enc-next
+                         (enc-inst next-different-length 
+                                   'skip 
+                                   'int 
+                                   encoding 
+                                   (enc (opnd code)
+                                        encoding
+                                        opnd-different-length
+                                        tail))))
 
-                 (append 
-                   enc-next
-                   (enc-inst 
-                     (- (length enc-next) nb-similar)
-                     'skip
-                     'int
-                     encoding
-                     (append
-                       (list-tail enc-opnd nb-similar)
-                       tail))))
-               (append enc-next
-                       (append enc-opnd
-                               tail)))))
-          (else 
-            (error "Cannot encode instruction" code))))
-      (error "Rib expected, got :" code)))
+               (enc (next code)
+                    encoding
+                    (and limit (- limit 1))
+                    (enc (opnd code)
+                         encoding
+                         #f
+                         (cons (encoding-inst-start encoding 'if) stream)))))
+            (else 
+              (error "Cannot encode instruction" code)))))))
 
   (define (ordering sym-descr)
     (let ((sym (car sym-descr)))
