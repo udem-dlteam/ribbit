@@ -10,8 +10,6 @@
 
 ;; Tested with Gambit v4.7.5 and above, Guile 3.0.7, Chicken 5.2.0 and Kawa 3.1
 
-(define pp (lambda (x) x))
-
 (cond-expand
 
  ((and chicken compiling)
@@ -559,7 +557,7 @@
    (define (field2-set! o x) (vector-set! o 2 x) o)
 
    (define (procedure2? o) (instance? o procedure-type))
-   (define (make-procedure code env) (rib code env procedure-type))
+   (define (make-procedure code env) (c-rib code env procedure-type))
    (define (procedure-code proc) (field0 proc))
    (define (procedure-env proc) (field1 proc))))
 
@@ -599,28 +597,56 @@
     (improper-list->list (cdr lst1) (cons (car lst1) lst2))
     (reverse (cons lst1 lst2))))
 
-(define c-rib-hash '())
+
+;; ====== hashable ribs (or c-ribs, for code ribs) =====
 
 (define (hash-string str)
-  (modulo (fold + (map char->integer (string->list str)) 0)) 64)
+  (fold + 0 (map char->integer (string->list str))))
 
-;(define (c-rib-eq? c-rib1 c-rib2)
-;  (and
-;    (eqv? (oper c-rib1) (oper c-rib2))
-;    (and (number?
+(define (c-rib-eq? c-rib1 c-rib2)
+  (let ((op1 (oper c-rib1))
+        (op2 (oper c-rib2))
+        (opnd1 (opnd c-rib1))
+        (opnd2 (opnd c-rib2))
+        (next1 (next c-rib1))
+        (next2 (next c-rib2))
+        (hash1 (c-rib-hash c-rib1))
+        (hash2 (c-rib-hash c-rib2)))
 
-(define (hash-rib field0 field1 field2) 
+    (and
+      (or (not hash1)  ;; check if hashes are =. If not, we skip
+          (not hash2)
+          (eqv? hash1 hash2))
 
-  ;; This is a hashing function on 512 codes
-  ;; 32 bits are reserved for each instruction
+      (or 
+         (eqv? op1 op2) ;;test operand
+         (and (rib? op1) (rib? op2) (c-rib-eq? op1 op2)))
+      
+      (or  ;; test opnd
+        (eqv? opnd1 opnd2)
+        (and (rib? opnd1) (rib? opnd2) (c-rib-eq? opnd1 opnd2)))
+      (or ;; test next
+        (eqv? next1 next2)
+        (and (rib? next1) (rib? next2) (c-rib-eq? next1 next2))))))
+
+(define table-hash-size 512)
+
+(define (hash-c-rib field0 field1 field2) 
+
+  ;; This is a really simple hashing function. I tested it on the 50-repl test and I got good results
+  ;;   having at most 6 elements hashed to the same value with a 512 hash table size. Most hashes had one
+  ;;   or two elements inside it.
 
   (define (op->hash op)
     (cond
-      ((eq? op jump/call) 0)
-      ((eq? op set-op)    1)
-      ((eq? op get-op)    2)
-      ((eq? op const-op)  3)
-      ((eq? op if-op)     4)
+      ((eq? op jump/call-op) 0)
+      ((eq? op set-op)       1)
+      ((eq? op get-op)       2)
+      ((eq? op const-op)     3)
+      ((eq? op if-op)        4)
+      ((number? op)          (+ (abs op) 4))
+      ((rib? op)             (c-rib-hash op))
+
       (else (error "Cannot hash the following instruction : " op))))
 
   (define (opnd->hash opnd)
@@ -628,9 +654,15 @@
       ((symbol? opnd)
        (hash-string (symbol->string opnd)))
       ((number? opnd)
-       opnd)
+       (abs opnd))
       ((rib? opnd)
        (c-rib-hash opnd))
+      ((eq? '() opnd)
+       4)
+      ((eq? #f opnd)
+       5)
+      ((eq? #t opnd)
+       6)
       (else (error "Cannot hash the following opnd in a c-rib" opnd))))
 
   (define (next->hash next)
@@ -642,41 +674,80 @@
       (else
         (error "Cannot hash the next of the following c-rib" next))))
 
-  (* (op->hash field0) 
-     (modulo (opnd->hash field1) 64)
-     (modulo (next->hash field2) 64)))
+
+  (modulo (+ (opnd->hash field1) (op->hash field0) (next->hash field2)) table-hash-size))
 
 
 
-  
-  
+;; helper function to display the hash table
+(define (display-c-rib c-rib) 
+
+  (define (display-obj obj)
+    (if (rib? obj)
+      (string-append 
+        "%" 
+        (number->string (c-rib-hash obj))
+        "%")
+      (object->string obj)))
+
+  (let ((op (oper c-rib))
+        (opnd (opnd c-rib))
+        (next (next c-rib)))
+    (string-append
+      "["
+      (display-obj op)
+      " "
+      (display-obj opnd)
+      " "
+      (display-obj next)
+      "]")))
+    
+
+(define hash-table-c-ribs (make-table))
+
 
 (define (c-rib-hash c-rib)
-  (vector-ref c-rib 4))
+  (vector-ref c-rib 3))
 
+;; Creates a rib that is unique and hashable
 (define (c-rib field0 field1 field2)
-  (define hash (hash-rib field0 field1 field2))
-  (vector field0 field1 field2 hash))
-  
+  (let* ((hash-table hash-table-c-ribs)
+         (hash (hash-c-rib field0 field1 field2))
+         (hash-list (table-ref hash-table hash #f))
+         (c-rib-ref (vector field0 field1 field2 hash)))
+    (if hash-list
+      (let search ((search-iter hash-list))
+        (if (pair? search-iter)
+          (if (c-rib-eq? c-rib-ref (car search-iter))
+            (car search-iter)
+            (search (cdr search-iter)))
+          (begin
+            (table-set! hash-table hash (cons c-rib-ref hash-list))
+            c-rib-ref)))
+      (begin
+        (table-set! hash-table hash (cons c-rib-ref '()))
+        c-rib-ref))))
+
+
+
   
 
 (define (comp ctx expr cont)
-  ;(pp (list 'comp (ctx-cte ctx) expr cont))
 
   (cond ((symbol? expr)
          (let ((v (lookup expr (ctx-cte ctx) 0)))
            (if (eqv? v expr) ;; global?
                (let ((g (live? expr (ctx-live ctx))))
                  (if (and g (constant? g)) ;; constant propagated?
-                     (rib const-op (cadr (cadr g)) cont)
-                     (rib get-op v cont)))
-               (rib get-op v cont))))
+                     (c-rib const-op (cadr (cadr g)) cont)
+                     (c-rib get-op v cont)))
+               (c-rib get-op v cont))))
 
         ((pair? expr)
          (let ((first (car expr)))
 
            (cond ((eqv? first 'quote)
-                  (rib const-op (cadr expr) cont))
+                  (c-rib const-op (cadr expr) cont))
 
                  ((eqv? first 'set!)
                   (let ((var (cadr expr)))
@@ -701,7 +772,7 @@
                  ((eqv? first 'if)
                   (let ((cont-false (comp ctx (cadddr expr) cont)))
                     (let ((cont-true (comp ctx (caddr expr) cont)))
-                      (let ((cont-test (rib if-op cont-true cont-false)))
+                      (let ((cont-test (c-rib if-op cont-true cont-false)))
                         (comp ctx (cadr expr) cont-test)))))
 
                  ((eqv? first 'lambda)
@@ -715,18 +786,18 @@
                            (if variadic
                              (improper-list->list params '())
                              params)))
-                    (rib const-op
+                    (c-rib const-op
                          (make-procedure
-                           (rib (+ (* 2 nb-params) (if variadic 1 0))
-                                0
-                                (comp-begin (ctx-cte-set
-                                              ctx
-                                              (extend params
-                                                      (cons #f
-                                                            (cons #f
-                                                                  (ctx-cte ctx)))))
-                                            (cddr expr)
-                                            tail))
+                           (c-rib (+ (* 2 nb-params) (if variadic 1 0))
+                                  0
+                                  (comp-begin (ctx-cte-set
+                                                ctx
+                                                (extend params
+                                                        (cons #f
+                                                              (cons #f
+                                                                    (ctx-cte ctx)))))
+                                              (cddr expr)
+                                              tail))
                            '())
                          (if (null? (ctx-cte ctx))
                            cont
@@ -771,15 +842,15 @@
 
         (else
          ;; self-evaluating
-         (rib const-op expr cont))))
+         (c-rib const-op expr cont))))
 
 (define (gen-call v cont)
   (if (eqv? cont tail)
-      (rib jump/call-op v 0)      ;; jump
-      (rib jump/call-op v cont))) ;; call
+      (c-rib jump/call-op v 0)      ;; jump
+      (c-rib jump/call-op v cont))) ;; call
 
 (define (gen-assign ctx v cont)
-  (rib set-op v (gen-noop ctx cont)))
+  (c-rib set-op v (gen-noop ctx cont)))
 
 
 
@@ -807,7 +878,7 @@
       (if (memq 'arity-check (ctx-live-features ctx))
         (field2 (field2 cont)) ;; remove const and pop
         (field2 cont)) ;; remove pop
-      (rib const-op 0 cont))) ;; add dummy value for set!
+      (c-rib const-op 0 cont))) ;; add dummy value for set!
 
 (define (comp-bind ctx vars exprs body cont)
   (comp-bind* ctx vars exprs ctx body cont))
@@ -830,7 +901,7 @@
 
 (define (add-nb-args ctx nb-args tail)
   (if (memq 'arity-check (ctx-live-features ctx))
-    (rib const-op
+    (c-rib const-op
          nb-args
          tail)
     tail))
@@ -841,7 +912,7 @@
       (add-nb-args
         ctx
         2
-        (rib jump/call-op ;; call
+        (c-rib jump/call-op ;; call
              (use-symbol ctx 'arg2)
              cont))))
 
@@ -856,7 +927,7 @@
             (add-nb-args
               ctx
               2
-              (rib jump/call-op ;; call
+              (c-rib jump/call-op ;; call
                    (use-symbol ctx 'arg1)
                    (comp-begin ctx (cdr exprs) cont)))
             cont)))
@@ -883,7 +954,7 @@
       (cons (car vars) (extend (cdr vars) cte))
       cte))
 
-(define tail (rib jump/call-op 'id 0)) ;; jump
+(define tail (c-rib jump/call-op 'id 0)) ;; jump
 
 ;;;----------------------------------------------------------------------------
 
@@ -1041,16 +1112,33 @@
       return
       0 
       (make-procedure
-        (rib 2 ;; 0 parameters 
-             0
-             (comp ctx
-                   expansion
-                   tail))
+        (c-rib 2 ;; 0 parameters 
+               0
+               (comp ctx
+                     expansion
+                     tail))
         '()))
     (vector-set! return 1 exports)
     (vector-set! return 2 primitives)
     (vector-set! return 3 live-features)
     (vector-set! return 4 features)
+
+
+    ;(pp 
+    ;  (list-sort 
+    ;    (lambda (x y) (< (car x) (car y))) 
+    ;    (map (lambda (pair)
+    ;           (cons (car pair) (map display-c-rib (cdr pair)))) (table->list hash-table-c-ribs))))
+
+    (if (>= verbosity 3)
+      (begin 
+        (display "*** hash-consing table: \n")
+        (pp 
+          (list-sort 
+            (lambda (x y) (< (car x) (car y))) 
+            (map (lambda (pair)
+                   (list (car pair) (length (cdr pair)))) (table->list hash-table-c-ribs))))))
+
     (if (>= verbosity 2)
       (begin
         (display "*** RVM code:\n")
@@ -1697,7 +1785,7 @@
 
       )))
 
-(pp encoding-skip-92)
+;(pp encoding-skip-92)
 
 (define (encoding-inst-size encoding entry)
   (cadr (encoding-inst-get encoding entry)))
@@ -1978,7 +2066,7 @@
                   (branch-false (next root))
                   (rev-true (analyse branch-true '()))
                   (rev-false (analyse branch-false '()))
-                  (_ (pp rev-true))
+                  ;(_ (pp rev-true))
                   (sublist-eqv (sublist-eqv? rev-true rev-false '())))
              (set-cdr! return (cons sublist-eqv (- (length rev-true) (length sublist-eqv))))
              sublist-eqv)))
@@ -2016,7 +2104,7 @@
 
   (define (encode-to-stream proc encoding)
     (let ((if-table (if-similarity-analysis proc)))
-      (pp if-table)
+      ;(pp if-table)
 
       (enc-proc proc encoding if-table '())))
 
@@ -2160,7 +2248,7 @@
                             (loop4 (cdr symbols*))
 
                             (let ((stream (encode-to-stream proc encoding)))
-                              (pp (cons 'stream stream))
+                              ;(pp (cons 'stream stream))
                               (string-append
                                (stream->string
                                 (encode-n (- (length symbols)
