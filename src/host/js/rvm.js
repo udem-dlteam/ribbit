@@ -148,14 +148,14 @@ while (1) {
     n = pop();
   }
   else {
+    if (!op) stack = [0,stack,0];
+    n = n>=d ? (n==d ? get_int(0) : symbol_ref(get_int(n-d-1))) : op<3 ? symbol_ref(n) : n;
     if (5<op){
         //console.log("SKIP ", n)
         //show_stack()
         stack = [inst_tail(stack[0], n), stack, 0]; 
         continue;
     } // skip instruction
-    if (!op) stack = [0,stack,0];
-    n = n>=d ? (n==d ? get_int(0) : symbol_ref(get_int(n-d-1))) : op<3 ? symbol_ref(n) : n;
     if (4<op) {
       n = [[n,0,pop()],0,1];
       if (!stack) break;
