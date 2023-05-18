@@ -662,6 +662,8 @@
        5)
       ((eq? #t opnd)
        6)
+      ((string? opnd)
+       (hash-string opnd))
       (else (error "Cannot hash the following opnd in a c-rib" opnd))))
 
   (define (next->hash next)
@@ -1780,7 +1782,6 @@
       ((const proc long)  1)
 
       ((const sym short) 0)
-
 
       ((skip int short) 9)
       ((skip int long)  1)
