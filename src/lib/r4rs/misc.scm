@@ -4,7 +4,11 @@
    (define-primitive 
      (cmd-line)
      (use js/node list2scm argv)
-     "() => push(list2scm(process.argv.slice(1))),"))
+     "() => push(list2scm(process.argv.slice(1))),")
+
+  (define-primitive
+    (apply proc args)
+    "prim2((args, proc) => )"))
 
   ((host c)
    (define-primitive

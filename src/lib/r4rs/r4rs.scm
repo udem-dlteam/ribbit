@@ -5,6 +5,7 @@
 (##include "./io.scm")
 (##include "./pair-list.scm")
 (##include "./number.scm")
+(##include "./math.scm")
 (##include "./string.scm")
 (##include "./vector.scm")
 
