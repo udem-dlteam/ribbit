@@ -664,6 +664,8 @@
        6)
       ((string? opnd)
        (hash-string opnd))
+      ((list? opnd)
+       (fold + 0 (map opnd->hash opnd)))
       (else (error "Cannot hash the following opnd in a c-rib" opnd))))
 
   (define (next->hash next)

@@ -13,6 +13,10 @@ build-all:
 	  cd host/$$host; $(MAKE) build-all; cd ../..; \
 	done
 
+tests/*: all
+	TEST_FILTER="$@" $(MAKE) check
+	
+
 check:
 	@if [ "$$HOST" = "" ]; then \
 	  for host in $(HOSTS); do \
