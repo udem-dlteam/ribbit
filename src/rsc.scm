@@ -2152,14 +2152,19 @@
                       (next-different-length (- (length rev-next) sublist-length))
                       (tail     (cons (encoding-inst-start encoding 'if) stream)))
                  (append enc-next
-                         (enc-inst next-different-length 
-                                   'skip 
-                                   'int 
-                                   encoding 
-                                   (enc (opnd code)
-                                        encoding
-                                        opnd-different-length
-                                        tail))))
+                         (if (pair? sublist) 
+                           (enc-inst next-different-length 
+                                     'skip 
+                                     'int 
+                                     encoding 
+                                     (enc (opnd code)
+                                          encoding
+                                          opnd-different-length
+                                          tail))
+                           (enc (opnd code)
+                                encoding
+                                #f
+                                tail))))
 
                (enc (next code)
                     encoding

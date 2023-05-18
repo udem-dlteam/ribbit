@@ -131,14 +131,14 @@ while (1) {
   d = 0;
   op = -1;
   while ((d=[20,20,0,10,11,4,9][++op])+(5>op)*2<n) n -= d+(4<op?1:3);
-  console.log("code : ", x, " arg : ", n, "d : ", d, "op : ", op)
+  //console.log("code : ", x, " arg : ", n, "d : ", d, "op : ", op)
   if (x>90) {
     op=5;
     n = pop();
   }
   else {
     if (5<op){
-        console.log("SKIP ", n)
+        //console.log("SKIP ", n)
         //show_stack()
         stack = [inst_tail(stack[0], n), stack, 0]; 
         continue;
