@@ -2660,7 +2660,7 @@
   (let ((file-content (call-with-input-file path (lambda (port) (read-line port #f)))))
        (if (eof-object? file-content) "" file-content)))
 
-(define (generate-code target verbosity input-path rvm-path minify? host-file encoding proc-exports-and-features) ;features-enabled features-disabled source-vm
+(define (generate-code target verbosity input-path rvm-path minify? host-file encodings proc-exports-and-features) ;features-enabled features-disabled source-vm
   (let* ((proc
            (vector-ref proc-exports-and-features 0))
          (exports
@@ -2672,18 +2672,19 @@
          (features
            (vector-ref proc-exports-and-features 4))
          (encode (lambda (bits)
-                   (let ((input (string-append 
-                                  (if (eqv? bits 92)
-                                    (encode 
-                                      proc 
-                                      exports 
-                                      primitives 
-                                      live-features
-                                      encoding)
-                                    (error "Cannot encode program with this number of bits" bits))
-                                  (if input-path
-                                    (string-from-file input-path)
-                                    "")) ))
+                   (let ((input 
+                           (string-append 
+                             (if (assoc bits encodings)
+                               (encode 
+                                 proc 
+                                 exports 
+                                 primitives 
+                                 live-features
+                                 (cadr (assoc bits encodings)))
+                               (error "Encoding is not defined for this number of bits : " bits))
+                             (if input-path
+                               (string-from-file input-path)
+                               "")) ))
                      (if (>= verbosity 1)
                        (begin
                          (display "*** RVM code length: ")
@@ -2774,7 +2775,8 @@
     #f     ;; rvm-path
     #f     ;; minify?
     #f     ;; host-file
-    encoding-original-92
+    (list 
+      (list 92 encoding-original-92))
     (compile-program
      0    ;; verbosity
      #f   ;; parsed-vm
@@ -2804,7 +2806,7 @@
                            primitives
                            features-enabled
                            features-disabled
-                           encoding)
+                           encoding-name)
 
      ;; This version of the compiler reads the program and runtime library
      ;; source code from files and it supports various options.  It can
@@ -2821,7 +2823,31 @@
               (if (equal? _target "rvm")
                 #f
                 (parse-host-file
-                  (string->list* vm-source)))))
+                  (string->list* vm-source))))
+
+            (encodings (cond
+                        ((string=? "original" encoding-name)
+                         (list
+                           (list 92 encoding-original-92)))
+                        ((string=? "skip" encoding-name)
+                         (list
+                           (list 92 encoding-skip-92)))
+                        (else
+                          (error "Cannot find encoding :" encoding-name))))
+
+            (features-enabled (cons (string->symbol (string-append "encoding/" encoding-name))
+                                    features-enabled)))
+
+       ;; Verify that the encoding is on the right number
+       ;;  of codes
+       (for-each
+         (lambda (pair)
+              (if (not (eqv? (encoding-size (cadr pair)) (car pair)))
+                (error 
+                  (string-append 
+                    "Encoding is not on " (car pair) " but on " (encoding-size (cadr pair))) 
+                  (cadr pair))))
+            encodings)
 
        (set! target _target)
 
@@ -2834,7 +2860,7 @@
            rvm-path
            minify?
            host-file
-           encoding
+           encodings
            (compile-program
              verbosity
              host-file
@@ -2858,7 +2884,7 @@
                (features-enabled '())
                (features-disabled '())
                (rvm-path #f)
-               (encoding-name "original-92"))
+               (encoding-name "original"))
 
            (let loop ((args (cdr args)))
              (if (pair? args)
@@ -2945,21 +2971,8 @@
                  primitives
                  features-enabled
                  features-disabled
-                 (cond
-                   ((string=? "original-92" encoding-name)
-                    (if (not (eqv? (encoding-size encoding-original-92) 92)) 
-                      (error 
-                        "encoding-original-92 is not on 92 instructions, but on : " 
-                        (encoding-size encoding-original-92)))
-                    encoding-original-92)
-                   ((string=? "skip-92" encoding-name)
-                    (if (not (eqv? (encoding-size encoding-skip-92) 92)) 
-                      (error 
-                        "encoding-skip-92 is not on 92 instructions, but on : " 
-                        (encoding-size encoding-skip-92)))
-                    encoding-skip-92)
-                   (else
-                     (error "Cannot find encoding :" encoding-name))))))))
+                 encoding-name
+                 )))))
 
    (parse-cmd-line (cmd-line))
 
