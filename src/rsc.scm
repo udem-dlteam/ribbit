@@ -1215,21 +1215,18 @@
                              (set! opt-params (append opt-params (cons param '()))) 
                              (loop (+ 1 i) (cdr params)))
 
-                            (else (error "Cannot put non-optional arguments after optional ones.")))
-                          )
-                        ))
+                            (else (error "Cannot put non-optional arguments after optional ones."))))))
                     (if (null? opt-params)
                       (cons 'lambda
                             (cons params
-                                  (cons (expand-body (cddr expr))
-                                        '())))
+                                  (cons (expand-body (cddr expr)) '())))
                       ;; Add the check for the optional params 
                       (let ((vararg-name (if variadic (last-item params) '##vararg))
                             (opt-params-body '()))
                         (if (pair? required-params)
                           (set-cdr! (list-tail required-params (- (length required-params) 1)) vararg-name)
-                          (set! required-params vararg-name)
-                          )
+                          (set! required-params vararg-name))
+
                         (for-each
                           (lambda (opt-param)
                             (set! opt-params-body (append opt-params-body (expand-opt-param (car opt-param) (cadr opt-param) vararg-name))))

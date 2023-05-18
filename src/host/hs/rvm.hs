@@ -11,7 +11,8 @@ import Data.IORef
 import GHC.IO
 import System.Environment
 import System.IO
-
+import Data.Bits
+import Data.Dynamic
 
 -- Utils
 
@@ -33,7 +34,11 @@ pair a b = (a,b)
 
 -- Rib Objects
 
-data Rib = RibInt !Int | RibRef !(IORef RibObj) deriving (Eq)
+data RibForeign = Ignore 
+    -- @@(location hs/foreign-type)@@
+    deriving (Eq)
+
+data Rib = RibInt !Int | RibRef !(IORef RibObj) | RibForeign !RibForeign deriving (Eq)
 
 data RibObj = RibObj { field0 :: !Rib, field1 :: !Rib, field2 :: !Rib} deriving (Eq)
 
@@ -44,6 +49,8 @@ class ToRib a where toRib :: a -> IO Rib
 
 -- Rien à faire, on a déjà un IORef Rib
 instance ToRib Rib where toRib = pure
+
+instance ToRib RibForeign where toRib = pure . RibForeign
 
 -- On crée une référence pour le Rib
 instance ToRib RibObj where toRib = fmap RibRef . newRef
@@ -109,6 +116,20 @@ toRibString chars = toRibList (ord <$> chars) >>= flip mkStr (length chars)
 -- toRibSymbol :: String -> IO Rib -- Debug
 toRibSymbol = (=<<) (mkSymb (RibInt 0)) . toRibString
 
+scmChars2str :: IORef RibObj -> IO String -- Debug
+scmChars2str rib = do
+    (RibObj (RibInt char) next (RibInt tag)) <- readRef rib
+    case (next, tag) of
+        (RibRef next, 0) -> do
+            rest <- scmChars2str next
+            return $ chr char : rest
+        (_, 5) -> pure []
+        _ -> error "scm2str: not a string" -- Debug
+
+scm2str :: Rib -> IO String
+scm2str (RibRef rib) = do
+    (RibObj (RibRef chars) len tag) <- readRef rib
+    scmChars2str chars
 
 -- VM
 
@@ -134,7 +155,7 @@ push v = getStack >>= cons v >>= setStack
 
 -- pop :: IO Rib -- Debug
 pop = getStack >>= \case RibRef r -> readRef r >>= \(RibObj top rest _) -> setStack rest >> pure top
- -- RibInt _ -> error "Empty stack" -- Debug
+-- RibInt _ -> error "Empty stack" -- Debug
 
 -- Primitives
 
@@ -157,7 +178,7 @@ close = do
 
 -- primitives :: [Prim] -- Debug
 primitives =
- [ 
+ [
 -- @@(primitives (gen body)
  prim3 (\(c,b,a) -> toRib $ RibObj a b c)                    -- @@(primitive (rib a b c))@@
  , prim1 pure                                                -- @@(primitive (id x))@@
@@ -250,12 +271,26 @@ eval pc = do
   RibInt 0 -> do
    -- traceShowM "jump/call"
    o <- getOpnd o >>= read0
+   RibInt nargs1 <- pop -- @@(feature arity-check)@@
    c <- read0 o
    case c of
     RibRef r -> do
      c2 <- cons (RibInt 0) o
+     let s2 = c2
      RibInt arity <- read0 c
-     s2 <- foldrM (\_ args -> pop >>= flip cons args) c2 [1..arity] -- while nargs:s2=[pop(),s2,0];nargs-=1
+     let nparams = shiftR arity 1
+     -- @@(feature arity-check
+     let isVariadic = (arity .&. 1) == 1
+     when ((isVariadic && (nparams > nargs1)) || (not isVariadic && (nparams /= nargs1))) (error "*** Unexpected number of arguments nargs")
+     -- )@@
+     -- @@(feature rest-param (use arity-check)
+     let nargs = nargs1 - nparams
+     s2 <- if isVariadic then do
+       rest <- foldrM (\_ args -> pop >>= flip cons args) ribNil [1..nargs]
+       cons rest s2
+       else pure s2
+     -- )@@
+     s2 <- foldrM (\_ args -> pop >>= flip cons args) s2 [1..nparams] -- while nargs:s2=[pop(),s2,0];nargs-=1
      read2 pc >>= \case
       -- call
       o@RibRef {} -> do
