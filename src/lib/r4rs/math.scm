@@ -1,16 +1,15 @@
 (##include "./types.scm")
 (##include "./number.scm")
+(##include "./control.scm")
 
 (set! ##+ +)
+(set! ##* *)
 
 (define (+ . args)
-  (if (null? args)
-    0
-    (let sum ((total 0) (x (car args)) (rest (cdr args)))
-      (if (null? rest)
-        (##+ total x)
-        (sum (##+ total x) (car rest) (cdr rest)))
-      )))
+  (fold ##+ 0 args))
+
+(define (* . args)
+  (fold ##* 1 args))
 
 (define (max x y) (if (< x y) y x))
 (define (min x y) (if (< x y) x y))
