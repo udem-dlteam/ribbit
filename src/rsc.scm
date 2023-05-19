@@ -649,8 +649,27 @@
             (table-set! hash-table hash (cons c-rib-ref '()))
             c-rib-ref))))
 
+    ;; Hash combine (taken from Gambit Scheme) https://github.com/gambit/gambit/blob/master/lib/_system%23.scm
+    ;; The FNV1a hash algorithm is adapted to hash values, in
+    ;; particular the hashing constants are used (see
+    ;; https://tools.ietf.org/html/draft-eastlake-fnv-12).  Because the
+    ;; hash function result is a fixnum and it needs to give the same
+    ;; result on 32 bit and 64 bit architectures, the constants are
+    ;; adapted to fit in a 32 bit fixnum.
+
+    ;; FNV1a 32 bit constants
+    (define fnv1a-prime-32bits   16777619)
+    (define max-fixnum         4294967296)
+
+
+    (define (hash-combine a b)
+      (modulo 
+        (* fnv1a-prime-32bits
+           (+ a b))
+        max-fixnum))
+
     (define (hash-string str)
-      (fold + 0 (map char->integer (string->list str))))
+      (fold hash-combine 0 (map char->integer (string->list str))))
 
     (define (c-rib-eq? c-rib1 c-rib2)
       (let ((op1   (c-rib-oper c-rib1))
@@ -679,6 +698,7 @@
             (and (rib? next1) (rib? next2) (c-rib-eq? next1 next2))))))
 
     (define table-hash-size 512)
+
 
     (define (hash-c-rib field0 field1 field2) 
 
@@ -732,7 +752,12 @@
       ;(pp field1)
 
       ;(pp field2)
-      (modulo (+ (opnd->hash field1) (op->hash field0) (next->hash field2)) table-hash-size))
+      (modulo (hash-combine
+                (hash-combine
+                  (opnd->hash field1) 
+                  (op->hash field0))
+                (next->hash field2)) 
+              table-hash-size))
 
 
 
