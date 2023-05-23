@@ -25,8 +25,11 @@
     (quotient 1 x)
     (fold quotient (quotient x y) rest)))
 
-(define (max x y) (if (< x y) y x))
-(define (min x y) (if (< x y) x y))
+(define (max x . rest) 
+  (fold (lambda (curr best) (if (< best curr) curr best)) x rest))
+
+(define (min x . rest) 
+  (fold (lambda (curr best) (if (< best curr) best curr)) x rest))
 
 (define (abs x) (if (< x 0) (- 0 x) x))
 

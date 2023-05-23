@@ -68,7 +68,7 @@
 
 (define (lazy-fold func base lst (stop-value '()))
   (if (and (pair? lst) (not (equal? base stop-value)))
-    (lazy-fold func (func base (car lst)) (cdr lst) stop-value)
+    (lazy-fold func (func (car lst)) (cdr lst) stop-value)
     base))
 
 (define (scan func base state lst)
