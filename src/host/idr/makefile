@@ -6,9 +6,10 @@ check:
 	  options=`sed -n -e '/;;;options:/p' $$prog | sed -e 's/^;;;options://'`; \
 	  echo "---------------------- $$prog [options:$$options]"; \
 	  rm -rf test.idr*; \
-	  gsi ../../rsc.scm -t idr $$options -o test.idr $$prog; \
+	  ../../rsc -t idr $$options -o test.idr $$prog; \
 	  idris2 -o test.idr.exe --output-dir . test.idr; \
 	  sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | ./test.idr.exe > test.idr.out; \
+	  sleep 1 `# For some reason, idris2 takes time to write to file`;  \
 	  sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - test.idr.out; \
 	done
 
