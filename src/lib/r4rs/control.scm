@@ -1,4 +1,5 @@
 (##include "./types.scm")
+(##include "./bool.scm")
 (##include "./pair-list.scm")
 
 (cond-expand
@@ -46,52 +47,12 @@
 (define procedure-code field0)
 (define procedure-env field1)
 
-;; (define (apply proc args)
-;;   (define (##push stack x)
-;;       (field0-set! stack (rib x (field0 stack) 0))) ;; "push" manually 
-;;
-;;   (let* (
-;;          (c (field1 (field1 (close #f)))) ;; get call/cc continuation rib
-;;          (stack (field1 (close #f)))
-;;          (return-pc (field2 c)))
+(define (map proc lst)
+    (if (pair? lst)
+      (cons (proc (car lst)) (map proc (cdr lst)))
+      '()))
 
-    #| ;; (field0-set! c (rib (field0 c) (field1 c) return-pc)) ;; "set" the return pc
-
-    (##push proc) ;; "push" the procedure 
-    (for-each (lambda (arg) (##push arg)) args) ;; "push" each arg 
-
-
-    (field2-set! c (rib 0 (+ (length args) 1)  ;; set "pc" field 
-                       return-pc)) ;; set the continuation to the return-pc
-    ;; (field2-set! c (field2 return-pc)) |#
-
-
-    ;; (set! real-args (fold (lambda (arg arg-lst) (rib arg arg-lst 0)) (rib 0 (field0 proc) 0) args)) 
-    ;; (set! result (make-procedure 
-    ;;                (rib 0 '() 
-    ;;                     (rib 0 (make-procedure (rib (+ (length args) 5) '() (field2 (field0 proc))) '()) (field2 c)))
-    ;;                '()))
-    ;; (field1-set! stack (field1 real-args))
-    ;; (field0-set! stack (field0 real-args))
-
-    ;; (for-each (lambda (arg) (##push c arg)) args) ;; "push" each arg 
-    ;; (if ##feature-arity-check
-    ;;   (##push c (length args))) ;; "push" the number of args
-
-    ;; ((make-procedure (rib 0 '()
-    ;;                       (rib 0 (make-procedure (rib (length args) '() (field2 (field0 proc))) '()) 0)
-    ;;                       '())))
-
-  ;;   ((make-procedure (rib 0 '() (rib 0 (make-procedure (rib (* 2 (length args)) '() (field2 (field0 proc))) '()) 
-  ;;                                    (rib 5 0 0) ;; changer pour la vraie continuation, là ça fait juste halt
-  ;;                                    )) '()))
-  ;; ))
-
-;; (define (map proc . lsts)
-;;   (if (null? lsts)
-;;     (error "Map must contain at least one list")
-;;     (let loop ((new-list '()))
-;;       ))
+(define (##map proc . lsts))
 
 (define (for-each proc lst)
   (if (pair? lst)
@@ -102,8 +63,23 @@
 
 (define (fold func base lst)
   (if (pair? lst)
-    (fold func (func (car lst) base) (cdr lst))
+    (fold func (func base (car lst)) (cdr lst))
     base))
+
+(define (lazy-fold func base lst (stop-value '()))
+  (if (and (pair? lst) (not (equal? base stop-value)))
+    (lazy-fold func (func base (car lst)) (cdr lst) stop-value)
+    base))
+
+(define (scan func base state lst)
+  (if (pair? lst)
+    (scan func (car lst) (func base (car lst)) (cdr lst))
+    state))
+
+(define (lazy-scan func base state lst (stop-value '()))
+  (if (and (pair? lst) (not (equal? state stop-value)))
+    (lazy-scan func (car lst) (func base (car lst)) (cdr lst) stop-value)
+    state))
 
 ;; First-class continuations.
 

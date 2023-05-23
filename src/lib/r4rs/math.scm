@@ -1,15 +1,29 @@
 (##include "./types.scm")
-(##include "./number.scm")
 (##include "./control.scm")
+(##include "./number.scm")
+
+(set! ##no-args '(0))
 
 (set! ##+ +)
 (set! ##* *)
+(set! ##- -)
 
 (define (+ . args)
   (fold ##+ 0 args))
 
 (define (* . args)
   (fold ##* 1 args))
+
+
+(define (- x (y ##no-args) . rest)
+  (if (eqv? y ##no-args)
+    (##- 0 x)
+    (fold ##- (##- x y) rest)))
+
+(define (/ x (y ##no-args) . rest)
+  (if (eqv? y ##no-args)
+    (quotient 1 x)
+    (fold quotient (quotient x y) rest)))
 
 (define (max x y) (if (< x y) y x))
 (define (min x y) (if (< x y) x y))

@@ -402,7 +402,7 @@
          (write-char 112 port)) ;; #p
         (else
          ;; must be a number
-         (display (number->string o) port))))
+         (error "Object not printable"))))
 
 (define (write-list lst port)
   (if (eqv? (field2 lst) 0) ;; pair?
