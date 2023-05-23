@@ -2,29 +2,6 @@
 (##include "./control.scm")
 (##include "./number.scm")
 
-(set! ##no-args '(0))
-
-(set! ##+ +)
-(set! ##* *)
-(set! ##- -)
-
-(define (+ . args)
-  (fold ##+ 0 args))
-
-(define (* . args)
-  (fold ##* 1 args))
-
-
-(define (- x (y ##no-args) . rest)
-  (if (eqv? y ##no-args)
-    (##- 0 x)
-    (fold ##- (##- x y) rest)))
-
-(define (/ x (y ##no-args) . rest)
-  (if (eqv? y ##no-args)
-    (quotient 1 x)
-    (fold quotient (quotient x y) rest)))
-
 (define (max x . rest) 
   (fold (lambda (curr best) (if (< best curr) curr best)) x rest))
 
@@ -45,24 +22,30 @@
               r
               (+ r y))))))
 
-(define (gcd x y)
-  (let ((ax (abs x)))
-    (let ((ay (abs y)))
-      (if (< ax ay)
-          (gcd-aux ax ay)
-          (gcd-aux ay ax)))))
-
-(define (gcd-aux x y)
-  (if (eqv? x 0)
+(define (gcd . args)
+  (define (gcd-aux x y)
+    (if (eqv? x 0)
       y
       (gcd-aux (remainder y x) x)))
 
-(define (lcm x y)
-  (if (eqv? y 0)
+  (fold (lambda (x y)
+          (let ((ax (abs x)) (ay (abs y)))
+            (if (< ax ay)
+              (gcd-aux ax ay)
+              (gcd-aux ay ax))))
+        0
+        args))
+
+
+(define (lcm . args)
+  (define (lcm-aux x y)
+    (if (eqv? y 0)
       0
-      (let ((ax (abs x)))
-        (let ((ay (abs y)))
-          (* (quotient ax (gcd ax ay)) ay)))))
+      (let ((ax (abs x)) (ay (abs y)))
+        (* (quotient ax (gcd ax ay)) ay))))
+
+  (fold lcm-aux 1 args))
+
 
 (define numerator id)
 (define (denominator x) 1)
