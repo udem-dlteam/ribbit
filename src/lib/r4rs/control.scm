@@ -66,9 +66,9 @@
     (fold func (func base (car lst)) (cdr lst))
     base))
 
-(define (lazy-fold func base lst (stop-value '()))
+(define (fold-until func base lst (stop-value '()))
   (if (and (pair? lst) (not (equal? base stop-value)))
-    (lazy-fold func (func (car lst)) (cdr lst) stop-value)
+    (fold-until func (func (car lst)) (cdr lst) stop-value)
     base))
 
 (define (scan func base state lst)
@@ -76,9 +76,9 @@
     (scan func (car lst) (func base (car lst)) (cdr lst))
     state))
 
-(define (lazy-scan func base state lst (stop-value '()))
+(define (scan-until func base state lst (stop-value '()))
   (if (and (pair? lst) (not (equal? state stop-value)))
-    (lazy-scan func (car lst) (func base (car lst)) (cdr lst) stop-value)
+    (scan-until func (car lst) (func base (car lst)) (cdr lst) stop-value)
     state))
 
 ;; First-class continuations.
