@@ -455,7 +455,7 @@ obj list2scm(char **s, int length) {
 obj bool2scm(bool x) { return x ? CAR(FALSE) : FALSE; }
 // )@@
 
-void prim(int no) {
+obj prim(int no) {
   switch (no) { 
   // @@(primitives (gen "case " index ":" body) 
   case 0: // @@(primitive (rib a b c)
@@ -629,6 +629,7 @@ void prim(int no) {
     vm_exit(EXIT_ILLEGAL_INSTR);
   }
   }
+  return TAG_NUM(0);
 }
 
 #ifdef DEBUG
@@ -703,65 +704,70 @@ void run() {
       PRINTLN();
 #endif
       obj proc = get_opnd(CDR(pc));
+      while (1) {
 #define code CAR(proc)
-      num nargs = NUM(pop()); // @@(feature arity-check)@@
-      if (IS_NUM(code)) {
-        prim(NUM(code));
+          num nargs = NUM(pop()); // @@(feature arity-check)@@
+          if (IS_NUM(code)) {
+            proc=prim(NUM(code));
 
-        if (jump) {
-          // jump
-          pc = get_cont();
-          CDR(stack) = CAR(pc);
-        }
-        pc = TAG(pc);
-      } else {
+            if (IS_RIB(proc)) continue;
 
-        num nparams = NUM(CAR(code)) >> 1;
-
-        obj s2 = TAG_RIB(alloc_rib(NUM_0, proc, PAIR_TAG));
-        CAR(pc) = CAR(proc);
-
-
-        // @@(feature arity-check
-        num vari = NUM(CAR(code))&1;  
-        if ((!vari && nparams != nargs)||(vari && nparams > nargs)){
-            printf("*** Unexpected number of arguments nargs: %ld nparams: %ld vari: %ld\n", nargs, nparams, vari);
-            exit(1);
-        }
-        // )@@
-        // @@(feature rest-param (use arity-check)
-        nargs-=nparams;
-        if (vari){
-            obj rest = NIL;
-            for(int i = 0; i < nargs; ++i){
-                rest = TAG_RIB(alloc_rib(pop(), rest, PAIR_TAG));
+            if (jump) {
+              // jump
+              pc = get_cont();
+              CDR(stack) = CAR(pc);
             }
-            s2 = TAG_RIB(alloc_rib(rest, s2, PAIR_TAG));
-        }
-        // )@@
+            pc = TAG(pc);
+          } else {
 
-        for (int i = 0; i < nparams; ++i) {
-          s2 = TAG_RIB(alloc_rib(pop(), s2, PAIR_TAG));
-        }
+            num nparams = NUM(CAR(code)) >> 1;
 
-        nparams = nparams + vari; // @@(feature arity-check)@@
+            obj s2 = TAG_RIB(alloc_rib(NUM_0, proc, PAIR_TAG));
+            CAR(pc) = CAR(proc);
 
-        obj c2 = TAG_RIB(list_tail(RIB(s2), nparams));
 
-        if (jump) {
-          obj k = get_cont();
-          CAR(c2) = CAR(k);
-          TAG(c2) = TAG(k);
-        } else {
-          CAR(c2) = stack;
-          TAG(c2) = TAG(pc);
-        }
+            // @@(feature arity-check
+            num vari = NUM(CAR(code))&1;  
+            if ((!vari && nparams != nargs)||(vari && nparams > nargs)){
+                printf("*** Unexpected number of arguments nargs: %ld nparams: %ld vari: %ld\n", nargs, nparams, vari);
+                exit(1);
+            }
+            // )@@
+            // @@(feature rest-param (use arity-check)
+            nargs-=nparams;
+            if (vari){
+                obj rest = NIL;
+                for(int i = 0; i < nargs; ++i){
+                    rest = TAG_RIB(alloc_rib(pop(), rest, PAIR_TAG));
+                }
+                s2 = TAG_RIB(alloc_rib(rest, s2, PAIR_TAG));
+            }
+            // )@@
 
-        stack = s2;
+            for (int i = 0; i < nparams; ++i) {
+              s2 = TAG_RIB(alloc_rib(pop(), s2, PAIR_TAG));
+            }
 
-        obj new_pc = CAR(pc);
-        CAR(pc) = TAG_NUM(instr);
-        pc = TAG(new_pc);
+            nparams = nparams + vari; // @@(feature arity-check)@@
+
+            obj c2 = TAG_RIB(list_tail(RIB(s2), nparams));
+
+            if (jump) {
+              obj k = get_cont();
+              CAR(c2) = CAR(k);
+              TAG(c2) = TAG(k);
+            } else {
+              CAR(c2) = stack;
+              TAG(c2) = TAG(pc);
+            }
+
+            stack = s2;
+
+            obj new_pc = CAR(pc);
+            CAR(pc) = TAG_NUM(instr);
+            pc = TAG(new_pc);
+          }
+          break;
       }
       break;
     }

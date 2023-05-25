@@ -27,9 +27,9 @@
    (define-primitive
      (apply f args)
      "{
-     PRIM1();
+     PRIM2();
      int num_args = 0;
-     obj arg = TAG_RIB(x);
+     obj arg = TAG_RIB(y);
      // we don't push the function, because it is already on top of the stack
      while (arg != NIL) {
         push2(CAR(arg), PAIR_TAG);
@@ -37,8 +37,7 @@
         num_args++;
      }
      push2(TAG_NUM(num_args), PAIR_TAG);
-     pc = TAG_RIB(alloc_rib(0,0,TAG_RIB(alloc_rib(TAG_NUM(0), TAG_NUM(num_args + 1), TAG(pc)))));
-     break;
+     return TAG_RIB(x);
      }"))
 
   ((host hs)))
