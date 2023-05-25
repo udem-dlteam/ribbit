@@ -10,7 +10,7 @@
 
 (define (make-string k) (list->string (make-list k 32)))
 
-;;(define (string . args) ...)
+;; (define (string . args) ...)
 
 (define (string=? str1 str2) (eqv? (string-cmp str1 str2) 0))
 (define (string<? str1 str2) (< (string-cmp str1 str2) 0))
