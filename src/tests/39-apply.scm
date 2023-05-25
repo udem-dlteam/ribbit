@@ -8,7 +8,7 @@
   (write z)
   (newline))
 
-(apply foo (list 5 2 3))
+(apply foo (list 5 2 "3"))
 
 
 (define (bar x . y)
@@ -31,7 +31,13 @@
     '()))
 
 
-(display (map ##+ '(1 2 3) '(4 5 6) ));'(7 8 9)))
+(display (map + '(1 2 3) '(4 5 6) '(7 8 9)))
+(newline)
+
+(display (apply apply (list map (list + '(1 2 3) '(4 5 6) '(7 8 9)))))
+(newline)
+
+(display (call/cc (lambda (c) (apply c (list 42)))))
 (newline)
 
 ;;;fancy-compiler
@@ -42,4 +48,6 @@
 ;;;"3"
 ;;;4
 ;;;(("aa" "bb" 5) 9)
-;;;(13 15 18)
+;;;(12 15 18)
+;;;(12 15 18)
+;;;42

@@ -364,76 +364,6 @@ primitives = [
 // )@@
 ];
 
-call = (proc) => {
-    if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(proc)); show_stack(); } //debug
-    o = proc
-    // @@(feature arity-check
-    let nargs=pop();
-    // )@@
-    let c = o[0];
-
-    if (is_rib(c)) {
-        let c2 = [0,o,0];
-        let s2 = c2;
-
-        // @@(feature (and debug-trace debug)
-        if(debug){
-            console.log("\nDEBUG " + f + " -- nargs:", nargs, " nparams:", c[0] >> 1, "variadics:", c[0] & 1);
-        }
-        // )@@
-
-        let nparams = c[0] >> 1; 
-        // @@(feature arity-check
-        if (c[0] & 1 ? nparams > nargs : nparams != nargs){
-            console.log("*** Unexpected number of arguments nargs:", nargs, " nparams:", nparams, "variadics:", c[0]&1);
-            halt();
-        }
-        // )@@
-
-        // @@(feature rest-param (use arity-check)
-        nargs-=nparams;
-        if (c[0]&1) {
-            let rest=NIL;
-            while(nargs--) 
-                rest=[pop(), rest, 0];
-            s2=[rest,s2,0]
-        }
-        // )@@
-        while (nparams--) s2 = [pop(),s2,0];
-
-        if (pc[2]===0) {
-            // jump
-            let k = get_cont();
-            c2[0] = k[0];
-            c2[2] = k[2];
-        } else {
-            // call
-            c2[0] = stack;
-            c2[2] = pc[2];
-        }
-        stack = s2;
-    } else {
-        next_prim=primitives[c]()
-        if (!next_prim) return;
-        if (is_rib(next_prim)) {
-            console.log('Next prim: ', next_prim);
-            console.log('Nargs: ', stack[0]);
-            let result = call(next_prim);
-            console.dir(stack, {depth: 6});
-            return result;
-        }
-        if (pc[2]===0) {
-            // jump
-            c = get_cont();
-            stack[1] = c[0];
-        } else {
-            // call
-            c = pc;
-        }
-    }
-    return c;
-}
-
 run = () => {
   while (1) {
     let o = pc[1];
@@ -441,7 +371,70 @@ run = () => {
     case 5: // halt
         return;
     case 0: // jump/call
-        pc = call(get_opnd(o)[0]);
+        o = get_opnd(o)[0];
+        while(1) {
+            if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(proc)); show_stack(); } //debug
+            // @@(feature arity-check
+            let nargs=pop();
+            // )@@
+            let c = o[0];
+
+            if (is_rib(c)) {
+                let c2 = [0,o,0];
+                let s2 = c2;
+
+                // @@(feature (and debug-trace debug)
+                if(debug){
+                    console.log("\nDEBUG " + f + " -- nargs:", nargs, " nparams:", c[0] >> 1, "variadics:", c[0] & 1);
+                }
+                // )@@
+
+                let nparams = c[0] >> 1; 
+                // @@(feature arity-check
+                if (c[0] & 1 ? nparams > nargs : nparams != nargs){
+                    console.log("*** Unexpected number of arguments nargs:", nargs, " nparams:", nparams, "variadics:", c[0]&1);
+                    halt();
+                }
+                // )@@
+
+                // @@(feature rest-param (use arity-check)
+                nargs-=nparams;
+                if (c[0]&1) {
+                    let rest=NIL;
+                    while(nargs--) 
+                        rest=[pop(), rest, 0];
+                    s2=[rest,s2,0]
+                }
+                // )@@
+                while (nparams--) s2 = [pop(),s2,0];
+
+                if (pc[2]===0) {
+                    // jump
+                    let k = get_cont();
+                    c2[0] = k[0];
+                    c2[2] = k[2];
+                } else {
+                    // call
+                    c2[0] = stack;
+                    c2[2] = pc[2];
+                }
+                stack = s2;
+            } else {
+                o=primitives[c]()
+                if (!o) return;
+                if (is_rib(o)) continue;
+                if (pc[2]===0) {
+                    // jump
+                    c = get_cont();
+                    stack[1] = c[0];
+                } else {
+                    // call
+                    c = pc;
+                }
+            }
+            pc = c;
+            break;
+        }
         break;
     case 1: // set
         if (debug) { console.log("--- set " + show_opnd(o)); show_stack(); } //debug
