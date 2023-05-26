@@ -49,10 +49,13 @@ phdr:                                                 ; Elf32_Phdr
 
 phdrsize      equ     $ - phdr
 
+
 _start:
 
 ;;; ######################################## Beginning of RVM
 
+
+%define DEBUG
 %if 0
 %define DEBUG
 %define DEBUG_INSTR
@@ -69,7 +72,8 @@ _start:
 
 %define WORD_SIZE       4
 %define RIB_SIZE_WORDS  4
-%define HEAP_SIZE_RIBS  300000
+%define HEAP_SIZE_RIBS  5000
+%define HEAP_SIZE (HEAP_SIZE_RIBS*RIB_SIZE_WORDS*WORD_SIZE)
 
 %define SYS_EXIT        1
 %define SYS_READ        3
@@ -159,6 +163,16 @@ _start:
 %endif
 %endmacro
 
+
+;;;;;;;;; GC SPECIFICS ;;;;;
+
+%DEFINE BROKEN_HEART       0 ;; Broken heart is set as the null pointer
+%DEFINE scan            stack
+%DEFINE copy            pc   
+
+%DEFINE SAFE
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 alloc_heap:
@@ -169,7 +183,7 @@ alloc_heap:
 	push -1					; mmap fd
 	push MAP_ANONYMOUS + MAP_PRIVATE	; mmap flags
 	push PROT_READ + PROT_WRITE 		; mmap prot
-	push WORD_SIZE * RIB_SIZE_WORDS * HEAP_SIZE_RIBS 	; mmap length
+	push HEAP_SIZE 	; mmap length
 	push 0				    	; mmap addr
 	mov  ebx, esp
 	movC eax, SYS_MMAP
@@ -178,11 +192,17 @@ alloc_heap:
 
 	mov  heap_base, eax		; save heap base for convenient access
 
+    ; set end-of-heap for each of the heaps (stop-and-copy)
+    mov  FIELD1((heap_base+HEAP_SIZE)-(RIB_SIZE_WORDS*WORD_SIZE)), eax
+    add  eax, HEAP_SIZE/2
+    mov  FIELD1((heap_base+HEAP_SIZE/2)-(RIB_SIZE_WORDS*WORD_SIZE)), eax
+
 %ifdef SAFE
 
 ;;; check if returned address is valid (multiple of 4096)
 
-	and  ax, 4095
+    mov  eax, heap_base
+	and  al, 4095
 	jz   init_heap
 
 %ifdef DEBUG
@@ -217,7 +237,8 @@ init_heap_loop1:
 	dec  cl
 	jne  init_heap_loop1
 
-	movC ecx, HEAP_SIZE_RIBS - PREALLOCATED_RIBS
+    ;; one rib is reserved to store the information about the to_space pointer 
+	movC ecx, HEAP_SIZE_RIBS/2 - PREALLOCATED_RIBS - 1
 	movC ebx, 0
 init_heap_loop2:
 	mov  FIELD0(heap_alloc), ebx
@@ -233,6 +254,7 @@ init_heap_loop2:
 	mov  FIELD0(FALSE), eax
 	lea  eax, [NIL]
 	mov  FIELD1(FALSE), eax
+    int3
 
 	mov  SYMBOL_TABLE, eax		; init symbol table to NIL
 
@@ -325,6 +347,7 @@ get_int:
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
 alloc_rib:
 
 ;;; Creates a rib containing:
@@ -335,7 +358,6 @@ alloc_rib:
 ;;; If the rib was the last free rib, a garbage collection is initiated.
 ;;; When the control returns to the caller the heap has at least
 ;;; one free rib.
-
 	mov  FIELD1(heap_alloc), stack	; store field 1
 	mov  stack, [esp+WORD_SIZE*1]
 	mov  FIELD2(heap_alloc), stack	; store field 2
@@ -350,6 +372,14 @@ alloc_rib:
 gc:
 	mov  TEMP0, stack
 	mov  TEMP1, pc
+
+    pusha
+    ;; scan and copy are the stack and pc registers
+    mov scan, FALSE ;; root is false
+    mov pc,   FALSE
+
+
+
 
 	;; TODO!
 
@@ -1508,8 +1538,8 @@ prim_exit:
 
 ;;; The compressed RVM code
 
-;; @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
-rvm_code:	db ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y",0 ; RVM code that prints HELLO!
+;; @@(replace ");'lvD?m>lvRD?m>lvRA?m>lvRA?m>lvR:?m>lvR=!(:nlkm!':nlkv6{" (encode 92)
+rvm_code:	db ");'lvD?m>lvRD?m>lvRA?m>lvRA?m>lvR:?m>lvR=!(:nlkm!':nlkv6{",0 ; RVM code that prints HELLO!
 ;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
