@@ -1027,6 +1027,15 @@
            (cond ((eqv? first 'quote)
                   (expand-constant (cadr expr)))
 
+                 ((eqv? first 'quasiquote)
+                  (expand-quasiquote (cadr expr)))
+
+                 ((eqv? first 'unquote)
+                  (error "unquote outside quasiquote"))
+
+                 ((eqv? first 'unquote-splicing)
+                  (error "unquote-splicing outside quasiquote"))
+
                  ((eqv? first 'set!)
                   (let ((var (cadr expr)))
                     (cons 'set!
@@ -1294,6 +1303,23 @@
 
 (define (expand-constant x)
   (cons 'quote (cons x '())))
+
+(define (expand-quasiquote x)
+  (cond 
+    ((not (pair? x)) (expand-constant x))
+    ((eqv? (car x) 'unquote) (expand-expr (cadr x)))
+    ((eqv? (car x) 'unquote-splicing) (error "unquote-splicing is not allowed outside of a list"))
+    (else (if (and 
+                (pair? (car x))
+                (eqv? (caar x) 'unquote-splicing))
+            (cons 'append
+                  (cons (expand-expr (cadar x))
+                        (cons (expand-quasiquote (cdr x))
+                              '())))
+            (cons 'cons
+                  (cons (expand-quasiquote (car x))
+                        (cons (expand-quasiquote (cdr x))
+                              '())))))))
 
 (define (expand-body exprs)
   (let loop ((exprs exprs) (defs '()))

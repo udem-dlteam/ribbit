@@ -13,7 +13,6 @@
         let num_args = 0;
         let arg = pop();
         let f = pop();
-        // we don't push the function, because it is already on top of the stack
         while (arg !== NIL) {
             push(arg[0]);
             arg=arg[1];
@@ -30,7 +29,6 @@
      PRIM2();
      int num_args = 0;
      obj arg = TAG_RIB(y);
-     // we don't push the function, because it is already on top of the stack
      while (arg != NIL) {
         push2(CAR(arg), PAIR_TAG);
         arg = TAG_RIB(CDR(arg));
@@ -40,7 +38,22 @@
      return TAG_RIB(x);
      }"))
 
-  ((host hs)))
+  ((host hs)
+   (define-primitive
+     (apply f args)
+     " ,  (do
+            let numArgs = 0
+            arg <- pop
+            f <- pop
+            let loop arg' numArgs' = do
+              case arg' of
+                ribNil -> do
+                  push (head arg')
+                  loop (tail arg') (numArgs' + 1)
+                _ -> do
+                  push numArgs' -- @@(feature arity-check)@@
+                  return f)
+        ")))
 
 ;; Control features (R4RS section 6.9).
 

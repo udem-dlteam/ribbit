@@ -373,7 +373,7 @@ run = () => {
     case 0: // jump/call
         o = get_opnd(o)[0];
         while(1) {
-            if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(proc)); show_stack(); } //debug
+            if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } //debug
             // @@(feature arity-check
             let nargs=pop();
             // )@@
