@@ -191,9 +191,13 @@ alloc_heap:
 	mov  heap_base, eax		; save heap base for convenient access
 
     ; set end-of-heap for each of the heaps (stop-and-copy)
-    mov  FIELD1((heap_base+HEAP_SIZE)-(RIB_SIZE_WORDS*WORD_SIZE)), eax
-    add  eax, HEAP_SIZE/2
-    mov  FIELD1((heap_base+HEAP_SIZE/2)-(RIB_SIZE_WORDS*WORD_SIZE)), eax
+    mov   FIELD1(heap_base+HEAP_SIZE/2), eax
+    add   eax, HEAP_SIZE/2
+    mov   FIELD1(heap_base), eax
+
+    ;mov  FIELD1((heap_base+HEAP_SIZE)-(RIB_SIZE_WORDS*WORD_SIZE)), eax
+    ;add  eax, HEAP_SIZE/2
+    ;mov  FIELD1((heap_base+HEAP_SIZE/2)-(RIB_SIZE_WORDS*WORD_SIZE)), eax
 
 %ifdef SAFE
 
@@ -327,6 +331,9 @@ init_heap:
 %if RIB_TAG != 0
 	inc  heap_base
 %endif
+    ;; add one rib padding for informations like 
+    ;;  other rib location and scan_ptr buffer
+    add  heap_base, RIB_SIZE_WORDS*WORD_SIZE 
 	mov  heap_alloc, heap_base
 	push FIX(SINGLETON_TYPE)
 	pop  eax
@@ -337,9 +344,8 @@ init_heap_loop1:
 	dec  cl
 	jne  init_heap_loop1
 
-
     ;; one rib is reserved to store the information about the to_space pointer 
-	movC ecx, HEAP_SIZE_RIBS/2 - PREALLOCATED_RIBS - 2
+	movC ecx, HEAP_SIZE_RIBS/2 - PREALLOCATED_RIBS - 1
 	mov  ebx, heap_alloc
 init_heap_loop2:
 	add  ebx, WORD_SIZE * RIB_SIZE_WORDS
@@ -348,6 +354,7 @@ init_heap_loop2:
     mov  heap_alloc, ebx
 	dec  ecx
 	jne  init_heap_loop2
+    mov  dword FIELD0(heap_alloc-RIB_SIZE_WORDS * WORD_SIZE), 0x0 ;; mark the end
 
     mov  heap_alloc, heap_base
     add  heap_alloc, PREALLOCATED_RIBS*RIB_SIZE_WORDS * WORD_SIZE
@@ -383,7 +390,7 @@ gc:
 	mov  FIELD3(FALSE), stack
 	mov  FIELD3(NIL), pc
     push heap_base
-    mov  heap_base, FIELD1(stack+RIB_SIZE_WORDS*WORD_SIZE)
+    mov  heap_base, FIELD1(heap_base-RIB_SIZE_WORDS*WORD_SIZE)
     call init_heap ;; clean up the to_space
     ;mov  ecx, PREALLOCATED_RIBS*RIB_SIZE_WORDS
     pop  esi
@@ -392,8 +399,6 @@ gc:
     sub  scan_ptr, WORD_SIZE ;; start the stack pointer a little bit outside for simplicity
     ;; But it's fine because 
     ;jmp  scan_copy
-    int3
- 
 scan_copy:
     ;; If its a rib
     movC  ecx, 4
@@ -408,8 +413,9 @@ scan_copy:
     ;movC ecx, 4
     ;rep movsd ;; take only 2 bytes !
 scan:
-    int3
     add scan_ptr, WORD_SIZE
+    cmp scan_ptr, heap_alloc
+    je  scan_end
     mov  esi, [scan_ptr]
     test esi, 1  ;; Test if its tagged
     %if RIB_TAG==0
@@ -425,67 +431,10 @@ scan_BH:
     mov esi, FIELD1(esi)
     mov [scan_ptr], esi
     jmp scan
-
-
-
-
-
-    mov esi, FIELD1(eax)
-    mov FIELD1(eax), heap_alloc
-    mov ecx, 4
-    rep movsd
-    
-    mov esi, FIELD2(eax)
-    mov FIELD2(eax), heap_alloc
-    mov ecx, 4
-    rep movsd
-
-    mov esi, FIELD3(eax)
-    mov FIELD3(eax), heap_alloc
-    mov ecx, 4
-    rep movsd
-    
-
-
-
-    
-    
-
-    
-
-
-
+scan_end:
+	mov  stack, FIELD3(FALSE) 
+	mov  pc, FIELD3(NIL)
     int3
-
-    pusha
-    ;; scan and copy are the stack and pc registers
-    ;mov scan, FALSE ;; root is false
-    ;mov copy, FALSE+WORD_SIZE
-
-gc_loop:
-    ;cmp scan, copy
-    je  gc_end
-    
-
-
-
-
-    
-
-
-
-
-
-
-
-	;; TODO!
-
-gc_end:
-	jmp  heap_overflow
-
-	mov  stack, TEMP0
-	mov  pc, TEMP1
-    popa
 
 alloc_rib_done:
 	ret  WORD_SIZE*1
