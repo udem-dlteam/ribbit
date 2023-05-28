@@ -72,7 +72,7 @@ _start:
 
 %define WORD_SIZE       4
 %define RIB_SIZE_WORDS  4
-%define HEAP_SIZE_RIBS  5000
+%define HEAP_SIZE_RIBS  10000
 %define HEAP_SIZE (HEAP_SIZE_RIBS*RIB_SIZE_WORDS*WORD_SIZE)
 
 %define SYS_EXIT        1
@@ -166,11 +166,9 @@ _start:
 
 ;;;;;;;;; GC SPECIFICS ;;;;;
 
-%DEFINE BROKEN_HEART       0 ;; Broken heart is set as the null pointer
-%DEFINE scan            stack
-%DEFINE copy            pc   
+%define BROKEN_HEART       0 ;; Broken heart is set as the null pointer
 
-%DEFINE SAFE
+%define SAFE
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -202,8 +200,9 @@ alloc_heap:
 ;;; check if returned address is valid (multiple of 4096)
 
     mov  eax, heap_base
-	and  al, 4095
-	jz   init_heap
+	and  ax, 4095
+	jz   init_heap_call
+    
 
 %ifdef DEBUG
 	push heap_error_msg
@@ -218,43 +217,17 @@ alloc_heap:
 heap_error_msg:	db "*** ERROR -- could not allocate heap",0x0a,0
 %endif
 
+init_heap_call:
 %endif
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-init_heap:
-
-%if RIB_TAG != 0
-	inc  heap_base
-%endif
-	mov  heap_alloc, heap_base
-	push FIX(SINGLETON_TYPE)
-	pop  eax
-	mov  cl, PREALLOCATED_RIBS * RIB_SIZE_WORDS
-init_heap_loop1:
-	mov  [heap_alloc-RIB_TAG], eax
-	add  heap_alloc, WORD_SIZE
-	dec  cl
-	jne  init_heap_loop1
-
-    ;; one rib is reserved to store the information about the to_space pointer 
-	movC ecx, HEAP_SIZE_RIBS/2 - PREALLOCATED_RIBS - 1
-	movC ebx, 0
-init_heap_loop2:
-	mov  FIELD0(heap_alloc), ebx
-	mov  FIELD3(heap_alloc), eax
-	mov  ebx, heap_alloc
-	add  heap_alloc, WORD_SIZE * RIB_SIZE_WORDS
-	dec  ecx
-	jne  init_heap_loop2
-
-	mov  heap_alloc, ebx
+    call init_heap
 
 	lea  eax, [TRUE]
 	mov  FIELD0(FALSE), eax
 	lea  eax, [NIL]
 	mov  FIELD1(FALSE), eax
-    int3
 
 	mov  SYMBOL_TABLE, eax		; init symbol table to NIL
 
@@ -345,6 +318,42 @@ get_int:
 	jae  get_int_loop
 	ret
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+init_heap:
+
+%if RIB_TAG != 0
+	inc  heap_base
+%endif
+	mov  heap_alloc, heap_base
+	push FIX(SINGLETON_TYPE)
+	pop  eax
+	mov  cl, PREALLOCATED_RIBS * RIB_SIZE_WORDS
+init_heap_loop1:
+	mov  [heap_alloc-RIB_TAG], eax
+	add  heap_alloc, WORD_SIZE
+	dec  cl
+	jne  init_heap_loop1
+
+
+    ;; one rib is reserved to store the information about the to_space pointer 
+	movC ecx, HEAP_SIZE_RIBS/2 - PREALLOCATED_RIBS - 2
+	mov  ebx, heap_alloc
+init_heap_loop2:
+	add  ebx, WORD_SIZE * RIB_SIZE_WORDS
+	mov  FIELD0(heap_alloc), ebx
+	mov  FIELD3(heap_alloc), eax
+    mov  heap_alloc, ebx
+	dec  ecx
+	jne  init_heap_loop2
+
+    mov  heap_alloc, heap_base
+    add  heap_alloc, PREALLOCATED_RIBS*RIB_SIZE_WORDS * WORD_SIZE
+	;mov  heap_alloc, ebx
+    ret
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
@@ -370,23 +379,113 @@ alloc_rib:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 gc:
-	mov  TEMP0, stack
-	mov  TEMP1, pc
+%define scan_ptr eax
+	mov  FIELD3(FALSE), stack
+	mov  FIELD3(NIL), pc
+    push heap_base
+    mov  heap_base, FIELD1(stack+RIB_SIZE_WORDS*WORD_SIZE)
+    call init_heap ;; clean up the to_space
+    ;mov  ecx, PREALLOCATED_RIBS*RIB_SIZE_WORDS
+    pop  esi
+    mov  heap_alloc, heap_base
+    mov  scan_ptr, heap_base
+    sub  scan_ptr, WORD_SIZE ;; start the stack pointer a little bit outside for simplicity
+    ;; But it's fine because 
+    ;jmp  scan_copy
+    int3
+ 
+scan_copy:
+    ;; If its a rib
+    movC  ecx, 4
+    mov   edx, heap_alloc
+    rep  movsd
+    mov dword FIELD0(esi-RIB_SIZE_WORDS*WORD_SIZE), 0x0
+    mov FIELD1(esi-RIB_SIZE_WORDS*WORD_SIZE), edx 
+    mov [scan_ptr], edx
+    ;jmp scan
+
+    ;int3
+    ;movC ecx, 4
+    ;rep movsd ;; take only 2 bytes !
+scan:
+    int3
+    add scan_ptr, WORD_SIZE
+    mov  esi, [scan_ptr]
+    test esi, 1  ;; Test if its tagged
+    %if RIB_TAG==0
+    JNZ  scan
+    %else
+    JZ   scan
+    %endif 
+    cmp  dword [esi], 0 
+    jz   scan_BH ;; is a broken heart
+    jmp scan_copy
+
+scan_BH:
+    mov esi, FIELD1(esi)
+    mov [scan_ptr], esi
+    jmp scan
+
+
+
+
+
+    mov esi, FIELD1(eax)
+    mov FIELD1(eax), heap_alloc
+    mov ecx, 4
+    rep movsd
+    
+    mov esi, FIELD2(eax)
+    mov FIELD2(eax), heap_alloc
+    mov ecx, 4
+    rep movsd
+
+    mov esi, FIELD3(eax)
+    mov FIELD3(eax), heap_alloc
+    mov ecx, 4
+    rep movsd
+    
+
+
+
+    
+    
+
+    
+
+
+
+    int3
 
     pusha
     ;; scan and copy are the stack and pc registers
-    mov scan, FALSE ;; root is false
-    mov pc,   FALSE
+    ;mov scan, FALSE ;; root is false
+    ;mov copy, FALSE+WORD_SIZE
+
+gc_loop:
+    ;cmp scan, copy
+    je  gc_end
+    
+
+
+
+
+    
+
+
+
 
 
 
 
 	;; TODO!
 
+gc_end:
 	jmp  heap_overflow
 
 	mov  stack, TEMP0
 	mov  pc, TEMP1
+    popa
 
 alloc_rib_done:
 	ret  WORD_SIZE*1
