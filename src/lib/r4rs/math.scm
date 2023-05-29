@@ -54,30 +54,3 @@
 (define ceiling id)
 (define truncate id)
 (define round id)
-
-;;(define (rationalize x y) ...)
-;;(define (exp x) ...)
-;;(define (log x) ...)
-;;(define (sin x) ...)
-;;(define (cos x) ...)
-;;(define (tan x) ...)
-;;(define (asin x) ...)
-;;(define (acos x) ...)
-;;(define (atan y . x) ...)
-
-;;(define (sqrt x) ...)
-
-(define (expt x y)
-  (if (eqv? y 0)
-      1
-      (let ((t (expt (* x x) (quotient y 2))))
-        (if (odd? y)
-            (* x t)
-            t))))
-
-;;(define (make-rectangular x y) ...)
-;;(define (make-polar x y) ...)
-;;(define (real-part x) ...)
-;;(define (imag-part x) ...)
-;;(define (magnitude x) ...)
-;;(define (angle x) ...)
