@@ -73,11 +73,11 @@
           (apply map (append (list proc) (##map cdr lsts))))
     '()))
 
-(define (for-each proc lst)
-  (if (pair? lst)
+(define (for-each proc . lsts)
+  (if (pair? (car lsts))
       (begin
-        (proc (car lst))
-        (for-each proc (cdr lst)))
+        (apply proc (##map car lsts))
+        (apply for-each (append (list proc) (##map cdr lsts))))
       #f))
 
 (define (fold func base lst)
