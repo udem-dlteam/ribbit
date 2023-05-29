@@ -4,6 +4,7 @@
 (define string-type    3)
 (define vector-type    4)
 (define singleton-type 5)
+(define char-type 5)
 
 (define (instance? type) (lambda (o) (and (rib? o) (eqv? (field2 o) type))))
 
@@ -12,6 +13,8 @@
 (define string? (instance? string-type))
 (define vector? (instance? vector-type))
 (define procedure? (instance? procedure-type))
+(define char? (instance? char-type))
+
 (define (null? obj) (eqv? obj '()))
 
 (define (integer? obj) (eqv? (rib? obj) #f))
@@ -39,11 +42,15 @@
 
 ;; ---------------------- CONVERSIONS ---------------------- ;;
 
-(define char->integer id)
-(define integer->char id)
 
-(define (list->string lst) (rib lst (length lst) string-type))
-(define string->list field0)
+(define char->integer (if ##feature-chars field0 id))
+(define integer->char (if ##feature-chars (lamdba (x) (rib x 0 char-type)) id))
+
+(define (##list->string lst) (rib lst (length lst) string-type))
+(define ##string->list field0)
+
+(define list->string (if ##feature-chars (lambda (lst) (##list->string (map integer->char lst))) ##list->string))
+(define string->list (if ##feature-chars (lambda (str) (map integer->char (##string->list str))) ##string->list))
 
 (define (list->vector lst) (rib lst (length lst) vector-type))
 (define vector->list field0)
