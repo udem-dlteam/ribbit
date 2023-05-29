@@ -5,10 +5,12 @@
 ;; Strings (R4RS section 6.7).
 
 (define string-length field1)
-(define (string-ref str i) (list-ref (field0 str) i))
-(define (string-set! str i x) (list-set! (field0 str) i x))
+(define (##string-ref str i) (list-ref (field0 str) i))
+(define (##string-set! str i x) (list-set! (field0 str) i x))
+(define string-ref (if ##feature-chars (lambda (str i) (integer->char (##string-ref str i))) ##string-ref))
+(define string-set! (if ##feature-chars (lambda (str i x) (##string-set! str i (char->integer x))) ##string-set!))
 
-(define (make-string k) (list->string (make-list k 32)))
+(define (make-string k) (##list->string (make-list k 32)))
 
 ;; (define (string . args) ...)
 

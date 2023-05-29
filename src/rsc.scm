@@ -58,7 +58,6 @@
      (delete-file path)))
 
   (else
-
    (define (shell-cmd command)
      #f)
 
@@ -537,6 +536,7 @@
    (define string-type    3)
    (define vector-type    4)
    (define singleton-type 5)
+   (define char-type      6)
 
    (define (instance? o type) (and (rib? o) (eqv? (field2 o) type)))
 
@@ -724,6 +724,14 @@
            (hash-string (symbol->string opnd)))
           ((number? opnd)
            (abs opnd))
+          ((string? opnd)
+           (hash-string opnd))
+          ((char? opnd)
+           (char->integer opnd))
+          ((list? opnd)
+           (fold hash-combine 0 (map opnd->hash opnd)))
+          ((vector? opnd)
+           (fold hash-combine 0 (map opnd->hash (vector->list opnd))))
           ((rib? opnd)
            (c-rib-hash opnd))
           ((eq? '() opnd)
@@ -732,10 +740,6 @@
            5)
           ((eq? #t opnd)
            6)
-          ((string? opnd)
-           (hash-string opnd))
-          ((list? opnd)
-           (fold + 0 (map opnd->hash opnd)))
           (else (error "Cannot hash the following opnd in a c-rib" opnd))))
 
       (define (next->hash next)
@@ -1899,6 +1903,9 @@
 
 ;(pp encoding-skip-92)
 
+
+(define (foobar x) (pp x) x)
+
 (define (encoding-inst-size encoding entry)
   (cadr (encoding-inst-get encoding entry)))
 
@@ -1951,6 +1958,20 @@
                (c-rib const-op
                       o
                       tail)))
+          ((char? o)
+           (if (and live-features (memq 'arity-check live-features))
+             (c-rib const-op
+                    (char->integer o)
+                    (c-rib const-op
+                           0
+                           (c-rib const-op
+                                  char-type
+                                  (add-nb-args
+                                    3
+                                    (c-rib jump/call-op
+                                           (scan-opnd 'rib 0)
+                                           tail)))))
+             (error "Feature 'chars' must be activated to use them" o)))
           ((pair? o)
            (build-constant (car o)
                            (build-constant (cdr o)
@@ -2897,7 +2918,7 @@
     (compile-program
      0    ;; verbosity
      #f   ;; parsed-vm
-     (cons 'arity-check (cons 'rest-param '()))   ;; features-enabled
+     (cons 'arity-check (cons 'rest-param (cons 'chars '())))   ;; features-enabled
      #f   ;; features-disabled
      (read-all)))))
 
