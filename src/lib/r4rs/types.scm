@@ -75,12 +75,11 @@
 
 (define symtbl (field1 rib)) ;; get symbol table
 
-(define (number->string x)
-
+(define (number->string x (radix 10))
   (define (number->string-aux x tail)
-    (let ((q (quotient x 10)))
-      (let ((d (+ 48 (- x (* q 10)))))
-        (let ((t (rib d tail 0))) ;; cons
+    (let ((q (quotient x radix)))
+      (let ((d (- x (* q radix))))
+        (let ((t (rib (if (< 9 d) (+ 65 (- d 10)) (+ 48 d)) tail 0))) ;; cons
           (if (< 0 q)
             (number->string-aux q t)
             t)))))
@@ -91,7 +90,7 @@
       (number->string-aux x '()))))
 
 
-(define (string->number str)
+(define (string->number str (radix 10))
 
   (define (string->number-aux lst)
     (if (null? lst)
@@ -100,13 +99,18 @@
 
   (define (string->number-aux2 lst n)
     (if (pair? lst)
-      (let ((c (field0 lst))) ;; car
-        (and (< 47 c)
-             (< c 58)
-             (string->number-aux2 
-               (field1 lst) ;; cdr
-               (- (* 10 n) (- c 48)))))
-      n))
+      (let* ((c (field0 lst))
+             (x (cond 
+                  ((and (< 47 c) (< c 58)) (- c 48))   ;; 0-9
+                  ((and (< 64 c) (< c 71)) (- c 65))   ;; A-F
+                  ((and (< 96 c) (< c 103)) (- c 97))  ;; a-f
+                  (else #f)))) ;; car
+        (if x
+            (string->number-aux2 
+              (field1 lst) ;; cdr
+              (- (* radix n) x))
+            #f))
+        n))
 
   (let ((lst (string->list str)))
     (if (null? lst)
