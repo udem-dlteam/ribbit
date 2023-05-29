@@ -394,26 +394,32 @@
          (display (field1 o) port)) ;; name
         ((eqv? (field2 o) 3) ;; string?
          (write-chars (field0 o) port)) ;; chars
-;;        ((vector? o)
-;;         (write-char 35) ;; #\#
-;;         (write (vector->list o)))
+        ((eqv? (field2 o) 4) ;; vector?
+         (write-char 35) ;; #\#
+         (write-list (vector->list o) port))
         ((eqv? (field2 o) 1) ;; procedure?
          (write-char 35 port)
          (write-char 112 port)) ;; #p
         (else
-         ;; must be a number
          (error "Object not printable"))))
 
 (define (write-list lst port)
-  (if (eqv? (field2 lst) 0) ;; pair?
-      (begin
-        (write-char 32 port) ;; #\space
-        (if (eqv? (field2 lst) 0) ;; pair?
-            (begin
-              (write (field0 lst) port) ;; car
-              (write-list (field1 lst) port))  ;; cdr
-            #f)) ;; writing dotted pairs is not supported
-      #f))
+  (cond 
+    ((eqv? (field2 lst) 0) ;; pair?
+     (write-char 32 port) ;; #\space
+     (if (eqv? (field2 lst) 0) ;; pair?
+       (begin
+         (write (field0 lst) port) ;; car
+         (write-list (field1 lst) port))  ;; cdr
+       #f))
+    ((eqv? lst '())
+     #f)
+    (else
+      (write-char 32 port) ;; #\space
+      (write-char 46 port) ;; #\.
+      (write-char 32 port) ;; #\space
+      (write lst port))))
+
 
 (define (write-chars lst port)
   (if (eqv? (field2 lst) 0) ;; pair?
