@@ -130,9 +130,50 @@ symtbl = [[0,[accum,n,3],2],symtbl,0];
 
 symbol_ref = (n) => list_tail(symtbl,n)[0];
 list_tail = (x,i) => i ? list_tail(x[1],i-1) : x;
+inst_tail = (x,i) => i ? inst_tail(x[2],i-1) : x;
 
 // decode the instruction graph
 
+if(false){ // @@(feature pipeline-compiler)@@
+
+// @@(feature encoding/skip
+stack = 0;
+
+while (1) {
+  x = get_code();
+  n = x;
+  d = 0;
+  op = -1;
+  while ((d=[20,20,0,10,11,4,9][++op])+(5>op)*2<n) n -= d+(4<op?1:3);
+  //console.log("code : ", x, " arg : ", n, "d : ", d, "op : ", op)
+  if (x>90) {
+    op=5;
+    n = pop();
+  }
+  else {
+    if (!op) stack = [0,stack,0];
+    n = n>=d ? (n==d ? get_int(0) : symbol_ref(get_int(n-d-1))) : op<3 ? symbol_ref(n) : n;
+    if (5<op){
+        //console.log("SKIP ", n)
+        //show_stack()
+        stack = [inst_tail(stack[0], n), stack, 0]; 
+        continue;
+    } // skip instruction
+    if (4<op) {
+      n = [[n,0,pop()],0,1];
+      if (!stack) break;
+      op=4;
+    }
+  }
+  stack[0] = [op?op-1:0,n,stack[0]];
+}
+// )@@
+
+} // @@(feature pipeline-compiler)@@
+
+
+
+// @@(feature encoding/original
 stack = 0;
 
 while (1) {
@@ -154,6 +195,7 @@ while (1) {
   }
   stack[0] = [op?op-1:0,n,stack[0]];
 }
+// )@@
 
 set_global = (x) => { symtbl[0][0] = x; symtbl = symtbl[1]; };
 
@@ -165,6 +207,7 @@ set_global(NIL);
 // RVM core
 
 pc = n[0][2];
+
 stack = [0,0,[5,0,0]]; // primordial continuation (executes halt instr.)
 
 push = (x) => ((stack = [x,stack,0]), true);

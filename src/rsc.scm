@@ -91,7 +91,11 @@
                 (lambda (port) (read-line port #f)))))
          (del-file tmpin)
          (del-file tmpout)
-         out))))
+         out)))
+
+   (define list1 list)
+   (define list2 list)
+   (define list3 list))
 
   (else
 
@@ -552,13 +556,14 @@
    (define (field2-set! o x) (vector-set! o 2 x) o)
 
    (define (procedure2? o) (instance? o procedure-type))
-   (define (make-procedure code env) (rib code env procedure-type))
-   (define (procedure-code proc) (field0 proc))
-   (define (procedure-env proc) (field1 proc))))
+   (define (make-procedure code env) (c-rib code env procedure-type))
+   (define (procedure-code proc) (c-rib-oper proc))
+   (define (procedure-env proc) (c-rib-opnd proc))
 
-(define (oper pc) (field0 pc))
-(define (opnd pc) (field1 pc))
-(define (next pc) (field2 pc))
+   ))
+
+
+
 
 ;;;----------------------------------------------------------------------------
 
@@ -592,25 +597,215 @@
     (improper-list->list (cdr lst1) (cons (car lst1) lst2))
     (reverse (cons lst1 lst2))))
 
-    
+
+;; ====== hashable ribs (or c-ribs, for code ribs) =====
+
+(cond-expand
+
+  (ribbit
+
+    (define c-rib rib)
+    (define c-rib-oper field0)
+    (define c-rib-opnd field1)
+    (define c-rib-next field2)
+    (define c-rib-hash error)
+
+    (define c-rib-oper-set! field0-set!)
+    (define c-rib-opnd-set! field1-set!)
+    (define c-rib-next-set! field2-set!))
+
+  (else
+
+    (define hash-table-c-ribs (make-table))
+
+    (define (make-c-rib field0 field1 field2 hash)
+      (rib field0 (rib field1 hash 0) field2))
+
+    (define (c-rib-oper c-rib) (field0 c-rib))
+    (define (c-rib-opnd c-rib) (field0 (field1 c-rib)))
+    (define (c-rib-next c-rib) (field2 c-rib))
+    (define (c-rib-hash c-rib) (field1 (field1 c-rib)))
+
+    (define (c-rib-oper-set! c-rib v) (field0-set! c-rib v))
+    (define (c-rib-opnd-set! c-rib v) (field0-set! (field1 c-rib) v))
+    (define (c-rib-next-set! c-rib v) (field2-set! c-rib v))
+
+    ;; Creates a rib that is unique and hashable
+    (define (c-rib field0 field1 field2)
+      (let* ((hash-table hash-table-c-ribs)
+             (hash (hash-c-rib field0 field1 field2))
+             (hash-list (table-ref hash-table hash #f))
+             (c-rib-ref (make-c-rib field0 field1 field2 hash)))
+        (if hash-list
+          (let search ((search-iter hash-list))
+            (if (pair? search-iter)
+              (if (c-rib-eq? c-rib-ref (car search-iter))
+                (car search-iter)
+                (search (cdr search-iter)))
+              (begin
+                (table-set! hash-table hash (cons c-rib-ref hash-list))
+                c-rib-ref)))
+          (begin
+            (table-set! hash-table hash (cons c-rib-ref '()))
+            c-rib-ref))))
+
+    ;; Hash combine (taken from Gambit Scheme) https://github.com/gambit/gambit/blob/master/lib/_system%23.scm
+    ;; The FNV1a hash algorithm is adapted to hash values, in
+    ;; particular the hashing constants are used (see
+    ;; https://tools.ietf.org/html/draft-eastlake-fnv-12).  Because the
+    ;; hash function result is a fixnum and it needs to give the same
+    ;; result on 32 bit and 64 bit architectures, the constants are
+    ;; adapted to fit in a 32 bit fixnum.
+
+    ;; FNV1a 32 bit constants
+    (define fnv1a-prime-32bits   16777619)
+    (define max-fixnum         4294967296)
+
+
+    (define (hash-combine a b)
+      (modulo 
+        (* fnv1a-prime-32bits
+           (+ a b))
+        max-fixnum))
+
+    (define (hash-string str)
+      (fold hash-combine 0 (map char->integer (string->list str))))
+
+    (define (c-rib-eq? c-rib1 c-rib2)
+      (let ((op1   (c-rib-oper c-rib1))
+            (op2   (c-rib-oper c-rib2))
+            (opnd1 (c-rib-opnd c-rib1))
+            (opnd2 (c-rib-opnd c-rib2))
+            (next1 (c-rib-next c-rib1))
+            (next2 (c-rib-next c-rib2))
+            (hash1 (c-rib-hash c-rib1))
+            (hash2 (c-rib-hash c-rib2)))
+
+        (and
+          (or (not hash1)  ;; check if hashes are =. If not, we skip
+              (not hash2)
+              (eqv? hash1 hash2))
+
+          (or 
+            (eqv? op1 op2) ;;test operand
+            (and (rib? op1) (rib? op2) (c-rib-eq? op1 op2)))
+
+          (or  ;; test opnd
+            (eqv? opnd1 opnd2)
+            (and (rib? opnd1) (rib? opnd2) (c-rib-eq? opnd1 opnd2)))
+          (or ;; test next
+            (eqv? next1 next2)
+            (and (rib? next1) (rib? next2) (c-rib-eq? next1 next2))))))
+
+    (define table-hash-size 512)
+
+
+    (define (hash-c-rib field0 field1 field2) 
+
+      ;; This is a really simple hashing function. I tested it on the 50-repl test and I got good results
+      ;;   having at most 6 elements hashed to the same value with a 512 hash table size. Most hashes had one
+      ;;   or two elements inside it.
+
+      (define (op->hash op)
+        (cond
+          ((eq? op jump/call-op) 0)
+          ((eq? op set-op)       1)
+          ((eq? op get-op)       2)
+          ((eq? op const-op)     3)
+          ((eq? op if-op)        4)
+          ((number? op)          (+ (abs op) 4))
+          ((rib? op)             (c-rib-hash op))
+
+          (else (error "Cannot hash the following instruction : " op))))
+
+      (define (opnd->hash opnd)
+        (cond
+          ((symbol? opnd)
+           (hash-string (symbol->string opnd)))
+          ((number? opnd)
+           (abs opnd))
+          ((rib? opnd)
+           (c-rib-hash opnd))
+          ((eq? '() opnd)
+           4)
+          ((eq? #f opnd)
+           5)
+          ((eq? #t opnd)
+           6)
+          ((string? opnd)
+           (hash-string opnd))
+          ((list? opnd)
+           (fold + 0 (map opnd->hash opnd)))
+          (else (error "Cannot hash the following opnd in a c-rib" opnd))))
+
+      (define (next->hash next)
+        (cond
+          ((number? next)
+           0)
+          ((rib? next)
+           (c-rib-hash next))
+          (else
+            (error "Cannot hash the next of the following c-rib" next))))
+
+      ;(pp 'rib)
+      ;(pp field0)
+      ;(pp field1)
+
+      ;(pp field2)
+      (modulo (hash-combine
+                (hash-combine
+                  (opnd->hash field1) 
+                  (op->hash field0))
+                (next->hash field2)) 
+              table-hash-size))
+
+
+
+    ;; helper function to display the hash table
+    (define (display-c-rib c-rib) 
+
+      (define (display-obj obj)
+        (if (rib? obj)
+          (string-append 
+            "%" 
+            (number->string (c-rib-hash obj))
+            "%")
+          (object->string obj)))
+
+      (let ((op   (c-rib-oper c-rib))
+            (opnd (c-rib-opnd c-rib))
+            (next (c-rib-next c-rib)))
+        (string-append
+          "["
+          (display-obj op)
+          " "
+          (display-obj opnd)
+          " "
+          (display-obj next)
+          "]")))))
+
+
+
+
+
+  
 
 (define (comp ctx expr cont)
-  ;(pp (list 'comp (ctx-cte ctx) expr cont))
 
   (cond ((symbol? expr)
          (let ((v (lookup expr (ctx-cte ctx) 0)))
            (if (eqv? v expr) ;; global?
                (let ((g (live? expr (ctx-live ctx))))
                  (if (and g (constant? g)) ;; constant propagated?
-                     (rib const-op (cadr (cadr g)) cont)
-                     (rib get-op v cont)))
-               (rib get-op v cont))))
+                     (c-rib const-op (cadr (cadr g)) cont)
+                     (c-rib get-op v cont)))
+               (c-rib get-op v cont))))
 
         ((pair? expr)
          (let ((first (car expr)))
 
            (cond ((eqv? first 'quote)
-                  (rib const-op (cadr expr) cont))
+                  (c-rib const-op (cadr expr) cont))
 
                  ((eqv? first 'set!)
                   (let ((var (cadr expr)))
@@ -635,7 +830,7 @@
                  ((eqv? first 'if)
                   (let ((cont-false (comp ctx (cadddr expr) cont)))
                     (let ((cont-true (comp ctx (caddr expr) cont)))
-                      (let ((cont-test (rib if-op cont-true cont-false)))
+                      (let ((cont-test (c-rib if-op cont-true cont-false)))
                         (comp ctx (cadr expr) cont-test)))))
 
                  ((eqv? first 'lambda)
@@ -649,18 +844,18 @@
                            (if variadic
                              (improper-list->list params '())
                              params)))
-                    (rib const-op
+                    (c-rib const-op
                          (make-procedure
-                           (rib (+ (* 2 nb-params) (if variadic 1 0))
-                                0
-                                (comp-begin (ctx-cte-set
-                                              ctx
-                                              (extend params
-                                                      (cons #f
-                                                            (cons #f
-                                                                  (ctx-cte ctx)))))
-                                            (cddr expr)
-                                            tail))
+                           (c-rib (+ (* 2 nb-params) (if variadic 1 0))
+                                  0
+                                  (comp-begin (ctx-cte-set
+                                                ctx
+                                                (extend params
+                                                        (cons #f
+                                                              (cons #f
+                                                                    (ctx-cte ctx)))))
+                                              (cddr expr)
+                                              tail))
                            '())
                          (if (null? (ctx-cte ctx))
                            cont
@@ -705,15 +900,15 @@
 
         (else
          ;; self-evaluating
-         (rib const-op expr cont))))
+         (c-rib const-op expr cont))))
 
 (define (gen-call v cont)
   (if (eqv? cont tail)
-      (rib jump/call-op v 0)      ;; jump
-      (rib jump/call-op v cont))) ;; call
+      (c-rib jump/call-op v 0)      ;; jump
+      (c-rib jump/call-op v cont))) ;; call
 
 (define (gen-assign ctx v cont)
-  (rib set-op v (gen-noop ctx cont)))
+  (c-rib set-op v (gen-noop ctx cont)))
 
 
 
@@ -721,27 +916,27 @@
   (let* ((arity-check (memq 'arity-check (ctx-live-features ctx))) 
          (call-rib 
            (if arity-check
-             (and (rib? cont) (field2 cont))
+             (and (rib? cont) (c-rib-next cont))
              (and (rib? cont) cont)))
          (call-rib-ok?
            (and call-rib
-                (eqv? (field0 call-rib) jump/call-op) ;; call?
-                (eqv? (field1 call-rib) name)
-                (rib? (field2 call-rib)))))
+                (eqv? (c-rib-oper call-rib) jump/call-op) ;; call?
+                (eqv? (c-rib-opnd call-rib) name)
+                (rib? (c-rib-next call-rib)))))
     (if arity-check
       (and call-rib-ok?
            (rib? cont)
-           (eqv? (field0 cont) const-op)
-           (not (rib? (field1 cont)))) ;; push a number
+           (eqv? (c-rib-oper cont) const-op)
+           (not (rib? (c-rib-opnd cont)))) ;; push a number
       call-rib-ok?)))
 
 
 (define (gen-noop ctx cont)
   (if (is-call? ctx 'arg1 cont)
       (if (memq 'arity-check (ctx-live-features ctx))
-        (field2 (field2 cont)) ;; remove const and pop
-        (field2 cont)) ;; remove pop
-      (rib const-op 0 cont))) ;; add dummy value for set!
+        (c-rib-next (c-rib-next cont)) ;; remove const and pop
+        (c-rib-next cont)) ;; remove pop
+      (c-rib const-op 0 cont))) ;; add dummy value for set!
 
 (define (comp-bind ctx vars exprs body cont)
   (comp-bind* ctx vars exprs ctx body cont))
@@ -764,7 +959,7 @@
 
 (define (add-nb-args ctx nb-args tail)
   (if (memq 'arity-check (ctx-live-features ctx))
-    (rib const-op
+    (c-rib const-op
          nb-args
          tail)
     tail))
@@ -775,7 +970,7 @@
       (add-nb-args
         ctx
         2
-        (rib jump/call-op ;; call
+        (c-rib jump/call-op ;; call
              (use-symbol ctx 'arg2)
              cont))))
 
@@ -790,7 +985,7 @@
             (add-nb-args
               ctx
               2
-              (rib jump/call-op ;; call
+              (c-rib jump/call-op ;; call
                    (use-symbol ctx 'arg1)
                    (comp-begin ctx (cdr exprs) cont)))
             cont)))
@@ -817,7 +1012,7 @@
       (cons (car vars) (extend (cdr vars) cte))
       cte))
 
-(define tail (rib jump/call-op 'id 0)) ;; jump
+(define tail (c-rib jump/call-op 'id 0)) ;; jump
 
 ;;;----------------------------------------------------------------------------
 
@@ -906,7 +1101,7 @@
 
     (cons 'begin
           (append to-add
-                  (cdr expansion)))))
+                  (cons expansion '())))))
 
 (define (detect-features live)
   (fold (lambda (x acc)
@@ -978,16 +1173,38 @@
       return
       0 
       (make-procedure
-        (rib 2 ;; 0 parameters 
-             0
-             (comp ctx
-                   expansion
-                   tail))
+        (c-rib 2 ;; 0 parameters 
+               0
+               (comp ctx
+                     expansion
+                     tail))
         '()))
     (vector-set! return 1 exports)
     (vector-set! return 2 primitives)
     (vector-set! return 3 live-features)
     (vector-set! return 4 features)
+
+
+    ;(pp 
+    ;  (list-sort 
+    ;    (lambda (x y) (< (car x) (car y))) 
+    ;    (map (lambda (pair)
+    ;           (cons (car pair) (map display-c-rib (cdr pair)))) (table->list hash-table-c-ribs))))
+
+    (if (>= verbosity 3)
+      (begin
+        (display "*** Code expansion: \n")
+        (pp expansion)))
+
+    (if (>= verbosity 3)
+      (begin 
+        (display "*** hash-consing table: \n")
+        (pp 
+          (list-sort 
+            (lambda (x y) (< (car x) (car y))) 
+            (map (lambda (pair)
+                   (list (car pair) (length (cdr pair)))) (table->list hash-table-c-ribs))))))
+
     (if (>= verbosity 2)
       (begin
         (display "*** RVM code:\n")
@@ -1560,42 +1777,143 @@
 
 ;; RVM code encoding.
 
+;; New encoding, for each instruction. Each instruction is taken separately 'int' et 'sym' and 'const' : 
+;;    - Number of short encodings
+;;    - Number of long encodings
+;; New instruction 'skip'.
+;;
+;; + lonely instruction (if)
 
-(define eb 92) ;; encoding base (strings have 92 characters that are not escaped and not space)
-;;(define eb 256)
-(define eb/2 (quotient eb 2))
+;; Old encoding : 
+;;    - Assumes 3 long encoding for each pair of intruction. Each pair of instruction has a priority
+;;         either 'int' or 'sym'. Depending on the priority, the short encoding will be for the 'int'
+;;         or 'sym' variant. The 'const' and 'if' is special.
+;;    - 'if' has only one code. It pops the two values on top of the stack and creates the if. Its a merge.
+;;    - 'const' also has the 'proc' variante. This variante allows to push a rib directly.
 
-(define get-int-short    10) ;; 0 <= N <= 9  are encoded with 1 byte
-(define const-int-short  11) ;; 0 <= N <= 10 are encoded with 1 byte
-(define const-proc-short  4) ;; 0 <= N <= 3  are encoded with 1 byte
-(define jump-sym-short   20) ;; 0 <= N <= 19 are encoded with 1 byte
 
-(define call-sym-short   (- eb ;; use rest to encode calls to globals
-                            (+ const-int-short
-                               (+ const-proc-short
-                                  (+ get-int-short
-                                     (+ jump-sym-short
-                                        17))))))
+(define (calculate-start encoding-table)
+  (define counter 0)
 
-(define jump-start       0)
-(define jump-int-start   (+ jump-start jump-sym-short))
-(define jump-sym-start   (+ jump-int-start 1))
-(define call-start       (+ jump-sym-start 2))
-(define call-int-start   (+ call-start call-sym-short))
-(define call-sym-start   (+ call-int-start 1))
-(define set-start        (+ call-sym-start 2))
-(define set-int-start    (+ set-start 0))
-(define set-sym-start    (+ set-int-start 1))
-(define get-start        (+ set-sym-start 2))
-(define get-int-start    (+ get-start get-int-short))
-(define get-sym-start    (+ get-int-start 1))
-(define const-start      (+ get-sym-start 2))
-(define const-int-start  (+ const-start const-int-short))
-(define const-sym-start  (+ const-int-start 1))
-(define const-proc-start (+ const-sym-start 2))
-(define if-start         (+ const-proc-start (+ const-proc-short 1)))
+  (map
+    (lambda (lst) 
+      (let* ((sym (car lst))
+             (size (cadr lst))
+             (return-val (list3 sym size counter)))
+        (set! counter (+ counter size))
+        return-val))
+    encoding-table))
 
-(define (encode proc exports primitives live-features)
+
+(define encoding-original-92
+  (calculate-start 
+    '( 
+      ;; jump
+      ((jump sym short) 20)
+      ((jump int long)  1)
+      ((jump sym long)  2)
+
+      ((jump int short) 0)
+
+      ;; call
+      ((call sym short) 30)
+      ((call int long)  1)
+      ((call sym long)  2)
+
+      ((call int short) 0)
+
+      ;; set
+      ((set int long)   1)
+      ((set sym long)   2)
+
+      ((set sym short)  0)
+      ((set int short)  0)
+
+      ;; get
+      ((get int short)  10)
+      ((get int long)   1)
+      ((get sym long)   2)
+
+      ((get sym short)  0)
+
+      ;; const
+      ((const int short)  11)
+      ((const int long)   1)
+      ((const sym long)   2)
+
+      ((const proc short) 4)
+      ((const proc long)  1)
+
+      ((const sym short) 0)
+
+      (if 1))))
+
+
+(define encoding-skip-92
+  (calculate-start 
+    '( 
+      ;; jump
+      ((jump sym short) 20)
+      ((jump int long)  1)
+      ((jump sym long)  2)
+
+      ((jump int short) 0)
+
+      ;; call
+      ((call sym short) 20)
+      ((call int long)  1)
+      ((call sym long)  2)
+
+      ((call int short) 0)
+
+      ;; set
+      ((set int long)   1)
+      ((set sym long)   2)
+
+      ((set sym short)  0)
+      ((set int short)  0)
+
+      ;; get
+      ((get int short)  10)
+      ((get int long)   1)
+      ((get sym long)   2)
+
+      ((get sym short)  0)
+
+      ;; const
+      ((const int short)  11)
+      ((const int long)   1)
+      ((const sym long)   2)
+
+      ((const proc short) 4)
+      ((const proc long)  1)
+
+      ((const sym short) 0)
+
+      ((skip int short) 9)
+      ((skip int long)  1)
+
+      (if 1)
+
+      )))
+
+;(pp encoding-skip-92)
+
+(define (encoding-inst-size encoding entry)
+  (cadr (encoding-inst-get encoding entry)))
+
+(define (encoding-inst-start encoding entry)
+  (caddr (encoding-inst-get encoding entry)))
+
+(define (encoding-inst-get encoding entry)
+  (assoc entry encoding))
+
+(define (encoding-size encoding)
+  (fold + 0 (map cadr encoding)))
+
+(define (encode proc exports primitives live-features encoding)
+
+  (define eb/2 (quotient (encoding-size encoding) 2))
 
   (define syms (make-table))
 
@@ -1603,68 +1921,68 @@
 
   (define (add-nb-args nb-args tail)
     (if (and live-features (memq 'arity-check live-features))
-      (rib const-op
-           nb-args
-           tail)
+      (c-rib const-op
+             nb-args
+             tail)
       tail))
 
   (define (build-constant o tail)
     (cond ((or (memv o '(#f #t ()))
                (assq o built-constants))
            (let ((v (constant-global-var o)))
-             (rib get-op
-                  (scan-opnd v 1)
-                  tail)))
+             (c-rib get-op
+                    (scan-opnd v 1)
+                    tail)))
           ((symbol? o)
-           (rib const-op
-                (scan-opnd o 2)
-                tail))
+           (c-rib const-op
+                  (scan-opnd o 2)
+                  tail))
           ((number? o)
            (if (< o 0)
-               (rib const-op
-                    0
-                    (rib const-op
-                         (- 0 o)
-                         (add-nb-args
-                           2
-                           (rib jump/call-op
-                                (scan-opnd '- 0)
-                                tail))))
-               (rib const-op
-                    o
-                    tail)))
+               (c-rib const-op
+                      0
+                      (c-rib const-op
+                             (- 0 o)
+                             (add-nb-args
+                               2
+                               (c-rib jump/call-op
+                                      (scan-opnd '- 0)
+                                      tail))))
+               (c-rib const-op
+                      o
+                      tail)))
           ((pair? o)
            (build-constant (car o)
                            (build-constant (cdr o)
-                                           (rib const-op
-                                                pair-type
-                                                (add-nb-args
-                                                  3
-                                                  (rib jump/call-op
-                                                       (scan-opnd 'rib 0)
-                                                       tail))))))
+                                           (c-rib const-op
+                                                  pair-type
+                                                  (add-nb-args
+                                                    3
+                                                    (c-rib jump/call-op
+                                                           (scan-opnd 'rib 0)
+                                                           tail))))))
           ((string? o)
            (let ((chars (map char->integer (string->list o))))
              (build-constant chars
                              (build-constant (length chars)
-                                             (rib const-op
-                                                  string-type
-                                                  (add-nb-args
-                                                    3
-                                                    (rib jump/call-op
-                                                         (scan-opnd 'rib 0)
-                                                         tail)))))))
+                                             (c-rib const-op
+                                                    string-type
+                                                    (add-nb-args
+                                                      3
+                                                      (c-rib jump/call-op
+                                                             (scan-opnd 'rib 0)
+                                                             tail)))))))
           ((vector? o)
            (let ((elems (vector->list o)))
              (build-constant elems
                              (build-constant (length elems)
-                                             (rib const-op
-                                                  vector-type
-                                                  (add-nb-args
-                                                    3
-                                                    (rib jump/call-op
-                                                         (scan-opnd 'rib 0)
-                                                         tail)))))))
+                                             (c-rib const-op
+                                                    vector-type
+                                                    (add-nb-args
+                                                      3
+                                                      (c-rib jump/call-op
+                                                             (scan-opnd 'rib 0)
+                                                             tail)))))))
 
           (else
            (error "can't build constant" o))))
@@ -1679,19 +1997,19 @@
     (define (prim-code sym tail)
       (let ((index (cadr (assq sym primitives))))
         (if (number? index) ;; if not a number, the primitive is already set in code as (set! p (rib index 0 1))
-          (rib const-op
-               index
-               (rib const-op
-                    0
-                    (rib const-op
-                         procedure-type
-                         (add-nb-args 
-                           3
-                           (rib jump/call-op
-                                (scan-opnd 'rib 0)
-                                (rib set-op
-                                     (scan-opnd sym 3)
-                                     tail))))))
+          (c-rib const-op
+                 index
+                 (c-rib const-op
+                        0
+                        (c-rib const-op
+                               procedure-type
+                               (add-nb-args 
+                                 3
+                                 (c-rib jump/call-op
+                                        (scan-opnd 'rib 0)
+                                        (c-rib set-op
+                                               (scan-opnd sym 3)
+                                               tail))))))
           tail)))
 
     (let loop ((lst (cdr primitives)) ;; skip rib primitive that is predefined
@@ -1711,7 +2029,7 @@
   (define (append-code code tail)
     (if (eqv? code 0)
         tail
-        (rib (field0 code) (field1 code) (append-code (field2 code) tail))))
+        (c-rib (c-rib-oper code) (c-rib-opnd code) (append-code (c-rib-next code) tail))))
 
   (define (add-init-constants tail)
     (let loop ((lst built-constants) (tail tail))
@@ -1721,15 +2039,21 @@
                  (v (cadr x))
                  (code (cddr x)))
             (loop (cdr lst)
-                  (append-code code (rib set-op v tail))))
+                  (append-code code (c-rib set-op v tail))))
           tail)))
 
-  (define (add-init-code! proc)
-    (let ((code (field0 proc)))
-      (field2-set! code
-                   (add-init-primitives
-                    (add-init-constants
-                     (field2 code))))))
+  (define (add-init-code proc)
+    (let* ((code (c-rib-oper proc))
+           (new-code (add-init-primitives
+                       (add-init-constants
+                         (c-rib-next code)))))
+             
+      (c-rib (c-rib
+               (c-rib-oper code)
+               (c-rib-opnd code)
+               new-code)
+             (c-rib-opnd proc)
+             (c-rib-next proc))))
 
   (define constant-counter 0)
 
@@ -1757,7 +2081,7 @@
     sym)
 
   (define (scan-proc proc)
-    (scan (next (procedure-code proc))))
+    (scan (c-rib-next (procedure-code proc))))
 
   (define (scan-opnd o pos)
     (scan-opnd-aux o pos)
@@ -1783,11 +2107,11 @@
     (if (rib? code)
         (begin
           (scan-instr code)
-          (scan (next code)))))
+          (scan (c-rib-next code)))))
 
   (define (scan-instr code)
-    (let ((op (oper code))
-          (o (opnd code)))
+    (let ((op (c-rib-oper code))
+          (o  (c-rib-opnd code)))
       (cond ((eqv? op if-op)
              (scan o))
             ((eqv? op jump/call-op)
@@ -1800,8 +2124,8 @@
                      (and (number? o) (>= o 0)))
                  (scan-opnd o 2) ;; 2 = const
                  (let ((v (constant-global-var o)))
-                   (field0-set! code get-op)
-                   (field1-set! code v)
+                   (c-rib-oper-set! code get-op)
+                   (c-rib-opnd-set! code v)
                    (scan-opnd v 1)))) ;; 1 = get
             ((eqv? op set-op)
              (scan-opnd o 3))))) ;; 3 = set
@@ -1828,122 +2152,143 @@
       (let ((r (- n (* q eb/2))))
         (let ((t (cons (if (eqv? stream end) r (+ r eb/2)) stream)))
           (if (= q 0)
-              t
-              (encode-n-aux q t end))))))
+            t
+            (encode-n-aux q t end))))))
 
-  (define (enc-proc proc stream)
-    (let ((code (procedure-code proc)))
-      (let ((nparams (field0 code)))
-        (enc (next code)
-             (if (< nparams
-                    const-proc-short)
-                 (cons (+ const-proc-start
-                          nparams)
-                       stream)
-                 (encode-long1 (+ const-proc-start
-                                  const-proc-short)
-                               nparams
-                               stream))))))
+  (define (sublist-eq? left right result)
+    (if (and (pair? left)
+             (pair?  right)
+             (eqv? (c-rib-oper (car left)) 
+                   (c-rib-oper (car right)))
+             (eqv? (c-rib-opnd (car left))
+                   (c-rib-opnd (car right))))
+      (sublist-eq? (cdr left) (cdr right) (cons (car left) result))
+      (reverse result)))
 
+  (define (enc-inst arg op-sym arg-sym encoding-table stream)
+    (let* ((short-key   (list3 op-sym arg-sym 'short))
+           (long-key    (list3 op-sym arg-sym 'long))
+           (short-size  (encoding-inst-size encoding-table short-key))
+           (long-size   (encoding-inst-size encoding-table long-key))
+           (short-start (encoding-inst-start encoding-table short-key))
+           (long-start  (encoding-inst-start encoding-table long-key)))
 
-  (define (enc code stream)
-    (if (rib? code)
-        (let ((op (oper code)))
-          (cond ((eqv? op jump/call-op)
-                 (if (eqv? 0 (next code)) ;; jump?
+      (if (< arg short-size)
+        (cons (+ short-start arg)
+              stream)
+        (cond 
+          ((eqv? long-size 1)
+           (encode-long1 long-start arg stream))
+          ((eqv? long-size 2)
+           (encode-long2 long-start arg stream))
+          (else
+            (error "Invalid long size, should be at least one and less than 2" long-size))))))
 
-                     (let ((o (opnd code)))
-                       (cond ((number? o)
-                              (encode-long1 jump-int-start
-                                            o
-                                            stream))
-                             ((symbol? o)
-                              (let ((x (encode-sym o)))
-                                (if (< x jump-sym-short)
-                                    (cons (+ jump-start x)
-                                          stream)
-                                    (encode-long2 jump-sym-start
-                                                  x
-                                                  stream))))
-                             (else
-                              (error "can't encode jump" o))))
+  (define (encode-to-stream proc encoding)
+    (enc-proc proc encoding #f '()))
 
-                     (enc (next code)
-                          (let ((o (opnd code)))
-                            (cond ((number? o)
-                                   (encode-long1 call-int-start
-                                                 o
-                                                 stream))
-                                  ((symbol? o)
-                                   (let ((x (encode-sym o)))
-                                     (if (< x call-sym-short)
-                                         (cons (+ call-start x)
-                                               stream)
-                                         (encode-long2 call-sym-start
-                                                       x
-                                                       stream))))
-                                  (else
-                                   (error "can't encode call" o)))))))
+  (define (enc-proc arg encoding limit stream)
+    (let ((code (procedure-code arg)))
+      (let ((nparams (c-rib-oper code)))
+        (if (or (eq? limit #f) (> limit 0))
+          (enc (c-rib-next code)
+               encoding
+               (and limit (- limit 1))
+               (enc-inst nparams 'const 'proc encoding stream))
+          steam))))
 
-                ((eqv? op set-op)
-                 (enc (next code)
-                      (let ((o (opnd code)))
-                        (cond ((number? o)
-                               (encode-long1 set-int-start
-                                             o
-                                             stream))
-                              ((symbol? o)
-                               (encode-long2 set-sym-start
-                                             (encode-sym o)
-                                             stream))
-                              (else
-                               (error "can't encode set" o))))))
+  (define (reverse-code code tail)
+    (if (rib? (c-rib-next code))
+      (reverse-code (c-rib-next code) (cons code tail))
+      (cons code tail)))
 
-                ((eqv? op get-op)
-                 (enc (next code)
-                      (let ((o (opnd code)))
-                        (cond ((number? o)
-                               (if (< o get-int-short)
-                                   (cons (+ get-start o)
-                                         stream)
-                                   (encode-long1 get-int-start
-                                                 o
-                                                 stream)))
-                              ((symbol? o)
-                               (encode-long2 get-sym-start
-                                             (encode-sym o)
-                                             stream))
-                              (else
-                               (error "can't encode get" o))))))
+  (define (enc code encoding limit stream)
+    (cond 
+      ((not (rib? code)) (error "Rib expected, got :" code))
+      ((and limit (<= limit 0)) stream)
+      (else
+        (let* ((op      (c-rib-oper code))
+               (arg     (c-rib-opnd code))
+               (next-op (c-rib-next code))
+               (op-sym
+                 (cond ((eqv? op jump/call-op)
+                        (if (eqv? 0 next-op)
+                          'jump
+                          'call))
+                       ((eqv? op set-op)
+                        'set)
+                       ((eqv? op get-op)
+                        'get)
+                       ((eqv? op const-op)
+                        'const)
+                       (else
+                         'special)))
+               (arg-sym
+                 (cond ((eqv? 'special op-sym)
+                        'special)
+                       ((number? arg)
+                        'int)
+                       ((symbol? arg)
+                        'sym)
+                       ((and (procedure2? arg) (eqv? 'const op-sym))
+                        'proc)
+                       (else 
+                         (error (string-append "can't encode " (symbol->string op-sym))
+                                code)))))
+          (cond 
+            ((and (eq? op-sym 'const) ;; special case for encoding procedures
+                  (eq? arg-sym 'proc))
+             (enc next-op encoding (and limit (- limit 1)) (enc-proc arg encoding #f stream)))
+            ((not (eq? 'special op-sym)) ;; "normal" encoding
+             (let ((encoded-inst 
+                     (enc-inst 
+                       (if (eq? arg-sym 'sym)
+                         (encode-sym arg)
+                         arg)
+                       op-sym 
+                       arg-sym 
+                       encoding 
+                       stream)))
+               (if (eq? 'jump op-sym)
+                 encoded-inst
+                 (enc next-op
+                      encoding
+                      (and limit (- limit 1))
+                      encoded-inst))))
+            ((eqv? op if-op) ;; special case for if
+             (if (encoding-inst-get encoding '(skip int long)) ;; if optimization
+               (let* ((enc-next (enc (c-rib-next code) encoding (and limit (- limit 1)) '()))
+                      (rev-next (reverse-code (c-rib-next code) '()))
+                      (rev-opnd (reverse-code (c-rib-opnd code) '()))
+                      (sublist  (sublist-eq? rev-next rev-opnd '()))
+                      (sublist-length (length sublist))
+                      (opnd-different-length (- (length rev-opnd) sublist-length))
+                      (next-different-length (- (length rev-next) sublist-length))
+                      (tail     (cons (encoding-inst-start encoding 'if) stream)))
+                 (append enc-next
+                         (if (pair? sublist) 
+                           (enc-inst next-different-length 
+                                     'skip 
+                                     'int 
+                                     encoding 
+                                     (enc (c-rib-opnd code)
+                                          encoding
+                                          opnd-different-length
+                                          tail))
+                           (enc (c-rib-opnd code)
+                                encoding
+                                #f
+                                tail))))
 
-                ((eqv? op const-op)
-                 (enc (next code)
-                      (let ((o (opnd code)))
-                        (cond ((number? o)
-                               (if (< o const-int-short)
-                                   (cons (+ const-start o)
-                                         stream)
-                                   (encode-long1 const-int-start
-                                                 o
-                                                 stream)))
-                              ((symbol? o)
-                               (encode-long2 const-sym-start
-                                             (encode-sym o)
-                                             stream))
-                              ((procedure2? o)
-                               (enc-proc o stream))
-                              (else
-                               (error "can't encode const" o))))))
-
-                ((eqv? op if-op)
-                 (enc (next code)
-                      (enc (opnd code)
-                           (cons if-start
-                                 stream))))
-
-                (else
-                 (error "unknown op" op))))
-        (error "rib expected" '())))
+               (enc (c-rib-next code)
+                    encoding
+                    (and limit (- limit 1))
+                    (enc (c-rib-opnd code)
+                         encoding
+                         #f
+                         (cons (encoding-inst-start encoding 'if) stream)))))
+            (else 
+              (error "Cannot encode instruction" code)))))))
 
   (define (ordering sym-descr)
     (let ((sym (car sym-descr)))
@@ -1957,16 +2302,16 @@
 
   (scan-proc proc)
 
-  (add-init-code! proc)
+  (let ((proc (add-init-code proc)))
 
-  (let ((lst
-         (list-sort
-          (lambda (a b)
-            (< (ordering b) (ordering a)))
-          (table->list syms))))
+    (let ((lst
+            (list-sort
+              (lambda (a b)
+                (< (ordering b) (ordering a)))
+              (table->list syms))))
 
-    (let loop1 ((i 0) (lst lst) (symbols '()))
-      (if (and (pair? lst) (< i call-sym-short))
+      (let loop1 ((i 0) (lst lst) (symbols '()))
+        (if (and (pair? lst) (< i (encoding-inst-start encoding '(call sym short))))
           (let ((s (car lst)))
             (let ((sym (car s)))
               (let ((descr (cdr s)))
@@ -1976,49 +2321,49 @@
                     (loop1 (+ i 1) (cdr lst) (cons symbol symbols)))))))
           (let loop2 ((i i) (lst2 lst) (symbols symbols))
             (if (pair? lst2)
-                (let ((s (car lst2)))
-                  (let ((sym (car s)))
-                    (let ((x (assq sym exports)))
-                      (if x
-                          (let ((symbol (cdr x)))
+              (let ((s (car lst2)))
+                (let ((sym (car s)))
+                  (let ((x (assq sym exports)))
+                    (if x
+                      (let ((symbol (cdr x)))
+                        (let ((descr (cdr s)))
+                          (field0-set! descr i)
+                          (loop2 (+ i 1) (cdr lst2) (cons symbol symbols))))
+                      (loop2 i (cdr lst2) symbols)))))
+              (let loop3 ((i i) (lst3 lst) (symbols symbols))
+                (if (pair? lst3)
+                  (let ((s (car lst3)))
+                    (let ((sym (car s)))
+                      (let ((x (assq sym exports)))
+                        (if x
+                          (loop3 i (cdr lst3) symbols)
+                          (let ((symbol (str->uninterned-symbol "")))
                             (let ((descr (cdr s)))
                               (field0-set! descr i)
-                              (loop2 (+ i 1) (cdr lst2) (cons symbol symbols))))
-                          (loop2 i (cdr lst2) symbols)))))
-                (let loop3 ((i i) (lst3 lst) (symbols symbols))
-                  (if (pair? lst3)
-                      (let ((s (car lst3)))
-                        (let ((sym (car s)))
-                          (let ((x (assq sym exports)))
-                            (if x
-                                (loop3 i (cdr lst3) symbols)
-                                (let ((symbol (str->uninterned-symbol "")))
-                                  (let ((descr (cdr s)))
-                                    (field0-set! descr i)
-                                    (loop3 (+ i 1) (cdr lst3) (cons symbol symbols))))))))
-                      (let loop4 ((symbols* symbols))
-                        (if (and (pair? symbols*)
-                                 (string=? (symbol->str (car symbols*)) ""))
-                            (loop4 (cdr symbols*))
+                              (loop3 (+ i 1) (cdr lst3) (cons symbol symbols))))))))
+                  (let loop4 ((symbols* symbols))
+                    (if (and (pair? symbols*)
+                             (string=? (symbol->str (car symbols*)) ""))
+                      (loop4 (cdr symbols*))
 
-                            (let ((stream
-                                   (enc-proc proc '())))
-                              (string-append
-                               (stream->string
-                                (encode-n (- (length symbols)
-                                             (length symbols*))
-                                          '()))
-                               (string-append
-                                (string-concatenate
-                                 (map (lambda (s)
-                                        (let ((str (symbol->str s)))
-                                          (list->string
-                                           (reverse (string->list str)))))
-                                      symbols*)
-                                 ",")
-                                (string-append
-                                 ";"
-                                 (stream->string stream)))))))))))))))
+                      (let ((stream (encode-to-stream proc encoding)))
+                        ;(pp (cons 'stream stream))
+                        (string-append
+                          (stream->string
+                            (encode-n (- (length symbols)
+                                         (length symbols*))
+                                      '()))
+                          (string-append
+                            (string-concatenate
+                              (map (lambda (s)
+                                     (let ((str (symbol->str s)))
+                                       (list->string
+                                         (reverse (string->list str)))))
+                                   symbols*)
+                              ",")
+                            (string-append
+                              ";"
+                              (stream->string stream))))))))))))))))
 
 (define (stream->string stream)
   (list->string
@@ -2432,7 +2777,7 @@
   (let ((file-content (call-with-input-file path (lambda (port) (read-line port #f)))))
        (if (eof-object? file-content) "" file-content)))
 
-(define (generate-code target verbosity input-path rvm-path minify? host-file proc-exports-and-features) ;features-enabled features-disabled source-vm
+(define (generate-code target verbosity input-path rvm-path minify? host-file encodings proc-exports-and-features) ;features-enabled features-disabled source-vm
   (let* ((proc
            (vector-ref proc-exports-and-features 0))
          (exports
@@ -2444,13 +2789,19 @@
          (features
            (vector-ref proc-exports-and-features 4))
          (encode (lambda (bits)
-                   (let ((input (string-append 
-                                  (if (eqv? bits 92)
-                                    (encode proc exports primitives live-features)
-                                    (error "Cannot encode program with this number of bits" bits))
-                                  (if input-path
-                                    (string-from-file input-path)
-                                    "")) ))
+                   (let ((input 
+                           (string-append 
+                             (if (assoc bits encodings)
+                               (encode 
+                                 proc 
+                                 exports 
+                                 primitives 
+                                 live-features
+                                 (cadr (assoc bits encodings)))
+                               (error "Encoding is not defined for this number of bits : " bits))
+                             (if input-path
+                               (string-from-file input-path)
+                               "")) ))
                      (if (>= verbosity 1)
                        (begin
                          (display "*** RVM code length: ")
@@ -2541,6 +2892,8 @@
     #f     ;; rvm-path
     #f     ;; minify?
     #f     ;; host-file
+    (list1 
+      (list2 92 encoding-original-92))
     (compile-program
      0    ;; verbosity
      #f   ;; parsed-vm
@@ -2570,7 +2923,7 @@
                            primitives
                            features-enabled
                            features-disabled
-                          )
+                           encoding-name)
 
      ;; This version of the compiler reads the program and runtime library
      ;; source code from files and it supports various options.  It can
@@ -2587,7 +2940,32 @@
               (if (equal? _target "rvm")
                 #f
                 (parse-host-file
-                  (string->list* vm-source)))))
+                  (string->list* vm-source))))
+
+            (encodings (cond
+                        ((string=? "original" encoding-name)
+                         (list
+                           (list 92 encoding-original-92)))
+                        ((string=? "skip" encoding-name)
+                         (list
+                           (list 92 encoding-skip-92)))
+                        (else
+                          (error "Cannot find encoding :" encoding-name))))
+
+            (features-enabled (cons (string->symbol (string-append "encoding/" encoding-name))
+                                    features-enabled)))
+
+       ;; Verify that the encoding is on the right number
+       ;;  of codes
+       (for-each
+         (lambda (pair)
+              (if (not (eqv? (encoding-size (cadr pair)) (car pair)))
+                (error 
+                  (string-append 
+                    "Encoding is not on " (car pair) " but on " (encoding-size (cadr pair))) 
+                  (cadr pair))))
+            encodings)
+
        (set! target _target)
 
        (write-target-code
@@ -2599,6 +2977,7 @@
            rvm-path
            minify?
            host-file
+           encodings
            (compile-program
              verbosity
              host-file
@@ -2621,7 +3000,8 @@
                (primitives #f)
                (features-enabled '())
                (features-disabled '())
-               (rvm-path #f))
+               (rvm-path #f)
+               (encoding-name "original"))
 
            (let loop ((args (cdr args)))
              (if (pair? args)
@@ -2644,6 +3024,9 @@
                           (loop rest))
                          ((and (pair? rest) (member arg '("-p" "--primitives")))
                           (set! primitives (read (open-input-string (car rest))))
+                          (loop (cdr rest)))
+                         ((and (pair? rest) (member arg '("-e" "--encoding")))
+                          (set! encoding-name (car rest))
                           (loop (cdr rest)))
                          ((and (pair? rest) (member arg '("-r" "--rvm")))
                           (set! rvm-path (car rest))
@@ -2704,7 +3087,9 @@
                  verbosity
                  primitives
                  features-enabled
-                 features-disabled)))))
+                 features-disabled
+                 encoding-name
+                 )))))
 
    (parse-cmd-line (cmd-line))
 
