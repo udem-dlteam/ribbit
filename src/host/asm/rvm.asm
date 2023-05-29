@@ -55,7 +55,11 @@ _start:
 ;;; ######################################## Beginning of RVM
 
 
-%define DEBUG
+;%define DEBUG
+;%define DEBUG_GC
+;%define DEBUG_INSTR
+
+
 %if 0
 %define DEBUG
 %define DEBUG_INSTR
@@ -72,7 +76,7 @@ _start:
 
 %define WORD_SIZE       4
 %define RIB_SIZE_WORDS  4
-%define HEAP_SIZE_RIBS  10000
+%define HEAP_SIZE_RIBS  5000000
 %define HEAP_SIZE (HEAP_SIZE_RIBS*RIB_SIZE_WORDS*WORD_SIZE)
 
 %define SYS_EXIT        1
@@ -387,6 +391,9 @@ alloc_rib:
 
 gc:
 %define scan_ptr eax
+%ifdef DEBUG_GC
+    call print_gc_starting
+%endif
 	mov  FIELD3(FALSE), stack
 	mov  FIELD3(NIL), pc
     push heap_base
@@ -434,7 +441,10 @@ scan_BH:
 scan_end:
 	mov  stack, FIELD3(FALSE) 
 	mov  pc, FIELD3(NIL)
-    int3
+%ifdef DEBUG_GC
+    call print_gc_end
+%endif
+    ;int3
 
 alloc_rib_done:
 	ret  WORD_SIZE*1
@@ -452,6 +462,53 @@ heap_overflow:
 
 %ifdef DEBUG
 heap_overflow_msg:	db "*** ERROR -- heap overflow",0x0a,0
+%endif
+
+%ifdef DEBUG_GC
+gc_starting_msg: db "*** STARTING GC...",0x0a,0
+gc_end_msg_1: db "*** ENDING GC : cleaned  ",0
+gc_end_msg_2: db " ribs, ",0
+gc_end_msg_3: db " ribs left",0x0a,0
+
+print_gc_starting:
+    push gc_starting_msg
+    call print_string
+    ret
+
+print_gc_end:
+    push gc_end_msg_1
+    call print_string
+    
+    push HEAP_SIZE/2
+    add  [esp], ebp
+    sub  [esp], edi
+    shr  dword [esp], 4 ;; must change if a rib is not on 16 bits
+    call print_int
+
+    push gc_end_msg_2
+    call print_string
+
+    push edi
+    sub  [esp], ebp
+    shr  dword [esp], 4
+    call print_int
+
+    push gc_end_msg_3
+    call print_string
+    ret
+
+%ifndef NEED_PRINT_WORD_HEX
+%define NEED_PRINT_WORD_HEX
+%endif
+
+%ifndef NEED_PRINT_INT
+%define NEED_PRINT_INT
+%endif
+
+%ifndef NEED_PRINT_STRING
+%define NEED_PRINT_STRING
+%endif
+
 %endif
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -753,8 +810,10 @@ print_jump_call_done:
 	mov  eax, FIELD0(edx)	; eax = procedure to call
     ; @@(feature arity-check
     POP_STACK_TO(edx)
-    shr edx, 1
-    mov  TEMP3, edx
+    mov TEMP3, edx
+    ;shr edx, 1
+    ;push edx ;; push number of arguments
+    ;mov  TEMP3, edx 
     ; )@@
 	mov  edx, FIELD0(eax)	; edx = field0 of procedure (int or rib)
 	shr  edx, 1
@@ -775,15 +834,21 @@ is_closure:
 	mov  FIELD1(eax), edx
 	mov  edx, FIELD0(edx)
 	mov  edx, FIELD0(edx)	; get nparams
+
+    ; @@(feature arity-check
+    mov  ebx, TEMP3
+    shr  ebx, 1 ;; remove tag 
+    ; )@@
+
     shr  edx, 2 ;; remove tagging and rest param
     ; @@(feature arity-check (use exit)
     jc  with_rest
 no_rest:
-    cmp  edx, TEMP3
+    cmp  edx, ebx 
 	je   create_frame_loop_start ;; pass arity-check
     jmp  error_arity_check
 with_rest:
-    sub   TEMP3, edx
+    sub   ebx, edx
 	jge   rest_loop_prepare ;; pass arity-check
 error_arity_check:
     push string_arity_error
@@ -793,12 +858,11 @@ error_arity_check:
 	jmp  create_frame_loop_start
 
 ; @@(feature rest-param (use arity-check)
-%define NEED_PRINT_REGS
 rest_loop_prepare:
     push edx ;; save edx
     push eax ;; save eax
     lea  eax, [NIL]
-    mov  edx, TEMP3
+    mov  edx, ebx
     jmp  rest_loop_start
 rest_frame_loop:
 	mov  TEMP3, eax		; remember the frame's head
@@ -2038,7 +2102,63 @@ print_hex1_putchar:
 
 %endif
 
+%ifdef NEED_PRINT_INT
+
+;; Can only print posivite numbers
+print_int:
+	push eax
+	push ebx
+	push ecx
+	push edx
+	push esi
+        mov  eax, [esp+WORD_SIZE*6]
+        push 10
+
+print_int_loop:
+        cmp  eax, 0
+        je   print_int_end1
+        mov  edx, 0
+        mov  ebx, 10
+        div  ebx
+        push edx
+        jmp print_int_loop
+
+print_int_end1:
+        cmp dword [esp], 10
+        je print_int_0
+
+print_int_loop2: 
+        pop eax
+        cmp eax, 10 
+        je  print_int_done
+        add eax, 0x30
+        call putchar
+        jmp  print_int_loop2
+
+print_int_0:
+        mov eax, 0x30
+        call putchar
+
+print_int_done:
+	pop  esi
+	pop  edx
+	pop  ecx
+	pop  ebx
+	pop  eax
+	ret  WORD_SIZE
+
+%ifndef NEED_PUTCHAR
+%define NEED_PUTCHAR
+%endif
+
+%ifndef CALLEE_SAVE_EBX_ECX_EDX
+%define CALLEE_SAVE_EBX_ECX_EDX
+%endif
+
+%endif
+
 %ifdef NEED_PRINT_STRING
+
 
 print_string:
 	push eax
