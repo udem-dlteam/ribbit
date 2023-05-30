@@ -357,7 +357,7 @@ scm2host = (r) => {
 
 
 // @@(feature foreign
-foreign = r => [0, r, 6] // 6 is to tag a foreign object
+foreign = r => [0, r, 7] // 7 is to tag a foreign object
 // )@@
 
 // @@(feature host_call (use scm2list)

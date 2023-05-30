@@ -1464,7 +1464,7 @@
                           (set! pwd old-pwd)
                           result))
                       (begin 
-                        (display (string-append "Skip including already included file: \"" file-path "\".\n"))
+                        ; (display (string-append "Skip including already included file: \"" file-path "\".\n"))
                         '()))))
 
                  ((eqv? first 'and)

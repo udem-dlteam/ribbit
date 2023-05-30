@@ -1,8 +1,6 @@
-(##include "./types.scm")
-(##include "./bool.scm")
-(##include "./pair-list.scm")
-
-'(arg2 1 2)
+(##include-once "./types.scm")
+(##include-once "./bool.scm")
+(##include-once "./pair-list.scm")
 
 (cond-expand
   ((host js)

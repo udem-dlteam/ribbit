@@ -1,5 +1,5 @@
-(##include "./bool.scm")
-(##include "./control.scm")
+(##include-once "./bool.scm")
+(##include-once "./control.scm")
 
 ;; Numbers (R4RS section 6.5).
 (set! ##< <)
@@ -58,6 +58,3 @@
 (define (negative? x) (< x 0))
 (define (even? x) (eqv? x (* 2 (quotient x 2))))
 (define (odd? x) (not (even? x)))
-
-;;(define (exact->inexact x) ...)
-;;(define (inexact->exact x) ...)
