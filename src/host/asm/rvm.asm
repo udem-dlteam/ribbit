@@ -13,6 +13,27 @@
 ;;; explains a 45 byte version!
 
 ;;; ######################################## Beginning of ELF header
+%macro DB_PRINT 1
+    push %1
+    call print_int
+%ifndef NEED_PRINT_INT
+%define NEED_PRINT_INT
+%endif
+%endmacro
+
+
+%macro DB_PRINT_RIB 2
+    push %2 ;; depth
+    push %1
+    call print_rib
+    push eax
+    mov eax, 0x0a ;; newline
+    call putchar
+    pop eax
+%ifndef NEED_PRINT_RIB
+%define NEED_PRINT_RIB
+%endif
+%endmacro
 
 	BITS 32
 
@@ -76,7 +97,7 @@ _start:
 
 %define WORD_SIZE       4
 %define RIB_SIZE_WORDS  4
-%define HEAP_SIZE_RIBS  5000000
+%define HEAP_SIZE_RIBS  10000
 %define HEAP_SIZE (HEAP_SIZE_RIBS*RIB_SIZE_WORDS*WORD_SIZE)
 
 %define SYS_EXIT        1
@@ -294,6 +315,7 @@ build_symbol_table_loop3:
 	inc  eax
 %endif
 	push FIX(PAIR_TYPE)
+    ;DB_PRINT(7)
 	call alloc_rib		; stack_register <- [eax, stack_register, PAIR_TYPE]
 	inc  edx		; increment character count
 	jmp  build_symbol_table_loop3
@@ -394,8 +416,9 @@ gc:
 %ifdef DEBUG_GC
     call print_gc_starting
 %endif
-	mov  FIELD3(FALSE), stack
-	mov  FIELD3(NIL), pc
+    push ebx
+	mov  TEMP0, stack
+	mov  TEMP1, pc
     push heap_base
     mov  heap_base, FIELD1(heap_base-RIB_SIZE_WORDS*WORD_SIZE)
     call init_heap ;; clean up the to_space
@@ -409,14 +432,13 @@ gc:
 scan_copy:
     ;; If its a rib
     movC  ecx, 4
-    mov   edx, heap_alloc
+    mov   ebx, heap_alloc
     rep  movsd
     mov dword FIELD0(esi-RIB_SIZE_WORDS*WORD_SIZE), 0x0
-    mov FIELD1(esi-RIB_SIZE_WORDS*WORD_SIZE), edx 
-    mov [scan_ptr], edx
+    mov FIELD1(esi-RIB_SIZE_WORDS*WORD_SIZE), ebx 
+    mov [scan_ptr], ebx
     ;jmp scan
 
-    ;int3
     ;movC ecx, 4
     ;rep movsd ;; take only 2 bytes !
 scan:
@@ -424,13 +446,16 @@ scan:
     cmp scan_ptr, heap_alloc
     je  scan_end
     mov  esi, [scan_ptr]
+    ;shr  esi, 1 don't work because we need esi afterwords for the copy
     test esi, 1  ;; Test if its tagged
     %if RIB_TAG==0
     JNZ  scan
     %else
-    JZ   scan
+    JZ scan
     %endif 
-    cmp  dword [esi], 0 
+    ;cmp dword [esi], 0
+    mov ebx, [esi]
+    test ebx, ebx
     jz   scan_BH ;; is a broken heart
     jmp scan_copy
 
@@ -439,12 +464,15 @@ scan_BH:
     mov [scan_ptr], esi
     jmp scan
 scan_end:
-	mov  stack, FIELD3(FALSE) 
-	mov  pc, FIELD3(NIL)
+	mov  stack, TEMP0 
+	mov  pc, TEMP1 
+    mov  dword TEMP0, 0xb
+    mov  dword TEMP1, 0xb
+    pop  ebx
+
 %ifdef DEBUG_GC
     call print_gc_end
 %endif
-    ;int3
 
 alloc_rib_done:
 	ret  WORD_SIZE*1
@@ -771,6 +799,7 @@ run:
 	POP_STACK
 %endmacro
 
+
 %define RESULT   eax
 %define LAST_ARG RESULT
 %define PREV_ARG edx
@@ -780,8 +809,8 @@ run:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_INSTR
-string_jump	db "jump --",0x0a,0
-string_call	db "call --",0x0a,0
+string_jump	db "jump --",0
+string_call	db "call --",0
 %endif
 
 ; @@(feature arity-check
@@ -793,6 +822,7 @@ string_test_rest db "Test rest params",0x0a,0
 ; )@@
 
 run_instr_jump_call:
+	mov  eax, FIELD0(edx)	; eax = procedure to call
 
 %ifdef DEBUG_INSTR
 	cmp  dword FIELD2(pc), FIX(PAIR_TYPE)	; jump? (tail call)
@@ -805,9 +835,9 @@ print_jump:
 	push string_jump
 	call print_string
 print_jump_call_done:
+    DB_PRINT_RIB eax, 4
 %endif
 
-	mov  eax, FIELD0(edx)	; eax = procedure to call
     ; @@(feature arity-check
     POP_STACK_TO(edx)
     mov TEMP3, edx
@@ -824,13 +854,15 @@ print_jump_call_done:
 %endif
 
 is_closure:
+    
+    ;DB_PRINT(999)
 	push eax
 	call alloc_rib		; stack_register <- [closure, stack_register, closure]
 	mov  eax, stack
 	POP_STACK
 	mov  TEMP2, eax		; remember the continuation rib
 	mov  edx, FIELD0(eax)
-	mov  edx, FIELD0(eax)
+	;mov  edx, FIELD0(eax)
 	mov  FIELD1(eax), edx
 	mov  edx, FIELD0(edx)
 	mov  edx, FIELD0(edx)	; get nparams
@@ -841,15 +873,17 @@ is_closure:
     ; )@@
 
     shr  edx, 2 ;; remove tagging and rest param
+    jc  with_rest ; @@(feature rest-param)@@
     ; @@(feature arity-check (use exit)
-    jc  with_rest
 no_rest:
     cmp  edx, ebx 
 	je   create_frame_loop_start ;; pass arity-check
+    ; @@(feature rest-param (use arity-check)
     jmp  error_arity_check
 with_rest:
     sub   ebx, edx
 	jge   rest_loop_prepare ;; pass arity-check
+    ; )@@
 error_arity_check:
     push string_arity_error
     call print_string
@@ -868,6 +902,7 @@ rest_frame_loop:
 	mov  TEMP3, eax		; remember the frame's head
 	POP_STACK_TO(eax)
 	push FIX(PAIR_TYPE)
+    ;DB_PRINT(1)
 	call alloc_rib		; stack_register <- [arg, stack_register, PAIR_TYPE]
 	mov  eax, stack
 	POP_STACK
@@ -877,6 +912,7 @@ rest_loop_start:
 	dec  edx
 	jns  rest_frame_loop
 	push FIX(PAIR_TYPE)
+    ;DB_PRINT(2)
     call alloc_rib ;; push result to stack
     pop eax
     pop edx
@@ -887,6 +923,8 @@ create_frame_loop:
 	mov  TEMP3, eax		; remember the frame's head
 	POP_STACK_TO(eax)
 	push FIX(PAIR_TYPE)
+
+    ;DB_PRINT(3)
 	call alloc_rib		; stack_register <- [arg, stack_register, PAIR_TYPE]
 	mov  eax, stack
 	POP_STACK
@@ -969,20 +1007,21 @@ jump_prim:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_INSTR
-string_get:	db "get --",0x0a,0
+string_get:	db "get --",0
 %endif
 
 run_instr_get:
+	mov  eax, FIELD0(edx)
 
 %ifdef DEBUG_INSTR
 	push string_get
 	call print_string
+    DB_PRINT_RIB eax, 3
 %endif
-
-	mov  eax, FIELD0(edx)
 
 push_result:
 	push FIX(PAIR_TYPE)
+    ;DB_PRINT(4)
 	call alloc_rib
 
 run_next:
@@ -1031,12 +1070,14 @@ got_opnd:
 
 run_instr_set:
 
+	POP_STACK_TO(eax)
+
 %ifdef DEBUG_INSTR
 	push string_set
 	call print_string
+    DB_PRINT_RIB eax, 3
 %endif
 
-	POP_STACK_TO(eax)
 	mov  FIELD0(edx), eax
 
 	jmp  run_next
@@ -1048,23 +1089,24 @@ string_set:	db "set --",0x0a,0
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 run_instr_const:
+	mov  eax, FIELD1(pc)
 
 %ifdef DEBUG_INSTR
 	push string_const
 	call print_string
+    DB_PRINT_RIB eax, 3
 %endif
 
-	mov  eax, FIELD1(pc)
 	jmp  push_result
 
 %ifdef DEBUG_INSTR
-string_const	db "const --",0x0a,0
+string_const	db "const --",0
 %endif
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_INSTR
-string_if:	db "if --",0x0a,0
+string_if:	db "if --",0
 %endif
 
 run_instr_no_mem_operand:
@@ -1073,13 +1115,13 @@ run_instr_no_mem_operand:
 	jne  run_instr_halt
 
 run_instr_if:
+	mov  eax, FIELD0(stack)
 
 %ifdef DEBUG_INSTR
 	push string_if
 	call print_string
+    DB_PRINT_RIB eax, 3
 %endif
-
-	mov  eax, FIELD0(stack)
 	mov  stack, FIELD1(stack)
 	cmp  eax, FALSE
 	je   run_next
@@ -1130,6 +1172,7 @@ prim_rib:
 
 	push LAST_ARG
 	mov  eax, PREV_ARG
+    ;DB_PRINT(5)
 	call alloc_rib
 	mov  LAST_ARG, stack	; RESULT = LAST_ARG
 	mov  stack, FIELD1(LAST_ARG)
@@ -1226,6 +1269,7 @@ prim_close:
 
 	mov  eax, FIELD0(LAST_ARG)
 	push FIX(PROCEDURE_TYPE)
+    ;DB_PRINT(6)
 	call alloc_rib
 	mov  LAST_ARG, stack	; RESULT = LAST_ARG
 	POP_STACK
@@ -2102,6 +2146,89 @@ print_hex1_putchar:
 
 %endif
 
+
+%ifdef NEED_PRINT_RIB
+
+print_rib_str_dot: db "...", 0x0
+
+print_rib:
+	push eax
+	push ebx
+	push ecx
+	push edx
+	push esi
+        mov  ecx, [esp+WORD_SIZE*6] ;; rib
+        mov  ebx, [esp+WORD_SIZE*7] ;; depth
+        cmp  ebx, 0
+        jz   print_rib_dot
+        test ecx, 0x1
+        jz   print_rib_aux
+        ; print_int
+        shr  ecx, 1
+        push ecx
+        call print_int
+        
+        jmp  print_rib_done
+
+print_rib_aux:
+        sub ebx, 1
+        mov eax, 0x5b ;; [
+        call putchar
+
+        push ebx
+        push dword FIELD0(ecx)
+        call print_rib
+
+        mov eax, 0x2c ;; ,
+        call putchar
+
+        push ebx
+        push dword FIELD1(ecx)
+        call print_rib
+
+        mov eax, 0x2c ;; ,
+        call putchar
+
+        push ebx
+        push dword FIELD2(ecx)
+        call print_rib
+
+        mov eax, 0x5d ;; ]
+        call putchar
+        jmp print_rib_done
+
+print_rib_dot:
+    push print_rib_str_dot
+    call print_string
+
+print_rib_done:
+    
+	pop  esi
+	pop  edx
+	pop  ecx
+	pop  ebx
+	pop  eax
+	ret  WORD_SIZE*2
+
+%ifndef NEED_PRINT_INT
+%define NEED_PRINT_INT
+%endif
+
+%ifndef NEED_PUTCHAR
+%define NEED_PUTCHAR
+%endif
+
+%ifndef CALLEE_SAVE_EBX_ECX_EDX
+%define CALLEE_SAVE_EBX_ECX_EDX
+%endif
+
+%endif
+
+
+
+
+
+
 %ifdef NEED_PRINT_INT
 
 ;; Can only print posivite numbers
@@ -2112,20 +2239,18 @@ print_int:
 	push edx
 	push esi
         mov  eax, [esp+WORD_SIZE*6]
+        cmp  eax, 0
+        je   print_int_0
         push 10
 
 print_int_loop:
         cmp  eax, 0
-        je   print_int_end1
+        je   print_int_loop2
         mov  edx, 0
         mov  ebx, 10
         div  ebx
         push edx
         jmp print_int_loop
-
-print_int_end1:
-        cmp dword [esp], 10
-        je print_int_0
 
 print_int_loop2: 
         pop eax
