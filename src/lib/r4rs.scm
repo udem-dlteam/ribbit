@@ -1,1 +1,1 @@
-(##include "./r4rs/r4rs.scm")
+(##include-once "./r4rs/r4rs.scm")

@@ -92,15 +92,18 @@
   (define (number->string-aux x tail)
     (let ((q (quotient x radix)))
       (let ((d (- x (* q radix))))
-        (let ((t (rib (integer->char (if (< 9 d) (+ 65 (- d 10)) (+ 48 d))) tail pair-type))) ;; cons
+        (let ((t (rib (if (< 9 d) (+ 65 (- d 10)) (+ 48 d)) tail pair-type))) ;; cons
           (if (< 0 q)
             (number->string-aux q t)
             t)))))
 
-  (list->string
-    (if (< x 0)
-      (rib 45 (number->string-aux (- 0 x) '()) pair-type) ;; cons
-      (number->string-aux x '()))))
+  (let ((chars (if (< x 0)
+                 (rib 45 (number->string-aux (- 0 x) '()) pair-type) ;; cons
+                 (number->string-aux x '()))))
+    (rib
+      chars 
+      (length chars)
+      string-type)))
 
 
 (define (string->number str (radix 10))
@@ -112,12 +115,12 @@
 
   (define (string->number-aux2 lst n)
     (if (pair? lst)
-      (let* ((c (char->integer (field0 lst)))
+      (let* ((c (field0 lst))
              (x (cond 
                   ((and (< 47 c) (< c 58)) (- c 48))   ;; 0-9
                   ((and (< 64 c) (< c 71)) (- c 65))   ;; A-F
                   ((and (< 96 c) (< c 103)) (- c 97))  ;; a-f
-                  (else #f)))) ;; car
+                  (else #f)))) 
         (if x
             (string->number-aux2 
               (field1 lst) ;; cdr
@@ -125,7 +128,7 @@
             #f))
         n))
 
-  (let ((lst (string->list str)))
+  (let ((lst (field0 str)))
     (if (null? lst)
       #f
       (if (eqv? (field0 lst) 45) ;; car

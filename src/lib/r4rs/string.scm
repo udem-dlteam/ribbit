@@ -1,6 +1,6 @@
-(##include "./types.scm")
-(##include "./bool.scm")
-(##include "./pair-list.scm")
+(##include-once "./types.scm")
+(##include-once "./bool.scm")
+(##include-once "./pair-list.scm")
 
 ;; Strings (R4RS section 6.7).
 

@@ -1,6 +1,6 @@
-(##include "./types.scm")
-(##include "./control.scm")
-(##include "./number.scm")
+(##include-once "./types.scm")
+(##include-once "./control.scm")
+(##include-once "./number.scm")
 
 (define (max x . rest) 
   (fold (lambda (curr best) (if (< best curr) curr best)) x rest))

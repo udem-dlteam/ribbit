@@ -2422,7 +2422,7 @@
     (%read-all port)))
 
 (define (read-library lib-path)
-  (list (list '##include 
+  (list (list '##include-once
    (if (equal? (rsc-path-extension lib-path) "")
        (let* ((path (path-expand lib-path (path-expand "lib" (root-dir))))
              (file-path (string-append path ".scm")))

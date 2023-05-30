@@ -373,7 +373,7 @@
         ((null? o)
          (write-char #\( port)
          (write-char #\) port)) ;; ()
-        ((eqv? (rib? o) #f)
+        ((integer? o)
          (display (number->string o) port))
         ((char? o)
          (write-char o port))
@@ -388,7 +388,11 @@
          (write-chars (field0 o) port)) ;; chars
         ((vector? o)
          (write-char #\#) ;; #\#
-         (write-list (vector->list o) port))
+         (write-char #\()
+         (let ((l (vector->list o)))
+           (write (car l) port)
+           (write-list (cdr l) port))
+         (write-char #\)))
         ((procedure? o)
          (write-char #\# port)
          (write-char #\p port)) ;; #p
