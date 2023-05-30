@@ -128,7 +128,7 @@
             #f))
         n))
 
-  (let ((lst (field0 str)))
+  (let ((lst (##string->list str)))
     (if (null? lst)
       #f
       (if (eqv? (field0 lst) 45) ;; car
