@@ -1,3 +1,4 @@
+(##include-once "./types.scm")
 (##include-once "./bool.scm")
 
 ;; Characters (R4RS section 6.6).
@@ -45,12 +46,12 @@
 
 (define (char-upcase ch)
   (if (char-lower-case? ch)
-      (char (- (field0 ch) 32)) ; (- (field0 #\A) (field0 #\a))
+      (integer->char (- (field0 ch) 32)) ; (- (field0 #\A) (field0 #\a))
       ch))
 
 (define (char-downcase ch)
   (if (char-upper-case? ch)
-      (char (+ (field0 ch) 32)) ; (- (field0 #\a) (field0 #\A))
+      (integer->char (+ (field0 ch) 32)) ; (- (field0 #\a) (field0 #\A))
       ch))
 
 
