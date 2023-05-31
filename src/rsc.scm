@@ -58,7 +58,6 @@
      (delete-file path)))
 
   (else
-
    (define (shell-cmd command)
      #f)
 
@@ -537,6 +536,7 @@
    (define string-type    3)
    (define vector-type    4)
    (define singleton-type 5)
+   (define char-type      6)
 
    (define (instance? o type) (and (rib? o) (eqv? (field2 o) type)))
 
@@ -724,6 +724,14 @@
            (hash-string (symbol->string opnd)))
           ((number? opnd)
            (abs opnd))
+          ((string? opnd)
+           (hash-string opnd))
+          ((char? opnd)
+           (char->integer opnd))
+          ((list? opnd)
+           (fold hash-combine 0 (map opnd->hash opnd)))
+          ((vector? opnd)
+           (fold hash-combine 0 (map opnd->hash (vector->list opnd))))
           ((rib? opnd)
            (c-rib-hash opnd))
           ((eq? '() opnd)
@@ -732,10 +740,6 @@
            5)
           ((eq? #t opnd)
            6)
-          ((string? opnd)
-           (hash-string opnd))
-          ((list? opnd)
-           (fold + 0 (map opnd->hash opnd)))
           (else (error "Cannot hash the following opnd in a c-rib" opnd))))
 
       (define (next->hash next)
@@ -1118,6 +1122,7 @@
         '()
         live))
 
+
 (define (compile-program verbosity parsed-vm features-enabled features-disabled program)
   (let* ((exprs-and-exports
            (extract-exports program))
@@ -1152,6 +1157,8 @@
 
          (expansion
            (add-feature-variables live-symbols (or live-features '()) expansion))
+
+         ;; (_ (pp expansion))
 
          (primitives
            (if parsed-vm
@@ -1226,6 +1233,10 @@
 
 (define defined-features '()) ;; used as parameters for expand-functions
 
+;; For includes
+(define pwd (current-directory))
+(define included-files '())
+
 (define (expand-expr expr)
 
   (cond ((symbol? expr)
@@ -1236,6 +1247,15 @@
 
            (cond ((eqv? first 'quote)
                   (expand-constant (cadr expr)))
+
+                 ((eqv? first 'quasiquote)
+                  (expand-quasiquote (cadr expr)))
+
+                 ((eqv? first 'unquote)
+                  (error "unquote outside quasiquote"))
+
+                 ((eqv? first 'unquote-splicing)
+                  (error "unquote-splicing outside quasiquote"))
 
                  ((eqv? first 'set!)
                   (let ((var (cadr expr)))
@@ -1427,7 +1447,25 @@
                         feature-location-code-pairs)
                       '#f)))
 
+                 ((eqv? first '##include)
+                  (let ((old-pwd pwd) (file-path (path-expand (cadr expr) pwd)))
+                    (set! pwd (path-directory file-path))
+                    (let ((result (expand-begin (read-from-file file-path))))
+                      (set! pwd old-pwd)
+                      result)))
 
+                 ((eqv? first '##include-once)
+                  (let ((old-pwd pwd) (file-path (path-normalize (path-expand (cadr expr) pwd))))
+                    (if (not (member file-path included-files))
+                      (begin
+                        (set! pwd (path-directory file-path))
+                        (let ((result (expand-begin (read-from-file file-path))))
+                          (set! included-files (cons file-path included-files))
+                          (set! pwd old-pwd)
+                          result))
+                      (begin 
+                        ; (display (string-append "Skip including already included file: \"" file-path "\".\n"))
+                        '()))))
 
                  ((eqv? first 'and)
                   (expand-expr
@@ -1486,6 +1524,23 @@
 
 (define (expand-constant x)
   (cons 'quote (cons x '())))
+
+(define (expand-quasiquote x)
+  (cond 
+    ((not (pair? x)) (expand-constant x))
+    ((eqv? (car x) 'unquote) (expand-expr (cadr x)))
+    ((eqv? (car x) 'unquote-splicing) (error "unquote-splicing is not allowed outside of a list"))
+    (else (if (and 
+                (pair? (car x))
+                (eqv? (caar x) 'unquote-splicing))
+            (cons 'append
+                  (cons (expand-expr (cadar x))
+                        (cons (expand-quasiquote (cdr x))
+                              '())))
+            (cons 'cons
+                  (cons (expand-quasiquote (car x))
+                        (cons (expand-quasiquote (cdr x))
+                              '())))))))
 
 (define (expand-body exprs)
   (let loop ((exprs exprs) (defs '()))
@@ -1848,6 +1903,9 @@
 
 ;(pp encoding-skip-92)
 
+
+(define (foobar x) (pp x) x)
+
 (define (encoding-inst-size encoding entry)
   (cadr (encoding-inst-get encoding entry)))
 
@@ -1900,6 +1958,20 @@
                (c-rib const-op
                       o
                       tail)))
+          ((char? o)
+           (if (and live-features (memq 'arity-check live-features))
+             (c-rib const-op
+                    (char->integer o)
+                    (c-rib const-op
+                           0
+                           (c-rib const-op
+                                  char-type
+                                  (add-nb-args
+                                    3
+                                    (c-rib jump/call-op
+                                           (scan-opnd 'rib 0)
+                                           tail)))))
+             (error "Feature 'chars' must be activated to use them" o)))
           ((pair? o)
            (build-constant (car o)
                            (build-constant (cdr o)
@@ -2350,11 +2422,14 @@
     (%read-all port)))
 
 (define (read-library lib-path)
-  (read-from-file
+  (list (list '##include-once
    (if (equal? (rsc-path-extension lib-path) "")
-       (path-expand (string-append lib-path ".scm")
-                    (path-expand "lib" (root-dir)))
-       lib-path)))
+       (let* ((path (path-expand lib-path (path-expand "lib" (root-dir))))
+             (file-path (string-append path ".scm")))
+         (if (file-exists? file-path)
+           file-path
+           (error (string-append "The path needs to point to an existing file. Error while trying to include library at " file-path))))
+       lib-path))))
 
 (define (read-program lib-path src-path)
   (append (apply append (map read-library lib-path))
@@ -2843,7 +2918,7 @@
     (compile-program
      0    ;; verbosity
      #f   ;; parsed-vm
-     (cons 'arity-check (cons 'rest-param '()))   ;; features-enabled
+     (cons 'arity-check (cons 'rest-param (cons 'chars '())))   ;; features-enabled
      #f   ;; features-disabled
      (read-all)))))
 

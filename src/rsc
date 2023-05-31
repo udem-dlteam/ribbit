@@ -68,7 +68,7 @@ while [ "$#" != "0" ]; do
       ;;
     -l|--library) # library
       shift
-      LIBRARY="$1"
+      LIBRARY="$1" # "$LIBRARY${LIBRARY:+:}$1"
       ;;
     -m|--minify) # minify
       MINIFY="minify"
@@ -150,6 +150,7 @@ if [ "$OUTPUT" = "" ]; then
 else
   OUTPUTFILE="$OUTPUT"
 fi
+
 
 if cat "$LIBRARY" $SOURCES | sed -e 's/^#!/;;#!/g' | $COMPILER > "$RVM.temp" ; then
 

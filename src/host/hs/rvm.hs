@@ -23,7 +23,7 @@ newRef = newIORef
 readRef = readIORef
 
 -- writeRef :: IORef a -> a -> IO () -- Debug
-writeRef = writeIORef
+writeRef = writeIORef 
 
 -- Instead of using the TupleSection extension, we define a synonym that can be partially applied
 -- pair :: a -> b -> (a, b) -- Debug
@@ -160,13 +160,13 @@ pop = getStack >>= \case RibRef r -> readRef r >>= \(RibObj top rest _) -> setSt
 -- Primitives
 
 -- prim1 :: (Rib -> IO Rib) -> Prim -- Debug
-prim1 f = pop >>= f >>= push
+prim1 f = pop >>= f >>= push >> pure ribNil
 
 -- prim2 :: (Rib -> Rib -> IO Rib) -> Prim -- Debug
-prim2 f = flip (,) <$> pop <*> pop >>= uncurry f >>= push
+prim2 f = flip (,) <$> pop <*> pop >>= uncurry f >>= push >> pure ribNil
 
 -- prim3 :: ((Rib,Rib,Rib) -> IO Rib) -> Prim -- Debug
-prim3 f = (,,) <$> pop <*> pop <*> pop >>= f >>= push
+prim3 f = (,,) <$> pop <*> pop <*> pop >>= f >>= push >> pure ribNil 
 
 -- safeGetChar :: IO Int -- Debug
 safeGetChar = fmap ord getChar `catchAny` const (pure (-1))
@@ -174,7 +174,7 @@ safeGetChar = fmap ord getChar `catchAny` const (pure (-1))
 -- close :: Prim -- Debug
 close = do
  v1 <- pop >>= read0
- getStack >>= mkProc v1 >>= push
+ getStack >>= mkProc v1 >>= push >> pure ribNil
 
 -- primitives :: [Prim] -- Debug
 primitives =
@@ -182,7 +182,7 @@ primitives =
 -- @@(primitives (gen body)
  prim3 (\(c,b,a) -> toRib $ RibObj a b c)                    -- @@(primitive (rib a b c))@@
  , prim1 pure                                                -- @@(primitive (id x))@@
- , void pop                                                  -- @@(primitive (arg1 x y))@@
+ , void pop >> pure ribNil                                   -- @@(primitive (arg1 x y))@@
  , prim2 (const pure)                                        -- @@(primitive (arg2 x y))@@
  , close                                                     -- @@(primitive (close rib))@@ 
  , prim1 (pure . (\case RibInt _ -> ribFalse; _ -> ribTrue)) -- @@(primitive (rib? rib))@@
@@ -198,7 +198,7 @@ primitives =
  , prim2 $ onInt (-)                                         -- @@(primitive (- x y))@@
  , prim2 $ onInt (*)                                         -- @@(primitive (* x y))@@
  , prim2 $ onInt quot                                        -- @@(primitive (quotient x y))@@
- , safeGetChar >>= push . RibInt                             -- @@(primitive (getchar))@@
+ , safeGetChar >>= push . RibInt >> pure ribNil              -- @@(primitive (getchar))@@
  , prim1 (\r@(RibInt v) -> putChar (chr v) >> pure r)        -- @@(primitive (putchar x))@@
  -- )@@
  ]
@@ -262,6 +262,52 @@ findOp n op = let d = [20,30,0,10,11,4]!!op in if 2+d<n then findOp (n-(d+3)) (o
 
 -- setGlobal :: Rib -> Rib -> IO Rib -- Debug
 setGlobal symbolTable val = read0 symbolTable >>= flip write0 val >> read1 symbolTable
+call pc o = do
+    RibInt nargs1 <- pop -- @@(feature arity-check)@@
+    c <- read0 o
+    case c of
+     RibRef r -> do
+      c2 <- cons (RibInt 0) o
+      let s2 = c2
+      RibInt arity <- read0 c
+      let nparams = shiftR arity 1
+      -- @@(feature arity-check)
+      let isVariadic = (arity .&. 1) == 1
+      when ((isVariadic && (nparams > nargs1)) || (not isVariadic && (nparams /= nargs1))) (error "*** Unexpected number of arguments nargs")
+      -- )@@
+      -- @@(feature rest-param (use arity-check)
+      let nargs = nargs1 - nparams
+      s2 <- if isVariadic then do
+        rest <- foldrM (\_ args -> pop >>= flip cons args) ribNil [1..nargs]
+        cons rest s2
+        else pure s2
+      -- )@@
+      s2 <- foldrM (\_ args -> pop >>= flip cons args) s2 [1..nparams] -- while nargs:s2=[pop(),s2,0];nargs-=1
+      read2 pc >>= \case
+       -- call
+       o@RibRef {} -> do
+         stack <- getStack
+         write0 c2 stack
+         write2 c2 o
+       -- jump
+       RibInt n -> do
+        k <- getCont
+        write0 c2 =<< read0 k
+        write2 c2 =<< read2 k
+      setStack s2
+      read2 c >>= eval
+
+     RibInt n -> do
+      result <- primitives!!n
+      read2 pc >>= \case
+       -- call
+       RibRef _ -> read2 pc >>= eval
+       -- jump
+       RibInt _ -> do
+        k <- getCont
+        stack <- getStack
+        read0 k >>= write1 stack
+        read2 k >>= eval
 
 -- eval :: Rib -> IO () -- Debug
 eval pc = do
@@ -271,51 +317,7 @@ eval pc = do
   RibInt 0 -> do
    -- traceShowM "jump/call"
    o <- getOpnd o >>= read0
-   RibInt nargs1 <- pop -- @@(feature arity-check)@@
-   c <- read0 o
-   case c of
-    RibRef r -> do
-     c2 <- cons (RibInt 0) o
-     let s2 = c2
-     RibInt arity <- read0 c
-     let nparams = shiftR arity 1
-     -- @@(feature arity-check
-     let isVariadic = (arity .&. 1) == 1
-     when ((isVariadic && (nparams > nargs1)) || (not isVariadic && (nparams /= nargs1))) (error "*** Unexpected number of arguments nargs")
-     -- )@@
-     -- @@(feature rest-param (use arity-check)
-     let nargs = nargs1 - nparams
-     s2 <- if isVariadic then do
-       rest <- foldrM (\_ args -> pop >>= flip cons args) ribNil [1..nargs]
-       cons rest s2
-       else pure s2
-     -- )@@
-     s2 <- foldrM (\_ args -> pop >>= flip cons args) s2 [1..nparams] -- while nargs:s2=[pop(),s2,0];nargs-=1
-     read2 pc >>= \case
-      -- call
-      o@RibRef {} -> do
-       stack <- getStack
-       write0 c2 stack
-       write2 c2 o
-      -- jump
-      RibInt n -> do
-       k <- getCont
-       write0 c2 =<< read0 k
-       write2 c2 =<< read2 k
-     setStack s2
-     read2 c >>= eval
-
-    RibInt n -> do
-     primitives!!n
-     read2 pc >>= \case
-      -- call
-      RibRef _ -> read2 pc >>= eval
-      -- jump
-      RibInt _ -> do
-       k <- getCont
-       stack <- getStack
-       read0 k >>= write1 stack
-       read2 k >>= eval
+   call pc o
 
   -- set
   RibInt 1 -> do

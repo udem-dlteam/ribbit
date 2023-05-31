@@ -55,8 +55,9 @@ check:
 	  setup=`sed -n -e '/;;;setup:/p' $$prog | sed -e 's/^;;;setup://'`; \
 	  cleanup=`sed -n -e '/;;;cleanup:/p' $$prog | sed -e 's/^;;;cleanup://'`; \
 	  options=`sed -n -e '/;;;options:/p' $$prog | sed -e 's/^;;;options://'`; \
+	  argv=`sed -n -e '/;;;argv:/p' $$prog | sed -e 's/^;;;argv://'`; \
 	  fancy_compiler=`sed -n -e '/;;;fancy-compiler/p' $$prog`; \
-	  echo "---------------------- $$prog [options:$$options]"; \
+	  echo "---------------------- $$prog [options:$$options] [argv:$$argv]"; \
 	  if [ "$$setup" != "" ]; then \
         sh -c "$$setup"; \
 	    if [ $$? != 0 ]; then \
@@ -73,10 +74,10 @@ check:
 	      rm -f test.$$host*; \
 	      $$RSC_COMPILER -t $$host $$options `echo "$$test_feature" | sed -e 's/,/ /g'` -o test.$$host $$prog; \
 	      if [ "$$INTERPRETER" != "" ]; then \
-	        sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | $$INTERPRETER test.$$host > test.$$host.out; \
+	        sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | $$INTERPRETER test.$$host $$argv > test.$$host.out; \
 	      else \
 	        $$COMPILER test.$$host.exe test.$$host; \
-	        sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | ./test.$$host.exe > test.$$host.out; \
+	        sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | ./test.$$host.exe $$argv > test.$$host.out; \
 	      fi; \
 	      sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - test.$$host.out; \
 	      rm -f test.$$host*; \
