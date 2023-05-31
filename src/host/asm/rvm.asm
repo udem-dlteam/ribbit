@@ -103,6 +103,20 @@ _start:
 %define SYS_EXIT        1
 %define SYS_READ        3
 %define SYS_WRITE       4
+
+%define SYS_OPEN        5
+%define O_RDONLY    0
+%define O_WRONLY    1
+%define O_RDWR      2
+%define O_CREAT     64     ; octal 0100
+%define O_EXCL      200    ; octal 0200
+%define O_NOCTTY    400    ; octal 0400
+%define O_TRUNC     1000   ; octal 01000
+%define O_APPEND    2000   ; octal 02000
+%define O_NONBLOCK  4000   ; octal 04000
+%define O_SYNC      101000 ; octal 04010000
+%define O_ASYNC     20000  ; octal 020000
+
 %define SYS_MMAP        90
 %define MAP_PRIVATE     2
 %define MAP_ANONYMOUS   32
@@ -1129,6 +1143,45 @@ run_instr_if:
 	mov  pc, FIELD1(pc)
 	jmp  run_loop
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; @@(feature scm2str
+;; assumes that LAST_ARG contains the list of number (ascii)
+scm2str:
+    pop ecx
+    mov ebx, FIELD1(LAST_ARG)
+    ;DB_PRINT_RIB LAST_ARG , 3
+    shr ebx, 3 ;; remove tagging and align on multiple of 4
+scm2str_setup_loop:
+    push dword 0x0
+    dec ebx
+    js  scm2str_setup_loop_done
+    jmp scm2str_setup_loop
+scm2str_setup_loop_done:
+    mov ebx, esp
+    mov LAST_ARG, FIELD0(LAST_ARG)
+scm2str_write_loop:
+    ;DB_PRINT_RIB LAST_ARG , 3
+    lea edx, [NIL]
+    cmp LAST_ARG, edx
+    je  scm2str_write_loop_done
+    mov edx, FIELD0(eax)
+    shr edx, 1
+    mov [ebx], dl
+    add dword ebx, 1
+    mov LAST_ARG, FIELD1(LAST_ARG)
+    jmp scm2str_write_loop
+scm2str_write_loop_done:
+    push ecx
+    ret
+    
+
+
+
+
+;; )@@
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 prim_dispatch_table:
@@ -1154,6 +1207,10 @@ prim_dispatch_table:
 	dd   prim_getchar     ;; @@(primitive (getchar))@@
 	dd   prim_putchar     ;; @@(primitive (putchar c))@@
 	dd   prim_exit        ;; @@(primitive (exit n))@@  
+	dd   prim_stdin       ;; @@(primitive (##stdin))@@  
+	dd   prim_stdout      ;; @@(primitive (##stdout))@@  
+    dd   prim_get_fd_input_file ;; @@(primitive (##get-fd-input-file filename))@@
+    dd   prim_get_fd_output_file ;; @@(primitive (##get-fd-output-file filename))@@
 ;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1604,6 +1661,7 @@ prim_getchar:
 	push string_getchar
 	call print_string
 %endif
+    int3
 
 	push ecx
 	movC ebx, 0		; ebx = 0 = STDIN
@@ -1686,6 +1744,53 @@ prim_exit:
 	CALL_KERNEL
 ;	NBARGS(1)		; can be avoided because we are exiting!
 ;	ret
+;; )@@
+
+
+;; @@(feature ##stdin
+prim_stdin:
+    NBARGS(0)
+    mov dword LAST_ARG, FIX(0x0)
+    ret
+;; )@@
+
+;; @@(feature ##stdout
+prim_stdout:
+    NBARGS(0)
+    mov dword LAST_ARG, FIX(0x1)
+    ret
+;; )@@
+
+;; @@(feature ##get-fd-input-file (use scm2str)
+prim_get_fd_input_file:
+    call scm2str ;; transform eax (LAST_ARG) into a string on stack
+; First, prepare the arguments for the 'open' syscall
+    mov eax, SYS_OPEN   ; 'open' syscall number
+    mov ebx, esp  ; pointer to the null-terminated filename string
+    mov ecx, (O_RDONLY ^ O_CREAT)   ; flags (0 means read-only)
+    mov edx, 0  ; mode (not used when opening a file for reading)
+    CALL_KERNEL
+    int3
+
+
+    NBARGS(1)
+    ret 
+
+
+;; )@@
+
+;; @@(feature ##get-fd-output-file (use scm2str)
+prim_get_fd_output_file:
+    push ecx
+    call scm2str ;; transform eax (LAST_ARG) into a string on stack
+    int3
+
+
+    NBARGS(1)
+    pop ecx
+    ret
+
+
 ;; )@@
 
 ; @@(location prims)@@
@@ -2216,6 +2321,10 @@ print_rib_done:
 
 %ifndef NEED_PUTCHAR
 %define NEED_PUTCHAR
+%endif
+
+%ifndef NEED_PRINT_STRING
+%define NEED_PRINT_STRING
 %endif
 
 %ifndef CALLEE_SAVE_EBX_ECX_EDX
