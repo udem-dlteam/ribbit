@@ -1147,11 +1147,13 @@ run_instr_if:
 
 ;; @@(feature scm2str
 ;; assumes that LAST_ARG contains the list of number (ascii)
+%define scm2str_STOP 0x01020300
 scm2str:
     pop ecx
     mov ebx, FIELD1(LAST_ARG)
     ;DB_PRINT_RIB LAST_ARG , 3
     shr ebx, 3 ;; remove tagging and align on multiple of 4
+    push dword scm2str_STOP
 scm2str_setup_loop:
     push dword 0x0
     dec ebx
@@ -1763,6 +1765,7 @@ prim_stdout:
 
 ;; @@(feature ##get-fd-input-file (use scm2str)
 prim_get_fd_input_file:
+    push ecx ;; save ecx
     call scm2str ;; transform eax (LAST_ARG) into a string on stack
 ; First, prepare the arguments for the 'open' syscall
     mov eax, SYS_OPEN   ; 'open' syscall number
@@ -1770,9 +1773,22 @@ prim_get_fd_input_file:
     mov ecx, (O_RDONLY ^ O_CREAT)   ; flags (0 means read-only)
     mov edx, 0  ; mode (not used when opening a file for reading)
     CALL_KERNEL
-    int3
 
+    ;; remove string on top
+    xchg edi, esp
+    xchg eax, ebx
+    mov eax, scm2str_STOP
+    repne scasd
+    xchg edi, esp
+    xchg eax, ebx
 
+    ;; tag eax
+    %if FIX_TAG
+    shl eax, 1
+    add eax, 1
+    %endif
+
+    pop ecx ;; retrive stack
     NBARGS(1)
     ret 
 
