@@ -97,7 +97,7 @@ _start:
 
 %define WORD_SIZE       4
 %define RIB_SIZE_WORDS  4
-%define HEAP_SIZE_RIBS  10000
+%define HEAP_SIZE_RIBS  1000000
 %define HEAP_SIZE (HEAP_SIZE_RIBS*RIB_SIZE_WORDS*WORD_SIZE)
 
 %define SYS_EXIT        1
@@ -1213,6 +1213,9 @@ prim_dispatch_table:
 	dd   prim_stdout      ;; @@(primitive (##stdout))@@  
     dd   prim_get_fd_input_file ;; @@(primitive (##get-fd-input-file filename))@@
     dd   prim_get_fd_output_file ;; @@(primitive (##get-fd-output-file filename))@@
+    dd   prim_read_char ;; @@(primitive (##read-char fd))@@
+    dd   prim_write_char ;; @@(primitive (##write-char c fd))@@
+
 ;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1663,7 +1666,6 @@ prim_getchar:
 	push string_getchar
 	call print_string
 %endif
-    int3
 
 	push ecx
 	movC ebx, 0		; ebx = 0 = STDIN
@@ -1768,9 +1770,15 @@ prim_get_fd_input_file:
     push ecx ;; save ecx
     call scm2str ;; transform eax (LAST_ARG) into a string on stack
 ; First, prepare the arguments for the 'open' syscall
+    mov ecx, (O_RDONLY ^ O_CREAT)   ; flags (0 means read-only)
+
+;; )@@
+
+;; @@(feature (or ##get-fd-input-file ##get-fd-output-file)
+
+common_input_output_file:
     mov eax, SYS_OPEN   ; 'open' syscall number
     mov ebx, esp  ; pointer to the null-terminated filename string
-    mov ecx, (O_RDONLY ^ O_CREAT)   ; flags (0 means read-only)
     mov edx, 0  ; mode (not used when opening a file for reading)
     CALL_KERNEL
 
@@ -1791,22 +1799,62 @@ prim_get_fd_input_file:
     pop ecx ;; retrive stack
     NBARGS(1)
     ret 
-
-
 ;; )@@
 
 ;; @@(feature ##get-fd-output-file (use scm2str)
 prim_get_fd_output_file:
     push ecx
     call scm2str ;; transform eax (LAST_ARG) into a string on stack
-    int3
 
+    mov ecx, (O_WRONLY ^ O_CREAT)   ; flags (0 means read-only)
+    jmp common_input_output_file
+;; )@@
 
+;; @@(feature ##read-char (use raw_int_to_scheme_int)
+prim_read_char:
+
+	push ecx
+
+    shr LAST_ARG, 1
+
+    mov ebx, LAST_ARG
+	;movC ebx, 0		; ebx = 0 = STDIN
+	push ebx		; buffer to read byte
+	movC edx, 1		; edx = 1 = number of bytes to read
+	mov  ecx, esp		; to the stack
+	movC eax, SYS_READ
+	CALL_KERNEL
     NBARGS(1)
-    pop ecx
+	test eax, eax
+	pop  LAST_ARG		; get buffer (0 if no byte read)
+	pop  ecx
+	jne  prim_read_char_done
+    lea  LAST_ARG, [NIL]
     ret
+prim_read_char_done:
+	jmp  raw_int_to_scheme_int
+;; )@@
 
 
+;; @@(feature ##write-char (use raw_int_to_scheme_int)
+prim_write_char:
+
+	push PREV_ARG
+	push ecx
+	shr  PREV_ARG, 1
+	push PREV_ARG
+    shr  LAST_ARG, 1
+	movC ebx, LAST_ARG	; ebx = 1 = STDOUT
+	movC edx, 1		; edx = 1 = number of bytes to write
+	mov  ecx, esp		; from the stack
+	movC eax, SYS_WRITE
+	CALL_KERNEL
+	pop  eax
+	pop  ecx
+	pop  LAST_ARG
+    ;lea  LAST_ARG [TRUE]
+	NBARGS(2)
+	ret
 ;; )@@
 
 ; @@(location prims)@@
