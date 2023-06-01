@@ -105,17 +105,33 @@ _start:
 %define SYS_WRITE       4
 
 %define SYS_OPEN        5
+
+;; Read-write bit 
 %define O_RDONLY    0
 %define O_WRONLY    1
 %define O_RDWR      2
 %define O_CREAT     64     ; octal 0100
-%define O_EXCL      200    ; octal 0200
-%define O_NOCTTY    400    ; octal 0400
-%define O_TRUNC     1000   ; octal 01000
-%define O_APPEND    2000   ; octal 02000
-%define O_NONBLOCK  4000   ; octal 04000
-%define O_SYNC      101000 ; octal 04010000
-%define O_ASYNC     20000  ; octal 020000
+%define O_EXCL      0200    ; octal 0200
+%define O_NOCTTY    0400    ; octal 0400
+%define O_TRUNC     01000   ; octal 01000
+%define O_APPEND    02000   ; octal 02000
+%define O_NONBLOCK  04000   ; octal 04000
+%define O_SYNC      0101000 ; octal 04010000
+%define O_ASYNC     020000  ; octal 020000
+
+;; MODES for open (permissions)
+%define S_IRUSR 0x100    ; Read permission for the owner
+%define S_IWUSR 0x80     ; Write permission for the owner
+%define S_IXUSR 0x40     ; Execute permission for the owner
+%define S_IRGRP 0x20     ; Read permission for the group
+%define S_IWGRP 0x10     ; Write permission for the group
+%define S_IXGRP 0x8      ; Execute permission for the group
+%define S_IROTH 0x4      ; Read permission for others
+%define S_IWOTH 0x2      ; Write permission for others
+%define S_IXOTH 0x1      ; Execute permission for others
+%define S_ISUID 0x800    ; Set user ID on execution
+%define S_ISGID 0x400    ; Set group ID on execution
+%define S_ISVTX 0x200    ; Sticky bit
 
 %define SYS_CLOSE       6
 
@@ -1783,7 +1799,7 @@ prim_get_fd_input_file:
 common_input_output_file:
     mov eax, SYS_OPEN   ; 'open' syscall number
     mov ebx, esp  ; pointer to the null-terminated filename string
-    mov edx, 0  ; mode (not used when opening a file for reading)
+    mov edx, (S_IRUSR ^ S_IWUSR ^ S_IROTH ^ S_IRGRP)  ; mode (not used when opening a file for reading)
     CALL_KERNEL
 
     ;; remove string on top
