@@ -117,6 +117,8 @@ _start:
 %define O_SYNC      101000 ; octal 04010000
 %define O_ASYNC     20000  ; octal 020000
 
+%define SYS_CLOSE       6
+
 %define SYS_MMAP        90
 %define MAP_PRIVATE     2
 %define MAP_ANONYMOUS   32
@@ -1215,6 +1217,8 @@ prim_dispatch_table:
     dd   prim_get_fd_output_file ;; @@(primitive (##get-fd-output-file filename))@@
     dd   prim_read_char ;; @@(primitive (##read-char fd))@@
     dd   prim_write_char ;; @@(primitive (##write-char c fd))@@
+    dd   prim_close_port ;; @@(primitive (##close-input-port fd))@@
+    dd   prim_close_port ;; @@(primitive (##close-output-port fd))@@
 
 ;; )@@
 
@@ -1854,6 +1858,17 @@ prim_write_char:
 	pop  LAST_ARG
     ;lea  LAST_ARG [TRUE]
 	NBARGS(2)
+	ret
+;; )@@ 
+
+
+;; @@(feature (or ##close-input-port ##close-output-port)
+prim_close_port:
+    shr  LAST_ARG, 1
+    mov  ebx, SYS_CLOSE
+    xchg eax, ebx
+	CALL_KERNEL
+	NBARGS(1)
 	ret
 ;; )@@
 
