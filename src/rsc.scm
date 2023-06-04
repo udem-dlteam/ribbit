@@ -2968,16 +2968,13 @@
 
      (define (report-first-status msg)
        (if progress-status
-         (begin 
-           (display msg)
-           (newline))))
+         (begin (display msg))))
 
      (define (report-status msg)
        (if progress-status
          (begin 
-           (display "Done.\n")
-           (display msg)
-           (newline))))
+           (display " Done.\n")
+           (display msg))))
 
      (let* ((vm-source 
               (if (equal? _target "rvm")
@@ -3036,7 +3033,7 @@
                                    host-file
                                    encodings
                                    program-compiled)))
-             (report-status "Writing target code...")
+             (report-status "Writing target code...\n")
              (write-target-code output-path generated-code))))))
 
    (define (parse-cmd-line args)
