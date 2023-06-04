@@ -2955,6 +2955,7 @@
                            lib-path
                            minify?
                            verbosity
+                           progress-status
                            primitives
                            features-enabled
                            features-disabled
@@ -2964,6 +2965,19 @@
      ;; source code from files and it supports various options.  It can
      ;; merge the compacted RVM code with the implementation of the RVM
      ;; for a specific target and minify the resulting target code.
+
+     (define (report-first-status msg)
+       (if progress-status
+         (begin 
+           (display msg)
+           (newline))))
+
+     (define (report-status msg)
+       (if progress-status
+         (begin 
+           (display "Done.\n")
+           (display msg)
+           (newline))))
 
      (let* ((vm-source 
               (if (equal? _target "rvm")
@@ -3002,23 +3016,28 @@
             encodings)
 
        (set! target _target)
-
-       (write-target-code
-         output-path
-         (generate-code
-           _target
-           verbosity
-           input-path
-           rvm-path
-           minify?
-           host-file
-           encodings
-           (compile-program
-             verbosity
-             host-file
-             features-enabled
-             features-disabled
-             (read-program lib-path src-path))))))
+ 
+       (report-first-status "Reading program source code...")
+       (let ((program-read (read-program lib-path src-path)))
+         (report-status "Compiling program...")
+         (let ((program-compiled (compile-program
+                                   verbosity
+                                   host-file
+                                   features-enabled
+                                   features-disabled
+                                   program-read)))
+           (report-status "Generating target code...")
+           (let ((generated-code (generate-code
+                                   _target
+                                   verbosity
+                                   input-path
+                                   rvm-path
+                                   minify?
+                                   host-file
+                                   encodings
+                                   program-compiled)))
+             (report-status "Writing target code...")
+             (write-target-code output-path generated-code))))))
 
    (define (parse-cmd-line args)
      (if (null? (cdr args))
@@ -3036,6 +3055,7 @@
                (features-enabled '())
                (features-disabled '())
                (rvm-path #f)
+               (progress-status #f)
                (encoding-name "original"))
 
            (let loop ((args (cdr args)))
@@ -3081,6 +3101,9 @@
                          ((member arg '("-vvv" "--vvv"))
                           (set! verbosity (+ verbosity 3))
                           (loop rest))
+                         ((member arg '("-ps" "--progress-status"))
+                          (set! progress-status #t)
+                          (loop rest))
                          ((member arg '("-q")) ;; silently ignore Chicken's -q option
                           (loop rest))
                          (else
@@ -3120,6 +3143,7 @@
                  (if (eq? lib-path '()) '("default") lib-path)
                  minify?
                  verbosity
+                 progress-status
                  primitives
                  features-enabled
                  features-disabled
