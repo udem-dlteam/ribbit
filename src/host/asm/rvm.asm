@@ -870,6 +870,8 @@ print_jump_call_done:
     DB_PRINT_RIB eax, 4
 %endif
 
+primitive_jump:
+
     ; @@(feature arity-check
     POP_STACK_TO(edx)
     mov TEMP3, edx
@@ -1010,6 +1012,9 @@ is_primitive:
 	ret 				; jump to primitive
 
 prim_ret:
+    test LAST_ARG, RIB_TAG
+    JNZ  primitive_jump
+
 	cmp  dword FIELD2(pc), FIX(PAIR_TYPE)	; jump? (tail call)
 	je   jump_prim
 
