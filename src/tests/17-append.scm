@@ -1,6 +1,21 @@
-(display (append '(1 2) '(3 4) (list '(5 6))))
+(display (append '(x) '(y)))
+(newline)
+(display (append '(a) '(b c d)))
+(newline)
+(display (append '(a (b)) '((c))))
+(newline)
+(display (append '(a b) '(c . d)))
+(newline)
+(display (append '() 'a))
+(newline)
+(display (append '(a b) 'c))
 (newline)
 
 ;;;options: -l r4rs
 ;;;expected:
-;;;(1 2 3 4 (5 6))
+;;;(x y)
+;;;(a b c d)
+;;;(a (b) (c))
+;;;(a b c . d)
+;;;a
+;;;(a b . c)

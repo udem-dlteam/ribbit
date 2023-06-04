@@ -732,6 +732,8 @@
            (fold hash-combine 0 (map opnd->hash opnd)))
           ((vector? opnd)
            (fold hash-combine 0 (map opnd->hash (vector->list opnd))))
+          ((pair? opnd)
+           (hash-combine (opnd->hash (car opnd)) (opnd->hash (cdr opnd))))
           ((rib? opnd)
            (c-rib-hash opnd))
           ((eq? '() opnd)
@@ -1251,12 +1253,6 @@
                  ((eqv? first 'quasiquote)
                   (expand-quasiquote (cadr expr)))
 
-                 ((eqv? first 'unquote)
-                  (error "unquote outside quasiquote"))
-
-                 ((eqv? first 'unquote-splicing)
-                  (error "unquote-splicing outside quasiquote"))
-
                  ((eqv? first 'set!)
                   (let ((var (cadr expr)))
                     (cons 'set!
@@ -1525,22 +1521,52 @@
 (define (expand-constant x)
   (cons 'quote (cons x '())))
 
-(define (expand-quasiquote x)
-  (cond 
-    ((not (pair? x)) (expand-constant x))
-    ((eqv? (car x) 'unquote) (expand-expr (cadr x)))
-    ((eqv? (car x) 'unquote-splicing) (error "unquote-splicing is not allowed outside of a list"))
-    (else (if (and 
-                (pair? (car x))
-                (eqv? (caar x) 'unquote-splicing))
-            (cons 'append
-                  (cons (expand-expr (cadar x))
-                        (cons (expand-quasiquote (cdr x))
-                              '())))
-            (cons 'cons
-                  (cons (expand-quasiquote (car x))
-                        (cons (expand-quasiquote (cdr x))
-                              '())))))))
+(define (list* . rest)
+  (define (improper lst)
+    (let loop ((lst (cdr lst)) (imp (car lst)))
+      (if (pair? lst)
+          (loop (cdr lst) (cons (car lst) imp))
+          imp)))
+  (if (and (pair? rest) (null? (cdr rest)))
+      (car rest)
+      (let loop ((rest rest) (lst '()))
+        (if (pair? rest)
+            (loop (cdr rest) (cons (car rest) lst))
+            (improper lst)))))
+
+
+(define (expand-quasiquote rest)
+  (let parse ((x rest) (depth 1))
+    (display depth)
+    (display " ")
+    (display x)
+    (newline)
+    (cond 
+      ((not (pair? x)) (expand-constant x))
+      ((eqv? (car x) 'unquote)
+       (if (= depth 1)
+           (if (pair? (cdr x))
+               (cadr x)
+               (error "unquote: bad syntax"))
+           (list 'cons (expand-constant 'unquote) (parse (cdr x) (- depth 1)))))
+      ((and (pair? (car x)) (eqv? (caar x) 'unquote-splicing))
+       (if (= depth 1)
+           (if (pair? (cdr x))
+               (begin 
+                 (display "splicing ")
+                 (display (cadar x))
+                 (display " into ")
+                 (display (cdr x))
+                 (newline)
+                 (list 'append (cadar x) (parse (cdr x) depth)))
+               (error "unquote-splicing: bad syntax"))
+           (list 'cons (expand-constant 'unquote-splicing) (parse (cdr x) (- depth 1)))))
+      ((eqv? (car x) 'quasiquote)
+       (list 'cons (expand-constant 'quasiquote) (parse (cdr x) (+ depth 1))))
+      (else
+        (list 'cons (parse (car x) depth) (parse (cdr x) depth))))))
+
+
 
 (define (expand-body exprs)
   (let loop ((exprs exprs) (defs '()))

@@ -425,8 +425,3 @@
         (write-chars (field1 lst) port)) ;; cdr
       #f))
 
-
-
-;; ---------------------- LOAD ---------------------- ;;
-(define (load filename)
-  )

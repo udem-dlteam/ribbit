@@ -1,7 +1,7 @@
-(##include "./types.scm")
-(##include "./pair-list.scm")
-(##include "./io.scm")
-(##include "./control.scm")
+(##include-once "./types.scm")
+(##include-once "./pair-list.scm")
+(##include-once "./io.scm")
+(##include-once "./control.scm")
 
 ;; Compiler from Ribbit Scheme to RVM code.
 
@@ -12,11 +12,9 @@
 (define if-op        4)
 
 (define (add-nb-args nb tail)
-  (if ##feature-arity-check
-    (rib const-op
-         nb
-         tail)
-    tail))
+  (rib const-op
+       nb
+       tail))
 
 (define (comp cte expr cont)
   (cond ((symbol? expr)
@@ -270,5 +268,8 @@
   (newline)
   (exit 1))
 
-;;;----------------------------------------------------------------------------
 
+;; ---------------------- LOAD ---------------------- ;;
+
+(define (load filename)
+  )
