@@ -97,7 +97,7 @@ _start:
 
 %define WORD_SIZE       4
 %define RIB_SIZE_WORDS  4
-%define HEAP_SIZE_RIBS  1000000
+%define HEAP_SIZE_RIBS  10000000
 %define HEAP_SIZE (HEAP_SIZE_RIBS*RIB_SIZE_WORDS*WORD_SIZE)
 
 %define SYS_EXIT        1
@@ -1012,9 +1012,6 @@ is_primitive:
 	ret 				; jump to primitive
 
 prim_ret:
-    test LAST_ARG, RIB_TAG
-    JNZ  primitive_jump
-
 	cmp  dword FIELD2(pc), FIX(PAIR_TYPE)	; jump? (tail call)
 	je   jump_prim
 
@@ -1240,6 +1237,7 @@ prim_dispatch_table:
     dd   prim_write_char ;; @@(primitive (##write-char c fd))@@
     dd   prim_close_port ;; @@(primitive (##close-input-port fd))@@
     dd   prim_close_port ;; @@(primitive (##close-output-port fd))@@
+    dd   prim_apply      ;; @@(primitive (apply function args))@@
 
 ;; )@@
 
@@ -1891,6 +1889,42 @@ prim_close_port:
 	CALL_KERNEL
 	NBARGS(1)
 	ret
+;; )@@
+
+;; @@(feature apply
+prim_apply:
+    mov TEMP2, LAST_ARG ;; move list into TEMP2
+    mov TEMP3, PREV_ARG ;; move procedure into TEMP3
+    mov ebx, 0 ;; ebx is saved after gc
+
+prim_apply_loop:
+    lea edx, [NIL] ;; do it everytime because of gc
+    cmp edx, TEMP2
+    je  prim_apply_done
+	push FIX(PAIR_TYPE)
+    mov  eax, TEMP2
+    mov  eax, FIELD0(eax) ;; take the first field of eax
+
+    call alloc_rib ;; add it to the stack
+
+    mov  eax, TEMP2
+    mov  eax, FIELD1(eax)
+    mov  TEMP2, eax
+
+    add  ebx, 1
+    jmp  prim_apply_loop
+
+prim_apply_done:
+    lea  ebx, [FIX(ebx)] ;; tag number
+    mov  eax, ebx
+	push FIX(PAIR_TYPE) 
+    call alloc_rib ;; push it
+    mov  eax, TEMP3 ;; return the procedure
+    push primitive_jump
+    ret  WORD_SIZE*1 ;; remove return address
+
+
+
 ;; )@@
 
 ; @@(location prims)@@
