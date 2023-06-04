@@ -1895,6 +1895,8 @@ prim_close_port:
 prim_apply:
     mov TEMP2, LAST_ARG ;; move list into TEMP2
     mov TEMP3, PREV_ARG ;; move procedure into TEMP3
+    POP_STACK
+    POP_STACK
     mov ebx, 0 ;; ebx is saved after gc
 
 prim_apply_loop:
@@ -1921,7 +1923,7 @@ prim_apply_done:
     call alloc_rib ;; push it
     mov  eax, TEMP3 ;; return the procedure
     push primitive_jump
-    ret  WORD_SIZE*1 ;; remove return address
+    ret  WORD_SIZE*1 ;; remove return address and jump to primitive_jump
 
 
 
