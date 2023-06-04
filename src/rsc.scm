@@ -547,7 +547,7 @@
        (vector-set! r 2 field2)
        r))
 
-   (define (rib? o) (vector? o))
+   (define (rib? o) (and (vector? o) (= (vector-length o) 3)))
    (define (field0 o) (vector-ref o 0))
    (define (field1 o) (vector-ref o 1))
    (define (field2 o) (vector-ref o 2))
@@ -1519,30 +1519,19 @@
           (expand-constant expr))))
 
 (define (expand-constant x)
-  (cons 'quote (cons x '())))
-
-(define (list* . rest)
-  (define (improper lst)
-    (let loop ((lst (cdr lst)) (imp (car lst)))
-      (if (pair? lst)
-          (loop (cdr lst) (cons (car lst) imp))
-          imp)))
-  (if (and (pair? rest) (null? (cdr rest)))
-      (car rest)
-      (let loop ((rest rest) (lst '()))
-        (if (pair? rest)
-            (loop (cdr rest) (cons (car rest) lst))
-            (improper lst)))))
-
+  (list 'quote x))
 
 (define (expand-quasiquote rest)
   (let parse ((x rest) (depth 1))
-    (display depth)
-    (display " ")
-    (display x)
-    (newline)
+    ;; (display depth)
+    ;; (display " ")
+    ;; (display x)
+    ;; (newline)
     (cond 
-      ((not (pair? x)) (expand-constant x))
+      ((not (pair? x))
+       (if (vector? x)
+         (list 'list->vector (parse (vector->list x) depth))
+         (expand-constant x)))
       ((eqv? (car x) 'unquote)
        (if (= depth 1)
            (if (pair? (cdr x))
@@ -1553,11 +1542,11 @@
        (if (= depth 1)
            (if (pair? (cdr x))
                (begin 
-                 (display "splicing ")
-                 (display (cadar x))
-                 (display " into ")
-                 (display (cdr x))
-                 (newline)
+                 ;; (display "splicing ")
+                 ;; (display (cadar x))
+                 ;; (display " into ")
+                 ;; (display (cdr x))
+                 ;; (newline)
                  (list 'append (cadar x) (parse (cdr x) depth)))
                (error "unquote-splicing: bad syntax"))
            (list 'cons (expand-constant 'unquote-splicing) (parse (cdr x) (- depth 1)))))
@@ -1565,7 +1554,6 @@
        (list 'cons (expand-constant 'quasiquote) (parse (cdr x) (+ depth 1))))
       (else
         (list 'cons (parse (car x) depth) (parse (cdr x) depth))))))
-
 
 
 (define (expand-body exprs)
