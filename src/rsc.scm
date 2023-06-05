@@ -110,8 +110,8 @@
 
   (ribbit
 
-   (define (cmd-line)
-     (cons "" '()))
+   ;; (define (cmd-line)
+   ;;   (cons "" '()))
 
    (define (number? x) (integer? x)))
 
@@ -1511,6 +1511,29 @@
                                                       (cddr expr))
                                                 '())))))
                       #f)))
+
+                 ((eqv? first 'case)
+                  (let ((key (cadr expr)))
+                    (let ((clauses (cddr expr)))
+                      (if (pair? clauses)
+                        (let ((clause (car clauses)))
+                          (if (eqv? (car clause) 'else)
+                            (expand-expr (cons 'begin (cdr clause)))
+                            (expand-expr
+                              (cons 'if
+                                    (cons (cons 'memv
+                                                (cons key
+                                                      (cons (cons 'quote
+                                                                  (cons (car clause)
+                                                                        '()))
+                                                            '())))
+                                          (cons (cons 'begin
+                                                      (cdr clause))
+                                                (cons (cons 'case
+                                                            (cons key
+                                                                  (cdr clauses)))
+                                                      '())))))))
+                        #f))))
 
                  (else
                    (expand-list expr)))))
