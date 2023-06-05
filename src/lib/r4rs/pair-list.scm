@@ -48,18 +48,17 @@
       (+ 1 (length (cdr lst)))
       0))
 
-(define (append lst . lsts)
-  (define (append2 lst1 lst2)
-    (if (pair? lst1)
-      (cons (car lst1) (append2 (cdr lst1) lst2))
-      lst2))
-
+(define (append . lsts)
   (define (append-aux lsts)
     (if (pair? lsts)
-      (append2 (car lsts) (append-aux (cdr lsts)))
-      lsts))
-
-  (append-aux (cons lst lsts)))
+        (let ((lst (car lsts)))
+          (if (pair? lst)
+              (cons (car lst) (append-aux (cons (cdr lst) (cdr lsts))))
+              (if (null? (cdr lsts))
+                  (car lsts)
+                  (append-aux (cdr lsts)))))
+        '()))
+  (append-aux lsts))
 
 (define (reverse lst)
   (reverse-aux lst '()))
@@ -121,4 +120,3 @@
   (if (< 0 k)
       (make-list-aux (- k 1) fill (cons fill lst))
       lst))
-

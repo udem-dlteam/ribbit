@@ -110,8 +110,8 @@
 
   (ribbit
 
-   (define (cmd-line)
-     (cons "" '()))
+   ;; (define (cmd-line)
+   ;;   (cons "" '()))
 
    (define (number? x) (integer? x)))
 
@@ -547,7 +547,7 @@
        (vector-set! r 2 field2)
        r))
 
-   (define (rib? o) (vector? o))
+   (define (rib? o) (and (vector? o) (= (vector-length o) 3)))
    (define (field0 o) (vector-ref o 0))
    (define (field1 o) (vector-ref o 1))
    (define (field2 o) (vector-ref o 2))
@@ -732,6 +732,8 @@
            (fold hash-combine 0 (map opnd->hash opnd)))
           ((vector? opnd)
            (fold hash-combine 0 (map opnd->hash (vector->list opnd))))
+          ((pair? opnd)
+           (hash-combine (opnd->hash (car opnd)) (opnd->hash (cdr opnd))))
           ((rib? opnd)
            (c-rib-hash opnd))
           ((eq? '() opnd)
@@ -1251,12 +1253,6 @@
                  ((eqv? first 'quasiquote)
                   (expand-quasiquote (cadr expr)))
 
-                 ((eqv? first 'unquote)
-                  (error "unquote outside quasiquote"))
-
-                 ((eqv? first 'unquote-splicing)
-                  (error "unquote-splicing outside quasiquote"))
-
                  ((eqv? first 'set!)
                   (let ((var (cadr expr)))
                     (cons 'set!
@@ -1516,6 +1512,29 @@
                                                 '())))))
                       #f)))
 
+                 ((eqv? first 'case)
+                  (let ((key (cadr expr)))
+                    (let ((clauses (cddr expr)))
+                      (if (pair? clauses)
+                        (let ((clause (car clauses)))
+                          (if (eqv? (car clause) 'else)
+                            (expand-expr (cons 'begin (cdr clause)))
+                            (expand-expr
+                              (cons 'if
+                                    (cons (cons 'memv
+                                                (cons key
+                                                      (cons (cons 'quote
+                                                                  (cons (car clause)
+                                                                        '()))
+                                                            '())))
+                                          (cons (cons 'begin
+                                                      (cdr clause))
+                                                (cons (cons 'case
+                                                            (cons key
+                                                                  (cdr clauses)))
+                                                      '())))))))
+                        #f))))
+
                  (else
                    (expand-list expr)))))
 
@@ -1523,24 +1542,42 @@
           (expand-constant expr))))
 
 (define (expand-constant x)
-  (cons 'quote (cons x '())))
+  (list 'quote x))
 
-(define (expand-quasiquote x)
-  (cond 
-    ((not (pair? x)) (expand-constant x))
-    ((eqv? (car x) 'unquote) (expand-expr (cadr x)))
-    ((eqv? (car x) 'unquote-splicing) (error "unquote-splicing is not allowed outside of a list"))
-    (else (if (and 
-                (pair? (car x))
-                (eqv? (caar x) 'unquote-splicing))
-            (cons 'append
-                  (cons (expand-expr (cadar x))
-                        (cons (expand-quasiquote (cdr x))
-                              '())))
-            (cons 'cons
-                  (cons (expand-quasiquote (car x))
-                        (cons (expand-quasiquote (cdr x))
-                              '())))))))
+(define (expand-quasiquote rest)
+  (let parse ((x rest) (depth 1))
+    ;; (display depth)
+    ;; (display " ")
+    ;; (display x)
+    ;; (newline)
+    (cond 
+      ((not (pair? x))
+       (if (vector? x)
+         (list 'list->vector (parse (vector->list x) depth))
+         (expand-constant x)))
+      ((eqv? (car x) 'unquote)
+       (if (= depth 1)
+           (if (pair? (cdr x))
+               (cadr x)
+               (error "unquote: bad syntax"))
+           (list 'cons (expand-constant 'unquote) (parse (cdr x) (- depth 1)))))
+      ((and (pair? (car x)) (eqv? (caar x) 'unquote-splicing))
+       (if (= depth 1)
+           (if (pair? (cdr x))
+               (begin 
+                 ;; (display "splicing ")
+                 ;; (display (cadar x))
+                 ;; (display " into ")
+                 ;; (display (cdr x))
+                 ;; (newline)
+                 (list 'append (cadar x) (parse (cdr x) depth)))
+               (error "unquote-splicing: bad syntax"))
+           (list 'cons (expand-constant 'unquote-splicing) (parse (cdr x) (- depth 1)))))
+      ((eqv? (car x) 'quasiquote)
+       (list 'cons (expand-constant 'quasiquote) (parse (cdr x) (+ depth 1))))
+      (else
+        (list 'cons (parse (car x) depth) (parse (cdr x) depth))))))
+
 
 (define (expand-body exprs)
   (let loop ((exprs exprs) (defs '()))
@@ -2941,6 +2978,7 @@
                            lib-path
                            minify?
                            verbosity
+                           progress-status
                            primitives
                            features-enabled
                            features-disabled
@@ -2950,6 +2988,16 @@
      ;; source code from files and it supports various options.  It can
      ;; merge the compacted RVM code with the implementation of the RVM
      ;; for a specific target and minify the resulting target code.
+
+     (define (report-first-status msg)
+       (if progress-status
+         (begin (display msg))))
+
+     (define (report-status msg)
+       (if progress-status
+         (begin 
+           (display " Done.\n")
+           (display msg))))
 
      (let* ((vm-source 
               (if (equal? _target "rvm")
@@ -2988,23 +3036,28 @@
             encodings)
 
        (set! target _target)
-
-       (write-target-code
-         output-path
-         (generate-code
-           _target
-           verbosity
-           input-path
-           rvm-path
-           minify?
-           host-file
-           encodings
-           (compile-program
-             verbosity
-             host-file
-             features-enabled
-             features-disabled
-             (read-program lib-path src-path))))))
+ 
+       (report-first-status "Reading program source code...")
+       (let ((program-read (read-program lib-path src-path)))
+         (report-status "Compiling program...")
+         (let ((program-compiled (compile-program
+                                   verbosity
+                                   host-file
+                                   features-enabled
+                                   features-disabled
+                                   program-read)))
+           (report-status "Generating target code...")
+           (let ((generated-code (generate-code
+                                   _target
+                                   verbosity
+                                   input-path
+                                   rvm-path
+                                   minify?
+                                   host-file
+                                   encodings
+                                   program-compiled)))
+             (report-status "Writing target code...\n")
+             (write-target-code output-path generated-code))))))
 
    (define (parse-cmd-line args)
      (if (null? (cdr args))
@@ -3022,6 +3075,7 @@
                (features-enabled '())
                (features-disabled '())
                (rvm-path #f)
+               (progress-status #f)
                (encoding-name "original"))
 
            (let loop ((args (cdr args)))
@@ -3067,6 +3121,9 @@
                          ((member arg '("-vvv" "--vvv"))
                           (set! verbosity (+ verbosity 3))
                           (loop rest))
+                         ((member arg '("-ps" "--progress-status"))
+                          (set! progress-status #t)
+                          (loop rest))
                          ((member arg '("-q")) ;; silently ignore Chicken's -q option
                           (loop rest))
                          (else
@@ -3106,6 +3163,7 @@
                  (if (eq? lib-path '()) '("default") lib-path)
                  minify?
                  verbosity
+                 progress-status
                  primitives
                  features-enabled
                  features-disabled
