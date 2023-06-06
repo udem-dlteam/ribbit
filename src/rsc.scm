@@ -540,14 +540,17 @@
 
    (define (instance? o type) (and (rib? o) (eqv? (field2 o) type)))
 
+   (define rib-tag (cons '() '())) ;; make unique tag
+
    (define (rib field0 field1 field2)
-     (let ((r (make-vector 3)))
+     (let ((r (make-vector 4)))
        (vector-set! r 0 field0)
        (vector-set! r 1 field1)
        (vector-set! r 2 field2)
+       (vector-set! r 3 rib-tag)
        r))
 
-   (define (rib? o) (and (vector? o) (= (vector-length o) 3)))
+   (define (rib? o) (and (vector? o) (= (vector-length o) 4) (eq? (vector-ref o 3) rib-tag)))
    (define (field0 o) (vector-ref o 0))
    (define (field1 o) (vector-ref o 1))
    (define (field2 o) (vector-ref o 2))
@@ -558,9 +561,7 @@
    (define (procedure2? o) (instance? o procedure-type))
    (define (make-procedure code env) (c-rib code env procedure-type))
    (define (procedure-code proc) (c-rib-oper proc))
-   (define (procedure-env proc) (c-rib-opnd proc))
-
-   ))
+   (define (procedure-env proc) (c-rib-opnd proc))))
 
 
 
