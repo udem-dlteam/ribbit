@@ -9,6 +9,7 @@
 (##include-once "./string.scm")
 (##include-once "./vector.scm")
 (##include-once "./control.scm")
+(##include-once "./compiler.scm")
 
 ;;;----------------------------------------------------------------------------
 
