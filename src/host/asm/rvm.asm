@@ -1238,6 +1238,7 @@ prim_dispatch_table:
     dd   prim_close_port ;; @@(primitive (##close-input-port fd))@@
     dd   prim_close_port ;; @@(primitive (##close-output-port fd))@@
     dd   prim_apply      ;; @@(primitive (apply function args))@@
+    dd   prim_welcome    ;; @@(primitive (welcome-msg))@@
 
 ;; )@@
 
@@ -1926,6 +1927,24 @@ prim_apply_done:
     ret  WORD_SIZE*1 ;; remove return address and jump to primitive_jump
 
 
+
+;; )@@
+
+;; @@(feature welcome-msg
+
+hello: dd "              ____________________", 0xa,"             |                    |", 0xa, "             | Welcome to Ribbit! |", 0xa,"             |                    |",0xa,"    λ        | - Rib the Frog     |", 0xa,"  @...@  --- |____________________|", 0xa, " (-----)",0xa,"( >___< )",0xa,"^^ ~~~ ^^",0xa,0x0
+%define HELLO_SIZE ($-hello)-WORD_SIZE*5
+
+prim_welcome:
+    push ecx
+    mov eax, 4 ; syscall number (sys_write)
+    mov ebx, 1 ; file descriptor (stdout)
+    mov ecx, hello ; pointer to message to write
+    mov edx, HELLO_SIZE ; message length
+    CALL_KERNEL
+    pop ecx
+    NBARGS(0)
+    ret
 
 ;; )@@
 
