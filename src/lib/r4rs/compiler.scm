@@ -295,7 +295,8 @@
 (define (repl)
   (welcome-msg)
   (newline)
-  (##repl-inner))
+  (##repl-inner)
+  (exit 0))
 
 
 (define (error msg info)
