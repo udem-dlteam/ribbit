@@ -1,5 +1,6 @@
 (##include-once "./types.scm")
 (##include-once "./char.scm")
+(##include-once "./pair-list.scm")
 
 (cond-expand
   ((host js)
@@ -251,7 +252,7 @@
   (let ((c (peek-char-non-whitespace port)))
     (cond ((eof-object? c) c)
           ((eqv? c #\()
-           (read-char port) ;; skip "("
+           (read-char port)
            (read-list port))
           ((eqv? c #\#)
            (read-char port) ;; skip "#"
@@ -265,14 +266,14 @@
                    ((eqv? c #\\)
                     (read-char port) ;; skip "\\"
                     (read-char port))
-                   (else ;; assume it is #\(
+                   (else
                      (list->vector (read port))))))
           ((eqv? c #\')
            (read-char port) ;; skip "'"
-           (rib 'quote (rib (read port) '() 0) 0))
+           (rib 'quote (rib (read port) '() pair-type) pair-type))
           ((eqv? c #\")
            (read-char port) ;; skip """
-           (list->string (read-chars '())))
+           (list->string (read-chars '() port)))
           (else
             (read-char port) ;; skip first char
             (let ((s (list->string (rib c (read-symbol port) 0))))
@@ -291,8 +292,8 @@
 
 (define (read-symbol port)
   (let ((c (peek-char port)))
-    (if (or (eqv? c #\() ;; #\(
-            (eqv? c #\)) ;; #\)
+    (if (or (eqv? c #\()
+            (eqv? c #\))
             (eof-object? c)
             (char-whitespace? c)) ;; whitespace
         '()
@@ -303,7 +304,7 @@
 (define (read-chars lst port)
   (let ((c (read-char port)))
     (cond ((eof-object? c) '())
-          ((eqv? c #\") lst)
+          ((eqv? c #\") (reverse lst))
           ((eqv? c #\\)
            (let ((c2 (read-char port)))
              (read-chars
@@ -404,7 +405,7 @@
          (write-list (field1 o) port) ;; cdr
          (write-char #\) port)) ;; #\)
         ((symbol? o)
-         (display (field1 o) port)) ;; name
+         (write-chars (field0 (symbol->string o)) port))
         ((string? o)
          (write-chars (field0 o) port)) ;; chars
         ((vector? o)
