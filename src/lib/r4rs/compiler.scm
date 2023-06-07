@@ -65,7 +65,7 @@
 
                  ((eqv? first 'lambda)
                   (let* ((params (cadr expr)) 
-                         (variadic (or (symbol? params) (not (eq? (last-item params) '()))))
+                         (variadic (or (symbol? params) (not (eqv? (last-item params) '()))))
                          (nb-params (if variadic (+ 1 (* 2 (improper-length params))) (* 2 (length params)))))
                     (rib const-op
                          (make-procedure
