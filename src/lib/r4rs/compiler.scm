@@ -3,6 +3,21 @@
 (##include-once "./io.scm")
 (##include-once "./control.scm")
 
+(cond-expand
+  ((host js)
+   (define-primitive
+     (welcome-msg)
+     "() => (console.log(`
+              ____________________
+             |                    |
+             | Welcome to Ribbit! |
+             |                    |
+    λ        | - Rib the Frog     |
+  @...@  --- |____________________|
+ (-----)
+( >___< )
+^^ ~~~ ^^`), true),")))
+
 ;; Compiler from Ribbit Scheme to RVM code.
 
 (define jump/call-op 0)
@@ -15,6 +30,16 @@
   (rib const-op
        nb
        tail))
+
+(define (improper-length lst)
+  (if (pair? lst)
+    (+ 1 (improper-length (cdr lst)))
+    0))
+
+(define (last-item lst)
+  (if (pair? lst)
+    (last-item (cdr lst))
+    lst))
 
 (define (comp cte expr cont)
   (cond ((symbol? expr)
@@ -39,112 +64,119 @@
                              (comp cte (cadddr expr) cont))))
 
                  ((eqv? first 'lambda)
-                  (let ((params (cadr expr)))
+                  (let* ((params (cadr expr)) 
+                         (variadic (or (symbol? params) (not (eqv? (last-item params) '()))))
+                         (nb-params (if variadic (+ 1 (* 2 (improper-length params))) (* 2 (length params)))))
                     (rib const-op
                          (make-procedure
-                          (rib (* 2 (length params))
-                               0
-;;                               #; ;; support for single expression in body
-;;                               (comp (extend params
-;;                                             (cons #f
-;;                                                   (cons #f
-;;                                                         cte)))
-;;                                     (caddr expr)
-;;                                     tail)
-                               ;#; ;; support for multiple expressions in body
-                               (comp-begin (extend params
-                                                   (cons #f
-                                                         (cons #f
-                                                               cte)))
-                                           (cddr expr)
-                                           tail))
-                          '())
+                           (rib nb-params
+                                0
+                                (comp-begin (extend params
+                                                    (cons #f
+                                                          (cons #f
+                                                                cte)))
+                                            (cddr expr)
+                                            tail))
+                           '())
                          (if (null? cte)
-                             cont
-                             (add-nb-args
-                               1
-                               (gen-call 'close cont))))))
+                           cont
+                           (add-nb-args
+                             1
+                             (gen-call 'close cont))))))
 
-;#; ;; support for begin special form
+                 ;#; ;; support for begin special form
                  ((eqv? first 'begin)
                   (comp-begin cte (cdr expr) cont))
 
-;#; ;; support for single armed let special form
+                 ;#; ;; support for single armed let special form
                  ((eqv? first 'let)
                   (let ((binding (car (cadr expr))))
                     (comp-bind cte
                                (car binding)
                                (cadr binding)
-;;                               #; ;; support for single expression in body
-;;                               (caddr expr)
+                               ;;                               #; ;; support for single expression in body
+                               ;;                               (caddr expr)
                                ;#; ;; support for multiple expressions in body
                                (cddr expr)
                                cont)))
 
-;#; ;; support for and special form
+                 ;#; ;; support for and special form
                  ((eqv? first 'and)
                   (comp cte
                         (if (pair? (cdr expr))
-                            (let ((second (cadr expr)))
-                              (if (pair? (cddr expr))
-                                  (build-if second
-                                            (cons 'and (cddr expr))
-                                            #f)
-                                  second))
-                            #t)
+                          (let ((second (cadr expr)))
+                            (if (pair? (cddr expr))
+                              (build-if second
+                                        (cons 'and (cddr expr))
+                                        #f)
+                              second))
+                          #t)
                         cont))
 
-;#; ;; support for or special form
+                 ;#; ;; support for or special form
                  ((eqv? first 'or)
                   (comp cte
                         (if (pair? (cdr expr))
-                            (let ((second (cadr expr)))
-                              (if (pair? (cddr expr))
-                                  (list 'let
-                                         (list (list '_ second))
-                                         (build-if '_
-                                                   '_
-                                                   (cons 'or (cddr expr))))
-                                  second))
-                            #f)
+                          (let ((second (cadr expr)))
+                            (if (pair? (cddr expr))
+                              (list 'let
+                                    (list (list '_ second))
+                                    (build-if '_
+                                              '_
+                                              (cons 'or (cddr expr))))
+                              second))
+                          #f)
                         cont))
 
-;#; ;; support for cond special form
+                 ;#; ;; support for cond special form
                  ((eqv? first 'cond)
                   (comp cte
                         (if (pair? (cdr expr))
-                            (if (eqv? 'else (car (cadr expr)))
-                                (cons 'begin (cdr (cadr expr)))
-                                (build-if (car (cadr expr))
-                                          (cons 'begin (cdr (cadr expr)))
-                                          (cons 'cond (cddr expr))))
-                            #f)
+                          (if (eqv? 'else (car (cadr expr)))
+                            (cons 'begin (cdr (cadr expr)))
+                            (build-if (car (cadr expr))
+                                      (cons 'begin (cdr (cadr expr)))
+                                      (cons 'cond (cddr expr))))
+                          #f)
                         cont))
 
+                 ((eqv? first 'case)
+                  (let ((key (cadr expr)))
+                    (let ((clauses (cddr expr)))
+                      (if (pair? clauses)
+                        (let ((clause (car clauses)))
+                          (comp cte
+                                (if (eqv? (car clause) 'else)
+                                  (cons 'begin (cdr clause))
+                                  (build-if (list 'memv key (list 'quote (car clause)))
+                                            (cons 'begin (cdr clause))
+                                            (list 'case key (cdr clauses))))))
+                        #f))))
+
                  (else
-;;                  #; ;; support for calls with only variable in operator position
-;;                  (comp-call cte
-;;                             (cdr expr)
-;;                             (cons first cont))
-                  ;#; ;; support for calls with any expression in operator position
-                  (let ((args (cdr expr)))
-                    (if (symbol? first)
-                        (comp-call cte
-                                   args
-                                   (length args)
-                                   (cons first cont))
-                        (comp-bind cte
-                                   '_
-                                   first
-;;                                   #; ;; support for single expression in body
-;;                                   (cons '_ args)
-                                   ;#; ;; support for multiple expressions in body
-                                   (list (cons '_ args))
-                                   cont)))))))
+                   ;;                  #; ;; support for calls with only variable in operator position
+                   ;;                  (comp-call cte
+                   ;;                             (cdr expr)
+                   ;;                             (cons first cont))
+                   ;#; ;; support for calls with any expression in operator position
+                   (let ((args (cdr expr)))
+                     (if (symbol? first)
+                       (comp-call cte
+                                  args
+                                  (length args)
+                                  (cons first cont))
+                       (comp-bind cte
+                                  '_
+                                  first
+                                  ;;                                   #; ;; support for single expression in body
+                                  ;;                                   (cons '_ args)
+                                  ;#; ;; support for multiple expressions in body
+                                  (list (cons '_ args))
+                                  cont)))))))
 
         (else
-         ;; self-evaluating
-         (rib const-op expr cont))))
+          ;; self-evaluating
+          (rib const-op expr cont))))
 
 ;#; ;; support for and, or, cond special forms
 (define (build-if a b c) (cons 'if (list a b c)))
@@ -211,7 +243,7 @@
           (let ((v (lookup var cte 0)))
             (add-nb-args
               nb-args
-              (gen-call (if (and (integer? v) ##feature-arity-check) (+ 1 v) v) cont)))))))
+              (gen-call (if (integer? v) (+ 1 v) v) cont)))))))
 
 (define (lookup var cte i)
   (if (pair? cte)
@@ -250,15 +282,20 @@
 (define (eval expr)
   ((compile expr)))
 
-(define (repl)
-  (putchar2 62 32) ;; #\> and space
+(define (##repl-inner)
+  (display "> ")
   (let ((expr (read)))
     (if (eof-object? expr)
         (newline)
         (begin
           (write (eval expr))
           (newline)
-          (repl)))))
+          (##repl-inner)))))
+
+(define (repl)
+  (welcome-msg)
+  (newline)
+  (##repl-inner))
 
 
 (define (error msg info)
@@ -268,8 +305,8 @@
   (newline)
   (exit 1))
 
-
 ;; ---------------------- LOAD ---------------------- ;;
 
 (define (load filename)
   )
+

@@ -1,4 +1,6 @@
 (##include-once "./types.scm")
+(##include-once "./char.scm")
+(##include-once "./pair-list.scm")
 
 (cond-expand
   ((host js)
@@ -202,6 +204,7 @@
 
 (define (input-port? port)
   (eqv? (field2 port) input-port-type))
+
 (define (##get-last-char port)
   (field1 (field1 port)))
 
@@ -228,16 +231,16 @@
       (if (eqv? ch '()) ##eof (integer->char ch)))
     (let ((ch (##get-last-char port)))
       (##set-last-char port '())
-      (integer->char ch))))
+      ch)))
 
 (define (peek-char (port (current-input-port)))
   (if (input-port-close? port)
     (error "Cannot read from a closed port"))
   (if (eqv? (##get-last-char port) '())
-    (let* ((ch (##read-char (field0 port))) (ch (if (eqv? ch '()) ##eof ch)))
+    (let ((ch (read-char port)))
       (##set-last-char port ch)
-      (integer->char ch))
-    (integer->char (##get-last-char port))))
+      ch)
+    (##get-last-char port)))
 
 
 ;; ---------------------- READ ---------------------- ;;
@@ -247,31 +250,30 @@
     (error "Cannot read from a closed port"))
 
   (let ((c (peek-char-non-whitespace port)))
-    (cond ((eof-object? c)
-           c)
-          ((eqv? c #\() ;; #\(
-           (read-char port) ;; skip "("
+    (cond ((eof-object? c) c)
+          ((eqv? c #\()
+           (read-char port)
            (read-list port))
-          ((eqv? c #\#) ;; #\#
+          ((eqv? c #\#)
            (read-char port) ;; skip "#"
            (let ((c (peek-char port)))
-             (cond ((eqv? c #\f) ;; #\f
+             (cond ((eqv? c #\f)
                     (read-char port) ;; skip "f"
                     #f)
-                   ((eqv? c #\t) ;; #\t
+                   ((eqv? c #\t)
                     (read-char port) ;; skip "t"
                     #t)
-                   ((eqv? c #\\) ;; #\\
+                   ((eqv? c #\\)
                     (read-char port) ;; skip "\\"
                     (read-char port))
-                   (else ;; assume it is #\(
+                   (else
                      (list->vector (read port))))))
-          ((eqv? c #\') ;; #\'
+          ((eqv? c #\')
            (read-char port) ;; skip "'"
-           (rib 'quote (rib (read port) '() 0) 0))
-          ;; ((eqv? c 34) ;; #\"
-          ;;  (read-char) ;; skip """
-          ;;  (list->string (read-chars '())))
+           (rib 'quote (rib (read port) '() pair-type) pair-type))
+          ((eqv? c #\")
+           (read-char port) ;; skip """
+           (list->string (read-chars '() port)))
           (else
             (read-char port) ;; skip first char
             (let ((s (list->string (rib c (read-symbol port) 0))))
@@ -290,26 +292,46 @@
 
 (define (read-symbol port)
   (let ((c (peek-char port)))
-    (if (or (eqv? c #\() ;; #\(
-            (eqv? c #\)) ;; #\)
+    (if (or (eqv? c #\()
+            (eqv? c #\))
             (eof-object? c)
-            (< (field0 c) 33)) ;; whitespace
+            (char-whitespace? c)) ;; whitespace
         '()
         (begin
           (read-char port)
-          (rib (field0 c) (read-symbol port) 0)))))
+          (rib c (read-symbol port) 0)))))
+
+(define (read-chars lst port)
+  (let ((c (read-char port)))
+    (cond ((eof-object? c) '())
+          ((eqv? c #\") (reverse lst))
+          ((eqv? c #\\)
+           (let ((c2 (read-char port)))
+             (read-chars
+              (rib (cond
+                     ;#; ;; support for \n in strings
+                     ((eqv? c2 #\n) #\newline) ;; #\n
+                     ;#; ;; support for \r in strings
+                     ((eqv? c2 #\r) #\return) ;; #\r
+                     ;#; ;; support for \t in strings
+                     ((eqv? c2 #\t) #\tab)  ;; #\t
+                     (else          c2))
+                    lst 0)
+              port)))
+          (else
+           (read-chars (rib c lst 0) port)))))
 
 (define (peek-char-non-whitespace port)
   (let ((c (peek-char port)))
     (if (eof-object? c) ;; eof?
-        c
-        (if (< 32 (field0 c)) ;; above #\space ?
-            (if (eqv? c #\;) ;; #\;
-                (skip-comment port)
-                c)
-            (begin
-              (read-char port)
-              (peek-char-non-whitespace port))))))
+      c
+      (if (char-whitespace? c) 
+        (begin
+          (read-char port)
+          (peek-char-non-whitespace port))
+        (if (eqv? c #\;) ;; #\;
+          (skip-comment port)
+          c)))))
 
 (define (skip-comment port)
   (let ((c (read-char port)))
@@ -383,7 +405,7 @@
          (write-list (field1 o) port) ;; cdr
          (write-char #\) port)) ;; #\)
         ((symbol? o)
-         (display (field1 o) port)) ;; name
+         (write-chars (field0 (symbol->string o)) port))
         ((string? o)
          (write-chars (field0 o) port)) ;; chars
         ((vector? o)

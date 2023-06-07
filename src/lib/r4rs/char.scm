@@ -1,5 +1,5 @@
-(##include-once "./types.scm")
 (##include-once "./bool.scm")
+(##include-once "./types.scm")
 
 ;; Characters (R4RS section 6.6).
 
