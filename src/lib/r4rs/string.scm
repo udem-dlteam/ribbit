@@ -65,8 +65,8 @@
   (define (substring-aux str start end tail)
     (if (< start end)
       (let ((i (- end 1)))
-        (substring-aux str start i (cons (string-ref str i) tail)))
-      (list->string tail)))
+        (substring-aux str start i (cons (list-ref (field0 str) i) tail)))
+      (##list->string tail)))
 
   (substring-aux str start end '()))
 

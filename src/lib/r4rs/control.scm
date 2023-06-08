@@ -83,15 +83,15 @@
     (fold func (func base (car lst)) (cdr lst))
     base))
 
-(define (fold-until func base lst (stop-value '()))
-  (if (and (pair? lst) (not (equal? base stop-value)))
-    (fold-until func (func (car lst)) (cdr lst) stop-value)
-    base))
-
-(define (scan func base state lst)
-  (if (pair? lst)
-    (scan func (car lst) (func base (car lst)) (cdr lst))
-    state))
+;; (define (fold-until func base lst (stop-value '()))
+;;   (if (and (pair? lst) (not (equal? base stop-value)))
+;;     (fold-until func (func (car lst)) (cdr lst) stop-value)
+;;     base))
+;;
+;; (define (scan func base state lst)
+;;   (if (pair? lst)
+;;     (scan func (car lst) (func base (car lst)) (cdr lst))
+;;     state))
 
 (define (scan-until func base state lst (stop-value '()))
   (if (and (pair? lst) (not (equal? state stop-value)))

@@ -17,15 +17,15 @@
   (fold ##* 1 args))
 
 
-(define (- x (y ##no-args) . rest)
+(define (- x (y ##no-args))
   (if (eqv? y ##no-args)
     (##- 0 x)
-    (fold ##- (##- x y) rest)))
+    (##- x y)))
 
-(define (/ x (y ##no-args) . rest)
+(define (/ x (y ##no-args))
   (if (eqv? y ##no-args)
     (quotient 1 x)
-    (fold quotient (quotient x y) rest)))
+    (quotient x y)))
 
 (define rational? integer?)
 (define real? rational?)
