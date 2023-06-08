@@ -1,0 +1,2 @@
+(define (crash)
+  (error "(._.')"))

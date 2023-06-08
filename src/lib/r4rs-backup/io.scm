@@ -1,4 +1,3 @@
-(##include-once "./error.scm")
 (##include-once "./types.scm")
 (##include-once "./char.scm")
 (##include-once "./pair-list.scm")
@@ -225,7 +224,8 @@
     result))
 
 (define (read-char (port (current-input-port))) 
-  (if (input-port-close? port) (crash))
+  (if (input-port-close? port)
+    (error "Cannot read from a closed port"))
   (if (eqv? (##get-last-char port) '())
     (let ((ch (##read-char (field0 port))))
       (if (eqv? ch '()) ##eof (integer->char ch)))
@@ -234,7 +234,8 @@
       ch)))
 
 (define (peek-char (port (current-input-port)))
-  (if (input-port-close? port) (crash))
+  (if (input-port-close? port)
+    (error "Cannot read from a closed port"))
   (if (eqv? (##get-last-char port) '())
     (let ((ch (read-char port)))
       (##set-last-char port ch)
@@ -245,7 +246,8 @@
 ;; ---------------------- READ ---------------------- ;;
 
 (define (read (port (current-input-port)))
-  (if (input-port-close? port) (crash))
+  (if (input-port-close? port)
+    (error "Cannot read from a closed port"))
 
   (let ((c (peek-char-non-whitespace port)))
     (cond ((eof-object? c) c)
@@ -269,17 +271,6 @@
           ((eqv? c #\')
            (read-char port) ;; skip "'"
            (rib 'quote (rib (read port) '() pair-type) pair-type))
-          ((eqv? c #\`)
-           (read-char port) ;; skip "`"
-           (rib 'quasiquote (rib (read port) '() pair-type) pair-type))
-          ((eqv? c #\,)
-           (read-char port) ;; skip ","
-           (let ((c (peek-char port)))
-             (if (eqv? c #\@)
-               (begin
-                 (read-char port) ;; skip "@"
-                 (rib 'unquote-splicing (rib (read port) '() pair-type) pair-type))
-               (rib 'unquote (rib (read port) '() pair-type) pair-type))))
           ((eqv? c #\")
            (read-char port) ;; skip """
            (list->string (read-chars '() port)))
@@ -428,7 +419,7 @@
          (write-char #\# port)
          (write-char #\p port)) ;; #p
         (else
-         (crash))))
+         (error "Object not printable"))))
 
 (define (write-list lst port)
   (cond 

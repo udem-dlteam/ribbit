@@ -1,9 +1,7 @@
-(##include-once "./error.scm")
 (##include-once "./types.scm")
 (##include-once "./pair-list.scm")
 (##include-once "./io.scm")
 (##include-once "./control.scm")
-(##include-once "./qq.scm")
 
 (cond-expand
   ((host js)
@@ -51,11 +49,6 @@
          (let ((first (car expr)))
            (cond ((eqv? first 'quote)
                   (rib const-op (cadr expr) cont))
-
-                 ((eqv? first 'quasiquote)
-                  (comp cte
-                        (expand-qq (cadr expr))
-                        cont))
 
                  ((or (eqv? first 'set!) (eqv? first 'define))
                   (comp cte
@@ -187,33 +180,6 @@
 
 ;#; ;; support for and, or, cond special forms
 (define (build-if a b c) (cons 'if (list a b c)))
-
-(define (expand-constant expr)
-  (##qq-list 'quote expr))
-
-(define (expand-qq rest)
-  (let parse ((x rest) (depth 1))
-    (cond 
-      ((not (pair? x))
-       (if (vector? x)
-         (##qq-list '##qq-list->vector (parse (##qq-vector->list x) depth))
-         (expand-constant x)))
-      ((eqv? (car x) 'unquote)
-       (if (eqv? depth 1)
-         (if (pair? (cdr x))
-           (cadr x)
-           (crash))
-         (##qq-list '##qq-cons (expand-constant 'unquote) (parse (cdr x) (- depth 1)))))
-      ((and (pair? (car x)) (eqv? (caar x) 'unquote-splicing))
-       (if (eqv? depth 1)
-         (if (pair? (cdr x))
-           (##qq-list '##qq-append (cadar x) (parse (cdr x) depth))
-           (crash))
-         (##qq-list '##qq-cons (expand-constant 'unquote-splicing) (parse (cdr x) (- depth 1)))))
-      ((eqv? (car x) 'quasiquote)
-       (##qq-list '##qq-cons (expand-constant 'quasiquote) (parse (cdr x) (+ depth 1))))
-      (else
-        (##qq-list '##qq-cons (parse (car x) depth) (parse (cdr x) depth))))))
 
 (define (comp-bind cte var expr body cont)
   (comp cte

@@ -2,7 +2,6 @@
 
 (##include-once "./types.scm")
 (##include-once "./bool.scm")
-(##include-once "./error.scm")
 (##include-once "./io.scm")
 (##include-once "./pair-list.scm")
 (##include-once "./number.scm")
@@ -10,7 +9,6 @@
 (##include-once "./string.scm")
 (##include-once "./vector.scm")
 (##include-once "./control.scm")
-(##include-once "./qq.scm")
 (##include-once "./compiler.scm")
 
 ;;;----------------------------------------------------------------------------
