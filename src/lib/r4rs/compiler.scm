@@ -191,8 +191,8 @@
 (define (expand-constant expr)
   (##qq-list 'quote expr))
 
-(define (expand-qq rest)
-  (let parse ((x rest) (depth 1))
+(define (expand-qq expr)
+  (let parse ((x expr) (depth 1))
     (cond 
       ((not (pair? x))
        (if (vector? x)
@@ -208,8 +208,8 @@
        (if (eqv? depth 1)
          (if (pair? (cdr x))
            (##qq-list '##qq-append (cadar x) (parse (cdr x) depth))
-           (crash))
-         (##qq-list '##qq-cons (expand-constant 'unquote-splicing) (parse (cdr x) (- depth 1)))))
+           (crash)) ; ????
+         (##qq-list '##qq-cons (##qq-list '##qq-cons (expand-constant 'unquote-splicing) (parse (cdar x) (- depth 1))) (parse (cdr x) (- depth 1)))))
       ((eqv? (car x) 'quasiquote)
        (##qq-list '##qq-cons (expand-constant 'quasiquote) (parse (cdr x) (+ depth 1))))
       (else
@@ -332,13 +332,6 @@
   (##repl-inner)
   (exit 0))
 
-
-(define (error msg info)
-  (display msg)
-  (display " ")
-  (write info)
-  (newline)
-  (exit 1))
 
 ;; ---------------------- LOAD ---------------------- ;;
 

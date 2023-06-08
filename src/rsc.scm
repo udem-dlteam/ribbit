@@ -1564,7 +1564,7 @@
          (if (pair? (cdr x))
            (list '##qq-append (cadar x) (parse (cdr x) depth))
            (error "unquote-splicing: bad syntax"))
-         (list '##qq-cons (expand-constant 'unquote-splicing) (parse (cdr x) (- depth 1)))))
+         (list '##qq-cons (list '##qq-cons (expand-constant 'unquote-splicing) (parse (cdar x) (- depth 1))) (parse (cdr x) (- depth 1)))))
       ((eqv? (car x) 'quasiquote)
        (list '##qq-cons (expand-constant 'quasiquote) (parse (cdr x) (+ depth 1))))
       (else
