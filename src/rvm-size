@@ -12,7 +12,10 @@ printf '%s' "$(date +"%D %H:%M") " >> rvm-sizes.log
 case $1 in
     "-h") ls -lh ./repl-size.exe | awk '{print $5}' ;;
     *) ls -l ./repl-size.exe | awk '{print $5}' ;;
-esac >> rvm-sizes.log
+esac
+
+ls -l ./repl-size.exe | awk '{print $5}' >> rvm-sizes.log
+
 rm ./repl-size.exe 
 rm ./repl-size.scm
 rm ./repl-size.asm
