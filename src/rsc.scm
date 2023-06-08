@@ -1312,7 +1312,7 @@
                                                                                           '() 
                                                                                           (list (list 'if (list 'eqv? (list 'field2 vararg-name) '0)
                                                                                                       ;; '(error "Too many arguments were passed to the function."))))
-                                                                                                      '(error "(._.')"))))
+                                                                                                      '(crash))))
                                                                                         (cddr expr))))))
                                           '())))))))
 
