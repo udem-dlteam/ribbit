@@ -1137,13 +1137,13 @@
            (exports->alist (cdr exprs-and-exports)))
          (host-features 
            (and parsed-vm (extract-features parsed-vm)))
-         (_ (set! defined-features '())) ;; hack to propagate the defined-features to expand-begin
+         ;(_ (set! defined-features '())) ;; hack to propagate the defined-features to expand-begin
          (expansion
            (expand-begin exprs))
-         (features (append defined-features host-features))
-         (live
-           (liveness-analysis expansion exports))
-         (features-enabled 
+         ;(features (append defined-features host-features))
+         (live-and-features
+           (liveness-analysis expansion host-features exports))
+         #;(features-enabled 
            (unique (append (detect-features live) features-enabled)))
          (live-symbols
            (map car live))
@@ -1392,8 +1392,12 @@
                                   (cons (expand-expr (caddr expr))
                                         '()))))))
 
+                 ((or (eqv? first 'define-primitive)
+                      (eqv? first 'define-feature)
+                      (eqv? first 'if-feature))
+                  expr)
 
-                 ((eqv? (car expr) 'define-primitive)
+                 #;((eqv? (car expr) 'define-primitive)
                   (if (not defined-features)
                     (error "Cannot use define-primitive while targeting a non-modifiable host")
                     (let* ((prim-num (cons 'tbd
@@ -1415,7 +1419,7 @@
                                   (cons (cons 'rib prim-num)
                                         '()))))))
 
-                 ((eqv? (car expr) 'define-feature)
+                 #;((eqv? (car expr) 'define-feature)
                   (if (not defined-features)
                     (error "Cannot use define-feature while targeting a non-modifiable host")
                     (let* ((feature-name (cadr expr))
@@ -1673,7 +1677,7 @@
 
 ;; Global variable liveness analysis.
 
-(define (liveness-analysis expr exports)
+(define (liveness-analysis expr feature exports)
   (let ((live (liveness-analysis-aux expr '())))
     (if (assoc 'symtbl live)
         (liveness-analysis-aux expr exports)
