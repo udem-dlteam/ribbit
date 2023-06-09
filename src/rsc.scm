@@ -1677,10 +1677,10 @@
 
 ;; Global variable liveness analysis.
 
-(define (liveness-analysis expr feature exports)
+(define (liveness-analysis expr features exports)
   (let ((live (liveness-analysis-aux expr '())))
     (if (assoc 'symtbl live)
-        (liveness-analysis-aux expr exports)
+        (liveness-analysis-aux expr features exports)
         live)))
 
 (define (liveness-analysis-aux expr exports)
