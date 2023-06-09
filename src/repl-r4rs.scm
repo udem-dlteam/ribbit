@@ -1,14 +1,14 @@
 (export
-  eqv?
-  <
-  +
-  -
-  *
-  quotient
+  ;; 6.1
   not
   boolean?
+
+  ;; 6.2
+  eqv?
   eq?
   equal?
+
+  ;; 6.3
   pair?
   cons
   car
@@ -44,6 +44,8 @@
   cdddar
   cddddr
   null?
+  list?
+  list
   length
   append
   reverse
@@ -54,45 +56,79 @@
   assv
   assq
   assoc
+
+  ;; 6.4
   symbol?
   symbol->string
   string->symbol
+
+  ;; 6.5
+  number?
+  complex?
+  real?
+  rational?
   integer?
+  exact?
+  inexact?
   =
+  <
   >
   <=
   >=
   zero?
   positive?
   negative?
-  even?
   odd?
+  even?
   max
   min
+  +
+  *
+  -
+  /
   abs
+  quotient
   remainder
   modulo
   gcd
   lcm
   floor
   ceiling
+  truncate
   round
+
   number->string
   string->number
+
+  ;; 6.6
+  char?
   char=?
   char<?
   char>?
   char<=?
   char>=?
+  char-ci=?
+  char-ci<?
+  char-ci>?
+  char-ci<=?
+  char-ci>=?
+  char-alphabetic?
+  char-numeric?
+  char-whitespace?
+  char-upper-case?
+  char-lower-case?
   char->integer
   integer->char
+  char-upcase
+  char-downcase
+
+  ;;6.7
   string?
-  list->string
-  string->list
+  make-string
+  string
   string-length
   string-ref
   string-set!
-  make-string
   string=?
   string<?
   string>?
@@ -105,46 +141,50 @@
   string-ci>=?
   substring
   string-append
-  string-copy
-  string-fill!
+  string->list
+  list->string
+
+  ;; 6.8
   vector?
-  list->vector
-  vector->list
+  make-vector
+  vector
   vector-length
   vector-ref
   vector-set!
-  make-vector
-  vector-fill!
+  vector->list
+  list->vector
+
+  ;; 6.9
   procedure?
+  apply
   map
   for-each
   call/cc
+
+  ;; 6.10
   call-with-input-file
   call-with-output-file
   input-port?
   output-port?
   current-input-port
   current-output-port
-  with-input-from-file
-  with-output-to-file
   open-input-file
   open-output-file
   close-input-port
   close-output-port
-  char-ready?
-  load
-  eof-object?
+  read
   read-char
   peek-char
-  read
+  eof-object?
   write
   display
-  write-char
   newline
+  write-char
+  load
   eval
-  error
+  ;; error
 
-  quote set! define if lambda
+  quote set! define if lambda quasiquote unquote unquote-splicing
 
   ;#; ;; support for begin special form
   begin

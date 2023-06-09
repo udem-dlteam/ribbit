@@ -20,8 +20,11 @@
 (set! ##eqv? eqv?)
 
 (define (eqv? o1 o2)
-  (cond ((and (char? o1) (char? o2)) (##eqv? (field0 o1) (field0 o2)))
-        (else (##eqv? o1 o2))))
+  (if (and (char? o1) (char? o2)) 
+    (##eqv? (field0 o1) (field0 o2))
+    (##eqv? o1 o2)))
+
+(define eq? ##eqv?)
 
 (define (null? obj) (eqv? obj '()))
 

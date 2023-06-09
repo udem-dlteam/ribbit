@@ -36,22 +36,20 @@
 (define (inexact? obj) #f)
 
 (define (= x . rest)
-  (scan-until eqv? x #t rest #f))
+  (scan eqv? x #t rest))
 
 (define (< x . rest) 
-  (scan-until ##< x #t rest #f))
+  (scan ##< x #t rest))
+
 
 (define (> x . rest) 
-  (let ((##> (lambda (x y) (##< y x))))
-    (scan-until ##> x #t rest #f)))
+  (scan (lambda (x y) (##< y x)) x #t rest))
 
 (define (<= x . rest)
-  (let ((##<= (lambda (x y) (not (##< y x)))))
-    (scan-until ##<= x #t rest #f)))
+  (scan (lambda (x y) (not (##< y x))) x #t rest))
 
 (define (>= x . rest) 
-  (let ((##>= (lambda (x y) (not (##< x y)))))
-    (scan-until ##>= x #t rest #f)))
+  (scan (lambda (x y) (not (##< x y))) x #t rest))
 
 (define (zero? x) (eqv? x 0))
 (define (positive? x) (< 0 x))

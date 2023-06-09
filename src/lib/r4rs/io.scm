@@ -346,7 +346,7 @@
         (begin
           (read-char port)
           (peek-char-non-whitespace port))
-        (if (eqv? c #\;) ;; #\;
+        (if (eqv? (field0 c) 59) ;; #\;
           (skip-comment port)
           (field0 c))))))  ;; returns the code point of the char
 
@@ -354,7 +354,7 @@
   (let ((c (read-char port)))
     (if (eof-object? c)
         c
-        (if (eqv? c #\newline) ;; #\newline
+        (if (eqv? (field0 c) 10) ;; #\newline
             (peek-char-non-whitespace port)
             (skip-comment port)))))
 
@@ -406,37 +406,48 @@
     (cond ((eqv? o #f)
            (##write-char 35 port-val)     ;; #\#
            (##write-char 102 port-val))   ;; #f
+
           ((eqv? o #t)
            (##write-char 35 port-val)     ;; #\#
            (##write-char 116 port-val))   ;; #t
+
           ((eof-object? o)
            (display "#!eof" port))
+
           ((null? o)
            (##write-char 40 port-val)  ;; #\(
            (##write-char 41 port-val)) ;; #\)
+
           ((integer? o)
            (display (number->string o) port))
-          ((eqv? (field2 o) char-type) ;; char?
+
+          ((char? o)
            (##write-char o port-val))
-          ((eqv? (field2 o) pair-type) ;; pair?
+
+          ((pair? o)
            (##write-char 40 port-val)  ;; #\(
            (write (field0 o) port) ;; car
            (write-list (field1 o) port) ;; cdr
            (##write-char 41 port-val)) ;; #\)
-          ((eqv? (field2 o) symbol-type) ;; symbol?
+
+          ((symbol? o)
            (write-chars (field0 (symbol->string o)) port-val))
-          ((eqv? (field2 o) string-type) ;; string?
+
+          ((string? o)
            (write-chars (field0 o) port-val)) ;; chars
-          ((eqv? (field2 o) vector-type) ;; vector?
+
+          ((vector? o)
            (##write-char 35 port-val)  ;; #\#
            (##write-char 40 port-val)  ;; #\(
-           (let ((l (vector->list o)))
-             (write (car l) port)
-             (write-list (cdr l) port))
+           (let ((l (field0 o)))   ;; vector->list
+             (write (field0 l) port)
+             (write-list (field1 l) port))
            (##write-char 41 port-val)) ;; #\)
-          ((eqv? (field2 o) procedure-type) ;; procedure?
+
+          ((procedure? o)
            (##write-char 35 port-val)  ;; #\#
            (##write-char 112 port-val)) ;; #p
+
           (else
             (crash)))))
 
@@ -444,11 +455,11 @@
   (cond 
     ((pair? lst)
      (##write-char 32 (field0 port)) ;; #\space
-     (if (pair? lst)
-       (begin
+     ;; (if (pair? lst)
+     ;;   (begin
          (write (field0 lst) port) ;; car
          (write-list (field1 lst) port))  ;; cdr
-       #f))
+       ;; #f))
 
     ((null? lst) #f)
 
@@ -464,6 +475,5 @@
   (if (pair? lst)
       (let ((c (field0 lst))) ;; car
         (##write-char c port-val)
-        (write-chars (field1 lst) port-val)) ;; cdr
-      #f))
+        (write-chars (field1 lst) port-val)))) ;; cdr
 

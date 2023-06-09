@@ -57,7 +57,7 @@
                         (expand-qq (cadr expr))
                         cont))
 
-                 ((or (eqv? first 'set!) (eqv? first 'define))
+                 ((memq first '(set! define))  ;; maybe replace with 'or
                   (comp cte
                         (caddr expr)
                         (gen-assign (lookup (cadr expr) cte 1)
@@ -254,15 +254,21 @@
       (rib jump/call-op v cont))) ;; call
 
 (define (gen-assign v cont)
-  (rib set-op v (gen-noop cont)))
+  (rib set-op v 
+       (if (and (rib? cont) ;; starts with pop?
+                (eqv? (field0 cont) jump/call-op) ;; call?
+                (eqv? (field1 cont) 'arg1)
+                (rib? (field2 cont)))
+         (field2 cont) ;; remove pop
+         (rib const-op 0 cont))))
 
-(define (gen-noop cont)
-  (if (and (rib? cont) ;; starts with pop?
-           (eqv? (field0 cont) jump/call-op) ;; call?
-           (eqv? (field1 cont) 'arg1)
-           (rib? (field2 cont)))
-      (field2 cont) ;; remove pop
-      (rib const-op 0 cont))) ;; add dummy value for set!
+;; (define (gen-noop cont)
+;;   (if (and (rib? cont) ;; starts with pop?
+;;            (eqv? (field0 cont) jump/call-op) ;; call?
+;;            (eqv? (field1 cont) 'arg1)
+;;            (rib? (field2 cont)))
+;;       (field2 cont) ;; remove pop
+;;       (rib const-op 0 cont))) ;; add dummy value for set!
 
 (define (comp-call cte exprs nb-args var-cont)
   (if (pair? exprs)
@@ -293,28 +299,12 @@
 
 (define tail (add-nb-args 1 (rib jump/call-op 'id 0))) ;; jump
 
-(define (display-rib rib)
-  (display "[")
-  (if (rib? (field0 rib))
-    (display-rib (field0 rib))
-    (display (field0 rib)))
-  (display " ")
-  (if (rib? (field1 rib))
-    (display-rib (field1 rib))
-    (display (field1 rib)))
-  (display " ")
-  (if (rib? (field2 rib))
-    (display-rib (field2 rib))
-    (display (field2 rib)))
-  (display "]"))
-
-
-(define (compile expr) ;; converts an s-expression to a procedure
-  (let ((foo (comp '() expr tail)))
-    (make-procedure (rib 0 0 foo) '())))
+;; (define (compile expr) ;; converts an s-expression to a procedure
+;;   (let ((foo (comp '() expr tail)))
+;;     (make-procedure (rib 0 0 foo) '())))
 
 (define (eval expr)
-  ((compile expr)))
+  ((make-procedure (rib 0 0 (comp '() expr tail)) '())))
 
 (define (##repl-inner)
   (display "> ")

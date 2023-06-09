@@ -4,7 +4,6 @@
 
 ;; ---------------------- EQUALITY ---------------------- ;;
 
-(define eq? eqv?)
 
 (define (equal? x y)
   (or (eqv? x y)
