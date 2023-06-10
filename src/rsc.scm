@@ -1449,25 +1449,6 @@
                         feature-location-code-pairs)
                       '#f)))
 
-                 ((eqv? first '##include)
-                  (let ((old-pwd pwd) (file-path (path-expand (cadr expr) pwd)))
-                    (set! pwd (path-directory file-path))
-                    (let ((result (expand-begin (read-from-file file-path))))
-                      (set! pwd old-pwd)
-                      result)))
-
-                 ((eqv? first '##include-once)
-                  (let ((old-pwd pwd) (file-path (path-normalize (path-expand (cadr expr) pwd))))
-                    (if (not (member file-path included-files))
-                      (begin
-                        (set! pwd (path-directory file-path))
-                        (let ((result (expand-begin (read-from-file file-path))))
-                          (set! included-files (cons file-path included-files))
-                          (set! pwd old-pwd)
-                          result))
-                      (begin 
-                        ; (display (string-append "Skip including already included file: \"" file-path "\".\n"))
-                        '()))))
 
                  ((eqv? first 'and)
                   (expand-expr
@@ -1612,16 +1593,52 @@
             (car x))
         (expand-constant 0)))) ;; unspecified value
 
+
+(define (expand-include path)
+  (let ((old-pwd pwd) 
+        (file-path (path-normalize (path-expand path pwd))))
+
+    (set! pwd (path-directory file-path))
+
+    (let ((result (expand-begin (read-from-file file-path))))
+
+      (set! pwd old-pwd)
+
+      result)))
+
+(define (include-file path)
+  (let ((file-path (path-normalize (path-expand path pwd))))
+    (set! included-files (cons file-path included-files))))
+
+(define (included? path)
+  (let ((file-path (path-normalize (path-expand path pwd))))
+    (member file-path included-files)))
+
+
 (define (expand-begin* exprs rest)
   (if (pair? exprs)
       (let ((expr (car exprs)))
         (let ((r (expand-begin* (cdr exprs) rest)))
           (cond ((and (pair? expr) (eqv? (car expr) 'begin))
                  (expand-begin* (cdr expr) r))
+
                 ((and (pair? expr) (eqv? (car expr) 'cond-expand))
                  (expand-cond-expand-clauses (cdr expr) r))
+
+                ((and (pair? expr) 
+                      (eqv? (car expr) '##include))
+                 (cons (expand-include (cadr expr)) r))
+
+                ((and (pair? expr)
+                      (eqv? (car expr) '##include-once))
+                 (if (included? (cadr expr))
+                   r
+                   (begin 
+                     (include-file (cadr expr))
+                     (cons (expand-include (cadr expr)) r))))
+
                 (else
-                 (cons (expand-expr expr) r)))))
+                  (cons (expand-expr expr) r)))))
       rest))
 
 (define (cond-expand-eval expr)
@@ -1750,6 +1767,7 @@
 
   (define (liveness expr cte top?)
 
+
     (cond ((symbol? expr)
            (if (in? expr cte) ;; local var?
                #f
@@ -1792,6 +1810,8 @@
                    ((eqv? first 'lambda)
                     (let ((params (cadr expr)))
                       (liveness (caddr expr) (extend params cte) #f)))
+
+
 
                    (else
                     (liveness-list expr cte)))))
