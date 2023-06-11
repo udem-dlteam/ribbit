@@ -1110,7 +1110,7 @@
           (append to-add
                   (cons expansion '())))))
 
-(define (detect-features live)
+#;(define (detect-features live)
   (fold (lambda (x acc)
           (if (and (pair? x) (pair? (cdr x)))
             (let ((expr (cadr x)))
@@ -1153,21 +1153,19 @@
          
          
          (expansion
-           (append
-             (host-feature->expansion-feature host-features)
-             (expand-begin exprs)))
+           `(begin
+              ,@(host-feature->expansion-feature host-features) ;; add host features
+              ,(expand-begin exprs)))
         
 
          (_ (pp expansion))
-         ;(_ (step))
-         ;(features (append defined-features host-features))
          (live-env
-           (liveness-analysis expansion host-features features-enabled features-disabled exports))
+           (liveness-analysis expansion features-enabled features-disabled exports))
 
          (_ (step))
          #;(features-enabled 
            (unique (append (detect-features live) features-enabled)))
-         (live-symbols
+         #;(live-symbols
            (map car live))
 
 
@@ -1740,25 +1738,17 @@
 
 ;; Global variable liveness analysis.
 
-(define (liveness-analysis expr features features-enabled features-disabled exports)
-  (let ((live (liveness-analysis-aux expr features features-enabled features-disabled '())))
-    (if (assoc 'symtbl live)
-        (liveness-analysis-aux expr features features-enabled features-disabled exports)
-        live)))
+(define (liveness-analysis expr features-enabled features-disabled exports)
+  (let ((live-env (liveness-analysis-aux expr features-enabled features-disabled '())))
+    (if (live-env-live? live-env 'symtbl)
+        (liveness-analysis-aux expr features-enabled features-disabled exports)
+        live-env)))
 
 
 ;; Environnement for liveness analysis.
 
-(define (make-live-env live-globals features features-enabled features-disabled)
-  (rib live-globals (rib features features-enabled features-disabled) #f)) ;; last one is a dirty bit
-
-
-(define (live-env-feature-live? live-env feature)
-  (and (or (soft-assoc feature (live-env-features live-env))
-           (memq feature (live-env-features-enabled live-env)))
-
-       (not (memq feature (live-env-feature-disabled live-env)))))
-
+(define (make-live-env live-globals features features-disabled)
+  (rib live-globals (rib features features-disabled 0) #f)) ;; last one is a dirty bit
 
 
 (define (live-env-globals live-env)
@@ -1766,6 +1756,9 @@
 
 (define (live-env-features live-env)
   (field0 (field1 live-env)))
+
+(define (live-env-features-disabled live-env)
+  (field1 (field1 live-env)))
 
 (define (live-env-dirty? live-env)
   (field2 live-env))
@@ -1785,29 +1778,48 @@
 
 (define (live-env-set-features! live-env features)
   (live-env-set-dirty! live-env)
-  (field1-set! (field0 live-env) features))
+  (field0-set! (field1 live-env) features))
 
-;; Other usefull functions
+;; Other usefull procedures
 
-(define (add-live var live-globals)
-  (if (live? var live-globals)
-      live-globals
-      (let ((g (cons var '())))
-        (cons g live-globals))))
+
+(define (live-env-reset-defs live-env)
+
+  (define (reset-defs lst)
+
+    (let loop ((lst lst))
+      (if (pair? lst)
+        (begin
+          (set-cdr! (car lst) '())
+          (loop (cdr lst)))
+        #f)))
+  (reset-defs (live-env-globals live-env)))
+
+(define (live-env-feature-disabled? live-env feature)
+  (memq feature (live-env-features-disabled live-env)))
 
 (define (live-env-add-live! live-env var)
-  (live-env-set-globals! live-env (add-live var (live-env-globals live-env))))
+
+  (if (live-env-live? live-env var)
+    live-env
+    (live-env-set-globals! 
+      live-env 
+      (let ((g (cons var '())))
+        (cons g (live-env-globals live-env))))))
 
 (define (live-env-live? live-env var)
-  (live? var (live-env-globals live-env)))
+  (assq var (live-env-globals live-env)))
 
-(define (live? var lst)
-  (if (pair? lst)
-    (let ((x (car lst)))
-      (if (eqv? var (car x))
-        x
-        (live? var (cdr lst))))
-    #f))
+(define (live-env-live-feature? live-env feature)
+  (memq feature (live-env-features live-env)))
+
+(define (live-env-add-feature! live-env var)
+  (if (live-env-live-feature? live-env var)
+    var
+    (and
+      (not (live-env-feature-disabled? live-env var)) ;; check not disabled
+      (live-env-set-features! live-env (cons var (live-env-features live-env))))))
+
 
 (define (constant? g)
   (and (pair? (cdr g))
@@ -1820,35 +1832,32 @@
 
 
 
-(define (liveness-analysis-aux expr features features-enabled features-disabled exports)
-  (let* ((live-globals (add-live 'arg1 ;; TODO: these should not be forced live...
-                                 (add-live 'arg2
-                                           (add-live 'close
-                                                     (add-live 'id
-                                                               (exports->live
-                                                                 (or exports '())))))))
-         (env (make-live-env live-globals features features-enabled features-disabled)))
+(define (liveness-analysis-aux expr features-enabled features-disabled exports)
+  (let* ((env (make-live-env '() features-enabled features-disabled)))
+
+    (live-env-add-live! env 'rib) ;; live by default
+    (live-env-add-live! env 'arg1)
+    (live-env-add-live! env 'arg2)
+    (live-env-add-live! env 'close)
+    (live-env-add-live! env 'id)
+
+    (if exports
+      (for-each
+        (lambda (x) (live-env-add-live! env x)) 
+        exports))
+
+    (for-each 
+      (lambda (x) (live-env-add-feature! env x))
+      features-enabled)
+
     (let loop ()
+      (live-env-reset-defs env)
       (live-env-set-clean! env)
       (liveness expr env (not exports))
       (if (live-env-clean? env) 
         env
         (loop)))))
 
-(define (exports->live exports)
-  (if (pair? exports)
-      (cons (cons (car (car exports)) '())
-            (exports->live (cdr exports)))
-      '()))
-
-#;(define (reset-defs lst)
-  
-  (let loop ((lst lst))
-    (if (pair? lst)
-        (begin
-          (set-cdr! (car lst) '())
-          (loop (cdr lst)))
-        #f)))
 
 
 (define (liveness expr env export-all?)
@@ -1909,10 +1918,34 @@
 
                    ((eqv? first 'lambda)
                     (let ((params (cadr expr)))
-                      (liveness (caddr expr) (extend params cte) #f)))
+                      (if (symbol? params) ;; this is the case in lambdas with rest params
+                        (begin
+                          (live-env-add-feature! env 'rest-param) ;; detect rest-params
+                          (live-env-add-feature! env 'arity-check)
+                          (liveness (caddr expr) (cons params cte) #f))
+                        (liveness (caddr expr) (extend params cte) #f)))
 
-                   #;((eqv? first 'define-primitive)
-                    (if ))
+                   ((eqv? first 'define-feature)
+                    (let ((name (cadr expr))
+                          (use  (assoc 'use (cddr expr))))
+                      (if (live-env-live-feature? env name)
+                        (and use (for-each (lambda (x) (live-env-add-feature! env x)) use))
+                        #f)))
+
+                   ((eqv? first 'define-primitive)
+                    (let ((name (caadr expr))
+                          (use  (assoc 'use (cddr expr))))
+                      (if (or (live-env-live-feature? env name) (live-env-live? env name))
+                        (begin 
+                          (live-env-add-feature! env name)
+                          (and use (for-each (lambda (x) (live-env-add-feature! env x)) use)))
+                        #f)))
+
+                   ((eqv? first 'if-feature)
+                    (let ((feature-expr (cadr expr)))
+                      (if (eval-feature feature-expr (live-env-features env))
+                        (liveness (caddr expr) cte #f)
+                        (liveness (cadddr expr) cte #f))))
 
 
 
@@ -1929,9 +1962,7 @@
           (liveness-list (cdr exprs) cte))
         #f))
 
-  (liveness expr '() #t)
-
-  live-globals)
+  (liveness expr '() #t))
 
 ;;;----------------------------------------------------------------------------
 
