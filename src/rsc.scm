@@ -1138,18 +1138,23 @@
          (host-features 
            (and parsed-vm (extract-features parsed-vm)))
          ;(_ (set! defined-features '())) ;; hack to propagate the defined-features to expand-begin
+
+         
+         
          (expansion
            (expand-begin exprs))
+         (_ (pp expansion))
+         (_ (step))
          ;(features (append defined-features host-features))
          (live-and-features
-           (liveness-analysis expansion host-features exports))
+           (liveness-analysis expansion host-features features-enabled features-disabled exports))
          #;(features-enabled 
            (unique (append (detect-features live) features-enabled)))
          (live-symbols
            (map car live))
 
 
-         (live-features 
+         #;(live-features 
            (if parsed-vm 
              (used-features 
                features
@@ -1158,7 +1163,7 @@
                features-disabled)
              features-enabled))
 
-         (expansion
+         #;(expansion
            (add-feature-variables live-symbols (or live-features '()) expansion))
 
          ;; (_ (pp expansion))
@@ -1392,10 +1397,34 @@
                                   (cons (expand-expr (caddr expr))
                                         '()))))))
 
-                 ((or (eqv? first 'define-primitive)
-                      (eqv? first 'define-feature)
-                      (eqv? first 'if-feature))
+
+                 ((eqv? first 'if-feature)
                   expr)
+
+                 ((eqv? (car expr) 'define-primitive) ;; parse arguments as source file
+                  (let ((code (filter string? (cdr expr)))
+                        (rest (filter (lambda (x) (not (string? x))) (cdr expr))))
+                    `(define-primitive 
+                       ,@rest
+                       (@@body ,(parse-host-file (string->list* (fold string-append "" code)))))))
+                    ;(append rest (list '@@body (parse-host-file (string->list* (fold string-append "" code)))))))
+
+                 ((eqv? (car expr) 'define-feature) ;; parse arguments as a source file
+                  (let* ((bindings (cddr expr))
+                         (use-statement (soft-assoc 'use bindings))
+                         (rest (filter (lambda (x) (not (eqv? (car x) 'use))) bindings)))
+                    `(define-feature
+                       ,(cadr expr)
+                       ,use-statement
+                       ,@(map 
+                           (lambda (x)
+                             `(,(car x) ,(parse-host-file (string->list* (fold string-append "" (cdr x))))))
+                           rest))))
+                      
+
+                      
+
+
 
                  #;((eqv? (car expr) 'define-primitive)
                   (if (not defined-features)
@@ -1694,45 +1723,66 @@
 
 ;; Global variable liveness analysis.
 
-(define (liveness-analysis expr features exports)
-  (let ((live (liveness-analysis-aux expr '())))
+(define (liveness-analysis expr features features-enabled features-disabled exports)
+  (let ((live (liveness-analysis-aux expr features features-enabled features-disabled '())))
     (if (assoc 'symtbl live)
-        (liveness-analysis-aux expr features exports)
+        (liveness-analysis-aux expr features features-enabled features-disabled exports)
         live)))
 
-(define (liveness-analysis-aux expr exports)
-  (let loop ((live-globals
-              (add-live 'arg1 ;; TODO: these should not be forced live...
-                        (add-live 'arg2
-                                  (add-live 'close
-                                            (add-live 'id
-                                                      (exports->live
-                                                       (or exports '()))))))))
-    (reset-defs live-globals)
-    (let ((x (liveness expr live-globals (not exports))))
-      (if (eqv? x live-globals)
-          live-globals
-          (loop x)))))
 
-(define (exports->live exports)
-  (if (pair? exports)
-      (cons (cons (car (car exports)) '())
-            (exports->live (cdr exports)))
-      '()))
+;; Environnement for liveness analysis.
 
-(define (reset-defs lst)
-  (let loop ((lst lst))
-    (if (pair? lst)
-        (begin
-          (set-cdr! (car lst) '())
-          (loop (cdr lst)))
-        #f)))
+(define (make-live-env live-globals features features-enabled features-disabled)
+  (rib live-globals (rib features features-enabled features-disabled) #f)) ;; last one is a dirty bit
+
+
+(define (live-env-feature-live? live-env feature)
+  (and (or (soft-assoc feature (live-env-features live-env))
+           (memq feature (live-env-features-enabled live-env)))
+
+       (not (memq feature (live-env-feature-disabled live-env)))))
+
+
+
+(define (live-env-globals live-env)
+  (field0 live-env))
+
+(define (live-env-features live-env)
+  (field0 (field1 live-env)))
+
+(define (live-env-dirty? live-env)
+  (field2 live-env))
+
+(define (live-env-clean? live-env)
+  (not (live-env-dirty? live-env)))
+
+(define (live-env-set-dirty! live-env)
+  (field2-set! live-env #t))
+
+(define (live-env-set-clean! live-env)
+  (field2-set! live-env #f))
+
+(define (live-env-set-globals! live-env live-globals)
+  (live-env-set-dirty! live-env)
+  (field0-set! live-env live-globals))
+
+(define (live-env-set-features! live-env features)
+  (live-env-set-dirty! live-env)
+  (field1-set! (field0 live-env) features))
+
+;; Other usefull functions
 
 (define (add-live var live-globals)
   (if (live? var live-globals)
       live-globals
       (let ((g (cons var '())))
         (cons g live-globals))))
+
+(define (live-env-add-live! live-env var)
+  (live-env-set-globals! live-env (add-live var (live-env-globals live-env))))
+
+(define (live-env-live? live-env var)
+  (live? var (live-env-globals live-env)))
 
 (define (live? var lst)
   (if (pair? lst)
@@ -1751,14 +1801,47 @@
 (define (in? var cte)
   (not (eqv? var (lookup var cte 0))))
 
-(define (liveness expr live-globals export-all?)
 
-  (define (add var)
+
+(define (liveness-analysis-aux expr features features-enabled features-disabled exports)
+  (let* ((live-globals (add-live 'arg1 ;; TODO: these should not be forced live...
+                                 (add-live 'arg2
+                                           (add-live 'close
+                                                     (add-live 'id
+                                                               (exports->live
+                                                                 (or exports '())))))))
+         (env (make-live-env live-globals features features-enabled features-disabled)))
+    (let loop ()
+      (live-env-set-clean! env)
+      (liveness expr env (not exports))
+      (if (live-env-clean? env) 
+        env
+        (loop)))))
+
+(define (exports->live exports)
+  (if (pair? exports)
+      (cons (cons (car (car exports)) '())
+            (exports->live (cdr exports)))
+      '()))
+
+#;(define (reset-defs lst)
+  
+  (let loop ((lst lst))
+    (if (pair? lst)
+        (begin
+          (set-cdr! (car lst) '())
+          (loop (cdr lst)))
+        #f)))
+
+
+(define (liveness expr env export-all?)
+
+  #;(define (add var)
     (set! live-globals (add-live var live-globals)))
 
   (define (add-val val)
     (cond ((symbol? val)
-           (add val))
+           (live-env-add-live! env val))
           ((pair? val)
            (add-val (car val))
            (add-val (cdr val)))
@@ -1771,7 +1854,7 @@
     (cond ((symbol? expr)
            (if (in? expr cte) ;; local var?
                #f
-               (add expr))) ;; mark the global variable as "live"
+               (live-env-add-live! env expr))) ;; mark the global variable as "live"
 
           ((pair? expr)
            (let ((first (car expr)))
@@ -1785,14 +1868,14 @@
                       (let ((val (caddr expr)))
                         (if (in? var cte) ;; local var?
                           (liveness val cte #f)
-                            (begin
-                              (if export-all? (add var))
-                              (let ((g (live? var live-globals))) ;; variable live?
-                                (if g
-                                    (begin
-                                      (set-cdr! g (cons val (cdr g)))
-                                      (liveness val cte #f))
-                                    #f)))))))
+                          (begin
+                            ;(if export-all? (add var)) Don't understand why
+                            (let ((g (live-env-live? env var))) ;; variable live?
+                              (if g
+                                (begin
+                                  (set-cdr! g (cons val (cdr g))) 
+                                  (liveness val cte #f))
+                                #f)))))))
 
                    ((eqv? first 'if)
                     (liveness (cadr expr) cte #f)
@@ -1810,6 +1893,9 @@
                    ((eqv? first 'lambda)
                     (let ((params (cadr expr)))
                       (liveness (caddr expr) (extend params cte) #f)))
+
+                   #;((eqv? first 'define-primitive)
+                    (if ))
 
 
 
@@ -2531,7 +2617,7 @@
   (letrec ((func
              (lambda (prim acc)
                (let* ((name (car prim))
-                      (body (soft-assoc 'body (cdr prim)))
+                      (body (soft-assoc '@@body (cdr prim)))
                       (rec (lambda (base)
                              (if body
                                (fold func base (cadr body))
@@ -2641,8 +2727,8 @@
                   (body-pair (parse-host-file cur-end))
                   (body-cur-end (car body-pair))
                   (body-parsed  (cdr body-pair))
-                  (head (cons 'head (cons (list->string* cur-line cur-len) '())))
-                  (body (cons 'body (cons body-parsed '()))))
+                  (head (cons '@@head (cons (list->string* cur-line cur-len) '())))
+                  (body (cons '@@body (cons body-parsed '()))))
              (loop body-cur-end
                    (cons (append macro-sexp (cons head (cons body '()))) parsed-file)
                    0
@@ -2653,8 +2739,8 @@
                   (macro-string (list->string* (cddr macro) (- macro-len 4)))
                   (macro-sexp (read (open-input-string macro-string)))
                   (head-parsed (list->string* cur-line cur-len))
-                  (body (cons 'body (cons (cons (cons 'str (cons head-parsed '())) '()) '())))
-                  (head (cons 'head (cons head-parsed '()))))
+                  (body (cons '@@body (cons (cons (cons 'str (cons head-parsed '())) '()) '())))
+                  (head (cons '@@head (cons head-parsed '()))))
              (loop
                cur-end
                (cons (append macro-sexp (cons head (cons body '()))) parsed-file)
@@ -2793,7 +2879,7 @@
                                      (primitive (find-primitive name features))
                                      (_ (if (not primitive) (error "Cannot find needed primitive inside program :" name)))
                                      (body  (extract extract-func (cons primitive '()) ""))
-                                     (head  (soft-assoc 'head primitive)))
+                                     (head  (soft-assoc '@@head primitive)))
                                 (let loop ((gen gen))
                                   (if (pair? gen)
                                     (string-append
