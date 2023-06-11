@@ -1125,6 +1125,17 @@
         '()
         live))
 
+(define (host-feature->expansion-feature host-features)
+  (map (lambda (x)
+         (cond 
+           ((eqv? (car x) 'primitive)
+            `(define-primitive ,@(cdr x)))
+           ((eqv? (car x) 'feature)
+            `(define-feature ,@(cdr x)))
+           (else
+             (error "Cannot handle host feature" x))))
+       host-features))
+
 
 (define (compile-program verbosity parsed-vm features-enabled features-disabled program)
   (let* ((exprs-and-exports
@@ -1142,12 +1153,18 @@
          
          
          (expansion
-           (expand-begin exprs))
+           (append
+             (host-feature->expansion-feature host-features)
+             (expand-begin exprs)))
+        
+
          (_ (pp expansion))
-         (_ (step))
+         ;(_ (step))
          ;(features (append defined-features host-features))
-         (live-and-features
+         (live-env
            (liveness-analysis expansion host-features features-enabled features-disabled exports))
+
+         (_ (step))
          #;(features-enabled 
            (unique (append (detect-features live) features-enabled)))
          (live-symbols
