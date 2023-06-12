@@ -599,6 +599,40 @@
     (reverse (cons lst1 lst2))))
 
 
+;; ====== Host language context ======
+
+(define (make-host-config live-features primitives feature-locations )
+  (rib live-features primitives feature-locations))
+
+(define (host-config-live-features host-config) (field0 host-config))
+(define (host-config-primitives host-config) (field1 host-config))
+(define (host-config-feature-locations host-config) (field2 host-config))
+
+(define (host-config-live-features-set! host-config x)
+  (field0-set! host-config x))
+
+(define (host-config-primitives-set! host-config x)
+  (field1-set! host-config x))
+
+(define (host-config-feature-locations-set! host-config x)
+  (field2-set! host-config x))
+
+(define (host-config-add-primitive! host-config prim code)
+  (let* ((primitives (host-config-primitives host-config))
+         (prim-ref (assoc prim primitives)))
+    (if prim-ref 
+      (car prim-ref)
+      (begin
+        (host-config-primitives-set! host-config (cons (list prim (length primitive-order) code) primitives))
+        (length primitive-order)))))
+
+
+(define (host-ctx-get-primitive-index host-ctx prim)
+  (let ((prim-rib (assoc prim (host-ctx-primitive-order host-ctx))))
+    (if prim-rib
+      (cadr prim-rib)
+      (error "Unknown primitive" prim))))
+
 ;; ====== hashable ribs (or c-ribs, for code ribs) =====
 
 (cond-expand
@@ -791,11 +825,6 @@
           (display-obj next)
           "]")))))
 
-
-
-
-
-  
 
 (define (comp ctx expr cont)
 
@@ -1148,53 +1177,31 @@
            (exports->alist (cdr exprs-and-exports)))
          (host-features 
            (and parsed-vm (extract-features parsed-vm)))
-         ;(_ (set! defined-features '())) ;; hack to propagate the defined-features to expand-begin
-
-         
          
          (expansion
            `(begin
               ,@(host-feature->expansion-feature host-features) ;; add host features
               ,(expand-begin exprs)))
         
-
-         (_ (pp expansion))
-         (live-env
+         (live-globals-and-features
            (liveness-analysis expansion features-enabled features-disabled exports))
 
-         (_ (step))
-         #;(features-enabled 
-           (unique (append (detect-features live) features-enabled)))
-         #;(live-symbols
-           (map car live))
+         (live-globals
+           (car live-globals-and-features))
 
+         (live-features
+           (cdr live-globals-and-features))
 
-         #;(live-features 
-           (if parsed-vm 
-             (used-features 
-               features
-               live-symbols
-               features-enabled
-               features-disabled)
-             features-enabled))
-
-         #;(expansion
-           (add-feature-variables live-symbols (or live-features '()) expansion))
-
-         ;; (_ (pp expansion))
-
-         (primitives
-           (if parsed-vm
-               (set-primitive-order live-features features)
-               default-primitives))
          (exports
-           (or (and (not (memq 'debug live-features)) exports)
+           (or (and (not (assoc live-features 'debug)) exports) ;; export everything when debug is activated
                (map (lambda (v)
                       (let ((var (car v)))
                         (cons var var)))
-                    live)))
-         (return (make-vector 5))
-         (ctx (make-ctx '() live exports (or live-features '()))))
+                    live-globals)))
+
+         (ctx (make-ctx '() live-globals exports))
+
+         (host-config (make-host-config live-features primitives feature-location)))
     (set! tail (add-nb-args ctx 1 tail))
     (vector-set! 
       return
@@ -1203,13 +1210,12 @@
         (c-rib 2 ;; 0 parameters 
                0
                (comp ctx
+                     host-ctx
                      expansion
                      tail))
         '()))
     (vector-set! return 1 exports)
-    (vector-set! return 2 primitives)
-    (vector-set! return 3 live-features)
-    (vector-set! return 4 features)
+    (vector-set! return 2 host-ctx)
 
 
     ;(pp 
@@ -1240,7 +1246,7 @@
       (begin
         (display "*** exports:\n")
         (pp (vector-ref return 1))))
-    (if (>= verbosity 2)
+    #;(if (>= verbosity 2)
       (begin
         (display "*** primitive order:\n")
         (pp (vector-ref return 2))))
@@ -1739,10 +1745,13 @@
 ;; Global variable liveness analysis.
 
 (define (liveness-analysis expr features-enabled features-disabled exports)
-  (let ((live-env (liveness-analysis-aux expr features-enabled features-disabled '())))
-    (if (live-env-live? live-env 'symtbl)
-        (liveness-analysis-aux expr features-enabled features-disabled exports)
-        live-env)))
+  (let* ((live-env (liveness-analysis-aux expr features-enabled features-disabled '())))
+        ((live-env-result 
+           (if (live-env-live? live-env 'symtbl)
+             (liveness-analysis-aux expr features-enabled features-disabled exports)
+             live-env)))
+    (cons (live-env-globals live-env)
+          (live-env-features live-env))))
 
 
 ;; Environnement for liveness analysis.
@@ -1818,7 +1827,8 @@
     var
     (and
       (not (live-env-feature-disabled? live-env var)) ;; check not disabled
-      (live-env-set-features! live-env (cons var (live-env-features live-env))))))
+      (live-env-set-features! live-env (cons var (live-env-features live-env)))
+      var)))
 
 
 (define (constant? g)
@@ -1862,8 +1872,6 @@
 
 (define (liveness expr env export-all?)
 
-  #;(define (add var)
-    (set! live-globals (add-live var live-globals)))
 
   (define (add-val val)
     (cond ((symbol? val)
@@ -1923,7 +1931,7 @@
                           (live-env-add-feature! env 'rest-param) ;; detect rest-params
                           (live-env-add-feature! env 'arity-check)
                           (liveness (caddr expr) (cons params cte) #f))
-                        (liveness (caddr expr) (extend params cte) #f)))
+                        (liveness (caddr expr) (extend params cte) #f))))
 
                    ((eqv? first 'define-feature)
                     (let ((name (cadr expr))
