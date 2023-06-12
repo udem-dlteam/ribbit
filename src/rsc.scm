@@ -602,29 +602,43 @@
 ;; ====== Host language context ======
 
 (define (make-host-config live-features primitives feature-locations )
-  (rib live-features primitives feature-locations))
+  (rib live-features (cons '(rib 0) primitives) feature-locations))
 
-(define (host-config-live-features host-config) (field0 host-config))
+(define (host-config-features host-config) (field0 host-config))
 (define (host-config-primitives host-config) (field1 host-config))
-(define (host-config-feature-locations host-config) (field2 host-config))
+(define (host-config-locations host-config) (field2 host-config))
 
-(define (host-config-live-features-set! host-config x)
+(define (host-config-features-set! host-config x)
   (field0-set! host-config x))
 
 (define (host-config-primitives-set! host-config x)
   (field1-set! host-config x))
 
-(define (host-config-feature-locations-set! host-config x)
+(define (host-config-locations-set! host-config x)
   (field2-set! host-config x))
 
 (define (host-config-add-primitive! host-config prim code)
   (let* ((primitives (host-config-primitives host-config))
          (prim-ref (assoc prim primitives)))
-    (if prim-ref 
-      (car prim-ref)
+    (if (eqv? prim 'rib)
       (begin
-        (host-config-primitives-set! host-config (cons (list prim (length primitive-order) code) primitives))
-        (length primitive-order)))))
+        (set-cdr! (cdr prim-ref) (cons code '())) ;; hack to set code
+        0)
+      (if prim-ref 
+        (car prim-ref)
+        (begin
+          (host-config-primitives-set! host-config (cons (list prim (length primitives) code) primitives))
+          (length primitives))))))
+
+(define (host-config-add-location! host-config location feature)
+  (let ((location-ref (assoc location (host-config-locations host-config))))
+    (if (or (eqv? location '@@body) (eqv? location '@@head))
+      #f
+      (if location-ref
+        (set-cdr! location-ref (cons feature (cdr location-ref)))
+        (begin
+          (host-config-locations-set! host-config (cons (list location feature) (host-config-locations host-config)))
+          #t)))))
 
 
 (define (host-ctx-get-primitive-index host-ctx prim)
@@ -632,6 +646,7 @@
     (if prim-rib
       (cadr prim-rib)
       (error "Unknown primitive" prim))))
+
 
 ;; ====== hashable ribs (or c-ribs, for code ribs) =====
 
@@ -863,6 +878,32 @@
                                     (gen-noop ctx cont))))
                             (comp ctx val (gen-assign ctx v cont)))))))
 
+
+                 ((eqv? first 'define-primitive)
+                  (let* ((name (caadr expr)))
+                    (if (memq name (host-config-features host-config))
+                      (let ((index (host-config-add-primitive! host-config name expr)))
+                        (comp ctx `(set! ,name (rib ,index '() ,procedure-type)) cont))
+                      (gen-noop ctx cont))))
+
+                 ((eqv? first 'define-feature)
+                  (let* ((feature-expr (cadr expr)))
+                    (begin
+                      (if (eval-feature feature-expr (host-config-features host-config))
+                        (let ((locations (filter (lambda (x) (not (eqv? (car x) 'use))) (cddr expr))))
+                          (for-each (lambda (location)
+                                      (host-config-add-location! host-config (car location) expr))
+                                    locations)))
+                      (gen-noop ctx cont))))
+
+                 ((eqv? first 'if-feature)
+                  (let* ((feature-expr (cadr expr))
+                         (then-expr (caddr expr))
+                         (else-expr (cadddr expr)))
+                    (if (eval-feature feature-expr (host-config-features host-config))
+                      (comp ctx then-expr cont)
+                      (comp ctx else-expr cont))))
+
                  ((eqv? first 'if)
                   (let ((cont-false (comp ctx (cadddr expr) cont)))
                     (let ((cont-true (comp ctx (caddr expr) cont)))
@@ -1009,6 +1050,20 @@
         (c-rib jump/call-op ;; call
              (use-symbol ctx 'arg2)
              cont))))
+
+(define (add-live var live-globals)
+  (if (live? var live-globals)
+      live-globals
+      (let ((g (cons var '())))
+        (cons g live-globals))))
+
+(define (live? var lst)
+  (if (pair? lst)
+    (let ((x (car lst)))
+      (if (eqv? var (car x))
+        x
+        (live? var (cdr lst))))
+    #f))
 
 (define (use-symbol ctx sym)
   (ctx-live-set! ctx (add-live sym (ctx-live ctx)))
@@ -1165,6 +1220,7 @@
              (error "Cannot handle host feature" x))))
        host-features))
 
+(define host-config #f)
 
 (define (compile-program verbosity parsed-vm features-enabled features-disabled program)
   (let* ((exprs-and-exports
@@ -1182,6 +1238,7 @@
            `(begin
               ,@(host-feature->expansion-feature host-features) ;; add host features
               ,(expand-begin exprs)))
+
         
          (live-globals-and-features
            (liveness-analysis expansion features-enabled features-disabled exports))
@@ -1193,16 +1250,22 @@
            (cdr live-globals-and-features))
 
          (exports
-           (or (and (not (assoc live-features 'debug)) exports) ;; export everything when debug is activated
+           (or (and (not (memq 'debug live-features)) exports) ;; export everything when debug is activated
                (map (lambda (v)
                       (let ((var (car v)))
                         (cons var var)))
                     live-globals)))
 
-         (ctx (make-ctx '() live-globals exports))
 
-         (host-config (make-host-config live-features primitives feature-location)))
+         (host-config-ctx (make-host-config live-features '() '()))
+
+         (ctx (make-ctx '() live-globals exports live-features))
+         (return (make-vector 3)))
+
     (set! tail (add-nb-args ctx 1 tail))
+    (set! host-config host-config-ctx)
+    
+
     (vector-set! 
       return
       0 
@@ -1210,12 +1273,11 @@
         (c-rib 2 ;; 0 parameters 
                0
                (comp ctx
-                     host-ctx
                      expansion
                      tail))
         '()))
     (vector-set! return 1 exports)
-    (vector-set! return 2 host-ctx)
+    (vector-set! return 2 host-config)
 
 
     ;(pp 
@@ -1745,13 +1807,13 @@
 ;; Global variable liveness analysis.
 
 (define (liveness-analysis expr features-enabled features-disabled exports)
-  (let* ((live-env (liveness-analysis-aux expr features-enabled features-disabled '())))
-        ((live-env-result 
+  (let* ((live-env (liveness-analysis-aux expr features-enabled features-disabled '()))
+         (live-env-result 
            (if (live-env-live? live-env 'symtbl)
              (liveness-analysis-aux expr features-enabled features-disabled exports)
              live-env)))
-    (cons (live-env-globals live-env)
-          (live-env-features live-env))))
+    (cons (live-env-globals live-env-result)
+          (live-env-features live-env-result))))
 
 
 ;; Environnement for liveness analysis.
@@ -2113,7 +2175,9 @@
 (define (encoding-size encoding)
   (fold + 0 (map cadr encoding)))
 
-(define (encode proc exports primitives live-features encoding)
+(define (encode proc exports host-config encoding)
+  
+  (define live-features (host-config-features host-config))
 
   (define eb/2 (quotient (encoding-size encoding) 2))
 
@@ -2208,7 +2272,7 @@
       (set! built-constants (cons (cons o (cons v code)) built-constants))
       v))
 
-  (define (add-init-primitives tail)
+  #;(define (add-init-primitives tail)
 
     (define (prim-code sym tail)
       (let ((index (cadr (assq sym primitives))))
@@ -2260,9 +2324,7 @@
 
   (define (add-init-code proc)
     (let* ((code (c-rib-oper proc))
-           (new-code (add-init-primitives
-                       (add-init-constants
-                         (c-rib-next code)))))
+           (new-code (add-init-constants (c-rib-next code))))
              
       (c-rib (c-rib
                (c-rib-oper code)
@@ -2915,13 +2977,19 @@
           (error "Cannot evaluate expression in replace" expr))))
 
 
-(define (generate-file parsed-file live-features primitives features encode)
+(define (generate-file parsed-file host-config encode)
+  (define live-features (host-config-features host-config))
+  (define primitives (list-sort 
+                       (lambda (x y) (< (cadr x) (cadr y) ))
+                       (host-config-primitives host-config)))
+  (define locations (host-config-locations host-config))
+
   (letrec ((extract-func
               (lambda (prim acc rec)
                 (case (car prim)
                   ((str)
                    (string-append acc (cadr prim)))
-                  ((feature)
+                  ((feature define-primitive)
                    (let ((condition (cadr prim)))
                      (if (eval-feature condition live-features)
                        (string-append acc (rec ""))
@@ -2932,9 +3000,10 @@
                             (lambda (prim)
                               (let* ((name (car prim))
                                      (index (cadr prim))
-                                     (primitive (find-primitive name features))
-                                     (_ (if (not primitive) (error "Cannot find needed primitive inside program :" name)))
-                                     (body  (extract extract-func (cons primitive '()) ""))
+                                     (primitive (caddr prim))
+                                     
+                                     #;(_ (if (not primitive) (error "Cannot find needed primitive inside program :" name)))
+                                     (body  (extract extract-func (cadr (soft-assoc '@@body primitive)) ""))
                                      (head  (soft-assoc '@@head primitive)))
                                 (let loop ((gen gen))
                                   (if (pair? gen)
@@ -2952,19 +3021,13 @@
                               (map generate-one primitives)))))
                   ((use-feature)
                    (string-append acc (rec "")))
-                  ((primitive)
+                  ((primitive define-primitive)
+                   (pp prim)
                    (string-append acc (rec "")))
                   ((location)
                    (let* ((name (cadr prim))
-                          (matched-features
-                            (filter 
-                              (lambda (feature)
-                                (let ((location-name (soft-assoc '@@location feature))
-                                      (condition     (cadr feature)))
-                                  (and location-name 
-                                       (eq? (cadr location-name) name)
-                                       (eval-feature condition live-features))))
-                              features)))
+                          (feature-pair (assoc name locations))
+                          (matched-features (if feature-pair (cdr feature-pair) '())))
                      (string-append
                        acc
                        (extract extract-func matched-features ""))))
@@ -2998,12 +3061,15 @@
            (vector-ref proc-exports-and-features 0))
          (exports
            (vector-ref proc-exports-and-features 1))
-         (primitives
+         (host-config
            (vector-ref proc-exports-and-features 2))
-         (live-features
-           (vector-ref proc-exports-and-features 3))
-         (features
-           (vector-ref proc-exports-and-features 4))
+
+         ;(primitives
+         ;  (vector-ref proc-exports-and-features 2))
+         ;(live-features
+         ;  (vector-ref proc-exports-and-features 3))
+         ;(features
+         ;  (vector-ref proc-exports-and-features 4))
          (encode (lambda (bits)
                    (let ((input 
                            (string-append 
@@ -3011,8 +3077,7 @@
                                (encode 
                                  proc 
                                  exports 
-                                 primitives 
-                                 live-features
+                                 host-config
                                  (cadr (assoc bits encodings)))
                                (error "Encoding is not defined for this number of bits : " bits))
                              (if input-path
@@ -3030,7 +3095,7 @@
     (let* ((target-code-before-minification
             (if (equal? target "rvm")
                 (encode 92)
-                (generate-file host-file live-features primitives features encode)))
+                (generate-file host-file host-config encode)))
            (target-code
             (if (or (not minify?) (equal? target "rvm"))
                 target-code-before-minification
