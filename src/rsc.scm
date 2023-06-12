@@ -883,7 +883,7 @@
                   (let* ((name (caadr expr)))
                     (if (memq name (host-config-features host-config))
                       (let ((index (host-config-add-primitive! host-config name expr)))
-                        (comp ctx `(set! ,name (rib ,index '() ,procedure-type)) cont))
+                        (comp ctx `(set! ,name (rib ,index 0 ,procedure-type)) cont))
                       (gen-noop ctx cont))))
 
                  ((eqv? first 'define-feature)
