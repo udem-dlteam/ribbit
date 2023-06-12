@@ -1308,11 +1308,21 @@
       (begin
         (display "*** exports:\n")
         (pp (vector-ref return 1))))
+
+    (if (>= verbosity 2)
+      (begin
+        (display "*** HOST CONFIG ***\n")
+        (display "*** features :\n")
+        (pp (host-config-features (vector-ref return 2)))
+        (display "*** primitive order :\n")
+        (pp (host-config-primitives (vector-ref return 2)))
+        (display "*** feature location :\n")
+        (pp (host-config-locations (vector-ref return 2)))))
     #;(if (>= verbosity 2)
       (begin
         (display "*** primitive order:\n")
         (pp (vector-ref return 2))))
-    (if (>= verbosity 3)
+    #;(if (>= verbosity 3)
       (begin
         (display "*** live-features:\n")
         (pp (vector-ref return 3))))
