@@ -1497,9 +1497,15 @@
                                   (cons (expand-expr (caddr expr))
                                         '()))))))
 
-
                  ((eqv? first 'if-feature)
-                  expr)
+                  (cons 'if-feature
+                        (cons (cadr expr)
+                              (cons (expand-expr (caddr expr))
+                                    (cons (if (pair? (cdddr expr))
+                                            (expand-expr (cadddr expr))
+                                            #f)
+                                          '())))))
+
 
                  ((eqv? (car expr) 'define-primitive) ;; parse arguments as source file
                   (let ((code (filter string? (cdr expr)))
