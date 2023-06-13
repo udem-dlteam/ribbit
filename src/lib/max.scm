@@ -756,7 +756,7 @@
 (define if-op        4)
 
 (define (add-nb-args nb tail)
-  (if ##feature-arity-check
+  (if-feature arity-check
     (rib const-op
          nb
          tail)
@@ -961,7 +961,18 @@
           (let ((v (lookup var cte 0)))
             (add-nb-args
               nb-args
-              (gen-call (if (and (integer? v) ##feature-arity-check) (+ 1 v) v) cont)))))))
+              (gen-call 
+;(if (and (integer? v) ##feature-arity-check) (+ 1 v) v)
+
+
+                (if-feature arity-check
+                  (if (not (rib? v)) (+ v 1) v)
+                  v)
+                ;(if-feature arity-check
+                ;    (if (integer? v) (+ 1 v) v)
+                ;    v)
+
+                cont)))))))
 
 (define (lookup var cte i)
   (if (pair? cte)
