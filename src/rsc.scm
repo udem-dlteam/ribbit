@@ -943,11 +943,14 @@
                            '())
                          (if (null? (ctx-cte ctx))
                            cont
-                           (add-nb-args
-                             ctx
-                             1
+                           (if (arity-check? ctx 'close)
+                             (add-nb-args
+                               ctx
+                               1
+                               (gen-call (use-symbol ctx 'close) 
+                                         cont))
                              (gen-call (use-symbol ctx 'close) 
-                                       cont))))))
+                                         cont))))))
 
                  ((eqv? first 'begin)
                   (comp-begin ctx (cdr expr) cont))
@@ -968,14 +971,16 @@
                                    args
                                    (lambda (ctx)
                                      (let ((v (lookup first (ctx-cte ctx) 0)))
-                                       (add-nb-args ctx 
-                                                    (length args)
-                                                    (gen-call 
-                                                      (if (and (number? v)
-                                                               (memq 'arity-check (ctx-live-features ctx)))
-                                                        (+ v 1)
-                                                        v)
-                                                      cont)))))
+                                       (if (arity-check? ctx first)
+                                         (add-nb-args ctx 
+                                                      (length args)
+                                                      (gen-call 
+                                                        (if (and (number? v)
+                                                                 (memq 'arity-check (ctx-live-features ctx)))
+                                                          (+ v 1)
+                                                          v)
+                                                        cont))
+                                         (gen-call v cont)))))
                         (comp-bind ctx
                                    '(_)
                                    (cons first '())
@@ -994,10 +999,14 @@
 (define (gen-assign ctx v cont)
   (c-rib set-op v (gen-noop ctx cont)))
 
-
+(define (arity-check? ctx name)
+  (and (memq 'arity-check (ctx-live-features ctx))
+       (not (and
+              (memq 'prim-no-arity (ctx-live-features ctx))
+              (memq name (ctx-live-features ctx))))))
 
 (define (is-call? ctx name cont)
-  (let* ((arity-check (memq 'arity-check (ctx-live-features ctx))) 
+  (let* ((arity-check (arity-check? ctx name))
          (call-rib 
            (if arity-check
              (and (rib? cont) (c-rib-next cont))
@@ -1017,7 +1026,7 @@
 
 (define (gen-noop ctx cont)
   (if (is-call? ctx 'arg1 cont)
-      (if (memq 'arity-check (ctx-live-features ctx))
+      (if (arity-check? ctx 'arg1)
         (c-rib-next (c-rib-next cont)) ;; remove const and pop
         (c-rib-next cont)) ;; remove pop
       (c-rib const-op 0 cont))) ;; add dummy value for set!
@@ -1050,11 +1059,15 @@
 
 (define (gen-unbind ctx cont)
   (if (eqv? cont tail)
-      cont
+    cont
+    (if (arity-check? ctx 'arg2)
       (add-nb-args
         ctx
         2
         (c-rib jump/call-op ;; call
+               (use-symbol ctx 'arg2)
+               cont))
+      (c-rib jump/call-op ;; call
              (use-symbol ctx 'arg2)
              cont))))
 
@@ -1080,10 +1093,14 @@
   (comp ctx
         (car exprs)
         (if (pair? (cdr exprs))
+          (if (arity-check? ctx 'arg1)
             (add-nb-args
               ctx
               2
               (c-rib jump/call-op ;; call
+                     (use-symbol ctx 'arg1)
+                     (comp-begin ctx (cdr exprs) cont)))
+            (c-rib jump/call-op ;; call
                    (use-symbol ctx 'arg1)
                    (comp-begin ctx (cdr exprs) cont)))
             cont)))
@@ -1269,9 +1286,10 @@
          (ctx (make-ctx '() live-globals exports live-features))
          (return (make-vector 3)))
 
-    (set! tail (add-nb-args ctx 1 tail))
     (set! host-config host-config-ctx)
     
+    (if (not (memq 'prim-no-arity live-features))
+      (set! tail (add-nb-args ctx 1 tail)))
 
     (vector-set! 
       return
@@ -2215,6 +2233,12 @@
              tail)
       tail))
 
+  (define prim-arity-check?
+    (and 
+      live-features
+      (memq 'arity-check live-features)
+      (not (memq 'prim-no-arity live-features))))
+
   (define (build-constant o tail)
     (cond ((or (memv o '(#f #t ()))
                (assq o built-constants))
@@ -2234,11 +2258,15 @@
                       0
                       (c-rib const-op
                              (- 0 o)
-                             (add-nb-args
-                               2
-                               (c-rib jump/call-op
-                                      (scan-opnd '- 0)
-                                      tail)))))
+                             (if prim-arity-check?
+                                    (add-nb-args
+                                      2
+                                      (c-rib jump/call-op
+                                             (scan-opnd '- 0)
+                                             tail))
+                                    (c-rib jump/call-op
+                                           (scan-opnd '- 0)
+                                           tail)))))
                (c-rib const-op
                       o
                       tail)))
@@ -2250,8 +2278,12 @@
                            0
                            (c-rib const-op
                                   char-type
-                                  (add-nb-args
-                                    3
+                                  (if prim-arity-check?
+                                    (add-nb-args
+                                      3
+                                      (c-rib jump/call-op
+                                             (scan-opnd 'rib 0)
+                                             tail))
                                     (c-rib jump/call-op
                                            (scan-opnd 'rib 0)
                                            tail)))))
@@ -2261,8 +2293,12 @@
                            (build-constant (cdr o)
                                            (c-rib const-op
                                                   pair-type
-                                                  (add-nb-args
-                                                    3
+                                                  (if prim-arity-check?
+                                                    (add-nb-args
+                                                      3
+                                                      (c-rib jump/call-op
+                                                             (scan-opnd 'rib 0)
+                                                             tail))
                                                     (c-rib jump/call-op
                                                            (scan-opnd 'rib 0)
                                                            tail))))))
@@ -2272,8 +2308,12 @@
                              (build-constant (length chars)
                                              (c-rib const-op
                                                     string-type
-                                                    (add-nb-args
-                                                      3
+                                                    (if prim-arity-check?
+                                                      (add-nb-args
+                                                        3
+                                                        (c-rib jump/call-op
+                                                               (scan-opnd 'rib 0)
+                                                               tail))
                                                       (c-rib jump/call-op
                                                              (scan-opnd 'rib 0)
                                                              tail)))))))
@@ -2283,8 +2323,12 @@
                              (build-constant (length elems)
                                              (c-rib const-op
                                                     vector-type
-                                                    (add-nb-args
-                                                      3
+                                                    (if prim-arity-check?
+                                                      (add-nb-args
+                                                        3
+                                                        (c-rib jump/call-op
+                                                               (scan-opnd 'rib 0)
+                                                               tail))
                                                       (c-rib jump/call-op
                                                              (scan-opnd 'rib 0)
                                                              tail)))))))
@@ -2307,13 +2351,19 @@
                       0
                       (c-rib const-op
                              procedure-type
-                             (add-nb-args 
-                               3
+                             (if prim-arity-check?
+                               (add-nb-args 
+                                 3
+                                 (c-rib jump/call-op
+                                        (scan-opnd 'rib 0)
+                                        (c-rib set-op
+                                               (scan-opnd sym 3)
+                                               tail)))
                                (c-rib jump/call-op
-                                      (scan-opnd 'rib 0)
-                                      (c-rib set-op
-                                             (scan-opnd sym 3)
-                                             tail))))))))
+                                        (scan-opnd 'rib 0)
+                                        (c-rib set-op
+                                               (scan-opnd sym 3)
+                                               tail))))))))
 
     (let loop ((lst (filter (lambda (x) (not (eqv? x 'rib))) forced-first-primitives)) ;; skip rib primitive that is predefined
                (tail tail))

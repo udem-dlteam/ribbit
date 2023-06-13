@@ -417,12 +417,13 @@ run = () => {
         o = get_opnd(o)[0];
         while(1) {
             if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } //debug
-            // @@(feature arity-check
-            let nargs=pop();
-            // )@@
             let c = o[0];
 
             if (is_rib(c)) {
+                // @@(feature arity-check
+                let nargs=pop();
+                // )@@
+
                 let c2 = [0,o,0];
                 let s2 = c2;
 
@@ -463,6 +464,10 @@ run = () => {
                 }
                 stack = s2;
             } else {
+                // @@(feature (and arity-check (not prim-no-arity))
+                pop()
+                // )@@
+
                 o=primitives[c]()
                 if (!o) return;
                 if (is_rib(o)) continue;
