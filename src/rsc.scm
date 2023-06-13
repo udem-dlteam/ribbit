@@ -1934,10 +1934,11 @@
     (live-env-add-live! env 'close)
     (live-env-add-live! env 'id)
 
-    (if exports
-      (for-each
-        (lambda (x) (live-env-add-live! env x)) 
-        exports))
+
+
+    (for-each
+      (lambda (x) (live-env-add-live! env (car x))) 
+      exports)
 
     (for-each 
       (lambda (x) (live-env-add-feature! env x))
@@ -1990,6 +1991,7 @@
                             (let ((g (live-env-live? env var))) ;; variable live?
                               (if g
                                 (begin
+                                  
                                   (set-cdr! g (cons val (cdr g))) 
                                   (liveness val cte #f))
                                 #f)))))))
