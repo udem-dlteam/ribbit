@@ -17,7 +17,7 @@
 
 ;; Symbols (R4RS section 6.4).
 
-(define global-var-ref field0)
-(define global-var-set! field0-set!)
+;; (define global-var-ref field0)
+;; (define global-var-set! field0-set!)
 
 ;;;----------------------------------------------------------------------------

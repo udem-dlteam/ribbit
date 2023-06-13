@@ -107,6 +107,20 @@
                                (cddr expr)
                                cont)))
 
+                 ;#; ;; support for single armed let special form
+                 ((eqv? first 'letrec)
+                  (let ((bindings (cadr expr)))
+                    (comp cte
+                          (cons 'let
+                                (cons (map (lambda (binding)
+                                             (list (car binding) #f))
+                                           bindings)
+                                      (append (map (lambda (binding)
+                                                     (list 'set! (car binding) (cadr binding)))
+                                                   bindings)
+                                              (cddr expr))))
+                          cont)))
+
                  ;#; ;; support for and special form
                  ((eqv? first 'and)
                   (comp cte
@@ -326,5 +340,13 @@
 ;; ---------------------- LOAD ---------------------- ;;
 
 (define (load filename)
-  )
+  (let ((port (open-input-file filename)))
+    (let loop ((expr (read port)))
+      (if (eof-object? expr)
+        (begin
+          (close-input-port port)
+          '())
+        (begin
+          (eval expr)
+          (loop (read port)))))))
 
