@@ -601,7 +601,12 @@
 
 ;; ====== Host language context ======
 
-(define (make-host-config live-features primitives feature-locations )
+;; these primitives are "forced first" meaning that they must exist before any other code is executed. This is because the 
+;;   compiler uses them when generating constants. It's a hack.
+
+(define forced-first-primitives (list 'rib '-)) 
+
+(define (make-host-config live-features primitives feature-locations)
   (rib live-features (cons '(rib 0) primitives) feature-locations))
 
 (define (host-config-features host-config) (field0 host-config))
@@ -619,13 +624,13 @@
 
 (define (host-config-add-primitive! host-config prim code)
   (let* ((primitives (host-config-primitives host-config))
-         (prim-ref (assoc prim primitives)))
+         (prim-ref (assq prim primitives)))
     (if (eqv? prim 'rib)
       (begin
         (set-cdr! (cdr prim-ref) (cons code '())) ;; hack to set code
         0)
       (if prim-ref 
-        (car prim-ref)
+        (cadr prim-ref)
         (begin
           (host-config-primitives-set! host-config (cons (list prim (length primitives) code) primitives))
           (length primitives))))))
@@ -883,7 +888,9 @@
                   (let* ((name (caadr expr)))
                     (if (memq name (host-config-features host-config))
                       (let ((index (host-config-add-primitive! host-config name expr)))
-                        (comp ctx `(set! ,name (rib ,index 0 ,procedure-type)) cont))
+                        (if (memq name forced-first-primitives)
+                          (gen-noop ctx cont)
+                          (comp ctx `(set! ,name (rib ,index 0 ,procedure-type)) cont)))
                       (gen-noop ctx cont))))
 
                  ((eqv? first 'define-feature)
@@ -2215,6 +2222,8 @@
                   tail))
           ((number? o)
            (if (< o 0)
+             (begin
+               (host-config-features-set! host-config (cons '- (host-config-features host-config))) 
                (c-rib const-op
                       0
                       (c-rib const-op
@@ -2223,7 +2232,7 @@
                                2
                                (c-rib jump/call-op
                                       (scan-opnd '- 0)
-                                      tail))))
+                                      tail)))))
                (c-rib const-op
                       o
                       tail)))
@@ -2282,31 +2291,29 @@
       (set! built-constants (cons (cons o (cons v code)) built-constants))
       v))
 
-  #;(define (add-init-primitives tail)
+  (define (add-init-primitives tail)
 
     (define (prim-code sym tail)
-      (let ((index (cadr (assq sym primitives))))
-        (if (number? index) ;; if not a number, the primitive is already set in code as (set! p (rib index 0 1))
-          (c-rib const-op
-                 index
-                 (c-rib const-op
-                        0
-                        (c-rib const-op
-                               procedure-type
-                               (add-nb-args 
-                                 3
-                                 (c-rib jump/call-op
-                                        (scan-opnd 'rib 0)
-                                        (c-rib set-op
-                                               (scan-opnd sym 3)
-                                               tail))))))
-          tail)))
+      (let ((index (cadr (assq sym (host-config-primitives host-config)))))
+        (c-rib const-op
+               index
+               (c-rib const-op
+                      0
+                      (c-rib const-op
+                             procedure-type
+                             (add-nb-args 
+                               3
+                               (c-rib jump/call-op
+                                      (scan-opnd 'rib 0)
+                                      (c-rib set-op
+                                             (scan-opnd sym 3)
+                                             tail))))))))
 
-    (let loop ((lst (cdr primitives)) ;; skip rib primitive that is predefined
+    (let loop ((lst (filter (lambda (x) (not (eqv? x 'rib))) forced-first-primitives)) ;; skip rib primitive that is predefined
                (tail tail))
       (if (pair? lst)
           (loop (cdr lst)
-                (let* ((sym (car (car lst)))
+                (let* ((sym (car lst))
                        (descr (table-ref syms sym #f)))
                   (if (and descr
                            (or (< 0 (field0 descr))
@@ -2334,7 +2341,7 @@
 
   (define (add-init-code proc)
     (let* ((code (c-rib-oper proc))
-           (new-code (add-init-constants (c-rib-next code))))
+           (new-code (add-init-primitives (add-init-constants (c-rib-next code)))))
              
       (c-rib (c-rib
                (c-rib-oper code)
