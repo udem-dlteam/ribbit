@@ -1681,10 +1681,8 @@
          (list '##qq-cons (expand-constant 'unquote) (parse (cdr x) (- depth 1)))))
       ((and (pair? (car x)) (eqv? (caar x) 'unquote-splicing))
        (if (= depth 1)
-         (if (pair? (cdr x))
-           (list '##qq-append (cadar x) (parse (cdr x) depth))
-           (error "unquote-splicing: bad syntax"))
-         (list '##qq-cons (list '##qq-cons (expand-constant 'unquote-splicing) (parse (cdar x) (- depth 1))) (parse (cdr x) (- depth 1)))))
+         (list '##qq-append (cadar x) (parse (cdr x) depth))
+         (list '##qq-cons (list '##qq-cons (expand-constant 'unquote-splicing) (parse (cdar x) (- depth 1))) (parse (cdr x) depth))))
       ((eqv? (car x) 'quasiquote)
        (list '##qq-cons (expand-constant 'quasiquote) (parse (cdr x) (+ depth 1))))
       (else

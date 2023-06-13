@@ -220,10 +220,8 @@
          (##qq-list '##qq-cons (expand-constant 'unquote) (parse (cdr x) (- depth 1)))))
       ((and (pair? (car x)) (eqv? (caar x) 'unquote-splicing))
        (if (eqv? depth 1)
-         (if (pair? (cdr x))
-           (##qq-list '##qq-append (cadar x) (parse (cdr x) depth))
-           (crash)) ; ????
-         (##qq-list '##qq-cons (##qq-list '##qq-cons (expand-constant 'unquote-splicing) (parse (cdar x) (- depth 1))) (parse (cdr x) (- depth 1)))))
+         (##qq-list '##qq-append (cadar x) (parse (cdr x) depth))
+         (##qq-list '##qq-cons (##qq-list '##qq-cons (expand-constant 'unquote-splicing) (parse (cdar x) (- depth 1))) (parse (cdr x) depth))))
       ((eqv? (car x) 'quasiquote)
        (##qq-list '##qq-cons (expand-constant 'quasiquote) (parse (cdr x) (+ depth 1))))
       (else

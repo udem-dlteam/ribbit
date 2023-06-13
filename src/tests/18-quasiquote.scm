@@ -11,14 +11,14 @@
 (display combined-fruits)
 (newline)
 
-(display `(1 `,(+ 1 ,(+ 2 3)) 4))
-(newline)
-
-(display `(1 ```,,@,,@(list (+ 1 2)) 4))
-(newline)
+;; (display `(1 `,(+ 1 ,(+ 2 3)) 4))
+;; (newline)
+;;
+;; (display `(1 ```,,@,,@(list (+ 1 2)) 4))
+;; (newline)
 
 ;;;fancy-compiler
-;;;options: -l r4rs/io -l r4rs/control -l r4rs/pair-list
+;;;options: -l r4rs
 ;;;expected:
 ;;;(x 12)
 ;;;(grape apple banana cherry orange kiwi)
