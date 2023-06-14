@@ -6,7 +6,7 @@
 
 ;; Strings (R4RS section 6.7).
 
-(define string-length field1)
+(define (string-length x) (cdr x))
 
 (define (string-ref str i) (integer->char (list-ref (field0 str) i)))
 (define (string-set! str i ch) (list-set! str i (char->integer ch)))

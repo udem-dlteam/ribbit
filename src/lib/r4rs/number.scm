@@ -2,13 +2,13 @@
 (##include-once "./control.scm")
 
 ;; Numbers (R4RS section 6.5).
-(set! ##< <)
+(define (##< n1 n2) (< n1 n2))
 
 (set! ##no-args '(0))
 
-(set! ##+ +)
-(set! ##* *)
-(set! ##- -)
+(define (##+ n1 n2) (+ n1 n2))
+(define (##* n1 n2) (* n1 n2))
+(define (##- n1 n2) (- n1 n2))
 
 (define (+ . args)
   (fold ##+ 0 args))

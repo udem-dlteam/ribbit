@@ -883,7 +883,6 @@
                                     (gen-noop ctx cont))))
                             (comp ctx val (gen-assign ctx v cont)))))))
 
-
                  ((eqv? first 'define-primitive)
                   (let* ((name (caadr expr)))
                     (if (memq name (host-config-features host-config))
@@ -1000,6 +999,13 @@
   (c-rib set-op v (gen-noop ctx cont)))
 
 (define (arity-check? ctx name)
+  #;(let ((x (and (memq 'arity-check (ctx-live-features ctx))
+                (not (and
+                       (memq 'prim-no-arity (ctx-live-features ctx))
+                       (memq name (ctx-live-features ctx)))))))
+    (if (not x)
+      (pp name)))
+  
   (and (memq 'arity-check (ctx-live-features ctx))
        (not (and
               (memq 'prim-no-arity (ctx-live-features ctx))
@@ -1279,7 +1285,6 @@
                       (let ((var (car v)))
                         (cons var var)))
                     live-globals)))
-
 
          (host-config-ctx (make-host-config live-features '() '()))
 

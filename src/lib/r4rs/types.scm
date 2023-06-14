@@ -24,7 +24,7 @@
     (##eqv? (field0 o1) (field0 o2))
     (##eqv? o1 o2)))
 
-(define eq? ##eqv?)
+(define (eq? o1 o2) (##eqv? o1 o2))
 
 (define (null? obj) (eqv? obj '()))
 
@@ -54,11 +54,11 @@
 ;; ---------------------- CONVERSIONS ---------------------- ;;
 
 
-(define char->integer field0)
+(define (char->integer x) (field0 x))
 (define (integer->char n) (rib n 0 char-type))
 
 (define (##list->string lst) (rib lst (length lst) string-type))
-(define ##string->list field0)
+(define (##string->list x) (field0 x))
 
 (define (##map proc lst)
   (if (pair? lst)
@@ -69,9 +69,9 @@
 (define (string->list s) (##map integer->char (##string->list s)))
 
 (define (list->vector lst) (rib lst (length lst) vector-type))
-(define vector->list field0)
+(define (vector->list x) (field0 x))
 
-(define symbol->string field1)
+(define (symbol->string x) (field1 x))
 
 (define (string->symbol str)
 

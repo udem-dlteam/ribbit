@@ -56,8 +56,8 @@
 ;; Control features (R4RS section 6.9).
 
 (define (make-procedure code env) (rib code env procedure-type))
-(define procedure-code field0)
-(define procedure-env field1)
+(define (procedure-code x) (field0 x))
+(define (procedure-env x) (field1 x))
 
 
 (define (##map proc lst)

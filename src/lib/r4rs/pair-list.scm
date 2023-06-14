@@ -3,10 +3,10 @@
 ;; Pairs and lists (R4RS section 6.3).
 
 (define (cons car cdr) (rib car cdr pair-type))
-(define car field0)
-(define cdr field1)
-(define set-car! field0-set!)
-(define set-cdr! field1-set!)
+(define (car x) (field0 x))
+(define (cdr x) (field1 x))
+(define (set-car! x) (field0-set! x))
+(define (set-cdr! x) (field1-set! x))
 
 (define (cadr pair) (field0 (field1 pair)))
 (define (cddr pair) (field1 (field1 pair)))
