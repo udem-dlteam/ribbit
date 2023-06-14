@@ -2,13 +2,7 @@
 (##include-once "./control.scm")
 
 ;; Numbers (R4RS section 6.5).
-(define (##< n1 n2) (< n1 n2))
-
 (set! ##no-args '(0))
-
-(define (##+ n1 n2) (+ n1 n2))
-(define (##* n1 n2) (* n1 n2))
-(define (##- n1 n2) (- n1 n2))
 
 (define (+ . args)
   (fold ##+ 0 args))
@@ -18,14 +12,16 @@
 
 
 (define (- x (y ##no-args))
-  (if (eqv? y ##no-args)
+  (if (##eqv? y ##no-args)
     (##- 0 x)
     (##- x y)))
 
 (define (/ x (y ##no-args))
-  (if (eqv? y ##no-args)
-    (quotient 1 x)
-    (quotient x y)))
+  (if (##eqv? y ##no-args)
+    (##quotient 1 x)
+    (##quotient x y)))
+
+(define (quotient x y) (##quotient x y))
 
 (define rational? integer?)
 (define real? rational?)
@@ -36,7 +32,7 @@
 (define (inexact? obj) #f)
 
 (define (= x . rest)
-  (scan-until eqv? x #t rest #f))
+  (scan-until ##eqv? x #t rest #f))
 
 (define (< x . rest) 
   (scan-until ##< x #t rest #f))
@@ -51,8 +47,8 @@
 (define (>= x . rest) 
   (scan-until (lambda (x y) (not (##< x y))) x #t rest #f))
 
-(define (zero? x) (eqv? x 0))
-(define (positive? x) (< 0 x))
-(define (negative? x) (< x 0))
-(define (even? x) (eqv? x (* 2 (quotient x 2))))
+(define (zero? x) (##eqv? x 0))
+(define (positive? x) (##< 0 x))
+(define (negative? x) (##< x 0))
+(define (even? x) (##eqv? x (##* 2 (##quotient x 2))))
 (define (odd? x) (not (even? x)))

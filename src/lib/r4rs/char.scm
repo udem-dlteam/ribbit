@@ -3,9 +3,9 @@
 
 ;; Characters (R4RS section 6.6).
 
-(define (char=? ch1 ch2) (eqv? (field0 ch1) (field0 ch2)))
-(define (char<? ch1 ch2) (< (char-cmp ch1 ch2) 0))
-(define (char>? ch1 ch2) (< 0 (char-cmp ch1 ch2)))
+(define (char=? ch1 ch2) (##eqv? (##field0 ch1) (##field0 ch2)))
+(define (char<? ch1 ch2) (##< (char-cmp ch1 ch2) 0))
+(define (char>? ch1 ch2) (##< 0 (char-cmp ch1 ch2)))
 (define (char<=? ch1 ch2) (not (char>? ch1 ch2)))
 (define (char>=? ch1 ch2) (not (char<? ch1 ch2)))
 
@@ -17,8 +17,8 @@
 
 (define (char-cmp ch1 ch2)
   (cond 
-    ((< (field0 ch1) (field0 ch2)) -1)
-    ((< (field0 ch2) (field0 ch1)) 1)
+    ((##< (##field0 ch1) (##field0 ch2)) -1)
+    ((##< (##field0 ch2) (##field0 ch1)) 1)
     (else 0)))
 
 (define (char-alphabetic? ch)
@@ -46,12 +46,12 @@
 
 (define (char-upcase ch)
   (if (char-lower-case? ch)
-      (integer->char (- (field0 ch) 32)) ; (- (field0 #\A) (field0 #\a))
+      (integer->char (##- (##field0 ch) 32)) ; (- (##field0 #\A) (##field0 #\a))
       ch))
 
 (define (char-downcase ch)
   (if (char-upper-case? ch)
-      (integer->char (+ (field0 ch) 32)) ; (- (field0 #\a) (field0 #\A))
+      (integer->char (##+ (##field0 ch) 32)) ; (- (##field0 #\a) (##field0 #\A))
       ch))
 
 

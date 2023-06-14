@@ -6,7 +6,7 @@
   ((host js)
 
    (define-primitive
-     (apply f args)
+     (##apply f args)
      "() => {
         let num_args = 0;
         let arg = pop();
@@ -22,7 +22,7 @@
 
   ((host c)
    (define-primitive
-     (apply f args)
+     (##apply f args)
      "{
      PRIM2();
      int num_args = 0;
@@ -38,7 +38,7 @@
 
   ((host hs)
    (define-primitive
-     (apply f args)
+     (##apply f args)
      " ,  (do
             let numArgs = 0
             arg <- pop
@@ -55,9 +55,11 @@
 
 ;; Control features (R4RS section 6.9).
 
-(define (make-procedure code env) (rib code env procedure-type))
-(define (procedure-code x) (field0 x))
-(define (procedure-env x) (field1 x))
+(define (apply f args) (##apply f args))
+
+(define (make-procedure code env) (##rib code env procedure-type))
+(define (procedure-code x) (##field0 x))
+(define (procedure-env x) (##field1 x))
 
 
 (define (##map proc lst)
@@ -101,10 +103,10 @@
 ;; First-class continuations.
 
 (define (call/cc receiver)
-  (let ((c (field1 (field1 (close #f))))) ;; get call/cc continuation rib
+  (let ((c (##field1 (##field1 (##close #f))))) ;; get call/cc continuation rib
     (receiver (lambda (r)
-                (let ((c2 (field1 (field1 (close #f)))))
-                  (field0-set! c2 (field0 c)) ;; set "stack" field
-                  (field2-set! c2 (field2 c)) ;; set "pc" field
+                (let ((c2 (##field1 (##field1 (##close #f)))))
+                  (##field0-set! c2 (##field0 c)) ;; set "stack" field
+                  (##field2-set! c2 (##field2 c)) ;; set "pc" field
                   r))))) ;; return to continuation
 
