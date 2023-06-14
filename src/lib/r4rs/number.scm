@@ -2,13 +2,13 @@
 (##include-once "./control.scm")
 
 ;; Numbers (R4RS section 6.5).
-(set! ##no-args '(0))
+(define ##no-args '(0))
 
 (define (+ . args)
-  (fold ##+ 0 args))
+  (fold (lambda (x y) (##+ x y)) 0 args))
 
 (define (* . args)
-  (fold ##* 1 args))
+  (fold (lambda (x y) (##* x y)) 1 args))
 
 
 (define (- x (y ##no-args))
@@ -32,11 +32,10 @@
 (define (inexact? obj) #f)
 
 (define (= x . rest)
-  (scan-until ##eqv? x #t rest #f))
+  (scan-until (lambda (x y) (##eqv? x y)) x #t rest #f))
 
 (define (< x . rest) 
-  (scan-until ##< x #t rest #f))
-
+  (scan-until (lambda (x y) (##< x y)) x #t rest #f))
 
 (define (> x . rest) 
   (scan-until (lambda (x y) (##< y x)) x #t rest #f))

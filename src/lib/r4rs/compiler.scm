@@ -246,7 +246,7 @@
                         (add-nb-args
                           2
                           (##rib jump/call-op ;; call
-                               'arg2
+                               '##arg2
                                 cont))))))
 
 (define (comp-begin cte exprs cont)
@@ -256,7 +256,7 @@
           (add-nb-args
             2
             (##rib jump/call-op ;; call
-                 'arg1
+                 '##arg1
                  (comp-begin cte (cdr exprs) cont)))
             cont)))
 
@@ -269,7 +269,7 @@
   (##rib set-op v 
        (if (and (##rib? cont) ;; starts with pop?
                 (##eqv? (##field0 cont) jump/call-op) ;; call?
-                (##eqv? (##field1 cont) 'arg1)
+                (##eqv? (##field1 cont) '##arg1)
                 (##rib? (##field2 cont)))
          (##field2 cont) ;; remove pop
          (##rib const-op 0 cont))))
@@ -295,13 +295,13 @@
           (let ((v (lookup var cte 0)))
             (add-nb-args
               nb-args
-              (gen-call (if (integer? v) (+ 1 v) v) cont)))))))
+              (gen-call (if (integer? v) (##+ 1 v) v) cont)))))))
 
 (define (lookup var cte i)
   (if (pair? cte)
       (if (eqv? (car cte) var)
           i
-          (lookup var (cdr cte) (+ i 1)))
+          (lookup var (cdr cte) (##+ i 1)))
       var))
 
 (define (extend vars cte)
@@ -309,7 +309,7 @@
       (cons (car vars) (extend (cdr vars) cte))
       cte))
 
-(define tail (add-nb-args 1 (##rib jump/call-op 'id 0))) ;; jump
+(define tail (add-nb-args 1 (##rib jump/call-op '##id 0))) ;; jump
 
 ;; (define (compile expr) ;; converts an s-expression to a procedure
 ;;   (let ((foo (comp '() expr tail)))

@@ -87,7 +87,7 @@
 
 (define (string->uninterned-symbol str) (##rib #f str symbol-type))
 
-(define symtbl (##field1 rib)) ;; get symbol table
+(define symtbl (##field1 ##rib)) ;; get symbol table
 
 (define (number->string x (radix 10))
   (define (number->string-aux x tail)
