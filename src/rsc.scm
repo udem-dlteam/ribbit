@@ -2216,7 +2216,9 @@
 (define (encoding-size encoding)
   (fold + 0 (map cadr encoding)))
 
-(define (encode proc exports host-config encoding)
+(define (encode proc exports host-config byte-stats encoding)
+
+  (define skip-optimization (encoding-inst-get encoding '(skip int long)))
   
   (define live-features (host-config-features host-config))
 
@@ -2516,6 +2518,102 @@
       (sublist-eq? (cdr left) (cdr right) (cons (car left) result))
       (reverse result)))
 
+
+  (define (get-or-create table val)
+    (let ((x (table-ref table val #f)))
+      (if x
+        x
+        (begin
+          (let ((new-table (make-table)))
+            (table-set! table val new-table)
+            new-table)))))
+
+  (define stats (make-table))
+
+  (define (add-stat op-arg-sym arg)
+    (let loop ((arg-table stats) (keys op-arg-sym))
+      (if (pair? keys)
+        (loop (get-or-create arg-table (car keys)) (cdr keys))
+        (table-set! arg-table arg (+ 1 (table-ref arg-table arg 0))))))
+
+  (define (stat-get-bytes arg-list arg encoding-table)
+
+    (if (equal? arg-list '(if))
+      1
+      (let* ((short-key   (append arg-list '(short)))
+             (long-key    (append arg-list '(long)))
+             (short-size  (encoding-inst-size encoding-table short-key))
+             (long-size   (encoding-inst-size encoding-table long-key))
+             (short-start (encoding-inst-start encoding-table short-key))
+             (long-start  (encoding-inst-start encoding-table long-key)))
+        (if (< arg short-size)
+          1
+          (+ 2 (floor 
+                 (log 
+                   (max 1 (- arg (* 46 (- long-size 1))))
+                   eb/2)))))))
+
+  (define (sum-stats table keys encoding-table)
+    (fold 
+      (lambda (pair acc)
+        (let ((value (cdr pair)))
+          (if (table? value)
+            (+ acc (sum-stats value (cons (car pair) keys) encoding-table))
+            (+ acc (* (cdr pair) (stat-get-bytes (reverse keys) (car pair) encoding-table))))))
+      0
+      (table->list table)))
+
+  (define (display-stats-aux stats level max-level encoding-table)
+    (define (sort-numbers lst)
+      (if (and (pair? (car lst))
+               (number? (caar lst)))
+        (list-sort (lambda (x y) (< (car x) (car y))) lst)
+        lst))
+      
+
+    (if (< (length level) max-level)
+      (for-each
+        (lambda (pair)
+          (let* ((key (car pair))
+                 (value (cdr pair))
+                 (level (cons key level))
+                 (int-value (if (table? value)
+                              (sum-stats value level encoding-table)
+                              (* value (stat-get-bytes (reverse (cdr level)) key encoding-table))))
+                 (spacing (make-string (* 2 (length level)) #\space)))
+            (display 
+              (string-append 
+                spacing
+                (if (number? key)
+                  (number->string key)
+                  (symbol->string key))
+
+                (if (number? key)
+                  (string-append " : " (number->string value))
+                  "")
+
+                " [ "
+                (number->string int-value)
+                " bytes ]"
+
+
+                )
+              )
+            (newline)
+            (if (table? value)
+              (display-stats-aux 
+                value 
+                level 
+                max-level
+                encoding-table))))
+
+        (sort-numbers (table->list stats)))))
+
+
+  (define (display-stats stats max-value encoding-table)
+    (display-stats-aux stats '() max-value encoding-table))
+
+
   (define (enc-inst arg op-sym arg-sym encoding-table stream)
     (let* ((short-key   (list3 op-sym arg-sym 'short))
            (long-key    (list3 op-sym arg-sym 'long))
@@ -2610,6 +2708,7 @@
              (if (encoding-inst-get encoding '(skip int long)) ;; if optimization
                (let* ((enc-next (enc (c-rib-next code) encoding (and limit (- limit 1)) '()))
                       (rev-next (reverse-code (c-rib-next code) '()))
+             (add-stat '(if) 0)
                       (rev-opnd (reverse-code (c-rib-opnd code) '()))
                       (sublist  (sublist-eq? rev-next rev-opnd '()))
                       (sublist-length (length sublist))
@@ -2698,6 +2797,8 @@
                       (loop4 (cdr symbols*))
 
                       (let ((stream (encode-to-stream proc encoding)))
+                        (if byte-stats
+                          (display-stats stats byte-stats encoding))
                         ;(pp (cons 'stream stream))
                         (string-append
                           (stream->string
@@ -3129,7 +3230,7 @@
   (let ((file-content (call-with-input-file path (lambda (port) (read-line port #f)))))
        (if (eof-object? file-content) "" file-content)))
 
-(define (generate-code target verbosity input-path rvm-path minify? host-file encodings proc-exports-and-features) ;features-enabled features-disabled source-vm
+(define (generate-code target verbosity input-path rvm-path minify? host-file encodings byte-stats proc-exports-and-features) ;features-enabled features-disabled source-vm
   (let* ((proc
            (vector-ref proc-exports-and-features 0))
          (exports
@@ -3151,6 +3252,7 @@
                                  proc 
                                  exports 
                                  host-config
+                                 byte-stats
                                  (cadr (assoc bits encodings)))
                                (error "Encoding is not defined for this number of bits : " bits))
                              (if input-path
@@ -3248,6 +3350,7 @@
     #f     ;; host-file
     (list1 
       (list2 92 encoding-original-92))
+    #f     ;; byte-stats
     (compile-program
      0    ;; verbosity
      #f   ;; parsed-vm
@@ -3278,7 +3381,8 @@
                            primitives
                            features-enabled
                            features-disabled
-                           encoding-name)
+                           encoding-name
+                           byte-stats)
 
      ;; This version of the compiler reads the program and runtime library
      ;; source code from files and it supports various options.  It can
@@ -3351,6 +3455,7 @@
                                    minify?
                                    host-file
                                    encodings
+                                   byte-stats
                                    program-compiled)))
              (report-status "Writing target code...\n")
              (write-target-code output-path generated-code))))))
@@ -3372,6 +3477,7 @@
                (features-disabled '())
                (rvm-path #f)
                (progress-status #f)
+               (byte-stats #f)
                (encoding-name "original"))
 
            (let loop ((args (cdr args)))
@@ -3408,6 +3514,11 @@
                          ((and (pair? rest) (member arg '("-f-" "--disable-feature")))
                           (set! features-disabled (cons (string->symbol (car rest)) features-disabled))
                           (loop (cdr rest)))
+
+                         ((and (pair? rest) (member arg '("-bs" "--byte-stats")))
+                          (set! byte-stats (string->number (car rest)))
+                          (loop (cdr rest)))
+
                          ((member arg '("-v" "--v"))
                           (set! verbosity (+ verbosity 1))
                           (loop rest))
@@ -3464,6 +3575,7 @@
                  features-enabled
                  features-disabled
                  encoding-name
+                 byte-stats
                  )))))
 
    (parse-cmd-line (cmd-line))
