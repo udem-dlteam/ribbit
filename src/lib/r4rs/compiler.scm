@@ -243,21 +243,31 @@
                     body
                     (if (eqv? cont tail)
                         cont
-                        (add-nb-args
-                          2
+                        (if-feature 
+                          prim-no-arity
                           (##rib jump/call-op ;; call
-                               '##arg2
-                                cont))))))
+                           '##arg2
+                           cont)
+                          (add-nb-args
+                            2
+                            (##rib jump/call-op ;; call
+                             '##arg2
+                             cont)))))))
 
 (define (comp-begin cte exprs cont)
   (comp cte
         (car exprs)
         (if (pair? (cdr exprs))
-          (add-nb-args
-            2
+          (if-feature 
+            prim-no-arity
             (##rib jump/call-op ;; call
-                 '##arg1
-                 (comp-begin cte (cdr exprs) cont)))
+             '##arg1
+             (comp-begin cte (cdr exprs) cont))
+            (add-nb-args
+              2
+              (##rib jump/call-op ;; call
+               '##arg1
+               (comp-begin cte (cdr exprs) cont))))
             cont)))
 
 (define (gen-call v cont)
@@ -284,15 +294,23 @@
 
 (define (comp-call cte exprs nb-args var-cont)
   (if (pair? exprs)
-      (comp cte
-            (car exprs)
-            (comp-call (cons #f cte)
-                       (cdr exprs)
-                       nb-args
-                       var-cont))
-      (let ((var (car var-cont)))
-        (let ((cont (cdr var-cont)))
-          (let ((v (lookup var cte 0)))
+    (comp cte
+          (car exprs)
+          (comp-call (cons #f cte)
+                     (cdr exprs)
+                     nb-args
+                     var-cont))
+    (let ((var (car var-cont)))
+      (let ((cont (cdr var-cont)))
+        (let ((v (lookup var cte 0)))
+          ;; should be unecessary because there shouldn't be any primitive called this way
+          ;; (if-feature 
+          ;;   prim-no-arity
+          ;;   (if (##rib? (##field0 (##field0 var))) 
+          ;;     (add-nb-args
+          ;;       nb-args
+          ;;       (gen-call (if (integer? v) (##+ 1 v) v) cont))
+          ;;     (gen-call (if (integer? v) (##+ 1 v) v) cont))
             (add-nb-args
               nb-args
               (gen-call (if (integer? v) (##+ 1 v) v) cont)))))))
@@ -309,7 +327,11 @@
       (cons (car vars) (extend (cdr vars) cte))
       cte))
 
-(define tail (add-nb-args 1 (##rib jump/call-op '##id 0))) ;; jump
+(define tail
+  (if-feature 
+    prim-no-arity
+    (##rib jump/call-op '##id 0)
+    (add-nb-args 1 (##rib jump/call-op '##id 0)))) ;; jump
 
 ;; (define (compile expr) ;; converts an s-expression to a procedure
 ;;   (let ((foo (comp '() expr tail)))

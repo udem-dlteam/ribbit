@@ -8,6 +8,9 @@
 (define singleton-type 5)
 (define char-type      6)
 
+(define input-port-type 8)
+(define output-port-type 9)
+
 (define (instance? type) (lambda (o) (and (##rib? o) (##eqv? (##field2 o) type))))
 
 (define pair? (instance? pair-type))
@@ -16,6 +19,10 @@
 (define vector? (instance? vector-type))
 (define procedure? (instance? procedure-type))
 (define char? (instance? char-type))
+
+(define input-port? (instance? input-port-type))
+(define output-port? (instance? output-port-type))
+  
 
 (define (eqv? o1 o2)
   (if (and (char? o1) (char? o2)) 

@@ -2,6 +2,7 @@
 (##include-once "./types.scm")
 (##include-once "./char.scm")
 (##include-once "./pair-list.scm")
+(##include-once "./vector.scm")
 
 (cond-expand
   ((host js)
@@ -180,9 +181,6 @@
 
 ;; ---------------------- EOF & TYPES ---------------------- ;;
 
-(define input-port-type 8)
-(define output-port-type 9)
-
 (define ##eof (##rib 0 0 5))
 
 (define (eof-object? obj)
@@ -207,9 +205,6 @@
       (##field2-set! (##field1 port) #f)
       (##close-input-port (##field0 port)))))
 
-(define (input-port? port)
-  (##eqv? (##field2 port) input-port-type))
-
 (define (##get-last-char port)
   (##field1 (##field1 port)))
 
@@ -217,7 +212,7 @@
   (##field1-set! (##field1 port) ch))
 
 (define (input-port-close? port)
-  (##eqv? (##field2 (##field1 port)) #f))
+  (not (##field2 (##field1 port))))
 
 (define (current-input-port)
   stdin-port)
@@ -371,17 +366,14 @@
 
 (define (close-output-port port)
   (if (##field1 port)
-    (begin 
+    (begin
       (##field1-set! port #f)
       (##close-output-port (##field0 port)))))
-
-(define (output-port? port)
-  (##eqv? (##field2 port) output-port-type))
 
 (define (current-output-port) stdout-port)
 
 (define (output-port-close? port)
-  (##eqv? (##field1 port) #f))
+  (not (##field1 port)))
 
 (define (call-with-output-file filename proc)
   (let* ((port (open-output-file filename))
@@ -396,13 +388,17 @@
   (##write-char 10 (##field0 port)))  ;; #\newline
 
 (define (write o (port (current-output-port)))
-  (cond ((string? o)
-         (let ((port-val (##field0 port)))
+  (let ((port-val (##field0 port)))
+    (cond ((string? o)
            (##write-char 34 port-val)     ;; #\"
            (write-chars (##field0 o) port-val)
-           (##write-char 34 port-val)))    ;; #\"
-        (else
-          (display o port))))
+           (##write-char 34 port-val))    ;; #\"
+          ((char? o)
+           (##write-char 35 port-val)     ;; #\#
+           (##write-char 92 port-val)     ;; #\\
+           (##write-char (##field0 o)))
+          (else
+            (display o port)))))
 
 (define (display o (port (current-output-port)))
   (let ((port-val (##field0 port)))
@@ -423,6 +419,12 @@
 
           ((integer? o)
            (display (number->string o) port))
+
+          ((input-port? o)
+           (display (vector (##field0 o) (##field2 (##field1 o)) (##field2 o))))
+
+          ((output-port? o)
+           (display (vector (##field0 o) (##field1 o) (##field2 o))))
 
           ((char? o)
            (##write-char o port-val))
