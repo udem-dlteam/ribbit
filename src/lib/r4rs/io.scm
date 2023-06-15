@@ -396,7 +396,7 @@
           ((char? o)
            (##write-char 35 port-val)     ;; #\#
            (##write-char 92 port-val)     ;; #\\
-           (##write-char (##field0 o)))
+           (##write-char (##field0 o) port-val))
           (else
             (display o port)))))
 
@@ -427,7 +427,7 @@
            (display (vector (##field0 o) (##field1 o) (##field2 o))))
 
           ((char? o)
-           (##write-char o port-val))
+           (##write-char (##field0 o) port-val))
 
           ((pair? o)
            (##write-char 40 port-val)  ;; #\(
