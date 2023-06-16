@@ -1,3 +1,4 @@
+(##include-once "./types.scm")
 (##include-once "./bool.scm")
 (##include-once "./control.scm")
 
@@ -22,11 +23,6 @@
     (##quotient x y)))
 
 (define (quotient x y) (##quotient x y))
-
-(define rational? integer?)
-(define real? rational?)
-(define complex? real?)
-(define number? complex?)
 
 (define (exact? obj) #t)
 (define (inexact? obj) #f)

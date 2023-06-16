@@ -444,9 +444,10 @@
           ((vector? o)
            (##write-char 35 port-val)  ;; #\#
            (##write-char 40 port-val)  ;; #\(
-           (let ((l (##field0 o)))   ;; vector->list
-             (write (##field0 l) port)
-             (write-list (##field1 l) port))
+           (if (##< 0 (##field1 o))
+             (let ((l (##field0 o)))   ;; vector->list
+               (write (##field0 l) port)
+               (write-list (##field1 l) port)))
            (##write-char 41 port-val)) ;; #\)
 
           ((procedure? o)

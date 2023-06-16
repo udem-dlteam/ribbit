@@ -19,6 +19,7 @@
 (define vector? (instance? vector-type))
 (define procedure? (instance? procedure-type))
 (define char? (instance? char-type))
+(define (boolean? o1) (or (##eqv? o1 #t) (##eqv? o1 #f)))
 
 (define input-port? (instance? input-port-type))
 (define output-port? (instance? output-port-type))
@@ -33,7 +34,12 @@
 
 (define (null? obj) (##eqv? obj '()))
 
-(define (integer? obj) (##eqv? (##rib? obj) #f))
+(define (integer? obj) (not (##rib? obj)))
+
+(define rational? integer?)
+(define real? rational?)
+(define complex? real?)
+(define number? complex?)
 
 (define (list? obj)
 
