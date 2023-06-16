@@ -2151,6 +2151,7 @@
       (if 1))))
 
 
+
 (define encoding-skip-92
   (calculate-start 
     '( 
@@ -2530,11 +2531,12 @@
 
   (define stats (make-table))
 
-  (define (add-stat op-arg-sym arg)
+  (define (add-stat stats op-arg-sym arg)
     (let loop ((arg-table stats) (keys op-arg-sym))
       (if (pair? keys)
         (loop (get-or-create arg-table (car keys)) (cdr keys))
         (table-set! arg-table arg (+ 1 (table-ref arg-table arg 0))))))
+
 
   (define (stat-get-bytes arg-list arg encoding-table)
 
@@ -2552,6 +2554,32 @@
                  (log 
                    (max 1 (- arg (* 46 (- long-size 1))))
                    eb/2)))))))
+
+
+  (define (get-byte-count arg-list arg encoding-table)
+
+    (if (equal? arg-list '(if))
+      1
+      (let* ((short-key   (append arg-list '(short)))
+             (long-key    (append arg-list '(long)))
+             (short-size  (table-ref encoding-table short-key))
+             (long-size   (table-ref encoding-table long-key)))
+        (if (< arg short-size)
+          1
+          (+ 2 (floor 
+                 (log 
+                   (max 1 (- arg (* 46 (- long-size 1))))
+                   eb/2)))))))
+
+  (define (sum-byte-count table keys encoding-table)
+    (fold 
+      (lambda (pair acc)
+        (let ((value (cdr pair)))
+          (if (table? value)
+            (+ acc (sum-byte-count value (cons (car pair) keys) encoding-table))
+            (+ acc (* (cdr pair) (get-byte-count (reverse keys) (car pair) encoding-table))))))
+      0
+      (table->list table)))
 
   (define (sum-stats table keys encoding-table)
     (fold 
@@ -2615,26 +2643,198 @@
 
 
   (define (enc-inst arg op-sym arg-sym encoding-table stream)
-    (let* ((short-key   (list3 op-sym arg-sym 'short))
-           (long-key    (list3 op-sym arg-sym 'long))
-           (short-size  (encoding-inst-size encoding-table short-key))
-           (long-size   (encoding-inst-size encoding-table long-key))
-           (short-start (encoding-inst-start encoding-table short-key))
-           (long-start  (encoding-inst-start encoding-table long-key)))
+    (if (eq? encoding-table 'raw)
+      (rib (list op-sym arg-sym) arg stream)
+      (let* ((short-key   (list3 op-sym arg-sym 'short))
+             (long-key    (list3 op-sym arg-sym 'long))
+             (short-size  (encoding-inst-size encoding-table short-key))
+             (long-size   (encoding-inst-size encoding-table long-key))
+             (short-start (encoding-inst-start encoding-table short-key))
+             (long-start  (encoding-inst-start encoding-table long-key)))
 
-      (if (< arg short-size)
-        (cons (+ short-start arg)
-              stream)
-        (cond 
-          ((eqv? long-size 1)
-           (encode-long1 long-start arg stream))
-          ((eqv? long-size 2)
-           (encode-long2 long-start arg stream))
-          (else
-            (error "Invalid long size, should be at least one and less than 2" long-size))))))
+        (add-stat stats (list op-sym arg-sym) arg)
+
+        (if (< arg short-size)
+          (cons (+ short-start arg)
+                stream)
+          (cond 
+            ((eqv? long-size 1)
+             (encode-long1 long-start arg stream))
+            ((eqv? long-size 2)
+             (encode-long2 long-start arg stream))
+            (else
+              (error "Invalid long size, should be at least one and less than 2" long-size)))))))
+
+  (define (get-maximal-encoding encodings stats encoding-size)
+
+    (define (get-running-sum lst)
+      (reverse
+        (fold 
+          (lambda (x acc)
+            (cons (+ x (car acc)) acc))
+          (list 0)
+          lst)))
+
+    (define (normalize lst)
+      (map
+        (lambda (x y)
+          (if (eqv? y 0)
+            0
+            (/ x y)))
+        lst
+        (iota (length lst))))
+
+    (define (calculate-gain-short value-table instruction max offset current-encoding-table)
+      (let loop ((index offset) (lst '()))
+        (if (< index (- max offset))
+          (let* ((byte-count-optimal 1)
+                 (byte-count-current (get-byte-count instruction index current-encoding-table))
+                 (gain               (* (- byte-count-current byte-count-optimal) (table-ref value-table index 0)))
+                 (new-index          (+ index 1)))
+            (loop 
+              new-index
+              (cons gain lst)))
+          (reverse lst))))
+
+    (define (calculate-gain-long value-table instruction max offset current-encoding-table)
+      (let ((current-table-value (sum-byte-count value-table (reverse instruction) current-encoding-table)))
+        (let loop ((index (+ offset 1)) 
+                   (old-gain current-table-value) 
+                   (lst '()))
+          (if (< index (- max offset))
+            (let* ((optimal-table       
+                     (let ((optimal (table-copy current-encoding-table)))
+                       (table-ref optimal (append instruction '(long)))
+                       (table-set! optimal (append instruction '(long)) index)
+                       optimal))
+                   (optimal-table-value (sum-byte-count value-table (reverse instruction) optimal-table))
+                   ;(_ (if (and (memq 'int instruction) (memq 'const instruction)) (step)))
+                   (gain               (- old-gain optimal-table-value))
+                   (new-old-gain       optimal-table-value)
+                   (new-index          (+ index 1)))
+              (loop 
+                new-index
+                new-old-gain
+                (cons gain lst)))
+            (reverse lst)))))
+
+
+
+    (let ((solution (make-table))
+          (running-sums (make-table)))
+
+      (define (recalculate)
+        (for-each
+          (lambda (encoding)
+            (if (pair? encoding)
+              (table-set! 
+                running-sums 
+                encoding 
+                (normalize
+                  (get-running-sum
+                    ((if (memq 'short encoding)
+                       calculate-gain-short
+                       calculate-gain-long) 
+                     (table-ref 
+                       (table-ref stats (car encoding) #f)
+                       (cadr encoding)
+                       #f)
+                     (list (car encoding)
+                           (cadr encoding))
+                     encoding-size
+                     (table-ref solution encoding)
+                     solution))))))
+          encodings))
+
+      (define (select-winner)
+        (let ((winner-inst 0)
+              (winner-value 0)
+              (winner-index 0))
+
+          (for-each 
+            (lambda (sum)
+              (let ((instruction (car sum)))
+                (let loop ((index 0) (lst (cdr sum)))
+                  (if (pair? lst)
+                    (begin
+                      (if (> (car lst) winner-value)
+                        (begin
+                          (set! winner-inst  instruction)
+                          (set! winner-value (car lst))
+                          (set! winner-index index)))
+                      (loop
+                        (+ 1 index)
+                        (cdr lst)))))))
+            (table->list running-sums))
+          (list winner-inst winner-index winner-value)))
+
+
+      ;; starting, set size 1 for long encodings 
+      (for-each 
+        (lambda (encoding)
+          (table-set! 
+            solution 
+            encoding 
+            (if (and (pair? encoding) (memq 'short encoding))
+              0
+              (begin (set! encoding-size (- encoding-size 1)) 1))))
+        encodings)
+
+      (if (< encoding-size 0)
+        (error "Encoding size is not big anough to fit all encodings" encoding-size))
+
+    
+
+      (let loop ()
+        (recalculate)
+        (let ((winner (select-winner)))
+          (table-set! solution (car winner) (+ (cadr winner) (table-ref solution (car winner))))
+          (set! encoding-size (- encoding-size (cadr winner)))
+          (if (< 0 encoding-size)
+            (loop))))
+
+
+      (pp solution)
+      (pp (sum-byte-count stats '() solution))
+      (pp (sum-stats stats '() encoding-skip-92))
+      (step)
+
+
+          
+
+
+
+    ))
+
+  (define (get-stat-from-raw stats stream)
+    (if (rib? stream)
+      (let ((f0 (field0 stream))
+            (f1 (field1 stream))
+            (f2 (field2 stream)))
+        (add-stat 
+          stats 
+          (if (symbol? f0)
+            (list f0) 
+            f0)
+          f1)
+
+        (get-stat-from-raw stats f2))
+      stats))
 
   (define (encode-to-stream proc encoding)
-    (enc-proc proc encoding #f '()))
+    (set! skip-optimization #t)
+
+    (let* ((raw-stream (enc-proc proc 'raw #f '()))
+           (stats (get-stat-from-raw (make-table) raw-stream)))
+      (display-stats stats 2 encoding-skip-92)
+      
+      (get-maximal-encoding 
+        (map car encoding-skip-92)
+        stats
+        92)
+
+
+      (enc-proc proc encoding #f '())))
 
   (define (enc-proc arg encoding limit stream)
     (let ((code (procedure-code arg)))
@@ -2705,30 +2905,34 @@
                       (and limit (- limit 1))
                       encoded-inst))))
             ((eqv? op if-op) ;; special case for if
-             (if (encoding-inst-get encoding '(skip int long)) ;; if optimization
-               (let* ((enc-next (enc (c-rib-next code) encoding (and limit (- limit 1)) '()))
-                      (rev-next (reverse-code (c-rib-next code) '()))
-             (add-stat '(if) 0)
+             (add-stat stats '(if) 0)
+             (if skip-optimization ;; if optimization
+               (let* ((rev-next (reverse-code (c-rib-next code) '()))
                       (rev-opnd (reverse-code (c-rib-opnd code) '()))
                       (sublist  (sublist-eq? rev-next rev-opnd '()))
                       (sublist-length (length sublist))
                       (opnd-different-length (- (length rev-opnd) sublist-length))
                       (next-different-length (- (length rev-next) sublist-length))
-                      (tail     (cons (encoding-inst-start encoding 'if) stream)))
-                 (append enc-next
-                         (if (pair? sublist) 
-                           (enc-inst next-different-length 
-                                     'skip 
-                                     'int 
-                                     encoding 
-                                     (enc (c-rib-opnd code)
-                                          encoding
-                                          opnd-different-length
-                                          tail))
-                           (enc (c-rib-opnd code)
-                                encoding
-                                #f
-                                tail))))
+                      (tail     (if (eqv? encoding 'raw)
+                                  (rib 'if 0 stream)
+                                  (cons (encoding-inst-start encoding 'if) stream))))
+                 (enc 
+                   (c-rib-next code) 
+                   encoding 
+                   (and limit (- limit 1))
+                   (if (pair? sublist) 
+                     (enc-inst next-different-length 
+                               'skip 
+                               'int 
+                               encoding 
+                               (enc (c-rib-opnd code)
+                                    encoding
+                                    opnd-different-length
+                                    tail))
+                     (enc (c-rib-opnd code)
+                          encoding
+                          #f
+                          tail))))
 
                (enc (c-rib-next code)
                     encoding
@@ -2797,8 +3001,10 @@
                       (loop4 (cdr symbols*))
 
                       (let ((stream (encode-to-stream proc encoding)))
+
                         (if byte-stats
                           (display-stats stats byte-stats encoding))
+
                         ;(pp (cons 'stream stream))
                         (string-append
                           (stream->string
@@ -2816,6 +3022,8 @@
                             (string-append
                               ";"
                               (stream->string stream))))))))))))))))
+;(define )
+
 
 (define (stream->string stream)
   (list->string
@@ -3247,6 +3455,7 @@
          (encode (lambda (bits)
                    (let ((input 
                            (string-append 
+
                              (if (assoc bits encodings)
                                (encode 
                                  proc 
