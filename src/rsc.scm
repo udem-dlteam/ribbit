@@ -2556,7 +2556,7 @@
                    eb/2)))))))
 
 
-  (define (get-byte-count arg-list arg encoding-table)
+  (define (get-byte-count arg-list arg encoding-table encoding-size)
 
     (if (equal? arg-list '(if))
       1
@@ -2568,16 +2568,16 @@
           1
           (+ 2 (floor 
                  (log 
-                   (max 1 (- arg (* 46 (- long-size 1))))
-                   eb/2)))))))
+                   (max 1 (- arg (* (quotient encoding-size 2) (- long-size 1))))
+                   encoding-size)))))))
 
-  (define (sum-byte-count table keys encoding-table)
+  (define (sum-byte-count table keys encoding-table encoding-size)
     (fold 
       (lambda (pair acc)
         (let ((value (cdr pair)))
           (if (table? value)
-            (+ acc (sum-byte-count value (cons (car pair) keys) encoding-table))
-            (+ acc (* (cdr pair) (get-byte-count (reverse keys) (car pair) encoding-table))))))
+            (+ acc (sum-byte-count value (cons (car pair) keys) encoding-table encoding-size))
+            (+ acc (* (cdr pair) (get-byte-count (reverse keys) (car pair) encoding-table encoding-size))))))
       0
       (table->list table)))
 
@@ -2667,6 +2667,8 @@
 
   (define (get-maximal-encoding encodings stats encoding-size)
 
+    (define encoding-size-counter encoding-size)
+    
     (define (get-running-sum lst)
       (reverse
         (fold 
@@ -2684,11 +2686,11 @@
         lst
         (iota (length lst))))
 
-    (define (calculate-gain-short value-table instruction max offset current-encoding-table)
+    (define (calculate-gain-short value-table instruction max offset current-encoding-table encoding-size)
       (let loop ((index offset) (lst '()))
         (if (< index (- max offset))
           (let* ((byte-count-optimal 1)
-                 (byte-count-current (get-byte-count instruction index current-encoding-table))
+                 (byte-count-current (get-byte-count instruction index current-encoding-table encoding-size))
                  (gain               (* (- byte-count-current byte-count-optimal) (table-ref value-table index 0)))
                  (new-index          (+ index 1)))
             (loop 
@@ -2696,8 +2698,8 @@
               (cons gain lst)))
           (reverse lst))))
 
-    (define (calculate-gain-long value-table instruction max offset current-encoding-table)
-      (let ((current-table-value (sum-byte-count value-table (reverse instruction) current-encoding-table)))
+    (define (calculate-gain-long value-table instruction max offset current-encoding-table encoding-size)
+      (let ((current-table-value (sum-byte-count value-table (reverse instruction) current-encoding-table encoding-size)))
         (let loop ((index (+ offset 1)) 
                    (old-gain current-table-value) 
                    (lst '()))
@@ -2707,7 +2709,7 @@
                        (table-ref optimal (append instruction '(long)))
                        (table-set! optimal (append instruction '(long)) index)
                        optimal))
-                   (optimal-table-value (sum-byte-count value-table (reverse instruction) optimal-table))
+                   (optimal-table-value (sum-byte-count value-table (reverse instruction) optimal-table encoding-size))
                    ;(_ (if (and (memq 'int instruction) (memq 'const instruction)) (step)))
                    (gain               (- old-gain optimal-table-value))
                    (new-old-gain       optimal-table-value)
@@ -2719,92 +2721,83 @@
             (reverse lst)))))
 
 
-
-    (let ((solution (make-table))
-          (running-sums (make-table)))
-
-      (define (recalculate)
-        (for-each
-          (lambda (encoding)
-            (if (pair? encoding)
-              (table-set! 
-                running-sums 
-                encoding 
-                (normalize
-                  (get-running-sum
-                    ((if (memq 'short encoding)
-                       calculate-gain-short
-                       calculate-gain-long) 
-                     (table-ref 
-                       (table-ref stats (car encoding) #f)
-                       (cadr encoding)
-                       #f)
-                     (list (car encoding)
-                           (cadr encoding))
-                     encoding-size
-                     (table-ref solution encoding)
-                     solution))))))
-          encodings))
-
-      (define (select-winner)
-        (let ((winner-inst 0)
-              (winner-value 0)
-              (winner-index 0))
-
-          (for-each 
-            (lambda (sum)
-              (let ((instruction (car sum)))
-                (let loop ((index 0) (lst (cdr sum)))
-                  (if (pair? lst)
-                    (begin
-                      (if (> (car lst) winner-value)
-                        (begin
-                          (set! winner-inst  instruction)
-                          (set! winner-value (car lst))
-                          (set! winner-index index)))
-                      (loop
-                        (+ 1 index)
-                        (cdr lst)))))))
-            (table->list running-sums))
-          (list winner-inst winner-index winner-value)))
+    (define solution (make-table))
+    (define running-sums (make-table))
 
 
-      ;; starting, set size 1 for long encodings 
-      (for-each 
+    (define (recalculate)
+      (for-each
         (lambda (encoding)
-          (table-set! 
-            solution 
-            encoding 
-            (if (and (pair? encoding) (memq 'short encoding))
-              0
-              (begin (set! encoding-size (- encoding-size 1)) 1))))
-        encodings)
+          (if (pair? encoding)
+            (table-set! 
+              running-sums 
+              encoding 
+              (normalize
+                (get-running-sum
+                  ((if (memq 'short encoding)
+                     calculate-gain-short
+                     calculate-gain-long) 
+                   (table-ref 
+                     (table-ref stats (car encoding) #f)
+                     (cadr encoding)
+                     #f)
+                   (list (car encoding)
+                         (cadr encoding))
+                   encoding-size-counter
+                   (table-ref solution encoding)
+                   solution
+                   encoding-size
+                   ))))))
+        encodings))
 
-      (if (< encoding-size 0)
-        (error "Encoding size is not big anough to fit all encodings" encoding-size))
+    (define (select-winner)
+      (let ((winner-inst 0)
+            (winner-value 0)
+            (winner-index 0))
 
-    
-
-      (let loop ()
-        (recalculate)
-        (let ((winner (select-winner)))
-          (table-set! solution (car winner) (+ (cadr winner) (table-ref solution (car winner))))
-          (set! encoding-size (- encoding-size (cadr winner)))
-          (if (< 0 encoding-size)
-            (loop))))
-
-
-      (pp solution)
-      (pp (sum-byte-count stats '() solution))
-      (pp (sum-stats stats '() encoding-skip-92))
-      (step)
-
-
-          
+        (for-each 
+          (lambda (sum)
+            (let ((instruction (car sum)))
+              (let loop ((index 0) (lst (cdr sum)))
+                (if (pair? lst)
+                  (begin
+                    (if (> (car lst) winner-value)
+                      (begin
+                        (set! winner-inst  instruction)
+                        (set! winner-value (car lst))
+                        (set! winner-index index)))
+                    (loop
+                      (+ 1 index)
+                      (cdr lst)))))))
+          (table->list running-sums))
+        (list winner-inst winner-index winner-value)))
 
 
+    ;; starting, set size 1 for long encodings 
+    (for-each 
+      (lambda (encoding)
+        (table-set! 
+          solution 
+          encoding 
+          (if (and (pair? encoding) (memq 'short encoding))
+            0
+            (begin (set! encoding-size-counter (- encoding-size-counter 1)) 1))))
+      encodings)
 
-    ))
+    (if (< encoding-size-counter 0)
+      (error "Encoding size is not big anough to fit all encodings" encoding-size-counter))
+
+    (let loop ()
+      (recalculate)
+      (let ((winner (select-winner)))
+        (if (not (eqv? (car winner) 0))
+          (begin
+            (table-set! solution (car winner) (+ (cadr winner) (table-ref solution (car winner))))
+            (set! encoding-size-counter (- encoding-size-counter (cadr winner)))
+            (if (< 0 encoding-size-counter)
+              (loop))))))
+
+    solution)
 
   (define (get-stat-from-raw stats stream)
     (if (rib? stream)
@@ -2821,20 +2814,57 @@
         (get-stat-from-raw stats f2))
       stats))
 
+  (define (encoding-table->encoding-list encoding-table)
+    (map (lambda (x) (list (car x) (cdr x))) (table->list encoding-table)))
+
   (define (encode-to-stream proc encoding)
     (set! skip-optimization #t)
 
     (let* ((raw-stream (enc-proc proc 'raw #f '()))
            (stats (get-stat-from-raw (make-table) raw-stream)))
-      (display-stats stats 2 encoding-skip-92)
+      ;(display-stats stats 2 encoding-skip-92)
       
-      (get-maximal-encoding 
-        (map car encoding-skip-92)
-        stats
-        92)
+      #;(let ((lst '(256 128 85 64 51 42 36 32 28 26 24 22 21 20 19 18 17 16 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1)))
+        (for-each 
+          (lambda (v)
+            (let* ((solution
+                     (get-maximal-encoding 
+                       (map car encoding-skip-92)
+                       stats
+                       v))
+                   (optimal-encoding-size 
+                     (sum-byte-count stats '() solution v))
+                   (multiplicator (quotient 256 v)))
+
+              (write 
+                (string-append
+                  "Optimal "
+                  (number->string v)
+                  " code encoding: "
+                  (number->string optimal-encoding-size)
+                  ))
 
 
-      (enc-proc proc encoding #f '())))
+              (newline)
+              (pp (table->list solution))
+
+              ))
+          lst)
+
+        
+        )
+    (enc-proc 
+      proc 
+      (calculate-start 
+        (encoding-table->encoding-list 
+          (get-maximal-encoding 
+            (map car encoding-skip-92)
+            stats
+            16)))
+      #f 
+      '())))
+
+
 
   (define (enc-proc arg encoding limit stream)
     (let ((code (procedure-code arg)))
