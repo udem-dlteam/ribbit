@@ -2823,6 +2823,96 @@
       (for-each (lambda (x) (table-set! table (car x) (cadr x))) encoding-list)
       table))
 
+  ;; see section 2.6.4 : https://ir.canterbury.ac.nz/bitstream/handle/10092/8411/bell_thesis.pdf?sequence=1&isAllowed=y
+  (define (LZ77 stream N F encoding-size)
+    (define already-encoded-size N)
+    (define look-ahead-buffer-size F)
+
+    (define (find-matches stream match already-encoded-size look-ahead-buffer-size)
+      (let loop ((stream stream) 
+                 (index 0)
+                 (matching 
+                   (list
+                     (list 0 0 (car match))))) ;; '((index length (first-char-didnt-match | pair to match) ))
+        (if (and (pair? stream)
+                 (< index (+ look-ahead-buffer-size already-encoded-size)))
+          (loop
+            (cdr stream)
+            (+ 1 index)
+            (append
+              ;; new entry
+              (if (and (eqv? (car stream) (car match))
+                       (< index already-encoded-size))
+                (list 
+                  (list
+                    index 
+                    1
+                    (cdr match)))
+                '())
+              ;; append to already existing entry
+              (map 
+                (lambda (match)
+                  (let ((index (car match))
+                        (length (cadr match))
+                        (rest (caddr match)))
+                    (if (pair? rest) ;; true if not yet finished
+                      (if (and 
+                            (pair? (cdr rest)) ;; The last char of rest cannot match
+                            (eqv? (car stream) (car rest)))
+                        (list
+                          index
+                          (+ 1 length)
+                          (cdr rest))
+                        (list
+                          index
+                          length
+                          (car rest)))
+                      match)))
+                matching)))
+          matching)))
+
+    (define (get-longest-match matchings)
+      (let ((sorted 
+              (list-sort
+                (lambda (x y)
+                  (> (cadr x) (cadr y)))
+                matchings)))
+        (car sorted)))
+
+
+    (let loop ((stream stream) 
+               (look-ahead-buffer stream)
+               (offset 0)
+               (output '()))
+        (if (pair? look-ahead-buffer)
+          (let* ((longest-match 
+                   (get-longest-match
+                     (find-matches
+                       stream
+                       look-ahead-buffer
+                       offset 
+                       look-ahead-buffer-size)))
+                 (new-offset-temp (+ offset (+ 1 (cadr longest-match)))) 
+                 (new-offset (min new-offset-temp already-encoded-size))
+                 (offset-overflow (- new-offset-temp new-offset))
+                 (new-stream 
+                   (list-tail stream offset-overflow))
+                 (new-look-ahead-buffer 
+                   (list-tail look-ahead-buffer (+ 1 (cadr longest-match)))))
+            (pp longest-match)
+            (loop
+              new-stream
+              new-look-ahead-buffer
+              new-offset
+              (cons 
+                longest-match
+                output)))
+          output)))
+
+
+
+
+
   (define (encode-to-stream proc encoding)
     (set! skip-optimization #t)
 
@@ -2833,47 +2923,53 @@
 
       (pp "Size on 92 codes : ")
       (pp size-92)
-      
+
       #;(let ((lst '(256 128 92 85 64 51 42 36 32 28 26 24 22 21 20 19 18 17 16 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1)))
-        (for-each 
-          (lambda (v)
-            (let* ((solution
-                     (get-maximal-encoding 
-                       (map car encoding-skip-92)
-                       stats
-                       v))
-                   (optimal-encoding-size 
-                     (sum-byte-count stats '() solution v))
-                   (multiplicator (quotient 256 v)))
+      (for-each 
+        (lambda (v)
+          (let* ((solution
+                   (get-maximal-encoding 
+                     (map car encoding-skip-92)
+                     stats
+                     v))
+                 (optimal-encoding-size 
+                   (sum-byte-count stats '() solution v))
+                 (multiplicator (quotient 256 v)))
 
-              (write 
-                (string-append
-                  "Optimal "
-                  (number->string v)
-                  " code encoding: "
-                  (number->string optimal-encoding-size)
-                  ))
+            (write 
+              (string-append
+                "Optimal "
+                (number->string v)
+                " code encoding: "
+                (number->string optimal-encoding-size)))
+            (newline)
+            (pp (table->list solution))))
+        lst))
+    (let ((encoded-proc
+            (enc-proc 
+              proc 
+              (calculate-start 
+                (encoding-table->encoding-list 
+                  (get-maximal-encoding 
+                    (map car encoding-skip-92)
+                    stats
+                    16)))
+              #f 
+              '())))
+      (pp
+        (LZ77
+          encoded-proc
+          99999999999999
+          99999999999999
+          16))
+      encoded-proc
+      )
 
-
-
-              (newline)
-              (pp (table->list solution))
-
-              ))
-          lst)
-
+    
         
-        )
-    (enc-proc 
-      proc 
-      (calculate-start 
-        (encoding-table->encoding-list 
-          (get-maximal-encoding 
-            (map car encoding-skip-92)
-            stats
-            16)))
-      #f 
-      '())))
+
+
+    ))
 
 
 
@@ -2885,7 +2981,7 @@
                encoding
                (and limit (- limit 1))
                (enc-inst nparams 'const 'proc encoding stream))
-          steam))))
+          stream))))
 
   (define (reverse-code code tail)
     (if (rib? (c-rib-next code))
@@ -3040,6 +3136,7 @@
                     (if (and (pair? symbols*)
                              (string=? (symbol->str (car symbols*)) ""))
                       (loop4 (cdr symbols*))
+                      
 
                       (let ((stream (encode-to-stream proc encoding)))
 
