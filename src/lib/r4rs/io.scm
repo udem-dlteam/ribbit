@@ -396,7 +396,12 @@
           ((char? o)
            (##write-char 35 port-val)     ;; #\#
            (##write-char 92 port-val)     ;; #\\
-           (##write-char (##field0 o) port-val))
+           (case (##field0 o) 
+             ((10) (display "newline" port))
+             ((32) (display "space" port))
+             ((13) (display "return" port))
+             ((9)  (display "tab" port))
+             (else (##write-char (##field0 o) port-val))))
           (else
             (display o port)))))
 

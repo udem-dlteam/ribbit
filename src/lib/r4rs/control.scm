@@ -56,6 +56,7 @@
 
 ;; Control features (R4RS section 6.9).
 
+;; (define (apply f arg1 . args) (##apply f (append (list arg1) args))))
 (define (apply f args) (##apply f args))
 
 (define (make-procedure code env) (##rib code env procedure-type))
@@ -110,4 +111,6 @@
                   (##field0-set! c2 (##field0 c)) ;; set "stack" field
                   (##field2-set! c2 (##field2 c)) ;; set "pc" field
                   r))))) ;; return to continuation
+
+(define call-with-current-continuation call/cc)
 
