@@ -5,8 +5,8 @@
 (define (cons car cdr) (##rib car cdr pair-type))
 (define (car x) (##field0 x))
 (define (cdr x) (##field1 x))
-(define (set-car! x) (##field0-set! x))
-(define (set-cdr! x) (##field1-set! x))
+(define (set-car! x car) (##field0-set! x car))
+(define (set-cdr! x cdr) (##field1-set! x cdr))
 
 (define (cadr pair) (##field0 (##field1 pair)))
 (define (cddr pair) (##field1 (##field1 pair)))
@@ -55,7 +55,7 @@
           (if (pair? lst)
               (cons (##field0 lst) (append-aux (cons (##field1 lst) (##field1 lsts))))
               (if (null? (##field1 lsts))
-                  (##field0 lsts)
+                  lst
                   (append-aux (##field1 lsts)))))
         '()))
   (append-aux lsts))

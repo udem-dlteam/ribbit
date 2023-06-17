@@ -1,6 +1,7 @@
 (##include-once "./types.scm")
 (##include-once "./bool.scm")
 (##include-once "./pair-list.scm")
+(##include-once "./qq.scm")
 
 (cond-expand
   ((host js)
@@ -64,20 +65,20 @@
 
 (define (##map proc lst)
   (if (pair? lst)
-    (cons (proc (car lst)) (##map proc (cdr lst)))
+    (cons (proc (##field0 lst)) (##map proc (##field1 lst)))
     '()))
 
 (define (map proc . lsts)
   (if (pair? (car lsts))
-    (cons (apply proc (##map car lsts))
-          (apply map (append (list proc) (##map cdr lsts))))
+    (cons (##apply proc (##map car lsts))
+          (##apply map (append (list proc) (##map cdr lsts))))
     '()))
 
 (define (for-each proc . lsts)
   (if (pair? (car lsts))
       (begin
-        (apply proc (##map car lsts))
-        (apply for-each (append (list proc) (##map cdr lsts))))
+        (##apply proc (##map car lsts))
+        (##apply for-each (append (list proc) (##map cdr lsts))))
       #f))
 
 (define (fold func base lst)

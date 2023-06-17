@@ -12,8 +12,8 @@
 (define (char-ci=? ch1 ch2) (char=? (char-upcase ch1) (char-upcase ch2)))
 (define (char-ci<? ch1 ch2) (char<? (char-upcase ch1) (char-upcase ch2)))
 (define (char-ci>? ch1 ch2) (char>? (char-upcase ch1) (char-upcase ch2)))
-(define (char-ci<=? ch) (not (char-ci>? ch1 ch2)))
-(define (char-ci>=? ch) (not (char-ci<? ch1 ch2)))
+(define (char-ci<=? ch1 ch2) (not (char-ci>? ch1 ch2)))
+(define (char-ci>=? ch1 ch2) (not (char-ci<? ch1 ch2)))
 
 (define (char-cmp ch1 ch2)
   (cond 

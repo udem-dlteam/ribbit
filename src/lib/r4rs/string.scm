@@ -9,7 +9,7 @@
 (define (string-length x) (##field1 x))
 
 (define (string-ref str i) (integer->char (list-ref (##field0 str) i)))
-(define (string-set! str i ch) (list-set! str i (char->integer ch)))
+(define (string-set! str i ch) (list-set! (##field0 str) i (##field0 ch)))
 
 (define (make-string k (ch #\space)) (list->string (make-list k ch)))
 
@@ -48,16 +48,16 @@
   (define (string-cmp-ci-aux lst1 lst2)
     (cond 
       ((and (pair? lst1) (pair? lst2))
-        (if (char-ci=? (car lst1) (car lst2))
-          (string-cmp-ci-aux (cdr lst1) (cdr lst2))
-          (if (char-ci<? (car lst1) (car lst2))
+        (if (char-ci=? (##field0 lst1) (##field0 lst2))
+          (string-cmp-ci-aux (##field1 lst1) (##field1 lst2))
+          (if (char-ci<? (##field0 lst1) (##field0 lst2))
             -1
             1)))
       ((pair? lst1) 1)
       ((pair? lst2) -1)
       (else 0)))
 
-  (string-cmp-ci-aux (string->list str1) (string->list str2)))
+  (string-cmp-ci-aux (##field0 str1) (##field0 str2)))
 
 
 (define (substring str start end)
@@ -70,6 +70,5 @@
 
   (substring-aux str start end '()))
 
-
 (define (string-append . args)
-  (##list->string (apply append (map ##string->list args))))
+  (list->string (apply append (map string->list args))))

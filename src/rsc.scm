@@ -1957,11 +1957,10 @@
     (live-env-add-live! env '##close)
     (live-env-add-live! env '##id)
 
-
-
-    (for-each
-      (lambda (x) (live-env-add-live! env (car x))) 
-      exports)
+    (and exports 
+         (for-each
+           (lambda (x) (live-env-add-live! env (car x))) 
+           exports))
 
     (for-each 
       (lambda (x) (live-env-add-feature! env x))

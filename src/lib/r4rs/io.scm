@@ -291,8 +291,8 @@
            (read-char port) ;; skip """
            (##list->string (read-chars '() port)))
           (else
-            (read-char port) ;; skip first char
-            (let ((s (##list->string (##rib c (read-symbol port) 0))))
+            ;; (read-char port) ;; skip first char
+            (let ((s (##list->string (read-symbol port))))
               (let ((n (string->number s)))
                 (or n
                     (string->symbol s))))))))
@@ -307,7 +307,7 @@
           (##rib first (read-list port) 0)))))
 
 (define (read-symbol port)
-  (let ((c (##field0 (peek-char port))))
+  (let ((c (##field0 (char-upcase (peek-char port)))))
     (if (or (##eqv? c 40)  ;; #\(
             (##eqv? c 41)  ;; #\)
             (##eqv? c 0)   ;; eof

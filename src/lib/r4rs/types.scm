@@ -98,7 +98,7 @@
 
   (string->symbol-aux str symtbl))
 
-(define (string->uninterned-symbol str) (##rib #f str symbol-type))
+(define (string->uninterned-symbol str) (##rib #f (string-append str "") symbol-type))
 
 (define symtbl (##field1 ##rib)) ;; get symbol table
 
@@ -130,8 +130,8 @@
       (else #f)))
 
   (define (convert c)
-    (if (and (##< 47 c) (##< c 58))
-      (##- c 48)   ;; 0-9
+    (if (and (##< 47 c) (##< c 58)) ;; 0-9
+      (##- c 48)   
       #f))
 
   (define (string->number-aux lst)
