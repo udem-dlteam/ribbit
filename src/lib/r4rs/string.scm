@@ -42,7 +42,7 @@
       (if (pair? lst2)
         -1
         0)))
-  (string-cmp-aux (##string->list str1) (##string->list str2)))
+  (string-cmp-aux (##field0 str1) (##field0 str2)))
 
 (define (string-cmp-ci str1 str2)
   (define (string-cmp-ci-aux lst1 lst2)
@@ -57,7 +57,7 @@
       ((pair? lst2) -1)
       (else 0)))
 
-  (string-cmp-ci-aux (##field0 str1) (##field0 str2)))
+  (string-cmp-ci-aux (string->list str1) (string->list str2)))
 
 
 (define (substring str start end)
