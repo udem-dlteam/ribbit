@@ -2488,26 +2488,27 @@
     (let ((descr (table-ref syms o #f)))
       (field0 descr)))
 
-  (define (encode-long1 code n stream)
-    (cons code (encode-n n stream)))
+  (define (encode-long1 code n stream encoding-size)
+    (cons code (encode-n n stream encoding-size)))
 
-  (define (encode-long2 code0 n stream)
-    (let ((s (encode-n n stream)))
+  (define (encode-long2 code0 n stream encoding-size)
+    (let ((s (encode-n n stream encoding-size)))
       (let ((x (car s)))
-        (if (= x (+ eb/2 1))
+        (if (= x (+ (quotient encoding-size 2) 1))
             (cons (+ code0 1) (cdr s))
             (cons code0 s)))))
 
-  (define (encode-n n stream)
-    (encode-n-aux n stream stream))
 
-  (define (encode-n-aux n stream end)
-    (let ((q (quotient n eb/2)))
-      (let ((r (- n (* q eb/2))))
-        (let ((t (cons (if (eqv? stream end) r (+ r eb/2)) stream)))
+  (define (encode-n n stream encoding-size)
+    (encode-n-aux n stream stream encoding-size))
+
+  (define (encode-n-aux n stream end encoding-size)
+    (let ((q (quotient n (quotient encoding-size 2))))
+      (let ((r (- n (* q (quotient encoding-size 2)))))
+        (let ((t (cons (if (eqv? stream end) r (+ r (quotient encoding-size 2))) stream)))
           (if (= q 0)
             t
-            (encode-n-aux q t end))))))
+            (encode-n-aux q t end encoding-size))))))
 
   (define (sublist-eq? left right result)
     (if (and (pair? left)
@@ -2569,7 +2570,7 @@
           (+ 2 (floor 
                  (log 
                    (max 1 (- arg (* (quotient encoding-size 2) (- long-size 1))))
-                   encoding-size)))))))
+                   (quotient encoding-size 2))))))))
 
   (define (sum-byte-count table keys encoding-table encoding-size)
     (fold 
@@ -2659,9 +2660,9 @@
                 stream)
           (cond 
             ((eqv? long-size 1)
-             (encode-long1 long-start arg stream))
+             (encode-long1 long-start arg stream (encoding-size encoding-table)))
             ((eqv? long-size 2)
-             (encode-long2 long-start arg stream))
+             (encode-long2 long-start arg stream (encoding-size encoding-table)))
             (else
               (error "Invalid long size, should be at least one and less than 2" long-size)))))))
 
@@ -2817,14 +2818,23 @@
   (define (encoding-table->encoding-list encoding-table)
     (map (lambda (x) (list (car x) (cdr x))) (table->list encoding-table)))
 
+  (define (encoding-list->encoding-table encoding-list)
+    (let ((table (make-table)))
+      (for-each (lambda (x) (table-set! table (car x) (cadr x))) encoding-list)
+      table))
+
   (define (encode-to-stream proc encoding)
     (set! skip-optimization #t)
 
     (let* ((raw-stream (enc-proc proc 'raw #f '()))
            (stats (get-stat-from-raw (make-table) raw-stream)))
       ;(display-stats stats 2 encoding-skip-92)
+      (define size-92 (sum-byte-count stats '() (encoding-list->encoding-table encoding-skip-92) 92))
+
+      (pp "Size on 92 codes : ")
+      (pp size-92)
       
-      #;(let ((lst '(256 128 85 64 51 42 36 32 28 26 24 22 21 20 19 18 17 16 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1)))
+      #;(let ((lst '(256 128 92 85 64 51 42 36 32 28 26 24 22 21 20 19 18 17 16 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1)))
         (for-each 
           (lambda (v)
             (let* ((solution
@@ -2843,6 +2853,7 @@
                   " code encoding: "
                   (number->string optimal-encoding-size)
                   ))
+
 
 
               (newline)
@@ -3040,7 +3051,8 @@
                           (stream->string
                             (encode-n (- (length symbols)
                                          (length symbols*))
-                                      '()))
+                                      '()
+                                      (* eb/2 2)))
                           (string-append
                             (string-concatenate
                               (map (lambda (s)
