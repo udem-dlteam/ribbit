@@ -2607,8 +2607,8 @@
                  (value (cdr pair))
                  (level (cons key level))
                  (int-value (if (table? value)
-                              (sum-stats value level encoding-table)
-                              (* value (stat-get-bytes (reverse (cdr level)) key encoding-table))))
+                              (sum-byte-count value level (encoding-list->encoding-table encoding-table) (encoding-size encoding-table))
+                              (* value (get-byte-count (reverse (cdr level)) key (encoding-list->encoding-table encoding-table) (encoding-size encoding-table)))))
                  (spacing (make-string (* 2 (length level)) #\space)))
             (display 
               (string-append 
@@ -2833,10 +2833,10 @@
                  (index 0)
                  (matched
                    (list
-                     (list 0 0 (car match))))
+                     (car match))) ;; '((index length (first-char-didnt-match | pair to match) ))
                  (matching 
-                   '())
-                 ) ;; '((index length (first-char-didnt-match | pair to match) ))
+                   '())) 
+
         (if (and (pair? stream)
                  (< index (+ look-ahead-buffer-size already-encoded-size)))
           (let ((matched-matching 
@@ -2847,7 +2847,8 @@
                              (length (cadr curr))
                              (rest (caddr curr)))
                         (if (and 
-                              (pair? (cdr rest)) ;; The last char of rest cannot match
+                              (pair? rest) ;; The last char of rest cannot match
+                              (< length look-ahead-buffer-size)
                               (eqv? (car stream) (car rest)))
                           (loop2
                             matched
@@ -2857,14 +2858,12 @@
                                 (+ 1 length)
                                 (cdr rest))
                               matching)
-                            (cdr iter)
-                            )
+                            (cdr iter))
                           (loop2
                             (cons
                               (list
                                 index
-                                length
-                                (car rest))
+                                length)
                               matched)
                             matching
                             (cdr iter))))
@@ -2877,7 +2876,7 @@
               (car matched-matching)
               (append 
                 (if (and (eqv? (car stream) (car match))
-                         (pair? (cdr match))
+                         ;(pair? (cdr match))
                          (< index already-encoded-size))
                   (list
                     (list
@@ -2895,10 +2894,16 @@
         (ceiling (log (+ x 1) (quotient encoding-size 2)))))
 
     (define (gain x)
-      (let ((cost (+ (bit-in-num (car x))
-                     (bit-in-num (cadr x))
-                     1))
-            (gain (+ (cadr x) 1)))
+      (let ((cost (if (pair? x)
+                    (+ ;2
+                      (bit-in-num (car x))
+                      (bit-in-num (cadr x))
+                       ;1
+                       1)
+                    1))
+            (gain (if (pair? x)
+                    (cadr x)
+                    1)))
         (- gain cost)))
 
     (define (get-longest-match matchings)
@@ -2922,13 +2927,15 @@
                        look-ahead-buffer
                        offset 
                        look-ahead-buffer-size)))
-                 (new-offset-temp (+ offset (+ 1 (cadr longest-match)))) 
+                 ;(_ (pp longest-match))
+                 (match-length (if (pair? longest-match) (cadr longest-match) 1))
+                 (new-offset-temp (+ offset match-length)) 
                  (new-offset (min new-offset-temp already-encoded-size))
                  (offset-overflow (- new-offset-temp new-offset))
                  (new-stream 
                    (list-tail stream offset-overflow))
                  (new-look-ahead-buffer 
-                   (list-tail look-ahead-buffer (+ 1 (cadr longest-match)))))
+                   (list-tail look-ahead-buffer match-length)))
             (loop
               new-stream
               new-look-ahead-buffer
@@ -2950,8 +2957,8 @@
       ;(display-stats stats 2 encoding-skip-92)
       (define size-92 (sum-byte-count stats '() (encoding-list->encoding-table encoding-skip-92) 92))
 
-      (pp "Size on 92 codes : ")
-      (pp size-92)
+      ;(pp "Size on 92 codes : ")
+      ;(pp size-92)
 
       #;(let ((lst '(256 128 92 85 64 51 42 36 32 28 26 24 22 21 20 19 18 17 16 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1)))
       (for-each 
@@ -2974,16 +2981,19 @@
             (newline)
             (pp (table->list solution))))
         lst))
-    (let* ((encoded-proc
+    (define best-encoding-16 (calculate-start 
+                               (encoding-table->encoding-list 
+                                 (get-maximal-encoding 
+                                   (map car encoding-skip-92)
+                                   stats
+                                   16))))
+
+    (let* ((sizee 16)
+           (encoded-proc
              (enc-proc 
                proc 
-               ;encoding-skip-92
-               (calculate-start 
-                 (encoding-table->encoding-list 
-                   (get-maximal-encoding 
-                     (map car encoding-skip-92)
-                     stats
-                     16)))
+               #;encoding-skip-92
+               best-encoding-16
                #f 
                '()))
            
@@ -2991,27 +3001,67 @@
              (LZ77
                ;(map random-integer (make-list 10000 16))
                encoded-proc
-               99999999999999
-               99999999999999
-               16)))
+               9999999999999999999999999999;(* sizee sizee)
+               9999999999999999999999999
+               ;(* sizee sizee)
+               ;sizee 
+               sizee)))
 
     (define (bit-in-num x)
       (if (eqv? x 0)
         1
-        (ceiling (log (+ x 1) (quotient 16 2)))))
+        (ceiling (log (+ x 1) (quotient sizee 2)))))
+
+    (define cost 
+      (lambda (x acc)
+        (if (pair? x)
+          (+ 
+            (bit-in-num (car x))
+            ;2
+            
+            (bit-in-num (cadr x))
+            ;1
+            1
+            acc)
+          (+ 1 acc)
+          )))
+
+    (define costc 
+      (lambda (x acc) (pp (list acc (cost x 0) x)) (cost x acc)))
+
+    (define (decode stream tail)
+      (if (pair? stream) 
+        (if (pair? (car stream)) 
+          (let ((elem (car stream)))
+            (decode
+              (if (> (cadr elem) 1)
+                (cons
+                  (list
+                    (car elem)
+                    (- (cadr elem) 1))
+                  (cdr stream))
+                (cdr stream))
+              (cons (car (list-tail tail (- (car elem) 1))) tail)))
+          (decode (cdr stream) (cons (car stream) tail)))
+        tail))
+        
+    
+
+
+
+
       (pp (length encoded-proc))
       (pp
         (length test))
       (pp
         (fold 
-          (lambda (x acc)
-            (+ 
-              (bit-in-num (car x))
-              (bit-in-num (cadr x))
-              1
-              acc))
+          cost
           0
           test))
+      #;(pp
+        (fold costc 0 test))
+
+      (step)
       encoded-proc
       )
 
@@ -3593,7 +3643,6 @@
                   ((use-feature)
                    (string-append acc (rec "")))
                   ((primitive define-primitive)
-                   (pp prim)
                    (string-append acc (rec "")))
                   ((location)
                    (let* ((name (cadr prim))
