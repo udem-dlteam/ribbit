@@ -2664,7 +2664,7 @@
             ((eqv? long-size 2)
              (encode-long2 long-start arg stream (encoding-size encoding-table)))
             (else
-              (error "Invalid long size, should be at least one and less than 2" long-size)))))))
+              (error "Invalid long size, should be at least one and less than 2:" long-size)))))))
 
   (define (get-maximal-encoding encodings stats encoding-size)
 
@@ -2831,51 +2831,81 @@
     (define (find-matches stream match already-encoded-size look-ahead-buffer-size)
       (let loop ((stream stream) 
                  (index 0)
-                 (matching 
+                 (matched
                    (list
-                     (list 0 0 (car match))))) ;; '((index length (first-char-didnt-match | pair to match) ))
+                     (list 0 0 (car match))))
+                 (matching 
+                   '())
+                 ) ;; '((index length (first-char-didnt-match | pair to match) ))
         (if (and (pair? stream)
                  (< index (+ look-ahead-buffer-size already-encoded-size)))
-          (loop
-            (cdr stream)
-            (+ 1 index)
-            (append
-              ;; new entry
-              (if (and (eqv? (car stream) (car match))
-                       (< index already-encoded-size))
-                (list 
+          (let ((matched-matching 
+                  (let loop2 ((matched matched) (matching '()) (iter matching))
+                    (if (pair? iter)
+                      (let* ((curr (car iter))
+                             (index (car curr))
+                             (length (cadr curr))
+                             (rest (caddr curr)))
+                        (if (and 
+                              (pair? (cdr rest)) ;; The last char of rest cannot match
+                              (eqv? (car stream) (car rest)))
+                          (loop2
+                            matched
+                            (cons 
+                              (list
+                                index
+                                (+ 1 length)
+                                (cdr rest))
+                              matching)
+                            (cdr iter)
+                            )
+                          (loop2
+                            (cons
+                              (list
+                                index
+                                length
+                                (car rest))
+                              matched)
+                            matching
+                            (cdr iter))))
+
+                      (list matched matching)))))
+
+            (loop
+              (cdr stream)
+              (+ 1 index)
+              (car matched-matching)
+              (append 
+                (if (and (eqv? (car stream) (car match))
+                         (pair? (cdr match))
+                         (< index already-encoded-size))
                   (list
-                    index 
-                    1
-                    (cdr match)))
-                '())
-              ;; append to already existing entry
-              (map 
-                (lambda (match)
-                  (let ((index (car match))
-                        (length (cadr match))
-                        (rest (caddr match)))
-                    (if (pair? rest) ;; true if not yet finished
-                      (if (and 
-                            (pair? (cdr rest)) ;; The last char of rest cannot match
-                            (eqv? (car stream) (car rest)))
-                        (list
-                          index
-                          (+ 1 length)
-                          (cdr rest))
-                        (list
-                          index
-                          length
-                          (car rest)))
-                      match)))
-                matching)))
-          matching)))
+                    (list
+                      (abs (- index already-encoded-size))
+                      1
+                      (cdr match)))
+                  '())
+                (cadr matched-matching))
+              ))
+          matched)))
+
+    (define (bit-in-num x)
+      (if (eqv? x 0)
+        1
+        (ceiling (log (+ x 1) (quotient encoding-size 2)))))
+
+    (define (gain x)
+      (let ((cost (+ (bit-in-num (car x))
+                     (bit-in-num (cadr x))
+                     1))
+            (gain (+ (cadr x) 1)))
+        (- gain cost)))
 
     (define (get-longest-match matchings)
       (let ((sorted 
               (list-sort
                 (lambda (x y)
-                  (> (cadr x) (cadr y)))
+                  (> (gain x) (gain y)))
                 matchings)))
         (car sorted)))
 
@@ -2899,7 +2929,6 @@
                    (list-tail stream offset-overflow))
                  (new-look-ahead-buffer 
                    (list-tail look-ahead-buffer (+ 1 (cadr longest-match)))))
-            (pp longest-match)
             (loop
               new-stream
               new-look-ahead-buffer
@@ -2945,23 +2974,44 @@
             (newline)
             (pp (table->list solution))))
         lst))
-    (let ((encoded-proc
-            (enc-proc 
-              proc 
-              (calculate-start 
-                (encoding-table->encoding-list 
-                  (get-maximal-encoding 
-                    (map car encoding-skip-92)
-                    stats
-                    16)))
-              #f 
-              '())))
+    (let* ((encoded-proc
+             (enc-proc 
+               proc 
+               ;encoding-skip-92
+               (calculate-start 
+                 (encoding-table->encoding-list 
+                   (get-maximal-encoding 
+                     (map car encoding-skip-92)
+                     stats
+                     16)))
+               #f 
+               '()))
+           
+           (test
+             (LZ77
+               ;(map random-integer (make-list 10000 16))
+               encoded-proc
+               99999999999999
+               99999999999999
+               16)))
+
+    (define (bit-in-num x)
+      (if (eqv? x 0)
+        1
+        (ceiling (log (+ x 1) (quotient 16 2)))))
+      (pp (length encoded-proc))
       (pp
-        (LZ77
-          encoded-proc
-          99999999999999
-          99999999999999
-          16))
+        (length test))
+      (pp
+        (fold 
+          (lambda (x acc)
+            (+ 
+              (bit-in-num (car x))
+              (bit-in-num (cadr x))
+              1
+              acc))
+          0
+          test))
       encoded-proc
       )
 
