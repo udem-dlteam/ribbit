@@ -1,9 +1,9 @@
-(##include-once "./error.scm")
 (##include-once "./types.scm")
 (##include-once "./pair-list.scm")
+(##include-once "./error.scm")
 (##include-once "./io.scm")
-(##include-once "./control.scm")
 (##include-once "./qq.scm")
+(##include-once "./control.scm")
 
 (cond-expand
   ((host js)
@@ -169,7 +169,7 @@
                           (comp cte
                                 (if (eqv? (car clause) 'else)
                                   (cons 'begin (cdr clause))
-                                  (build-if (list 'memv key (list 'quote (car clause)))
+                                  (build-if (list '##case-memv key (list 'quote (car clause)))
                                             (cons 'begin (cdr clause))
                                             (list 'case key (cdr clauses))))))
                         #f))))

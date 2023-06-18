@@ -70,21 +70,21 @@
     '()))
 
 (define (map proc . lsts)
-  (if (pair? (car lsts))
-    (cons (##apply proc (##map car lsts))
-          (##apply map (append (list proc) (##map cdr lsts))))
+  (if (pair? (##field0 lsts))
+    (cons (apply proc (##map car lsts))
+          (apply map (append (list proc) (##map cdr lsts))))
     '()))
 
 (define (for-each proc . lsts)
-  (if (pair? (car lsts))
+  (if (pair? (##field0 lsts))
       (begin
-        (##apply proc (##map car lsts))
-        (##apply for-each (append (list proc) (##map cdr lsts))))
+        (apply proc (##map car lsts))
+        (apply for-each (append (list proc) (##map cdr lsts))))
       #f))
 
 (define (fold func base lst)
   (if (pair? lst)
-    (fold func (func base (car lst)) (cdr lst))
+    (fold func (func base (##field0 lst)) (##field1 lst))
     base))
 
 ;; (define (fold-until func base lst (stop-value '()))
@@ -97,9 +97,9 @@
 ;;     (scan func (car lst) (func base (car lst)) (cdr lst))
 ;;     state))
 
-(define (scan-until func base state lst (stop-value '()))
-  (if (and (pair? lst) (not (equal? state stop-value)))
-    (scan-until func (car lst) (func base (car lst)) (cdr lst) stop-value)
+(define (##scan-until-false func base state lst)
+  (if (and (pair? lst) state)
+    (##scan-until-false func (##field0 lst) (func base (##field0 lst)) (##field1 lst))
     state))
 
 ;; First-class continuations.

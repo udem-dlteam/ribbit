@@ -1,9 +1,9 @@
 (##include-once "./bool.scm")
 (##include-once "./types.scm")
+(##include-once "./pair-list.scm")
 (##include-once "./control.scm")
 
 ;; Numbers (R4RS section 6.5).
-(define ##no-args '(0))
 
 (define (+ . args)
   (fold (lambda (x y) (##+ x y)) 0 args))
@@ -11,16 +11,15 @@
 (define (* . args)
   (fold (lambda (x y) (##* x y)) 1 args))
 
-
-(define (- x (y ##no-args))
-  (if (##eqv? y ##no-args)
+(define (- x . y)
+  (if (null? y)
     (##- 0 x)
-    (##- x y)))
+    (apply + (cons x (map - y)))))
 
-(define (/ x (y ##no-args))
-  (if (##eqv? y ##no-args)
-    (##quotient 1 x)
-    (##quotient x y)))
+(define (/ x . y)
+  (if (null? y)
+    (##quotient 1 x)    ;; 1/x
+    (fold quotient x y)))
 
 (define (quotient x y) (##quotient x y))
 
@@ -28,19 +27,19 @@
 (define (inexact? obj) #f)
 
 (define (= x . rest)
-  (scan-until (lambda (x y) (##eqv? x y)) x #t rest #f))
+  (##scan-until-false eqv? x #t rest))
 
 (define (< x . rest) 
-  (scan-until (lambda (x y) (##< x y)) x #t rest #f))
+  (##scan-until-false (lambda (x y) (##< x y)) x #t rest))
 
 (define (> x . rest) 
-  (scan-until (lambda (x y) (##< y x)) x #t rest #f))
+  (##scan-until-false (lambda (x y) (##< y x)) x #t rest))
 
 (define (<= x . rest)
-  (scan-until (lambda (x y) (not (##< y x))) x #t rest #f))
+  (##scan-until-false (lambda (x y) (not (##< y x))) x #t rest))
 
 (define (>= x . rest) 
-  (scan-until (lambda (x y) (not (##< x y))) x #t rest #f))
+  (##scan-until-false (lambda (x y) (not (##< x y))) x #t rest))
 
 (define (zero? x) (##eqv? x 0))
 (define (positive? x) (##< 0 x))

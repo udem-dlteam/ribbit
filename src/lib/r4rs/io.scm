@@ -1,8 +1,9 @@
-(##include-once "./error.scm")
+(##include-once "./bool.scm")
 (##include-once "./types.scm")
+(##include-once "./vector.scm")
 (##include-once "./char.scm")
 (##include-once "./pair-list.scm")
-(##include-once "./vector.scm")
+(##include-once "./error.scm")
 
 (cond-expand
   ((host js)
@@ -240,16 +241,6 @@
     (##set-last-char port ch)
     ch))
 
-;; old implementation
-  #| (if (input-port-close? port) (crash))
-  (if (##eqv? (##get-last-char port) '())
-    (let* ((ch (##read-char (##field0 port)))
-           (ch (if (##eqv? ch '()) ##eof (integer->char ch))))
-      (##set-last-char port ch)
-      ch)
-    (##get-last-char port))) |#
-
-
 ;; ---------------------- READ ---------------------- ;;
 
 (define (read (port (current-input-port)))
@@ -398,7 +389,6 @@
            (##write-char 92 port-val)     ;; #\\
            (case (##field0 o) 
              ((10) (display "newline" port))
-             ((32) (display "space" port))
              ((13) (display "return" port))
              ((9)  (display "tab" port))
              (else (##write-char (##field0 o) port-val))))

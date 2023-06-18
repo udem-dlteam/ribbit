@@ -88,6 +88,8 @@
 
 (define memq memv)
 
+(define ##case-memv memv)
+
 (define (member x lst)
   (if (pair? lst)
       (if (equal? x (##field0 lst))

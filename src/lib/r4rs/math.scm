@@ -47,10 +47,10 @@
   (fold lcm-aux 1 args))
 
 
-(define (numerator x) (##id x))
 (define (denominator x) 1)
 
 (define (floor x) (##id x))
-(define (ceiling x) (##id x))
-(define (truncate x) (##id x))
-(define (round x) (##id x))
+(define numerator floor)
+(define ceiling floor)
+(define truncate floor)
+(define round floor)

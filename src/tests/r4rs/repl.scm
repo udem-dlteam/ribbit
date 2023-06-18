@@ -200,8 +200,7 @@
   or
 
   ;#; ;; support for cond special form
-  cond
-  )
+  cond)
 
 (repl)
 

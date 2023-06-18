@@ -4,8 +4,8 @@
 ;; Characters (R4RS section 6.6).
 
 (define (char=? ch1 ch2) (##eqv? (##field0 ch1) (##field0 ch2)))
-(define (char<? ch1 ch2) (##< (char-cmp ch1 ch2) 0))
-(define (char>? ch1 ch2) (##< 0 (char-cmp ch1 ch2)))
+(define (char<? ch1 ch2) (##< (##field0 ch1) (##field0 ch2)))
+(define (char>? ch1 ch2) (##< (##field0 ch2) (##field0 ch1)))
 (define (char<=? ch1 ch2) (not (char>? ch1 ch2)))
 (define (char>=? ch1 ch2) (not (char<? ch1 ch2)))
 
@@ -15,34 +15,26 @@
 (define (char-ci<=? ch1 ch2) (not (char-ci>? ch1 ch2)))
 (define (char-ci>=? ch1 ch2) (not (char-ci<? ch1 ch2)))
 
-(define (char-cmp ch1 ch2)
-  (cond 
-    ((##< (##field0 ch1) (##field0 ch2)) -1)
-    ((##< (##field0 ch2) (##field0 ch1)) 1)
-    (else 0)))
-
 (define (char-alphabetic? ch)
   (or (char-lower-case? ch)
       (char-upper-case? ch)))
 
 (define (char-numeric? ch)
-  (and (char>=? ch #\0)
-       (char<=? ch #\9)))
+  (and (##< 47 (##field0 ch))   ;; #\0
+       (##< (##field0 ch) 58))) ;; #\9
 
 (define (char-whitespace? ch)
-  (or (char=? ch #\space)
-      (char=? ch #\tab)
-      (char=? ch #\newline)
-      (char=? ch #\vtab)
-      (char=? ch #\return)))
+  (case (##field0 ch)
+    ((32 9 10 11 13) #t)  ;; (#\space #\tab #\newline #\vtab #\return)
+    (else #f)))
 
 (define (char-lower-case? ch)
-  (and (char<=? #\a ch)
-       (char<=? ch #\z)))
+  (and (##< 96 (##field0 ch))    ;; #\a
+       (##< (##field0 ch) 123))) ;; #\z
 
 (define (char-upper-case? ch)
-  (and (char<=? #\A ch)
-       (char<=? ch #\Z)))
+  (and (##< 64 (##field0 ch))   ;; #\A
+       (##< (##field0 ch) 91))) ;; #\Z
 
 (define (char-upcase ch)
   (if (char-lower-case? ch)

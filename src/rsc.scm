@@ -1666,7 +1666,7 @@
                             (expand-expr (cons 'begin (cdr clause)))
                             (expand-expr
                               (cons 'if
-                                    (cons (cons 'memv
+                                    (cons (cons '##case-memv
                                                 (cons key
                                                       (cons (cons 'quote
                                                                   (cons (car clause)
@@ -1826,25 +1826,24 @@
 
 
 (define (expand-opt-param param-name param-default vararg-name)
-  ; `((,param-name (if (null? ,vararg-name)
-  ;                  ,param-default
-  ;                  (let ((value (car ,vararg-name)))
-  ;                    (set! ,vararg-name (cdr ,vararg-name))
-  ;                    value))))
-
   ;; If this part is not performant enough, replace the set! with a
   ;; (vararg (if (eqv? vararg '()) '() (field1 vararg)))
   ;; after every optional arg clause
-  (list
-    (list param-name 
-          (list 'if (list '##eqv? vararg-name '())
-                (expand-expr param-default)
-                (list 'let (list (list 'value (list '##field0 vararg-name)))
-                      (list 'set! vararg-name (list '##field1 vararg-name))
-                      'value
-                      )
-                )
-          )))
+  `((,param-name (if (null? ,vararg-name)
+                    ,(expand-expr param-default)
+                    (let ((value (##field0 ,vararg-name)))
+                      (set! ,vararg-name (##field1 ,vararg-name))
+                      value)))))
+  ;; (list
+  ;;   (list param-name 
+  ;;         (list 'if (list '##eqv? vararg-name '())
+  ;;               (expand-expr param-default)
+  ;;               (list 'let (list (list 'value (list '##field0 vararg-name)))
+  ;;                     (list 'set! vararg-name (list '##field1 vararg-name))
+  ;;                     'value
+  ;;                     )
+  ;;               )
+  ;;         )))
 
 ;;;----------------------------------------------------------------------------
 
