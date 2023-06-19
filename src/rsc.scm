@@ -2229,8 +2229,8 @@
 
   (define built-constants '())
 
-  (define (add-nb-args nb-args tail)
-    (if (and live-features (memq 'arity-check live-features))
+  (define (add-nb-args nb-args tail host-config)
+    (if (and (host-config-features host-config) (memq 'arity-check (host-config-features host-config)))
       (c-rib const-op
              nb-args
              tail)
@@ -2238,9 +2238,9 @@
 
   (define prim-arity-check?
     (and 
-      live-features
-      (memq 'arity-check live-features)
-      (not (memq 'prim-no-arity live-features))))
+      (host-config-features host-config)
+      (memq 'arity-check (host-config-features host-config)
+      (not (memq 'prim-no-arity (host-config-features host-config))))))
 
   (define (build-constant o tail)
     (cond ((or (memv o '(#f #t ()))
@@ -2274,7 +2274,8 @@
                       o
                       tail)))
           ((char? o)
-           (if (and live-features (memq 'arity-check live-features))
+           (if (and (host-config-features host-config) 
+                    (memq 'arity-check (host-config-features host-config)))
              (c-rib const-op
                     (char->integer o)
                     (c-rib const-op
@@ -2491,12 +2492,22 @@
   (define (encode-long1 code n stream encoding-size)
     (cons code (encode-n n stream encoding-size)))
 
+
   (define (encode-long2 code0 n stream encoding-size)
     (let ((s (encode-n n stream encoding-size)))
       (let ((x (car s)))
         (if (= x (+ (quotient encoding-size 2) 1))
             (cons (+ code0 1) (cdr s))
             (cons code0 s)))))
+
+  (define (encode-long code long-size n stream encoding-size)
+    (let ((s (encode-n n stream encoding-size)))
+      (let ((x (car s)))
+        (let ((overflow (- x (quotient encoding-size 2))))
+          (if (and (> overflow 0)
+                   (<= overflow long-size))
+            (cons (+ code overflow) (cdr s))
+            (cons code s))))))
 
 
   (define (encode-n n stream encoding-size)
@@ -2659,12 +2670,13 @@
           (cons (+ short-start arg)
                 stream)
           (cond 
+            ;; 1 and 2 are there because the 3rd branch is untested yet
             ((eqv? long-size 1)
              (encode-long1 long-start arg stream (encoding-size encoding-table)))
             ((eqv? long-size 2)
              (encode-long2 long-start arg stream (encoding-size encoding-table)))
             (else
-              (error "Invalid long size, should be at least one and less than 2:" long-size)))))))
+              (encode-long long-start long-size arg stream (encoding-size encoding-table))))))))
 
   (define (get-maximal-encoding encodings stats encoding-size)
 
@@ -2823,8 +2835,14 @@
       (for-each (lambda (x) (table-set! table (car x) (cadr x))) encoding-list)
       table))
 
-  ;; see section 2.6.4 : https://ir.canterbury.ac.nz/bitstream/handle/10092/8411/bell_thesis.pdf?sequence=1&isAllowed=y
-  (define (LZ77 stream N F encoding-size)
+  ;; Inspired from the section 2.6.4 of https://ir.canterbury.ac.nz/bitstream/handle/10092/8411/bell_thesis.pdf?sequence=1&isAllowed=y
+  ;; 
+  ;;   cost-func : function that calculates cost of encoding a value. A value can be a backward pointer
+  ;;        or the integer value. This function must return an integer that represent the number of bytes
+  ;;        encoded by its parameter
+  ;; 
+
+  (define (LZSS stream N F encoding-size cost-func)
     (define already-encoded-size N)
     (define look-ahead-buffer-size F)
 
@@ -2884,23 +2902,21 @@
                       1
                       (cdr match)))
                   '())
-                (cadr matched-matching))
-              ))
+                (cadr matched-matching))))
           matched)))
 
-    (define (bit-in-num x)
+    #;(define (bit-in-num x)
       (if (eqv? x 0)
         1
         (ceiling (log (+ x 1) (quotient encoding-size 2)))))
+    #; (if (pair? x)
+                    (+ (bit-in-num (car x))
+                       (bit-in-num (cadr x))
+                       1)
+                    1)
 
     (define (gain x)
-      (let ((cost (if (pair? x)
-                    (+ ;2
-                      (bit-in-num (car x))
-                      (bit-in-num (cadr x))
-                       ;1
-                       1)
-                    1))
+      (let ((cost (cost-func x))
             (gain (if (pair? x)
                     (cadr x)
                     1)))
@@ -2946,9 +2962,6 @@
           output)))
 
 
-
-
-
   (define (encode-to-stream proc encoding)
     (set! skip-optimization #t)
 
@@ -2986,7 +2999,7 @@
                                  (get-maximal-encoding 
                                    (map car encoding-skip-92)
                                    stats
-                                   16))))
+                                   256))))
 
     (let* ((sizee 16)
            (encoded-proc
@@ -2997,7 +3010,7 @@
                #f 
                '()))
            
-           (test
+           #;(test
              (LZ77
                ;(map random-integer (make-list 10000 16))
                encoded-proc
@@ -3044,10 +3057,27 @@
               (cons (car (list-tail tail (- (car elem) 1))) tail)))
           (decode (cdr stream) (cons (car stream) tail)))
         tail))
-        
-    
 
+    (define (16bit->256bits stream)
+      (let loop ((stream encoded-proc) (result '()))
+        (if (pair? stream)
+          (if (pair? (cdr stream))
+            (loop (cddr stream)
+                  (cons (+ (* 16 (car stream)) (cadr stream)) result))
+            (cons (car stream) result))
+          result)))
 
+    (define (output-to-file filename stream)
+      (let ((out (open-output-file filename)))
+        (for-each
+          (lambda (x)
+            (write-u8 x out))
+          stream)
+        (close-output-port out)))
+
+    (output-to-file "ribn-256.txt" encoded-proc)
+
+    (step)
 
 
       (pp (length encoded-proc))
@@ -3058,6 +3088,7 @@
           cost
           0
           test))
+      (pp (equal? (decode (reverse test) '()) (reverse encoded-proc)))
       #;(pp
         (fold costc 0 test))
 
@@ -3236,6 +3267,10 @@
                     (if (and (pair? symbols*)
                              (string=? (symbol->str (car symbols*)) ""))
                       (loop4 (cdr symbols*))
+
+                      #;(encode-stream
+                        proc
+                        encoding)
                       
 
                       (let ((stream (encode-to-stream proc encoding)))
