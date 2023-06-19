@@ -31,7 +31,6 @@ build-repl-max: ../../repl-max.scm
 
 build-repl-max-tc: ../../repl-max.scm
 	dir="$(RIBBIT_BUILD_DIR)"; $(RSC_COMPILER) -t $(HOST) -l max-tc $(RIBBIT_BUILD_OPTS) -o $${dir:-build}/repl-max-tc.$(HOST) $<
-	
 
 build-rsc: ../../rsc.scm  
 	dir="$(RIBBIT_BUILD_DIR)"; $(RSC_COMPILER) -t $(HOST) -l max $(RIBBIT_BUILD_OPTS) -o $${dir:-build}/rsc.$(HOST) $<

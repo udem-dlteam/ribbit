@@ -35,12 +35,12 @@
 
 (define (improper-length lst)
   (if (pair? lst)
-    (##+ 1 (improper-length (cdr lst)))
+    (##+ 1 (improper-length (##field1 lst)))
     0))
 
 (define (last-item lst)
   (if (pair? lst)
-    (last-item (cdr lst))
+    (last-item (##field1 lst))
     lst))
 
 (define (comp cte expr cont)
@@ -48,29 +48,29 @@
          (##rib get-op (lookup expr cte 0) cont))
 
         ((pair? expr)
-         (let ((first (car expr)))
-           (cond ((eqv? first 'quote)
+         (let ((first (##field0 expr)))
+           (cond ((##eqv? first 'quote)
                   (##rib const-op (cadr expr) cont))
 
-                 ((eqv? first 'quasiquote)
+                 ((##eqv? first 'quasiquote)
                   (comp cte
                         (expand-qq (cadr expr))
                         cont))
 
-                 ((memq first '(set! define))  ;; maybe replace with 'or
+                 ((or (##eqv? first 'set!) (##eqv? first 'define))  ;; maybe replace with 'or
                   (comp cte
                         (caddr expr)
                         (gen-assign (lookup (cadr expr) cte 1)
                                     cont)))
 
-                 ((eqv? first 'if)
+                 ((##eqv? first 'if)
                   (comp cte
                         (cadr expr)
                         (##rib if-op
                              (comp cte (caddr expr) cont)
                              (comp cte (cadddr expr) cont))))
 
-                 ((eqv? first 'lambda)
+                 ((##eqv? first 'lambda)
                   (let* ((params (cadr expr)) 
                          (variadic (or (symbol? params) (not (null? (last-item params)))))
                          (nb-params (if variadic (##+ 1 (##* 2 (improper-length params))) (##* 2 (length params)))))
@@ -89,17 +89,17 @@
                            cont
                            (add-nb-args
                              1
-                             (gen-call 'close cont))))))
+                             (gen-call '##close cont))))))
 
                  ;#; ;; support for begin special form
-                 ((eqv? first 'begin)
-                  (comp-begin cte (cdr expr) cont))
+                 ((##eqv? first 'begin)
+                  (comp-begin cte (##field1 expr) cont))
 
                  ;#; ;; support for single armed let special form
-                 ((eqv? first 'let)
-                  (let ((binding (car (cadr expr))))
+                 ((##eqv? first 'let)
+                  (let ((binding (caadr expr)))
                     (comp-bind cte
-                               (car binding)
+                               (##field0 binding)
                                (cadr binding)
                                ;;                               #; ;; support for single expression in body
                                ;;                               (caddr expr)
@@ -108,23 +108,23 @@
                                cont)))
 
                  ;#; ;; support for single armed let special form
-                 ((eqv? first 'letrec)
+                 ((##eqv? first 'letrec)
                   (let ((bindings (cadr expr)))
                     (comp cte
                           (cons 'let
                                 (cons (map (lambda (binding)
-                                             (list (car binding) #f))
+                                             (list (##field0 binding) #f))
                                            bindings)
                                       (append (map (lambda (binding)
-                                                     (list 'set! (car binding) (cadr binding)))
+                                                     (list 'set! (##field0 binding) (cadr binding)))
                                                    bindings)
                                               (cddr expr))))
                           cont)))
 
                  ;#; ;; support for and special form
-                 ((eqv? first 'and)
+                 ((##eqv? first 'and)
                   (comp cte
-                        (if (pair? (cdr expr))
+                        (if (pair? (##field1 expr))
                           (let ((second (cadr expr)))
                             (if (pair? (cddr expr))
                               (build-if second
@@ -135,9 +135,9 @@
                         cont))
 
                  ;#; ;; support for or special form
-                 ((eqv? first 'or)
+                 ((##eqv? first 'or)
                   (comp cte
-                        (if (pair? (cdr expr))
+                        (if (pair? (##field1 expr))
                           (let ((second (cadr expr)))
                             (if (pair? (cddr expr))
                               (list 'let
@@ -150,37 +150,37 @@
                         cont))
 
                  ;#; ;; support for cond special form
-                 ((eqv? first 'cond)
+                 ((##eqv? first 'cond)
                   (comp cte
-                        (if (pair? (cdr expr))
-                          (if (eqv? 'else (car (cadr expr)))
-                            (cons 'begin (cdr (cadr expr)))
-                            (build-if (car (cadr expr))
-                                      (cons 'begin (cdr (cadr expr)))
+                        (if (pair? (##field1 expr))
+                          (if (##eqv? 'else (caadr expr))
+                            (cons 'begin (cdadr expr))
+                            (build-if (caadr expr)
+                                      (cons 'begin (cdadr expr))
                                       (cons 'cond (cddr expr))))
                           #f)
                         cont))
 
-                 ((eqv? first 'case)
-                  (let ((key (cadr expr)))
-                    (let ((clauses (cddr expr)))
+                 ((##eqv? first 'case)
+                  (let ((key (##field0 (##field1 expr))))
+                    (let ((clauses (##field1 (##field1 expr))))
                       (if (pair? clauses)
-                        (let ((clause (car clauses)))
+                        (let ((clause (##field0 clauses)))
                           (comp cte
-                                (if (eqv? (car clause) 'else)
-                                  (cons 'begin (cdr clause))
-                                  (build-if (list '##case-memv key (list 'quote (car clause)))
-                                            (cons 'begin (cdr clause))
-                                            (list 'case key (cdr clauses))))))
+                                (if (##eqv? (##field0 clause) 'else)
+                                  (cons 'begin (##field1 clause))
+                                  (build-if (list '##case-memv key (list 'quote (##field0 clause)))
+                                            (cons 'begin (##field1 clause))
+                                            (list 'case key (##field1 clauses))))))
                         #f))))
 
                  (else
                    ;;                  #; ;; support for calls with only variable in operator position
                    ;;                  (comp-call cte
-                   ;;                             (cdr expr)
+                   ;;                             (##field1 expr)
                    ;;                             (cons first cont))
                    ;#; ;; support for calls with any expression in operator position
-                   (let ((args (cdr expr)))
+                   (let ((args (##field1 expr)))
                      (if (symbol? first)
                        (comp-call cte
                                   args
@@ -212,20 +212,18 @@
        (if (vector? x)
          (##qq-list '##qq-list->vector (parse (##qq-vector->list x) depth))
          (expand-constant x)))
-      ((eqv? (car x) 'unquote)
-       (if (eqv? depth 1)
-         (if (pair? (cdr x))
-           (cadr x)
-           (crash))
-         (##qq-list '##qq-cons (expand-constant 'unquote) (parse (cdr x) (- depth 1)))))
-      ((and (pair? (car x)) (eqv? (caar x) 'unquote-splicing))
-       (if (eqv? depth 1)
-         (##qq-list '##qq-append (cadar x) (parse (cdr x) depth))
-         (##qq-list '##qq-cons (##qq-list '##qq-cons (expand-constant 'unquote-splicing) (parse (cdar x) (- depth 1))) (parse (cdr x) depth))))
-      ((eqv? (car x) 'quasiquote)
-       (##qq-list '##qq-cons (expand-constant 'quasiquote) (parse (cdr x) (+ depth 1))))
+      ((##eqv? (##field0 x) 'unquote)
+       (if (##eqv? depth 1)
+         (cadr x)
+         (##qq-list '##qq-cons (expand-constant 'unquote) (parse (##field1 x) (- depth 1)))))
+      ((and (pair? (##field0 x)) (##eqv? (caar x) 'unquote-splicing))
+       (if (##eqv? depth 1)
+         (##qq-list '##qq-append (cadar x) (parse (##field1 x) depth))
+         (##qq-list '##qq-cons (##qq-list '##qq-cons (expand-constant 'unquote-splicing) (parse (cdar x) (- depth 1))) (parse (##field1 x) depth))))
+      ((##eqv? (##field0 x) 'quasiquote)
+       (##qq-list '##qq-cons (expand-constant 'quasiquote) (parse (##field1 x) (+ depth 1))))
       (else
-        (##qq-list '##qq-cons (parse (car x) depth) (parse (cdr x) depth))))))
+        (##qq-list '##qq-cons (parse (##field0 x) depth) (parse (##field1 x) depth))))))
 
 (define (comp-bind cte var expr body cont)
   (comp cte
@@ -241,7 +239,7 @@
         ;#; ;; support for multiple expressions in body
         (comp-begin (cons var cte)
                     body
-                    (if (eqv? cont tail)
+                    (if (##eqv? cont tail)
                         cont
                         (if-feature 
                           prim-no-arity
@@ -256,22 +254,22 @@
 
 (define (comp-begin cte exprs cont)
   (comp cte
-        (car exprs)
-        (if (pair? (cdr exprs))
+        (##field0 exprs)
+        (if (pair? (##field1 exprs))
           (if-feature 
             prim-no-arity
             (##rib jump/call-op ;; call
              '##arg1
-             (comp-begin cte (cdr exprs) cont))
+             (comp-begin cte (##field1 exprs) cont))
             (add-nb-args
               2
               (##rib jump/call-op ;; call
                '##arg1
-               (comp-begin cte (cdr exprs) cont))))
+               (comp-begin cte (##field1 exprs) cont))))
             cont)))
 
 (define (gen-call v cont)
-  (if (eqv? cont tail)
+  (if (##eqv? cont tail)
       (##rib jump/call-op v 0)      ;; jump
       (##rib jump/call-op v cont))) ;; call
 
@@ -295,13 +293,13 @@
 (define (comp-call cte exprs nb-args var-cont)
   (if (pair? exprs)
     (comp cte
-          (car exprs)
+          (##field0 exprs)
           (comp-call (cons #f cte)
-                     (cdr exprs)
+                     (##field1 exprs)
                      nb-args
                      var-cont))
-    (let ((var (car var-cont)))
-      (let ((cont (cdr var-cont)))
+    (let ((var (##field0 var-cont)))
+      (let ((cont (##field1 var-cont)))
         (let ((v (lookup var cte 0)))
           ;; should be unecessary because there shouldn't be any primitive called this way
           ;; (if-feature 
@@ -317,14 +315,14 @@
 
 (define (lookup var cte i)
   (if (pair? cte)
-      (if (eqv? (car cte) var)
+      (if (##eqv? (##field0 cte) var)
           i
-          (lookup var (cdr cte) (##+ i 1)))
+          (lookup var (##field1 cte) (##+ i 1)))
       var))
 
 (define (extend vars cte)
   (if (pair? vars)
-      (cons (car vars) (extend (cdr vars) cte))
+      (cons (##field0 vars) (extend (##field1 vars) cte))
       cte))
 
 (define tail

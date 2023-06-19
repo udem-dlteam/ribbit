@@ -298,7 +298,8 @@
           (##rib first (read-list port) 0)))))
 
 (define (read-symbol port)
-  (let ((c (##field0 (char-upcase (peek-char port)))))
+  ;; FIXME: change char-downcase to char-upcase
+  (let ((c (##field0 (char-downcase (peek-char port)))))
     (if (or (##eqv? c 40)  ;; #\(
             (##eqv? c 41)  ;; #\)
             (##eqv? c 0)   ;; eof

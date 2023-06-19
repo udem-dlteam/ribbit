@@ -27,15 +27,17 @@ check:
 	  cd host/$$HOST; $(MAKE) check; cd ../..; \
 	fi
 
+check-repl:
+	@if [  ]; then \
 
 check-fancy:
 	@if [ "$$HOST" = "" ]; then \
 	  for host in $(HOSTS); do \
 	    echo "====================== TESTING HOST $$host"; \
-	    cd host/$$host; RSC_COMPILER="gsi ../../rsc.scm" $(MAKE) check; cd ../..; \
+		cd host/$$host; RSC_COMPILER="gsi -:r4rs ../../rsc.scm" $(MAKE) check; cd ../..; \
 	  done; \
 	else \
-	  cd host/$$HOST; RSC_COMPILER="gsi ../../rsc.scm" $(MAKE) check; cd ../..; \
+	  cd host/$$HOST; RSC_COMPILER="gsi -:r4rs ../../rsc.scm" $(MAKE) check; cd ../..; \
 	fi
 
 check-pipeline: check
