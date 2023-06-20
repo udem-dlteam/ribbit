@@ -19,7 +19,7 @@
 ;; (define (string<? str1 str2) (##< (string-cmp str1 str2) 0))
 ;; (define (string>? str1 str2) (##< 0 (string-cmp str1 str2)))
 
-(define string=? equal?)
+(define (string=? str1 str2) (equal? str1 str2))
 (define (string<? str1 str2) (##< (string-cmp str1 str2) 0))
 (define (string>? str1 str2) (##< 0 (string-cmp str1 str2)))
 

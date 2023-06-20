@@ -6,7 +6,7 @@
 (write (read-char this-file))
 (newline)
 
-(display (read this-file))
+(write (read this-file))
 (newline)
 
 (write (read-char this-file))
@@ -15,7 +15,7 @@
 (write (peek-char this-file))
 (newline)
 
-(display (read this-file))
+(write (read this-file))
 (newline)
 
 (close-input-port this-file)
@@ -25,7 +25,7 @@
 ;;;expected:
 ;;;#\;
 ;;;#\;
-;;;(DEFINE THIS-FILE (OPEN-INPUT-FILE "../../tests/r4rs/6-10-2-input.scm"))
+;;;(define this-file (open-input-file "../../tests/r4rs/6-10-2-input.scm"))
 ;;;#\newline
 ;;;#\(
-;;;(WRITE (PEEK-CHAR THIS-FILE))
+;;;(write (peek-char this-file))

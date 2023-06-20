@@ -18,7 +18,7 @@ TEST_FEATURES ?= .
 RSC_MUST_TEST_FEATURES ?= ,
 TEST_FILTER ?= *
 TEST_DIR ?= tests
-REPL_PATH ?= ../../tests/r4rs/repl.scm
+REPL_PATH ?= ../../tests/r4rs/repl/repl.scm
 
 all:
 

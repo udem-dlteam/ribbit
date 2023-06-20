@@ -41,10 +41,6 @@
 (define (>= x . rest) 
   (##scan-until-false (lambda (x y) (not (##< x y))) x #t rest))
 
-(define rational? integer?)
-(define real? rational?)
-(define complex? real?)
-
 (define (zero? x) (##eqv? x 0))
 (define (positive? x) (##< 0 x))
 (define (negative? x) (##< x 0))
