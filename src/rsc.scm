@@ -2701,6 +2701,70 @@
     (for-each (lambda (x) (table-set! table (car x) (cadr x))) encoding-list)
     table))
 
+(define (lzss-variable-cost encoding-size tag-val)
+  (define (bit-in-num x)
+    (if (eqv? x 0)
+      1
+      (ceiling (log (+ x 1) (quotient encoding-size 2)))))
+
+  (define cost 
+    (lambda (x)
+      (if (pair? x)
+        (+ 
+          (bit-in-num (car x))
+          (bit-in-num (cadr x))
+          1)
+        (if tag-val 
+          1
+          2))))
+  cost)
+
+
+(define (encode-lzss stream encoding-size tag-val)
+
+  (define encoding-size/2 (quotient encoding-size 2))
+
+  (define (encode stream tail)
+    (cond 
+      ((not (pair? stream))
+       (reverse tail))
+      ((pair? (car stream))
+       (let ((elem (car stream)))
+         (encode 
+           (cdr stream) 
+           (cons 
+             tag-val 
+             (encode-n 
+               (car elem)
+               (encode-n
+                 (cadr elem)
+                 tail
+                 encoding-size/2)
+               encoding-size/2)))))
+      ((eqv? (car stream) tag-val)
+       (encode
+         (cdr stream)
+         (cons 
+           tag-val
+           (cons 
+             tag-val
+             tail))))
+
+      ((pair? stream)
+        (encode (cdr stream)
+                (cons (car stream)
+                      tail)))
+      (else
+        (error "idk how you did end up here" stream))))
+  (encode stream '()))
+
+
+
+
+
+
+                    
+
 ;; Inspired from the section 2.6.4 of https://ir.canterbury.ac.nz/bitstream/handle/10092/8411/bell_thesis.pdf?sequence=1&isAllowed=y
 ;; 
 ;;   cost-func : function that calculates cost of encoding a value. A value can be a backward pointer
@@ -2953,6 +3017,29 @@
       ",")
     ";"))
 
+(define (symtbl->stream symtbl symbols* encoding-size)
+  (encode-n
+    (- (table-length symtbl)
+       (length symbols*))
+    (append 
+      (string->stream
+        (string-concatenate
+          (map (lambda (s)
+                 (let ((str (symbol->str s)))
+                   (list->string
+                     (reverse (string->list str)))))
+               symbols*)
+          ","))
+      (string->stream ";"))
+    (quotient encoding-size 2)))
+
+(define (string->stream string)
+  (map (lambda (c)
+         (let ((n (char->integer c)))
+           (if (= n 33)
+             (- 92 35)
+             (- n 35))))
+       (string->list string)))
 
 (define (stream->string stream)
   (list->string
@@ -2991,9 +3078,23 @@
          (symtbl-and-symbols* (encode-symtbl prog exports host-config (encoding-inst-size encoding '(call sym short))))
          (symtbl (car symtbl-and-symbols*))
          (symbols* (cdr symtbl-and-symbols*))
-         (stream (encode-program prog symtbl encoding #f encoding-size)))
+         (stream (encode-program prog symtbl encoding #f encoding-size))
 
+         (symtbl-stream (symtbl->stream symtbl symbols* encoding-size))
+         ;(stream (append symtbl-stream stream))
 
+         (compression? #f)
+         (stream (if compression?
+                   (encode-lzss 
+                     (LZSS 
+                       stream 
+                       9999999999999999 
+                       9999999999999999
+                       encoding-size 
+                       (lzss-variable-cost encoding-size 0))
+                     encoding-size
+                     0)
+                   stream)))
 
     (string-append
       (symtbl->string symtbl symbols* encoding-size)
