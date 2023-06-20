@@ -2448,7 +2448,7 @@
         (func code traverse) 
         (traverse-code (c-rib-next code) func)))))
 
-(define (encode-symtbl proc exports host-config encoding)
+(define (encode-symtbl proc exports host-config call-sym-short-size)
   (define syms (make-table))
 
   (define (scan-proc proc)
@@ -2518,7 +2518,7 @@
               (table->list syms))))
 
       (let loop1 ((i 0) (lst lst) (symbols '()))
-        (if (and (pair? lst) (< i (encoding-inst-size encoding '(call sym short))))
+        (if (and (pair? lst) (< i call-sym-short-size))
           (let ((s (car lst)))
             (let ((sym (car s)))
               (let ((descr (cdr s)))
@@ -2591,6 +2591,7 @@
           (reverse lst))))
 
     (define (calculate-gain-long value-table instruction max offset current-encoding-table encoding-size)
+
       (let ((current-table-value (sum-byte-count value-table (reverse instruction) current-encoding-table encoding-size)))
         (let loop ((index (+ offset 1)) 
                    (old-gain current-table-value) 
@@ -2630,9 +2631,8 @@
                      calculate-gain-short
                      calculate-gain-long) 
                    (table-ref 
-                     (table-ref stats (car encoding) #f)
-                     (cadr encoding)
-                     #f)
+                     (table-ref stats (car encoding))
+                     (cadr encoding))
                    (list (car encoding)
                          (cadr encoding))
                    encoding-size-counter
@@ -2676,8 +2676,9 @@
             (begin (set! encoding-size-counter (- encoding-size-counter 1)) 1))))
       encodings)
 
+
     (if (< encoding-size-counter 0)
-      (error "Encoding size is not big anough to fit all encodings" encoding-size-counter))
+      (error "Encoding size is not big enough to fit all encodings" encoding-size-counter))
 
     (let loop ()
       (recalculate)
@@ -2962,16 +2963,40 @@
 
 
 
-(define (encode proc exports host-config byte-stats encoding)
+(define (encode proc exports host-config byte-stats encoding-name encoding-size)
   (let* ((prog (encode-constants proc host-config))
-         (symtbl-and-symbols* (encode-symtbl prog exports host-config encoding))
+         (encoding (cond
+                      ((and (string=? "original" encoding-name)
+                            (eqv? encoding-size 92))
+                       encoding-original-92)
+                      ((and (string=? "skip" encoding-name)
+                            (eqv? encoding-size 92))
+                       encoding-skip-92)
+
+                      ((string=? "optimal" encoding-name)
+                       (let* ((symtbl-and-symbols* (encode-symtbl prog exports host-config 20)) ;; we assume 20 shorts, will be re-evaluated
+                              (raw-stream (encode-program prog (car symtbl-and-symbols*) 'raw #t encoding-size)) 
+                              (stats (get-stat-from-raw (make-table) raw-stream)))
+
+                         (calculate-start
+                           (encoding-table->encoding-list
+                           (get-maximal-encoding 
+                             (map car encoding-skip-92)
+                             stats
+                             encoding-size)))))
+
+                      (else
+                        (error "Cannot find encoding :" encoding-name))))
+
+         (symtbl-and-symbols* (encode-symtbl prog exports host-config (encoding-inst-size encoding '(call sym short))))
          (symtbl (car symtbl-and-symbols*))
          (symbols* (cdr symtbl-and-symbols*))
-         (stream (encode-program prog symtbl encoding #f (encoding-size encoding))))
+         (stream (encode-program prog symtbl encoding #f encoding-size)))
+
 
 
     (string-append
-      (symtbl->string symtbl symbols* (encoding-size encoding))
+      (symtbl->string symtbl symbols* encoding-size)
       (stream->string stream))))
 
 (define (encode-n n stream encoding-size/2)
@@ -2989,7 +3014,9 @@
 
 (define (encode-program proc syms encoding skip-optimization encoding-size)
 
-  (define skip-optimization (encoding-inst-get encoding '(skip int long)))
+  (define skip-optimization (if (eqv? encoding 'raw) 
+                              #t
+                              (encoding-inst-get encoding '(skip int long))))
 
   (define encoding-size/2 (quotient encoding-size 2))
 
@@ -3746,7 +3773,7 @@
   (let ((file-content (call-with-input-file path (lambda (port) (read-line port #f)))))
        (if (eof-object? file-content) "" file-content)))
 
-(define (generate-code target verbosity input-path rvm-path minify? host-file encodings byte-stats proc-exports-and-features) ;features-enabled features-disabled source-vm
+(define (generate-code target verbosity input-path rvm-path minify? host-file encoding-name byte-stats proc-exports-and-features) ;features-enabled features-disabled source-vm
   (let* ((proc
            (vector-ref proc-exports-and-features 0))
          (exports
@@ -3763,15 +3790,13 @@
          (encode (lambda (bits)
                    (let ((input 
                            (string-append 
-
-                             (if (assoc bits encodings)
-                               (encode 
-                                 proc 
-                                 exports 
-                                 host-config
-                                 byte-stats
-                                 (cadr (assoc bits encodings)))
-                               (error "Encoding is not defined for this number of bits : " bits))
+                             (encode
+                               proc
+                               exports
+                               host-config
+                               byte-stats
+                               encoding-name
+                               bits)
                              (if input-path
                                (string-from-file input-path)
                                "")) ))
@@ -3928,29 +3953,10 @@
                 (parse-host-file
                   (string->list* vm-source))))
 
-            (encodings (cond
-                        ((string=? "original" encoding-name)
-                         (list
-                           (list 92 encoding-original-92)))
-                        ((string=? "skip" encoding-name)
-                         (list
-                           (list 92 encoding-skip-92)))
-                        (else
-                          (error "Cannot find encoding :" encoding-name))))
+            
 
             (features-enabled (cons (string->symbol (string-append "encoding/" encoding-name))
                                     features-enabled)))
-
-       ;; Verify that the encoding is on the right number
-       ;;  of codes
-       (for-each
-         (lambda (pair)
-              (if (not (eqv? (encoding-size (cadr pair)) (car pair)))
-                (error 
-                  (string-append 
-                    "Encoding is not on " (car pair) " but on " (encoding-size (cadr pair))) 
-                  (cadr pair))))
-            encodings)
 
        (set! target _target)
  
@@ -3971,7 +3977,7 @@
                                    rvm-path
                                    minify?
                                    host-file
-                                   encodings
+                                   encoding-name
                                    byte-stats
                                    program-compiled)))
              (report-status "Writing target code...\n")
