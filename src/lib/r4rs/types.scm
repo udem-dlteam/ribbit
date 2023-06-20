@@ -37,6 +37,9 @@
 
 (define (integer? obj) (not (##rib? obj)))
 (define number? integer?)
+(define rational? integer?)
+(define real? rational?)
+(define complex? real?)
 
 (define (list? obj)
 
@@ -95,7 +98,7 @@
 
   (string->symbol-aux str symtbl))
 
-(define (string->uninterned-symbol str) (##rib #f str symbol-type))
+(define (string->uninterned-symbol str) (##rib #f (string-append str) symbol-type))
 
 (define symtbl (##field1 ##rib)) ;; get symbol table
 

@@ -160,6 +160,7 @@
   map
   for-each
   call/cc
+  call-with-current-continuation
 
   ;; 6.10
   call-with-input-file

@@ -1,37 +1,37 @@
-(display (vector? '#(0 (2 2 2 2) "Anna")))
+(write (vector? '#(0 (2 2 2 2) "Anna")))
 (newline)
 
-(display (vector? '#()))
+(write (vector? '#()))
 (newline)
 
-(display (vector 'a 'b 'c))
+(write (vector 'a 'b 'c))
 (newline)
 
-(display (vector))
+(write (vector))
 (newline)
 
-(display (vector-length '#(0 (2 2 2 2) "Anna")))
+(write (vector-length '#(0 (2 2 2 2) "Anna")))
 (newline)
 
-(display (vector-length '#()))
+(write (vector-length '#()))
 (newline)
 
-(display (vector-ref '#(1 1 2 3 5 8 13 21) 5))
+(write (vector-ref '#(1 1 2 3 5 8 13 21) 5))
 (newline)
 
 
-(display (let ((vec (vector 0 '(2 2 2 2) "Anna")))
+(write (let ((vec (vector 0 '(2 2 2 2) "Anna")))
            (vector-set! vec 1 '("Sue" "Sue"))
            vec))
 (newline)
 
-(display (make-vector 2))
+(write (make-vector 2))
 (newline)
 
-(display (make-vector 0))
+(write (make-vector 0))
 (newline)
 
-(display (make-vector 0))
+(write (make-vector 0))
 (newline)
 
 ;;;options: -l r4rs

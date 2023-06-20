@@ -15,7 +15,8 @@
            t))
        type-examples))
 
-;; (##id type-matrix)
+;; needed for keeping the symbol live when compiled by rsc
+(car type-matrix)
 
 (define i 0)
 (define j 0)

@@ -3,7 +3,7 @@
 
 ;; Characters (R4RS section 6.6).
 
-(define char=? eqv?)
+(define (char=? ch1 ch2) (eqv? ch1 ch2))
 (define (char<? ch1 ch2) (##< (##field0 ch1) (##field0 ch2)))
 (define (char>? ch1 ch2) (##< (##field0 ch2) (##field0 ch1)))
 (define (char<=? ch1 ch2) (not (char>? ch1 ch2)))

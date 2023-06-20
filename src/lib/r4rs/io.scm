@@ -51,7 +51,7 @@
      ##close-output-port
      (use ##close-input-port))
 
-   (define ##close-output-port ##close-input-port))
+   (define (##close-output-port port) (##close-input-port port)))
    
   ((host c)
 
@@ -248,6 +248,11 @@
                         ("tab" #\tab)
                         ("return" #\return)))
 
+(define escapes '((10 110)   ;; \n -> n
+                  (13 116)   ;; \t -> t
+                  (92 92)    ;; \\ -> \
+                  (34 34))) ;; \" -> "
+
 (define (read (port (current-input-port)))
 
   (let ((c (peek-char-non-whitespace port)))
@@ -269,11 +274,11 @@
                     (let ((ch (peek-char port)))
                       (if (char-whitespace? ch) 
                         (read-char port)
-                        (let* ((str (##list->string (read-symbol port)))
-                               (ch (assoc str special-chars)))
-                          (if (not ch)
-                            (integer->char (caar str))
-                            (cadr ch))))))
+                        (let ((str (read-symbol port (lambda (x) x))))
+                          (cond 
+                            ((null? str) (read-char port))
+                            ((##eqv? (length str) 1) (integer->char (##field0 str)))
+                            (else (cadr (assoc (list->string (map char-downcase (map integer->char str))) special-chars))))))))
                    (else
                      (list->vector (read port))))))
           ((##eqv? c 39)      ;; #\'
@@ -295,7 +300,7 @@
            (##list->string (read-chars '() port)))
           (else
             ;; (read-char port) ;; skip first char
-            (let ((s (##list->string (read-symbol port))))
+            (let ((s (##list->string (read-symbol port char-downcase))))
               (let ((n (string->number s)))
                 (or n
                     (string->symbol s))))))))
@@ -313,9 +318,9 @@
                   result)
                 (cons first (read-list port))))))))
 
-(define (read-symbol port)
+(define (read-symbol port case-transform)
   ;; FIXME: change char-downcase to char-upcase
-  (let ((c (##field0 (char-downcase (peek-char port)))))
+  (let ((c (##field0 (case-transform (peek-char port)))))
     (if (or (##eqv? c 40)  ;; #\(
             (##eqv? c 41)  ;; #\)
             (##eqv? c 0)   ;; eof
@@ -323,7 +328,7 @@
         '()
         (begin
           (read-char port)
-          (cons c (read-symbol port))))))
+          (cons c (read-symbol port case-transform))))))
 
 (define (read-chars lst port)
   (let ((c (##field0 (read-char port))))
@@ -408,6 +413,19 @@
              (if (not name)
                (##write-char (##field0 o) port-val)
                (display (cadr name) port))))
+          ((pair? o)
+           (##write-char 40 port-val)  ;; #\(
+           (write (##field0 o) port) ;; car
+           (print-list (##field1 o) write port) ;; cdr
+           (##write-char 41 port-val)) ;; #\)
+          ((vector? o)
+           (##write-char 35 port-val)  ;; #\#
+           (##write-char 40 port-val)  ;; #\(
+           (if (##< 0 (##field1 o))
+             (let ((l (##field0 o)))   ;; vector->list
+               (write (##field0 l) port)
+               (print-list (##field1 l) write port)))
+           (##write-char 41 port-val)) ;; #\)
           (else
             (display o port)))))
 
@@ -443,23 +461,23 @@
 
           ((pair? o)
            (##write-char 40 port-val)  ;; #\(
-           (write (##field0 o) port) ;; car
-           (write-list (##field1 o) port) ;; cdr
+           (display (##field0 o) port) ;; car
+           (print-list (##field1 o) display port) ;; cdr
            (##write-char 41 port-val)) ;; #\)
 
           ((symbol? o)
-           (write-chars (##field0 (##field1 o)) port-val))
+           (display-chars (##field0 (##field1 o)) port-val))
 
           ((string? o)
-           (write-chars (##field0 o) port-val)) ;; chars
+           (display-chars (##field0 o) port-val)) ;; chars
 
           ((vector? o)
            (##write-char 35 port-val)  ;; #\#
            (##write-char 40 port-val)  ;; #\(
            (if (##< 0 (##field1 o))
              (let ((l (##field0 o)))   ;; vector->list
-               (write (##field0 l) port)
-               (write-list (##field1 l) port)))
+               (display (##field0 l) port)
+               (print-list (##field1 l) display port)))
            (##write-char 41 port-val)) ;; #\)
 
           ((procedure? o)
@@ -469,15 +487,12 @@
           (else
             (crash)))))
 
-(define (write-list lst port)
+(define (print-list lst mode port)
   (cond 
     ((pair? lst)
      (##write-char 32 (##field0 port)) ;; #\space
-     ;; (if (pair? lst)
-     ;;   (begin
-         (write (##field0 lst) port) ;; car
-         (write-list (##field1 lst) port))  ;; cdr
-       ;; #f))
+         (mode (##field0 lst) port) ;; car
+         (print-list (##field1 lst) mode port))  ;; cdr
 
     ((null? lst) #f)
 
@@ -486,12 +501,21 @@
         (##write-char 32 port-val) ;; #\space
         (##write-char 46 port-val) ;; #\.
         (##write-char 32 port-val)) ;; #\space
-      (write lst port))))
-
+      (mode lst port))))
 
 (define (write-chars lst port-val)
   (if (pair? lst)
+    (let ((escape (assq (##field0 lst) escapes)))
+      (if (not escape)
+        (##write-char (##field0 lst) port-val)
+        (begin
+          (##write-char 92 port-val)
+          (##write-char (cadr escape) port-val)))
+      (write-chars (##field1 lst) port-val))))
+
+(define (display-chars lst port-val)
+  (if (pair? lst)
       (let ((c (##field0 lst))) ;; car
         (##write-char c port-val)
-        (write-chars (##field1 lst) port-val)))) ;; cdr
+        (display-chars (##field1 lst) port-val)))) ;; cdr
 

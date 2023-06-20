@@ -1,149 +1,149 @@
-(display '(a . (b . (c . (d . (e . ()))))))
+(write '(a . (b . (c . (d . (e . ()))))))
 (newline)
 
 (define x (list 'a 'b 'c))
 (define y x)
-(display (list? y))
+(write (list? y))
 (newline)
 
 (set-cdr! x 4)
-(display x)
+(write x)
 (newline)
 
-(display (eqv? x y))
+(write (eqv? x y))
 (newline)
 
-(display '(a . (b . (c . d))))
+(write '(a . (b . (c . d))))
 (newline)
 
-(display (list? y))
+(write (list? y))
 (newline)
 
-(let ((x (list 'a))) (set-cdr! x x) (display (list? x)))
+(let ((x (list 'a))) (set-cdr! x x) (write (list? x)))
 (newline)
 
-(display (pair? '(a . b)))
+(write (pair? '(a . b)))
 (newline)
 
-(display (pair? '(a . 1)))
+(write (pair? '(a . 1)))
 (newline)
 
-(display (pair? '(a b c)))
+(write (pair? '(a b c)))
 (newline)
 
-(display (pair? '()))
+(write (pair? '()))
 (newline)
 
-(display (pair? '#(a b)))
+(write (pair? '#(a b)))
 (newline)
 
-(display (cons 'a '()))
+(write (cons 'a '()))
 (newline)
 
-(display (cons '(a) '(b c d)))
+(write (cons '(a) '(b c d)))
 (newline)
 
-(display (cons "a" '(b c)))
+(write (cons "a" '(b c)))
 (newline)
 
-(display (cons 'a 3))
+(write (cons 'a 3))
 (newline)
 
-(display (cons '(a b) 'c))
+(write (cons '(a b) 'c))
 (newline)
 
-(display (car '(a b c)))
+(write (car '(a b c)))
 (newline)
 
-(display (car '((a) b c d)))
+(write (car '((a) b c d)))
 (newline)
 
-(display (car '(1 . 2)))
+(write (car '(1 . 2)))
 (newline)
 
-(display (cdr '((a) b c d)))
+(write (cdr '((a) b c d)))
 (newline)
 
-(display (cdr '(1 . 2)))
+(write (cdr '(1 . 2)))
 (newline)
 
-(display (list 'a (+ 3 4) 'c))
+(write (list 'a (+ 3 4) 'c))
 (newline)
 
-(display (list))
+(write (list))
 (newline)
 
-(display (length '(a b c)))
+(write (length '(a b c)))
 (newline)
 
-(display (length '(a (b) (c d e))))
+(write (length '(a (b) (c d e))))
 (newline)
 
-(display (length '()))
+(write (length '()))
 (newline)
 
-(display (append '(x) '(y)))
+(write (append '(x) '(y)))
 (newline)
 
-(display (append '(a) '(b c d)))
+(write (append '(a) '(b c d)))
 (newline)
 
-(display (append '(a (b)) '((c))))
+(write (append '(a (b)) '((c))))
 (newline)
 
-(display (append))
+(write (append))
 (newline)
 
-(display (append '(a b) '(c . d)))
+(write (append '(a b) '(c . d)))
 (newline)
 
-(display (append '() 'a))
+(write (append '() 'a))
 (newline)
 
-(display (reverse '(a b c)))
+(write (reverse '(a b c)))
 (newline)
 
-(display (reverse '(a (b c) d (e (f)))))
+(write (reverse '(a (b c) d (e (f)))))
 (newline)
 
-(display (list-ref '(a b c d) 2))
+(write (list-ref '(a b c d) 2))
 (newline)
 
-(display (memq 'a '(a b c)))
+(write (memq 'a '(a b c)))
 (newline)
 
-(display (memq 'b '(a b c)))
+(write (memq 'b '(a b c)))
 (newline)
 
-(display (memq 'a '(b c d)))
+(write (memq 'a '(b c d)))
 (newline)
 
-(display (memq (list 'a) '(b (a) c)))
+(write (memq (list 'a) '(b (a) c)))
 (newline)
 
-(display (member (list 'a) '(b (a) c)))
+(write (member (list 'a) '(b (a) c)))
 (newline)
 
-(display (memv 101 '(100 101 102)))
+(write (memv 101 '(100 101 102)))
 (newline)
 
 (define e '((a 1) (b 2) (c 3)))
-(display (assq 'a e))
+(write (assq 'a e))
 (newline)
 
-(display (assq 'b e))
+(write (assq 'b e))
 (newline)
 
-(display (assq 'd e))
+(write (assq 'd e))
 (newline)
 
-(display (assq (list 'a) '(((a)) ((b)) ((c)))))
+(write (assq (list 'a) '(((a)) ((b)) ((c)))))
 (newline)
 
-(display (assoc (list 'a) '(((a)) ((b)) ((c)))))
+(write (assoc (list 'a) '(((a)) ((b)) ((c)))))
 (newline)
 
-(display (assv 5 '((2 3) (5 7) (11 13))))
+(write (assv 5 '((2 3) (5 7) (11 13))))
 (newline)
 
 ;;;options: -l r4rs
