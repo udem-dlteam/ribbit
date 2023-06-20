@@ -1837,7 +1837,7 @@
   ;; If this part is not performant enough, replace the set! with a
   ;; (vararg (if (eqv? vararg '()) '() (field1 vararg)))
   ;; after every optional arg clause
-  `((,param-name (if (null? ,vararg-name)
+  `((,param-name (if (##eqv? ,vararg-name '())
                     ,(expand-expr param-default)
                     (let ((value (##field0 ,vararg-name)))
                       (set! ,vararg-name (##field1 ,vararg-name))

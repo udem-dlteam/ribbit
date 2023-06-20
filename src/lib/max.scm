@@ -4,6 +4,28 @@
 
 ;;;----------------------------------------------------------------------------
 
+(define rib         ##rib         ) ;; predefined by RVM (must be first and 0)
+(define id          ##id          )
+(define arg1        ##arg1        )
+(define arg2        ##arg2        )
+(define close       ##close       )
+(define rib?        ##rib?        )
+(define field0      ##field0      )
+(define field1      ##field1      )
+(define field2      ##field2      )
+(define field0-set! ##field0-set! )
+(define field1-set! ##field1-set! )
+(define field2-set! ##field2-set! )
+(define eqv?        ##eqv?        )
+(define <           ##<           )
+(define +           ##+           )
+(define -           ##-           )
+(define *           ##*           )
+(define quotient    ##quotient    )
+(define getchar     ##getchar     )
+(define putchar     ##putchar     )
+(define exit        ##exit        )
+
 ;; Implementation of Ribbit Scheme types using the RVM operations.
 
 (define pair-type      0)

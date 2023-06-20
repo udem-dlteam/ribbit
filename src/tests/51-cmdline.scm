@@ -1,6 +1,6 @@
 (define args (cmd-line))
 
-(display (field1 args))
+(display (##field1 args))
 (newline)
 
 ;; (define prog-name (field0 args))
