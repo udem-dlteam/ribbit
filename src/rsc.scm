@@ -2727,7 +2727,7 @@
   (define (encode stream tail)
     (cond 
       ((not (pair? stream))
-       (reverse tail))
+       tail)
       ((pair? (car stream))
        (let ((elem (car stream)))
          (encode 
@@ -3081,7 +3081,7 @@
          (stream (encode-program prog symtbl encoding #f encoding-size))
 
          (symtbl-stream (symtbl->stream symtbl symbols* encoding-size))
-         ;(stream (append symtbl-stream stream))
+         (stream (append symtbl-stream stream))
 
          (compression? #f)
          (stream (if compression?
@@ -3096,9 +3096,8 @@
                      0)
                    stream)))
 
-    (string-append
-      (symtbl->string symtbl symbols* encoding-size)
-      (stream->string stream))))
+    (stream->string
+      stream)))
 
 (define (encode-n n stream encoding-size/2)
   (encode-n-aux n stream stream encoding-size/2))
