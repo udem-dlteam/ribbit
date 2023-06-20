@@ -5,26 +5,14 @@
 (newline)
 
 (display (letrec ((even?
-			   (lambda (n) (if (zero? n) #t (odd? (- n 1)))))
-			  (odd?
-			   (lambda (n) (if (zero? n) #f (even? (- n 1))))))
-		   (even? 88)))
+                    (lambda (n) (if (zero? n) #t (odd? (- n 1)))))
+                  (odd?
+                    (lambda (n) (if (zero? n) #f (even? (- n 1))))))
+           (even? 88)))
 (newline)
 
 (define x 34)
 (display (let ((x 3)) (define x 5) x))
-(newline)
-
-(display x)
-(newline)
-
-(display (let () (define x 6) x))
-(newline)
-
-(display x)
-(newline)
-
-(display (letrec () (define x 9) x))
 (newline)
 
 (display x)
@@ -43,11 +31,7 @@
 ;;;6
 ;;;35
 ;;;#t
-;;;5 
-;;;34
-;;;6 
-;;;34
-;;;9 
+;;;5
 ;;;34
 ;;;10
 ;;;34

@@ -30,16 +30,13 @@
     (##eqv? (##field0 o1) (##field0 o2))
     (##eqv? o1 o2)))
 
+
 (define (eq? o1 o2) (##eqv? o1 o2))
 
 (define (null? obj) (##eqv? obj '()))
 
 (define (integer? obj) (not (##rib? obj)))
-
-(define rational? integer?)
-(define real? rational?)
-(define complex? real?)
-(define number? complex?)
+(define number? integer?)
 
 (define (list? obj)
 
@@ -98,7 +95,7 @@
 
   (string->symbol-aux str symtbl))
 
-(define (string->uninterned-symbol str) (##rib #f (string-append str "") symbol-type))
+(define (string->uninterned-symbol str) (##rib #f str symbol-type))
 
 (define symtbl (##field1 ##rib)) ;; get symbol table
 

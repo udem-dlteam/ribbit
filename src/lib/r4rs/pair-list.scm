@@ -122,3 +122,12 @@
   (if (##< 0 k)
       (make-list-aux (##- k 1) fill (cons fill lst))
       lst))
+
+
+;; -------------------- QUASIQUOTES -------------------- ;;
+
+(define ##qq-list list)
+(define (##qq-list->vector l) (list->vector l))
+(define ##qq-cons cons)
+(define ##qq-append append)
+

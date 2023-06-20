@@ -1770,7 +1770,7 @@
   (let ((file-path (path-normalize (path-expand path pwd))))
     (member file-path included-files)))
 
-
+(define indent-level 1)
 (define (expand-begin* exprs rest)
   (if (pair? exprs)
       (let ((expr (car exprs)))
@@ -1787,11 +1787,19 @@
 
                 ((and (pair? expr)
                       (eqv? (car expr) '##include-once))
+                 ;; (display (string-append (make-string (- (* 2 indent-level) 1) #\-) "| Including "))
+                 ;; (write (cadr expr))
                  (if (included? (cadr expr))
-                   r
                    (begin 
+                     ;; (display " (already included)\n")
+                     r)
+                   (begin 
+                     ;; (write-char #\newline)
+                     (set! indent-level (+ indent-level 1))
                      (include-file (cadr expr))
-                     (cons (expand-include (cadr expr)) r))))
+                     (let ((result (cons (expand-include (cadr expr)) r)))
+                       (set! indent-level (- indent-level 1))
+                       result))))
 
                 (else
                   (cons (expand-expr expr) r)))))

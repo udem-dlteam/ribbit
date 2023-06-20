@@ -4,8 +4,7 @@
   (list boolean? char? null? number? pair? procedure? string? symbol? vector?))
 
 (define type-examples
-  (list
-   #t #f #\a '() 9739 '(test) (lambda (x) x) "test" "" 'test '#() '#(a b c)))
+  (list #t #f #\a '() 9739 '(test) (lambda (x) x) "test" "" 'test '#() '#(a b c)))
 
 (define type-matrix
   (map (lambda (x)
@@ -16,7 +15,7 @@
            t))
        type-examples))
 
-(##id type-matrix)
+;; (##id type-matrix)
 
 (define i 0)
 (define j 0)
@@ -28,10 +27,10 @@
     (for-each (lambda (f)
                 (set! i (+ 1 i))
                 (cond 
-                  ((= i j)
-                   (write (##eqv? (f x) (f y))))
+                  ((eqv? i j)
+                   (write (eqv? (f x) (f y))))
                   (else 
-                   (write (not (##eqv? (f x) (f y)))))))
+                   (write (not (eqv? (f x) (f y)))))))
               disjoint-type-functions)
     (newline))
 

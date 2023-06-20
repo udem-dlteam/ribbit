@@ -188,6 +188,9 @@
 
   ;#; ;; support for begin special form
   begin
+  case
+  else
+  _
 
   ;#; ;; support for single armed let special form
   let

@@ -28,13 +28,22 @@ check:
 	fi
 
 check-repl:
-	@if [  ]; then \
-
-check-fancy:
-	@if [ "$$HOST" = "" ]; then \
+	@UP_CASE="(##vector-set! ##main-readtable 1 'upcase)"; \
+	if [ "$$HOST" = "" ]; then \
 	  for host in $(HOSTS); do \
 	    echo "====================== TESTING HOST $$host"; \
-		cd host/$$host; RSC_COMPILER="gsi -:r4rs ../../rsc.scm" $(MAKE) check; cd ../..; \
+		cd host/$$host; RSC_COMPILER="gsi -:r4rs -e $$UP_CASE ../../rsc.scm" $(MAKE) check-repl; cd ../..; \
+	  done; \
+	else \
+	  cd host/$$HOST; RSC_COMPILER="gsi -:r4rs ../../rsc.scm" $(MAKE) check-repl; cd ../..; \
+	fi
+
+check-fancy:
+	@UP_CASE="(##vector-set! ##main-readtable 1 'upcase)"; \
+	if [ "$$HOST" = "" ]; then \
+	  for host in $(HOSTS); do \
+	    echo "====================== TESTING HOST $$host"; \
+		cd host/$$host; RSC_COMPILER="gsi -:r4rs -e $$UP_CASE ../../rsc.scm" $(MAKE) check; cd ../..; \
 	  done; \
 	else \
 	  cd host/$$HOST; RSC_COMPILER="gsi -:r4rs ../../rsc.scm" $(MAKE) check; cd ../..; \

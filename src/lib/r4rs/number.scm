@@ -1,7 +1,7 @@
-(##include-once "./bool.scm")
-(##include-once "./types.scm")
-(##include-once "./pair-list.scm")
 (##include-once "./control.scm")
+(##include-once "./pair-list.scm")
+(##include-once "./types.scm")
+(##include-once "./bool.scm")
 
 ;; Numbers (R4RS section 6.5).
 
@@ -14,7 +14,7 @@
 (define (- x . y)
   (if (null? y)
     (##- 0 x)
-    (apply + (cons x (map - y)))))
+    (fold (lambda (x y) (##- x y)) x y)))
 
 (define (/ x . y)
   (if (null? y)
@@ -40,6 +40,10 @@
 
 (define (>= x . rest) 
   (##scan-until-false (lambda (x y) (not (##< x y))) x #t rest))
+
+(define rational? integer?)
+(define real? rational?)
+(define complex? real?)
 
 (define (zero? x) (##eqv? x 0))
 (define (positive? x) (##< 0 x))

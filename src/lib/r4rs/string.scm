@@ -1,8 +1,8 @@
-(##include-once "./types.scm")
-(##include-once "./bool.scm")
-(##include-once "./pair-list.scm")
-(##include-once "./char.scm")
 (##include-once "./control.scm")
+(##include-once "./char.scm")
+(##include-once "./pair-list.scm")
+(##include-once "./bool.scm")
+(##include-once "./types.scm")
 
 ;; Strings (R4RS section 6.7).
 
@@ -15,9 +15,14 @@
 
 (define (string . args) (list->string args))
 
-(define (string=? str1 str2) (##eqv? (string-cmp str1 str2) 0))
+;; (define (string=? str1 str2) (##eqv? (string-cmp str1 str2) 0))
+;; (define (string<? str1 str2) (##< (string-cmp str1 str2) 0))
+;; (define (string>? str1 str2) (##< 0 (string-cmp str1 str2)))
+
+(define string=? equal?)
 (define (string<? str1 str2) (##< (string-cmp str1 str2) 0))
 (define (string>? str1 str2) (##< 0 (string-cmp str1 str2)))
+
 (define (string<=? str1 str2) (not (string>? str1 str2)))
 (define (string>=? str1 str2) (not (string<? str1 str2)))
 

@@ -1,9 +1,9 @@
-(##include-once "./bool.scm")
-(##include-once "./types.scm")
-(##include-once "./vector.scm")
+(##include-once "./error.scm")
 (##include-once "./char.scm")
 (##include-once "./pair-list.scm")
-(##include-once "./error.scm")
+(##include-once "./vector.scm")
+(##include-once "./types.scm")
+(##include-once "./bool.scm")
 
 (cond-expand
   ((host js)
@@ -243,6 +243,11 @@
 
 ;; ---------------------- READ ---------------------- ;;
 
+(define special-chars '(("newline" #\newline) 
+                        ("space" #\space) 
+                        ("tab" #\tab)
+                        ("return" #\return)))
+
 (define (read (port (current-input-port)))
 
   (let ((c (peek-char-non-whitespace port)))
@@ -261,23 +266,30 @@
                     #t)
                    ((##eqv? c 92)        ;; #\\
                     (read-char port) ;; skip "\\"
-                    (read-char port))
+                    (let ((ch (peek-char port)))
+                      (if (char-whitespace? ch) 
+                        (read-char port)
+                        (let* ((str (##list->string (read-symbol port)))
+                               (ch (assoc str special-chars)))
+                          (if (not ch)
+                            (integer->char (caar str))
+                            (cadr ch))))))
                    (else
                      (list->vector (read port))))))
           ((##eqv? c 39)      ;; #\'
            (read-char port) ;; skip "'"
-           (##rib 'quote (##rib (read port) '() pair-type) pair-type))
+           (list 'quote (read port)))
           ((##eqv? c 96)      ;; #\`
            (read-char port) ;; skip "`"
-           (##rib 'quasiquote (##rib (read port) '() pair-type) pair-type))
+           (list 'quasiquote (read port)))
           ((##eqv? c 44)      ;; #\,
            (read-char port) ;; skip ","
            (let ((c (##field0 (peek-char port))))
              (if (##eqv? c 64)  ;; #\@
                (begin
                  (read-char port) ;; skip "@"
-                 (##rib 'unquote-splicing (##rib (read port) '() pair-type) pair-type))
-               (##rib 'unquote (##rib (read port) '() pair-type) pair-type))))
+                 (list 'unquote-splicing (read port)))
+               (list 'unquote (read port)))))
           ((##eqv? c 34)      ;; #\"
            (read-char port) ;; skip """
            (##list->string (read-chars '() port)))
@@ -290,12 +302,16 @@
 
 (define (read-list port)
   (let ((c (peek-char-non-whitespace port)))
-    (if (##eqv? c 41) ;; #\)
-        (begin
-          (read-char port) ;; skip ")"
-          '())
-        (let ((first (read port)))
-          (##rib first (read-list port) 0)))))
+    (cond 
+      ((##eqv? c 41) ;; #\)
+       (read-char port) ;; skip ")"
+       '())
+      (else (let ((first (read port)))
+              (if (and (symbol? first) (equal? (symbol->string first) "."))
+                (let ((result (read port)))
+                  (read-char port)
+                  result)
+                (cons first (read-list port))))))))
 
 (define (read-symbol port)
   ;; FIXME: change char-downcase to char-upcase
@@ -307,7 +323,7 @@
         '()
         (begin
           (read-char port)
-          (##rib c (read-symbol port) 0)))))
+          (cons c (read-symbol port))))))
 
 (define (read-chars lst port)
   (let ((c (##field0 (read-char port))))
@@ -327,7 +343,7 @@
                     lst 0)
               port)))
           (else
-           (read-chars (##rib c lst 0) port)))))
+           (read-chars (cons c lst) port)))))
 
 (define (peek-char-non-whitespace port)
   (let ((c (peek-char port)))
@@ -388,17 +404,16 @@
           ((char? o)
            (##write-char 35 port-val)     ;; #\#
            (##write-char 92 port-val)     ;; #\\
-           (case (##field0 o) 
-             ((10) (display "newline" port))
-             ((13) (display "return" port))
-             ((9)  (display "tab" port))
-             (else (##write-char (##field0 o) port-val))))
+           (let ((name (assoc o (map reverse special-chars)))) 
+             (if (not name)
+               (##write-char (##field0 o) port-val)
+               (display (cadr name) port))))
           (else
             (display o port)))))
 
 (define (display o (port (current-output-port)))
   (let ((port-val (##field0 port)))
-    (cond ((##eqv? o #f)
+    (cond ((not o)
            (##write-char 35 port-val)     ;; #\#
            (##write-char 102 port-val))   ;; #f
 
@@ -407,7 +422,8 @@
            (##write-char 116 port-val))   ;; #t
 
           ((eof-object? o)
-           (display "#!eof" port))
+           (##write-char 35 port-val)     ;; #\#
+           (##write-char 101 port-val))   ;; #e
 
           ((null? o)
            (##write-char 40 port-val)  ;; #\(
@@ -432,7 +448,7 @@
            (##write-char 41 port-val)) ;; #\)
 
           ((symbol? o)
-           (write-chars (##field0 (symbol->string o)) port-val))
+           (write-chars (##field0 (##field1 o)) port-val))
 
           ((string? o)
            (write-chars (##field0 o) port-val)) ;; chars
