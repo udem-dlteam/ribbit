@@ -18,6 +18,7 @@ TEST_FEATURES ?= .
 RSC_MUST_TEST_FEATURES ?= ,
 TEST_FILTER ?= *
 TEST_DIR ?= tests
+REPL_PATH ?= ../../tests/r4rs/repl.scm
 
 all:
 
@@ -31,10 +32,60 @@ build-repl-max: ../../repl-max.scm
 
 build-repl-max-tc: ../../repl-max.scm
 	dir="$(RIBBIT_BUILD_DIR)"; $(RSC_COMPILER) -t $(HOST) -l max-tc $(RIBBIT_BUILD_OPTS) -o $${dir:-build}/repl-max-tc.$(HOST) $<
-	
 
 build-rsc: ../../rsc.scm  
 	dir="$(RIBBIT_BUILD_DIR)"; $(RSC_COMPILER) -t $(HOST) -l max $(RIBBIT_BUILD_OPTS) -o $${dir:-build}/rsc.$(HOST) $<
+
+check-repl: 
+	@host="$(HOST)"; \
+	INTERPRETER="$(HOST_INTERPRETER)"; \
+	COMPILER="$(HOST_COMPILER)"; \
+	RSC_COMPILER="${RSC_COMPILER}"; \
+	RSC_DEFAULT="${RSC_DEFAULT}"; \
+	RSC_TEST_FEATURES='${RSC_MUST_TEST_FEATURES}'; \
+	TEST_FEATURES='${TEST_FEATURES}'; \
+	TEST_DIR="${TEST_DIR}"; \
+	REPL_PATH="${REPL_PATH}"; \
+	if [ "$$TEST_FEATURES" != "." ]; then \
+	  RSC_TEST_FEATURES="$$RSC_TEST_FEATURES;$$TEST_FEATURES"; \
+	fi; \
+	TEST_FILTER='${TEST_FILTER}'; \
+	repl="$$REPL_PATH"; \
+	setup=`sed -n -e '/;;;setup:/p' $$repl | sed -e 's/^;;;setup://'`; \
+	cleanup=`sed -n -e '/;;;cleanup:/p' $$repl | sed -e 's/^;;;cleanup://'`; \
+	options=`sed -n -e '/;;;options:/p' $$repl | sed -e 's/^;;;options://'`; \
+	argv=`sed -n -e '/;;;argv:/p' $$repl | sed -e 's/^;;;argv://'`; \
+	echo "---------------------- $$repl [options:$$options] [argv:$$argv]"; \
+	if [ "$$setup" != "" ]; then \
+	  sh -c "$$setup"; \
+	  if [ $$? != 0 ]; then \
+	    echo "Error in the setup"; \
+		exit 1; \
+	  fi; \
+	fi; \
+	for test_feature in `echo "$$RSC_TEST_FEATURES" | sed -e 's/ /,/g' | sed -e 's/,*\;,*/\n/g'`; do \
+	  if [ "$$test_feature" != "," ] && [ "$$test_feature" != "" ]; then \
+	     echo "    >>> [test features: `echo "$$test_feature" | sed -e 's/,/ /g'`]"; \
+	  fi; \
+	  $$RSC_COMPILER -t $$host $$options -f+ quiet `echo "$$test_feature" | sed -e 's/,/ /g'` -o test.$$host $$repl; \
+	  for prog in `ls ../../$$TEST_DIR/*.scm tests/*.scm | grep -E "$$TEST_FILTER"`; do \
+	    echo "     testing in repl: $$prog"; \
+	    if [ "$$INTERPRETER" != "" ]; then \
+	      echo "(load \"$$prog\")" | $$INTERPRETER test.$$host | head -n -2 > test.$$host.out; \
+	    else \
+	      $$COMPILER test.$$host.exe test.$$host; \
+		  echo "(load \"$$prog\")" | ./test.$$host.exe | head -n -2 > test.$$host.out; \
+	    fi; \
+        sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - test.$$host.out; \
+        if [ "$$cleanup" != "" ]; then \
+          sh -c "$$cleanup"; \
+          if [ $$? != 0 ]; then \
+		    echo "Error in the cleanup"; \
+    	  fi; \
+        fi; \
+      done; \
+	  rm -f test.$$host*; \
+    done
 
 check:
 	@host="$(HOST)"; \

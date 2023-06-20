@@ -488,30 +488,30 @@
 
 ;;;------------------------------------------------------------------------------
 
-(define predefined '(rib false true nil)) ;; predefined symbols
+(define predefined '(##rib false true nil)) ;; predefined symbols
 
 (define default-primitives '(
-(rib         0) ;; predefined by RVM (must be first and 0)
-(id          1)
-(arg1        2)
-(arg2        3)
-(close       4)
-(rib?        5)
-(field0      6)
-(field1      7)
-(field2      8)
-(field0-set! 9)
-(field1-set! 10)
-(field2-set! 11)
-(eqv?        12)
-(<           13)
-(+           14)
-(-           15)
-(*           16)
-(quotient    17)
-(getchar     18)
-(putchar     19)
-(exit        20)
+(##rib         0) ;; predefined by RVM (must be first and 0)
+(##id          1)
+(##arg1        2)
+(##arg2        3)
+(##close       4)
+(##rib?        5)
+(##field0      6)
+(##field1      7)
+(##field2      8)
+(##field0-set! 9)
+(##field1-set! 10)
+(##field2-set! 11)
+(##eqv?        12)
+(##<           13)
+(##+           14)
+(##-           15)
+(##*           16)
+(##quotient    17)
+(##getchar     18)
+(##putchar     19)
+(##exit        20)
 ))
 
 (define jump/call-op 'jump/call)
@@ -604,10 +604,10 @@
 ;; these primitives are "forced first" meaning that they must exist before any other code is executed. This is because the 
 ;;   compiler uses them when generating constants. It's a hack.
 
-(define forced-first-primitives (list 'rib '-)) 
+(define forced-first-primitives (list '##rib '##-)) 
 
 (define (make-host-config live-features primitives feature-locations)
-  (rib live-features (cons '(rib 0) primitives) feature-locations))
+  (rib live-features (cons '(##rib 0) primitives) feature-locations))
 
 (define (host-config-features host-config) (field0 host-config))
 (define (host-config-primitives host-config) (field1 host-config))
@@ -625,7 +625,7 @@
 (define (host-config-add-primitive! host-config prim code)
   (let* ((primitives (host-config-primitives host-config))
          (prim-ref (assq prim primitives)))
-    (if (eqv? prim 'rib)
+    (if (eqv? prim '##rib)
       (begin
         (set-cdr! (cdr prim-ref) (cons code '())) ;; hack to set code
         0)
@@ -883,14 +883,13 @@
                                     (gen-noop ctx cont))))
                             (comp ctx val (gen-assign ctx v cont)))))))
 
-
                  ((eqv? first 'define-primitive)
                   (let* ((name (caadr expr)))
                     (if (memq name (host-config-features host-config))
                       (let ((index (host-config-add-primitive! host-config name expr)))
                         (if (memq name forced-first-primitives)
                           (gen-noop ctx cont)
-                          (comp ctx `(set! ,name (rib ,index 0 ,procedure-type)) cont)))
+                          (comp ctx `(set! ,name (##rib ,index 0 ,procedure-type)) cont)))
                       (gen-noop ctx cont))))
 
                  ((eqv? first 'define-feature)
@@ -943,13 +942,13 @@
                            '())
                          (if (null? (ctx-cte ctx))
                            cont
-                           (if (arity-check? ctx 'close)
+                           (if (arity-check? ctx '##close)
                              (add-nb-args
                                ctx
                                1
-                               (gen-call (use-symbol ctx 'close) 
+                               (gen-call (use-symbol ctx '##close) 
                                          cont))
-                             (gen-call (use-symbol ctx 'close) 
+                             (gen-call (use-symbol ctx '##close) 
                                          cont))))))
 
                  ((eqv? first 'begin)
@@ -1000,6 +999,13 @@
   (c-rib set-op v (gen-noop ctx cont)))
 
 (define (arity-check? ctx name)
+  #;(let ((x (and (memq 'arity-check (ctx-live-features ctx))
+                (not (and
+                       (memq 'prim-no-arity (ctx-live-features ctx))
+                       (memq name (ctx-live-features ctx)))))))
+    (if (not x)
+      (pp name)))
+  
   (and (memq 'arity-check (ctx-live-features ctx))
        (not (and
               (memq 'prim-no-arity (ctx-live-features ctx))
@@ -1025,8 +1031,8 @@
 
 
 (define (gen-noop ctx cont)
-  (if (is-call? ctx 'arg1 cont)
-      (if (arity-check? ctx 'arg1)
+  (if (is-call? ctx '##arg1 cont)
+      (if (arity-check? ctx '##arg1)
         (c-rib-next (c-rib-next cont)) ;; remove const and pop
         (c-rib-next cont)) ;; remove pop
       (c-rib const-op 0 cont))) ;; add dummy value for set!
@@ -1060,15 +1066,15 @@
 (define (gen-unbind ctx cont)
   (if (eqv? cont tail)
     cont
-    (if (arity-check? ctx 'arg2)
+    (if (arity-check? ctx '##arg2)
       (add-nb-args
         ctx
         2
         (c-rib jump/call-op ;; call
-               (use-symbol ctx 'arg2)
+               (use-symbol ctx '##arg2)
                cont))
       (c-rib jump/call-op ;; call
-             (use-symbol ctx 'arg2)
+             (use-symbol ctx '##arg2)
              cont))))
 
 (define (add-live var live-globals)
@@ -1093,15 +1099,15 @@
   (comp ctx
         (car exprs)
         (if (pair? (cdr exprs))
-          (if (arity-check? ctx 'arg1)
+          (if (arity-check? ctx '##arg1)
             (add-nb-args
               ctx
               2
               (c-rib jump/call-op ;; call
-                     (use-symbol ctx 'arg1)
+                     (use-symbol ctx '##arg1)
                      (comp-begin ctx (cdr exprs) cont)))
             (c-rib jump/call-op ;; call
-                   (use-symbol ctx 'arg1)
+                   (use-symbol ctx '##arg1)
                    (comp-begin ctx (cdr exprs) cont)))
             cont)))
 
@@ -1127,7 +1133,7 @@
       (cons (car vars) (extend (cdr vars) cte))
       cte))
 
-(define tail (c-rib jump/call-op 'id 0)) ;; jump
+(define tail (c-rib jump/call-op '##id 0)) ;; jump
 
 ;;;----------------------------------------------------------------------------
 
@@ -1159,13 +1165,13 @@
   (let* ((primitive-names (map caaddr primitives))
          (live-primitives
            (fold (lambda (l acc)
-                   (if (or (eq? (car l) 'rib) ;; ignore rib
+                   (if (or (eq? (car l) '##rib) ;; ignore rib
                            (not (memq (car l) primitive-names))) ;; not in primitive
                      acc
                      (cons (car l) acc)))
                  '()
                  live)))
-    (cons 'rib live-primitives))) ;; force rib at first index
+    (cons '##rib live-primitives))) ;; force ##rib at first index
 
 (define (set-primitive-order live-features features)
   (let ((i 0))
@@ -1173,7 +1179,7 @@
       (lambda (feature acc)
         (if (and (eq? (car feature) 'primitive)
                  (memq (caadr feature) live-features)
-                 (not (eq? (caadr feature) 'rib)))
+                 (not (eq? (caadr feature) '##rib)))
           (let ((id (soft-assoc '@@id feature)))
 
             (set! i (+ i 1))
@@ -1185,7 +1191,7 @@
                                 (cons i '())) 
                           '())))
           acc))
-      '((rib 0))
+      '((##rib 0))
       features)))
 
 (define (string-start-with?* str prefix)
@@ -1279,7 +1285,6 @@
                       (let ((var (car v)))
                         (cons var var)))
                     live-globals)))
-
 
          (host-config-ctx (make-host-config live-features '() '()))
 
@@ -1433,7 +1438,7 @@
                                     (cons (expand-body (list (list 'let* opt-params-body 
                                                                    (expand-body (append (if variadic 
                                                                                           '() 
-                                                                                          (list (list 'if (list 'eqv? (list 'field2 vararg-name) '0)
+                                                                                          (list (list 'if (list '##eqv? (list '##field2 vararg-name) '0)
                                                                                                       ;; '(error "Too many arguments were passed to the function."))))
                                                                                                       '(crash))))
                                                                                         (cddr expr))))))
@@ -1661,7 +1666,7 @@
                             (expand-expr (cons 'begin (cdr clause)))
                             (expand-expr
                               (cons 'if
-                                    (cons (cons 'memv
+                                    (cons (cons '##case-memv
                                                 (cons key
                                                       (cons (cons 'quote
                                                                   (cons (car clause)
@@ -1765,7 +1770,7 @@
   (let ((file-path (path-normalize (path-expand path pwd))))
     (member file-path included-files)))
 
-
+(define indent-level 1)
 (define (expand-begin* exprs rest)
   (if (pair? exprs)
       (let ((expr (car exprs)))
@@ -1782,11 +1787,19 @@
 
                 ((and (pair? expr)
                       (eqv? (car expr) '##include-once))
+                 ;; (display (string-append (make-string (- (* 2 indent-level) 1) #\-) "| Including "))
+                 ;; (write (cadr expr))
                  (if (included? (cadr expr))
-                   r
                    (begin 
+                     ;; (display " (already included)\n")
+                     r)
+                   (begin 
+                     ;; (write-char #\newline)
+                     (set! indent-level (+ indent-level 1))
                      (include-file (cadr expr))
-                     (cons (expand-include (cadr expr)) r))))
+                     (let ((result (cons (expand-include (cadr expr)) r)))
+                       (set! indent-level (- indent-level 1))
+                       result))))
 
                 (else
                   (cons (expand-expr expr) r)))))
@@ -1821,25 +1834,24 @@
 
 
 (define (expand-opt-param param-name param-default vararg-name)
-  ; `((,param-name (if (null? ,vararg-name)
-  ;                  ,param-default
-  ;                  (let ((value (car ,vararg-name)))
-  ;                    (set! ,vararg-name (cdr ,vararg-name))
-  ;                    value))))
-
   ;; If this part is not performant enough, replace the set! with a
   ;; (vararg (if (eqv? vararg '()) '() (field1 vararg)))
   ;; after every optional arg clause
-  (list
-    (list param-name 
-          (list 'if (list 'eqv? vararg-name '())
-                (expand-expr param-default)
-                (list 'let (list (list 'value (list 'field0 vararg-name)))
-                      (list 'set! vararg-name (list 'field1 vararg-name))
-                      'value
-                      )
-                )
-          )))
+  `((,param-name (if (null? ,vararg-name)
+                    ,(expand-expr param-default)
+                    (let ((value (##field0 ,vararg-name)))
+                      (set! ,vararg-name (##field1 ,vararg-name))
+                      value)))))
+  ;; (list
+  ;;   (list param-name 
+  ;;         (list 'if (list '##eqv? vararg-name '())
+  ;;               (expand-expr param-default)
+  ;;               (list 'let (list (list 'value (list '##field0 vararg-name)))
+  ;;                     (list 'set! vararg-name (list '##field1 vararg-name))
+  ;;                     'value
+  ;;                     )
+  ;;               )
+  ;;         )))
 
 ;;;----------------------------------------------------------------------------
 
@@ -1946,19 +1958,17 @@
 (define (liveness-analysis-aux expr features-enabled features-disabled exports)
   (let* ((env (make-live-env '() features-enabled features-disabled)))
 
-    (live-env-add-live! env 'rib) ;; live by default
-    (live-env-add-live! env 'arg1)
-    (live-env-add-live! env 'arg2)
-    (live-env-add-live! env 'close)
-    (live-env-add-live! env 'id)
-    (live-env-add-live! env '-) ;; needed for the build constant (cannot build negative number otherwise
+    (live-env-add-live! env '##rib) ;; live by default
+    (live-env-add-live! env '##arg1)
+    (live-env-add-live! env '##arg2)
+    (live-env-add-live! env '##close)
+    (live-env-add-live! env '##id)
+    (live-env-add-live! env '##-)
 
-
-
-    (if exports
-      (for-each
-        (lambda (x) (live-env-add-live! env (car x))) 
-        exports))
+    (and exports 
+         (for-each
+           (lambda (x) (live-env-add-live! env (car x))) 
+           exports))
 
     (for-each 
       (lambda (x) (live-env-add-feature! env x))
@@ -2250,8 +2260,8 @@
            (if (< o 0)
              (begin
 
-               (if (not (memq '- (host-config-features host-config)))
-                 (host-config-features-set! host-config (cons '- (host-config-features host-config))))
+               (if (not (memq '##- (host-config-features host-config)))
+                 (host-config-features-set! host-config (cons '##- (host-config-features host-config))))
 
                (c-rib const-op
                       0
@@ -2261,10 +2271,10 @@
                                     (add-nb-args
                                       2
                                       (c-rib jump/call-op
-                                             '-
+                                             '##-
                                              tail))
                                     (c-rib jump/call-op
-                                           '-
+                                           '##-
                                            tail)))))
                (c-rib const-op
                       o
@@ -2282,10 +2292,10 @@
                                     (add-nb-args
                                       3
                                       (c-rib jump/call-op
-                                             'rib
+                                             '##rib
                                              tail))
                                     (c-rib jump/call-op
-                                           'rib
+                                           '##rib
                                            tail)))))
              (error "Feature 'chars' must be activated to use them" o)))
           ((pair? o)
@@ -2297,10 +2307,10 @@
                                                     (add-nb-args
                                                       3
                                                       (c-rib jump/call-op
-                                                             'rib
+                                                             '##rib
                                                              tail))
                                                     (c-rib jump/call-op
-                                                           'rib
+                                                           '##rib
                                                            tail))))))
           ((string? o)
            (let ((chars (map char->integer (string->list o))))
@@ -2312,10 +2322,10 @@
                                                       (add-nb-args
                                                         3
                                                         (c-rib jump/call-op
-                                                               'rib
+                                                               '##rib
                                                                tail))
                                                       (c-rib jump/call-op
-                                                             'rib
+                                                             '##rib
                                                              tail)))))))
           ((vector? o)
            (let ((elems (vector->list o)))
@@ -2327,10 +2337,10 @@
                                                       (add-nb-args
                                                         3
                                                         (c-rib jump/call-op
-                                                               'rib
+                                                               '##rib
                                                                tail))
                                                       (c-rib jump/call-op
-                                                             'rib
+                                                             '##rib
                                                              tail)))))))
 
           (else
@@ -2355,18 +2365,18 @@
                                (add-nb-args 
                                  3
                                  (c-rib jump/call-op
-                                        'rib
+                                        '##rib
                                         (c-rib set-op
                                                sym
                                                tail)))
                                (c-rib jump/call-op
-                                      'rib
+                                      '##rib
                                       (c-rib set-op
                                              sym
                                              tail))))))))
 
     ;; skip rib primitive that is predefined
-    (let loop ((lst (filter (lambda (x) (not (eqv? x 'rib))) forced-first-primitives)) 
+    (let loop ((lst (filter (lambda (x) (not (eqv? x '##rib))) forced-first-primitives)) 
                (tail tail))
       (if (pair? lst)
           (loop (cdr lst)
@@ -3728,7 +3738,7 @@
                        (or (memq name live-symbols)
                            (memq name features-enabled)))) 
                    primitives))
-         (live-features-symbols (append (cons 'rib '()) ;; always add rib
+         (live-features-symbols (append (cons '##rib '()) ;; always add rib
                                         (filter (lambda (x) (not (memq x features-disabled)))
                                                 (append features-enabled (map caadr live-primitives))))))
 

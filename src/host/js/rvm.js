@@ -19,7 +19,7 @@ if (isNode) { // @@(feature (and js/node js/web))@@
 // @@(feature js/node
 // Implement putchar/getchar to the terminal 
 
-fs = require("fs"); // @@(feature (or js/node/fs getchar putchar))@@
+fs = require("fs"); // @@(feature (or js/node/fs ##getchar ##putchar))@@
 
 putchar = (c) => { 
     let buffer = Buffer.alloc(1); 
@@ -44,7 +44,9 @@ sym2str = (s) => chars2str(s[1][0]);  //debug
 chars2str = (s) => (s===NIL) ? "" : (String.fromCharCode(s[0])+chars2str(s[1]));  //debug
 
 // @@(feature (or debug debug-trace)
-show_opnd = (o) => is_rib(o) ? ("sym " + sym2str(o)) : ("int " + o);  //debug
+show_opnd = (o) => is_rib(o) && o[2] === 2 ? ("sym " + sym2str(o)) : 
+    is_rib(o) && o[2] === 1 ? ("proc " + (!is_rib(o[0]) ? sym2str(symbol_ref(o[0])) : "")) 
+    : ("int " + o);  //debug
 show_stack = () => {  //debug
     let s = stack;  //debug
     let r = [];  //debug
@@ -383,27 +385,27 @@ prim3 = (f) => () => push(f(pop(),pop(),pop()));
 
 primitives = [
 // @@(primitives (gen body)
-  prim3((z, y, x) => [x, y, z]),                    //  @@(primitive (rib a b c))@@
-  prim1((x) => x),                                  //  @@(primitive (id x))@@
-  () => (pop(), true),                              //  @@(primitive (arg1 x y))@@
-  () => push([pop(),pop()][0]),                     //  @@(primitive (arg2 x y))@@
-  () => push([pop()[0],stack,1]),                   //  @@(primitive (close rib))@@
-  prim1((x) => bool2scm(is_rib(x))),             //  @@(primitive (rib? rib) (use bool2scm))@@
-  prim1((x) => x[0]),                               //  @@(primitive (field0 rib))@@
-  prim1((x) => x[1]),                               //  @@(primitive (field1 rib))@@
-  prim1((x) => x[2]),                               //  @@(primitive (field2 rib))@@
-  prim2((y, x) => x[0]=y),                          //  @@(primitive (field0-set! rib))@@
-  prim2((y, x) => x[1]=y),                          //  @@(primitive (field1-set! rib))@@
-  prim2((y, x) => x[2]=y),                          //  @@(primitive (field2-set! rib))@@
-  prim2((y, x) => bool2scm(x===y)),              //  @@(primitive (eqv? x y) (use bool2scm))@@
-  prim2((y, x) => bool2scm(x<y)),                //  @@(primitive (< x y) (use bool2scm))@@
-  prim2((y, x) => x+y),                             //  @@(primitive (+ x y))@@
-  prim2((y, x) => x-y),                             //  @@(primitive (- x y))@@
-  prim2((y, x) => x*y),                             //  @@(primitive (* x y))@@
-  prim2((y, x) => x/y|0),                           //  @@(primitive (quotient x y))@@
-  getchar,                                          //  @@(primitive (getchar))@@
-  prim1(putchar),                                   //  @@(primitive (putchar c))@@
-  () => pop() && halt(),//will crash with error on != 0 @@(primitive (exit n))@@
+  prim3((z, y, x) => [x, y, z]),                    //  @@(primitive (##rib a b c))@@
+  prim1((x) => x),                                  //  @@(primitive (##id x))@@
+  () => (pop(), true),                              //  @@(primitive (##arg1 x y))@@
+  () => push([pop(),pop()][0]),                     //  @@(primitive (##arg2 x y))@@
+  () => push([pop()[0],stack,1]),                   //  @@(primitive (##close rib))@@
+  prim1((x) => bool2scm(is_rib(x))),             //  @@(primitive (##rib? rib) (use bool2scm))@@
+  prim1((x) => x[0]),                               //  @@(primitive (##field0 rib))@@
+  prim1((x) => x[1]),                               //  @@(primitive (##field1 rib))@@
+  prim1((x) => x[2]),                               //  @@(primitive (##field2 rib))@@
+  prim2((y, x) => x[0]=y),                          //  @@(primitive (##field0-set! rib))@@
+  prim2((y, x) => x[1]=y),                          //  @@(primitive (##field1-set! rib))@@
+  prim2((y, x) => x[2]=y),                          //  @@(primitive (##field2-set! rib))@@
+  prim2((y, x) => bool2scm(x===y)),              //  @@(primitive (##eqv? x y) (use bool2scm))@@
+  prim2((y, x) => bool2scm(x<y)),                //  @@(primitive (##< x y) (use bool2scm))@@
+  prim2((y, x) => x+y),                             //  @@(primitive (##+ x y))@@
+  prim2((y, x) => x-y),                             //  @@(primitive (##- x y))@@
+  prim2((y, x) => x*y),                             //  @@(primitive (##* x y))@@
+  prim2((y, x) => x/y|0),                           //  @@(primitive (##quotient x y))@@
+  getchar,                                          //  @@(primitive (##getchar))@@
+  prim1(putchar),                                   //  @@(primitive (##putchar c))@@
+  () => pop() && halt(),//will crash with error on != 0 @@(primitive (##exit n))@@
 // )@@
 ];
 

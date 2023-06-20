@@ -1,58 +1,52 @@
-(##include-once "./bool.scm")
 (##include-once "./control.scm")
+(##include-once "./pair-list.scm")
+(##include-once "./types.scm")
+(##include-once "./bool.scm")
 
 ;; Numbers (R4RS section 6.5).
-(set! ##< <)
-
-(set! ##no-args '(0))
-
-(set! ##+ +)
-(set! ##* *)
-(set! ##- -)
 
 (define (+ . args)
-  (fold ##+ 0 args))
+  (fold (lambda (x y) (##+ x y)) 0 args))
 
 (define (* . args)
-  (fold ##* 1 args))
+  (fold (lambda (x y) (##* x y)) 1 args))
 
-
-(define (- x (y ##no-args))
-  (if (eqv? y ##no-args)
+(define (- x . y)
+  (if (null? y)
     (##- 0 x)
-    (##- x y)))
+    (fold (lambda (x y) (##- x y)) x y)))
 
-(define (/ x (y ##no-args))
-  (if (eqv? y ##no-args)
-    (quotient 1 x)
-    (quotient x y)))
+(define (/ x . y)
+  (if (null? y)
+    (##quotient 1 x)    ;; 1/x
+    (fold quotient x y)))
 
-(define rational? integer?)
-(define real? rational?)
-(define complex? real?)
-(define number? complex?)
+(define (quotient x y) (##quotient x y))
 
 (define (exact? obj) #t)
 (define (inexact? obj) #f)
 
 (define (= x . rest)
-  (scan-until eqv? x #t rest #f))
+  (##scan-until-false eqv? x #t rest))
 
 (define (< x . rest) 
-  (scan-until ##< x #t rest #f))
-
+  (##scan-until-false (lambda (x y) (##< x y)) x #t rest))
 
 (define (> x . rest) 
-  (scan-until (lambda (x y) (##< y x)) x #t rest #f))
+  (##scan-until-false (lambda (x y) (##< y x)) x #t rest))
 
 (define (<= x . rest)
-  (scan-until (lambda (x y) (not (##< y x))) x #t rest #f))
+  (##scan-until-false (lambda (x y) (not (##< y x))) x #t rest))
 
 (define (>= x . rest) 
-  (scan-until (lambda (x y) (not (##< x y))) x #t rest #f))
+  (##scan-until-false (lambda (x y) (not (##< x y))) x #t rest))
 
-(define (zero? x) (eqv? x 0))
-(define (positive? x) (< 0 x))
-(define (negative? x) (< x 0))
-(define (even? x) (eqv? x (* 2 (quotient x 2))))
+(define rational? integer?)
+(define real? rational?)
+(define complex? real?)
+
+(define (zero? x) (##eqv? x 0))
+(define (positive? x) (##< 0 x))
+(define (negative? x) (##< x 0))
+(define (even? x) (##eqv? x (##* 2 (##quotient x 2))))
 (define (odd? x) (not (even? x)))
