@@ -174,6 +174,24 @@ while (1) {
 } // @@(feature pipeline-compiler)@@
 
 
+if (false) { // @@(feature pipeline-compiler)@@
+// @@(feature encoding/optimal
+stack=0;
+while(1){
+    x = get_code();
+    n=x
+    op=0;
+    while([0,1,2][op++]>x) // @@(replace "[0,1,2]" (list->host encoding/optimal/start "[" "," "]"))@@
+
+}
+
+
+
+// )@@
+
+} // @@(feature pipeline-compiler)@@
+
+
 
 // @@(feature encoding/original
 stack = 0;
