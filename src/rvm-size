@@ -1,4 +1,4 @@
-if ! gsi ./rsc.scm -t asm -l r4rs $@ -o repl-size.asm ./tests/r4rs/repl.scm; then
+if ! gsi ./rsc.scm -t asm -l r4rs $@ -o repl-size.asm ./tests/r4rs/repl/repl.scm; then
     echo "Error: Could not compile repl.scm"
     exit 1
 fi
@@ -17,7 +17,7 @@ echo -n "$(ls -l ./repl-size.exe | awk '{print $5}') " >> rvm-sizes.log
 rm ./repl-size.exe 
 rm ./repl-size.asm
 
-if ! gsi ./rsc.scm -t asm -e skip -l r4rs $@ -o repl-size.asm ./tests/r4rs/repl.scm ; then
+if ! gsi ./rsc.scm -t asm -e skip -l r4rs $@ -o repl-size.asm ./tests/r4rs/repl/repl.scm ; then
     echo "Error: Could not compile repl.scm"
     exit 1
 fi

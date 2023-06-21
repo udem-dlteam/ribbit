@@ -105,3 +105,5 @@ modules.xml
 # vscode
 src/.vscode/launch.json
 src/.vscode/tasks.json
+src/rvm-sizes.log
+**/tmp*

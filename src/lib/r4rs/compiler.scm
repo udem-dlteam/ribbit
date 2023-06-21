@@ -199,10 +199,18 @@
                    ;#; ;; support for calls with any expression in operator position
                    (let ((args (##field1 expr)))
                      (if (symbol? first)
-                       (comp-call cte
-                                  args
-                                  (length args)
-                                  (cons first cont))
+                       (begin
+                         (if-feature
+                           (not no-err)
+                           (if (not (procedure? (eval first)))
+                             (crash (string-append
+                                      "Cannot call: " 
+                                      (symbol->string first)))))
+
+                         (comp-call cte
+                                    args
+                                    (length args)
+                                    (cons first cont)))
                        (comp-bind cte
                                   '(_)
                                   (list first)
