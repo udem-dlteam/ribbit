@@ -3029,9 +3029,9 @@
       (const sym long)
       (const proc short)
       (const proc long)
-      if
-      (skip int short))
-    )
+      (skip int short)
+      (skip int long)
+      if))
 
   (map (lambda (value)
         (assoc value encoding))
@@ -3065,14 +3065,8 @@
                                         (map car encoding-skip-92)
                                         stats
                                         encoding-size))))))
-                         (pp encoding)
                          (encoding-optimal-add-variables encoding host-config)
-
-
-                         encoding
-                         
-
-                         ))
+                         encoding))
 
                       (else
                         (error "Cannot find encoding :" encoding-name))))
@@ -3080,7 +3074,7 @@
          (symtbl-and-symbols* (encode-symtbl prog exports host-config (encoding-inst-size encoding '(call sym short))))
          (symtbl (car symtbl-and-symbols*))
          (symbols* (cdr symtbl-and-symbols*))
-         (stream (encode-program prog symtbl encoding #f encoding-size))
+         (stream (encode-program prog symtbl encoding (encoding-inst-get encoding '(skip int long)) encoding-size))
 
          (symtbl-stream (symtbl->stream symtbl symbols* encoding-size))
          (stream (append symtbl-stream stream))
@@ -3114,11 +3108,12 @@
 
 
 
-(define (encode-program proc syms encoding skip-optimization encoding-size)
+(define (encode-program proc syms encoding skip-optimization? encoding-size)
 
   (define skip-optimization (if (eqv? encoding 'raw) 
                               #t
-                              (encoding-inst-get encoding '(skip int long))))
+                              skip-optimization?))
+
 
   (define encoding-size/2 (quotient encoding-size 2))
 
@@ -3142,7 +3137,7 @@
       (let ((x (car s)))
         (let ((overflow (- x encoding-size/2)))
           (if (and (> overflow 0)
-                   (<= overflow long-size))
+                   (< overflow long-size))
             (cons (+ code overflow) (cdr s))
             (cons code s))))))
 

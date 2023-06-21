@@ -130,7 +130,7 @@ while (1) {
 
 symtbl = [[0,[accum,n,3],2],symtbl,0];
 
-symbol_ref = (n) => list_tail(symtbl,n)[0];
+symbol_ref = (n) => list_tail(symtbl,n)[0]
 list_tail = (x,i) => i ? list_tail(x[1],i-1) : x;
 inst_tail = (x,i) => i ? inst_tail(x[2],i-1) : x;
 
@@ -154,6 +154,7 @@ while (1) {
   }
   else {
     if (!op) stack = [0,stack,0];
+
     n = n>=d ? (n==d ? get_int(0) : symbol_ref(get_int(n-d-1))) : op<3 ? symbol_ref(n) : n;
     if (5<op){
         //console.log("SKIP ", n)
@@ -176,15 +177,38 @@ while (1) {
 
 if (false) { // @@(feature pipeline-compiler)@@
 // @@(feature encoding/optimal
+
 stack=0;
 while(1){
     x = get_code();
     n=x
-    op=0;
-    while([0,1,2][op++]>x) // @@(replace "[0,1,2]" (list->host encoding/optimal/start "[" "," "]"))@@
+    op=-1;
+    
+    while((d=[0,1,2][++op])<=n) n-=d // @@(replace "[0,1,2]" (list->host encoding/optimal/start "[" "," "]"))@@
 
+    if (op<4) stack = [0,stack,0];
+    if (op<24) n=op%2>0?get_int(n):n
+
+    if(op<20){ // jump call set get const
+        i=op/4-1;
+        i=i<0?0:i>>0
+        n=op%4/2<1?n:symbol_ref(n)
+    }
+    else if(op<22){ // const-proc
+        n = [[n,0,pop()],0,1];
+        i=3
+        if(!stack) break;
+    }
+    else if(op<24){ // skip
+        stack = [inst_tail(stack[0], n), stack, 0]; 
+        continue;
+    }
+    else if(op<25){ // if
+        n=pop()
+        i=4
+    }
+    stack[0]=[i,n,stack[0]];
 }
-
 
 
 // )@@
