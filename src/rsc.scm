@@ -2687,7 +2687,6 @@
        tail)
       ((pair? (car stream))
        (let ((elem (car stream)))
-         (step)
          (encode 
            (cdr stream) 
            (cons 
@@ -2702,7 +2701,6 @@
            tag
            replacement)))
       ((eqv? (car stream) tag)
-       (step)
        (encode
          (cdr stream)
          (append
@@ -2844,16 +2842,6 @@
                 '())
               (cadr matched-matching))))
         matched)))
-
-    ;    (define (bit-in-num x)
-    ;    (if (eqv? x 0)
-    ;      1
-    ;      (ceiling (log (+ x 1) (quotient encoding-size 2)))))
-    ;   (if (pair? x)
-    ;  (+ (bit-in-num (car x))
-    ;     (bit-in-num (cadr x))
-    ;     1)
-    ;  1)
 
     (define (gain x)
       (let ((cost (cost-func x))
@@ -3051,6 +3039,7 @@
              (- n 35))))
        (string->list string)))
 
+;; supposes the 92 encoding scheme
 (define (stream->string stream)
   (list->string
    (map (lambda (n)
@@ -3098,9 +3087,26 @@
 
       
 
+(define (encode-hyperbyte stream)
+  (let loop ((stream stream) (result '()))
+    (if (pair? stream)
+      (if (pair? (cdr stream))
+        (loop (cddr stream)
+              (cons (+ (* 16 (car stream)) (cadr stream)) result))
+        (cons (car stream) result))
+      result)))
 
 (define (encode proc exports host-config byte-stats encoding-name encoding-size)
   (let* ((prog (encode-constants proc host-config))
+
+         (hyperbyte? (host-config-feature-live? host-config 'encoding/hyperbyte))
+         (encoding-size 
+           (if hyperbyte? 
+             (if (not (eqv? encoding-size 256))
+               (error "Hyperbyte encoding only supports 256 byte encoding")
+               16)
+             encoding-size))
+         
 
          (encoding (cond
                       ((and (string=? "original" encoding-name)
@@ -3133,8 +3139,11 @@
          (symbols* (cdr symtbl-and-symbols*))
          (stream (encode-program prog symtbl encoding (encoding-inst-get encoding '(skip int long)) encoding-size))
 
-         (symtbl-stream (symtbl->stream symtbl symbols* encoding-size))
-         (stream (append symtbl-stream stream))
+         (symtbl-stream (symtbl->stream symtbl symbols* (if hyperbyte? 256 encoding-size)))
+         (stream 
+           (if hyperbyte?
+             stream
+             (append symtbl-stream stream)))
 
          (compression? (host-config-feature-live? host-config 'compression/lzss))
          (stream (if compression?
@@ -3144,7 +3153,15 @@
                      host-config)
                    stream)))
 
-    (stream->string
+    (if hyperbyte?
+      (append 
+        (if compression?
+          (encode-lzss
+            symtbl-stream
+            256
+            host-config)
+          symtbl-stream)
+        (encode-hyperbyte stream))
       stream)))
 
 (define (encode-n n stream encoding-size/2)
@@ -3838,9 +3855,17 @@
    sep))
 
 (define (replace-eval expr encode host-config)
+  (define (encode-as-string encoding-size)
+    (stream->string (encode encoding-size)))
+
+  (define (encode-as-bytes encoding-size prefix sep suffix)
+    (list->host (encode encoding-size) prefix sep suffix))
+
+
   (define functions
-    `((encode ,encode 2)
-      (rvm-code-to-bytes ,rvm-code-to-bytes 3)
+    `((encode ,encode-as-string 2)
+      (encode-as-bytes ,encode-as-bytes 5)
+      (encode-as-string ,encode-as-string 2)
       (list->host ,list->host 5)))
 
 
@@ -3969,7 +3994,7 @@
          ;  (vector-ref proc-exports-and-features 4))
          (encode (lambda (bits)
                    (let ((input 
-                           (string-append 
+                           (append 
                              (encode
                                proc
                                exports
@@ -3978,8 +4003,8 @@
                                encoding-name
                                bits)
                              (if input-path
-                               (string-from-file input-path)
-                               "")) ))
+                               (map char->integer (string->list (string-from-file input-path)))
+                               '())) ))
                      (if (>= verbosity 1)
                        (begin
                          (display "*** RVM code length: ")
