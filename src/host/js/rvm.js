@@ -16,6 +16,8 @@ lengthAttr = "length";
 isNode = process?.versions?.node != null;
 if (isNode) { // @@(feature (and js/node js/web))@@
 
+
+
 // @@(feature js/node
 // Implement putchar/getchar to the terminal 
 
@@ -109,6 +111,33 @@ pos = 0;
 get_byte = () => input[pos++].charCodeAt(0);
 get_code = () => { let x = get_byte()-35; return x<0 ? 57 : x; };
 get_int = (n) => { let x = get_code(); n *= 46; return x<46 ? n+x : get_int(n+x-46); };
+
+
+// @@(feature compression/lzss
+inp=""
+i=0
+while(pos<input[lengthAttr]){
+    c=get_code();
+    v=String.fromCharCode(c==57?33:c+35)
+    if(c==60){ // @@(replace "60" compression/lzss/tag)@@
+        p=get_int(0)
+        if(p==0) {
+            inp+=v
+            continue;
+        }
+        l=get_int(0)
+        while(l--){ 
+            inp+=inp[inp[lengthAttr]-p] 
+        }
+    }
+    else{
+        inp+=v
+    }
+}
+input=inp;
+pos=0
+// )@@
+
 
 pop = () => { let x = stack[0]; stack = stack[1]; return x; };
 
