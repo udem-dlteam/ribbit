@@ -634,7 +634,40 @@ init_globals:
 	call init_global	; set "nil"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; @@(feature encoding/optimal 
+decompress_optimal: dd 0,0,0 ; @@(replace "0,0,0" (list->host encoding/optimal/start "" "," ""))@@
 
+decomrpess:
+    movC stack, FALSE	; stack <- #f
+    jmp  decompress_loop
+
+decompress_loop:
+    call get_code
+    movC edx, 0 
+    
+deompress_loop_aux:
+    
+    add edx, 1
+    mov ebx, [decompress_optimal+edx]
+    cmp eax, ebx
+    jle decompress_dispatch
+    sub eax, ebx
+    jmp decompress_loop_aux
+
+decompress_dispatch:
+    int3
+    
+    
+
+
+
+
+
+;; )@@
+
+
+
+;; @@(feature encoding/original
 decompress:
 	movC stack, FALSE	; stack <- #f
 	jmp  decompress_loop
@@ -794,6 +827,8 @@ decompress_create_proc:
 	mov  FIELD1(ebx), FALSE
 	cmp  stack, FALSE
 	jne  decompress_create_instr_const_proc
+
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1237,7 +1272,7 @@ prim_dispatch_table:
     dd   prim_write_char ;; @@(primitive (##write-char c fd))@@
     dd   prim_close_port ;; @@(primitive (##close-input-port fd))@@
     dd   prim_close_port ;; @@(primitive (##close-output-port fd))@@
-    dd   prim_apply      ;; @@(primitive (apply function args))@@
+    dd   prim_apply      ;; @@(primitive (##apply function args))@@
     dd   prim_welcome    ;; @@(primitive (welcome-msg))@@
 
 ;; )@@
@@ -1892,7 +1927,7 @@ prim_close_port:
 	ret
 ;; )@@
 
-;; @@(feature apply
+;; @@(feature ##apply
 prim_apply:
     mov TEMP2, LAST_ARG ;; move list into TEMP2
     mov TEMP3, PREV_ARG ;; move procedure into TEMP3
@@ -1954,8 +1989,8 @@ prim_welcome:
 
 ;;; The compressed RVM code
 
-;; @@(replace ");'lvD?m>lvRD?m>lvRA?m>lvRA?m>lvR:?m>lvR=!(:nlkm!':nlkv6{" (encode 92)
-rvm_code:	db ");'lvD?m>lvRD?m>lvRA?m>lvRA?m>lvR:?m>lvR=!(:nlkm!':nlkv6{",0 ; RVM code that prints HELLO!
+;; @@(replace "41,59,39,108,118,68,63,109,62,108,118,82,68,63,109,62,108,118,82,65,63,109,62,108,118,82,65,63,109,62,108,118,82,58,63,109,62,108,118,82,61,33,40,58,110,108,107,109,33,39,58,110,108,107,118,54,123" (encode-as-string 92)
+rvm_code:	db "41,59,39,108,118,68,63,109,62,108,118,82,68,63,109,62,108,118,82,65,63,109,62,108,118,82,65,63,109,62,108,118,82,58,63,109,62,108,118,82,61,33,40,58,110,108,107,109,33,39,58,110,108,107,118,54,123",0 ; RVM code that prints HELLO!
 ;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

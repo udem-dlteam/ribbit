@@ -16,6 +16,8 @@ lengthAttr = "length";
 isNode = process?.versions?.node != null;
 if (isNode) { // @@(feature (and js/node js/web))@@
 
+
+
 // @@(feature js/node
 // Implement putchar/getchar to the terminal 
 
@@ -110,6 +112,33 @@ get_byte = () => input[pos++].charCodeAt(0);
 get_code = () => { let x = get_byte()-35; return x<0 ? 57 : x; };
 get_int = (n) => { let x = get_code(); n *= 46; return x<46 ? n+x : get_int(n+x-46); };
 
+
+// @@(feature compression/lzss
+inp=""
+i=0
+while(pos<input[lengthAttr]){
+    c=get_code();
+    v=String.fromCharCode(c==57?33:c+35)
+    if(c==60){ // @@(replace "60" compression/lzss/tag)@@
+        p=get_int(0)
+        if(p==0) {
+            inp+=v
+            continue;
+        }
+        l=get_int(0)
+        while(l--){ 
+            inp+=inp[inp[lengthAttr]-p] 
+        }
+    }
+    else{
+        inp+=v
+    }
+}
+input=inp;
+pos=0
+// )@@
+
+
 pop = () => { let x = stack[0]; stack = stack[1]; return x; };
 
 FALSE = [0,0,5]; TRUE = [0,0,5]; NIL = [0,0,5];
@@ -130,7 +159,7 @@ while (1) {
 
 symtbl = [[0,[accum,n,3],2],symtbl,0];
 
-symbol_ref = (n) => list_tail(symtbl,n)[0];
+symbol_ref = (n) => list_tail(symtbl,n)[0]
 list_tail = (x,i) => i ? list_tail(x[1],i-1) : x;
 inst_tail = (x,i) => i ? inst_tail(x[2],i-1) : x;
 
@@ -154,6 +183,7 @@ while (1) {
   }
   else {
     if (!op) stack = [0,stack,0];
+
     n = n>=d ? (n==d ? get_int(0) : symbol_ref(get_int(n-d-1))) : op<3 ? symbol_ref(n) : n;
     if (5<op){
         //console.log("SKIP ", n)
@@ -169,6 +199,47 @@ while (1) {
   }
   stack[0] = [op?op-1:0,n,stack[0]];
 }
+// )@@
+
+} // @@(feature pipeline-compiler)@@
+
+
+if (false) { // @@(feature pipeline-compiler)@@
+// @@(feature encoding/optimal
+
+stack=0;
+while(1){
+    x = get_code();
+    n=x
+    op=-1;
+    
+    while((d=[0,1,2][++op])<=n) n-=d // @@(replace "[0,1,2]" (list->host encoding/optimal/start "[" "," "]"))@@
+
+    if (op<4) stack = [0,stack,0];
+    if (op<24) n=op%2>0?get_int(n):n
+
+    if(op<20){ // jump call set get const
+        i=op/4-1;
+        i=i<0?0:i>>0
+        n=op%4/2<1?n:symbol_ref(n)
+    }
+    else if(op<22){ // const-proc
+        n = [[n,0,pop()],0,1];
+        i=3
+        if(!stack) break;
+    }
+    else if(op<24){ // skip
+        stack = [inst_tail(stack[0], n), stack, 0]; 
+        continue;
+    }
+    else if(op<25){ // if
+        n=pop()
+        i=4
+    }
+    stack[0]=[i,n,stack[0]];
+}
+
+
 // )@@
 
 } // @@(feature pipeline-compiler)@@
