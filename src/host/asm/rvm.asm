@@ -634,7 +634,40 @@ init_globals:
 	call init_global	; set "nil"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; @@(feature encoding/optimal 
+decompress_optimal: dd 0,0,0 ; @@(replace "0,0,0" (list->host encoding/optimal/start "" "," ""))@@
 
+decomrpess:
+    movC stack, FALSE	; stack <- #f
+    jmp  decompress_loop
+
+decompress_loop:
+    call get_code
+    movC edx, 0 
+    
+deompress_loop_aux:
+    
+    add edx, 1
+    mov ebx, [decompress_optimal+edx]
+    cmp eax, ebx
+    jle decompress_dispatch
+    sub eax, ebx
+    jmp decompress_loop_aux
+
+decompress_dispatch:
+    int3
+    
+    
+
+
+
+
+
+;; )@@
+
+
+
+;; @@(feature encoding/original
 decompress:
 	movC stack, FALSE	; stack <- #f
 	jmp  decompress_loop
@@ -794,6 +827,8 @@ decompress_create_proc:
 	mov  FIELD1(ebx), FALSE
 	cmp  stack, FALSE
 	jne  decompress_create_instr_const_proc
+
+;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1954,8 +1989,8 @@ prim_welcome:
 
 ;;; The compressed RVM code
 
-;; @@(replace "41,59,39,108,118,68,63,109,62,108,118,82,68,63,109,62,108,118,82,65,63,109,62,108,118,82,65,63,109,62,108,118,82,58,63,109,62,108,118,82,61,33,40,58,110,108,107,109,33,39,58,110,108,107,118,54,123" (encode-as-bytes 256 "" "," "")
-rvm_code:	db 41,59,39,108,118,68,63,109,62,108,118,82,68,63,109,62,108,118,82,65,63,109,62,108,118,82,65,63,109,62,108,118,82,58,63,109,62,108,118,82,61,33,40,58,110,108,107,109,33,39,58,110,108,107,118,54,123,0 ; RVM code that prints HELLO!
+;; @@(replace "41,59,39,108,118,68,63,109,62,108,118,82,68,63,109,62,108,118,82,65,63,109,62,108,118,82,65,63,109,62,108,118,82,58,63,109,62,108,118,82,61,33,40,58,110,108,107,109,33,39,58,110,108,107,118,54,123" (encode-as-string 92)
+rvm_code:	db "41,59,39,108,118,68,63,109,62,108,118,82,68,63,109,62,108,118,82,65,63,109,62,108,118,82,65,63,109,62,108,118,82,58,63,109,62,108,118,82,61,33,40,58,110,108,107,109,33,39,58,110,108,107,118,54,123",0 ; RVM code that prints HELLO!
 ;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
