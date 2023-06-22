@@ -1272,7 +1272,7 @@ prim_dispatch_table:
     dd   prim_write_char ;; @@(primitive (##write-char c fd))@@
     dd   prim_close_port ;; @@(primitive (##close-input-port fd))@@
     dd   prim_close_port ;; @@(primitive (##close-output-port fd))@@
-    dd   prim_apply      ;; @@(primitive (apply function args))@@
+    dd   prim_apply      ;; @@(primitive (##apply function args))@@
     dd   prim_welcome    ;; @@(primitive (welcome-msg))@@
 
 ;; )@@
@@ -1927,7 +1927,7 @@ prim_close_port:
 	ret
 ;; )@@
 
-;; @@(feature apply
+;; @@(feature ##apply
 prim_apply:
     mov TEMP2, LAST_ARG ;; move list into TEMP2
     mov TEMP3, PREV_ARG ;; move procedure into TEMP3
