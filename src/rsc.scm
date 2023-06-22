@@ -2657,7 +2657,7 @@
     (for-each (lambda (x) (table-set! table (car x) (cadr x))) encoding-list)
     table))
 
-(define (lzss-variable-cost encoding-size tag-val)
+(define (lzss-variable-cost encoding-size tag)
   (define (bit-in-num x)
     (if (eqv? x 0)
       1
@@ -2670,49 +2670,103 @@
           (bit-in-num (car x))
           (bit-in-num (cadr x))
           1)
-        (if tag-val 
+        (if tag 
           1
           2))))
   cost)
 
 
-(define (encode-lzss stream encoding-size tag-val)
+
+(define (encode-lzss stream encoding-size host-config)
 
   (define encoding-size/2 (quotient encoding-size 2))
 
-  (define (encode stream tail)
+  (define (encode stream tail tag replacement)
     (cond 
       ((not (pair? stream))
        tail)
       ((pair? (car stream))
        (let ((elem (car stream)))
+         (step)
          (encode 
            (cdr stream) 
            (cons 
-             tag-val 
+             tag
              (encode-n 
                (car elem)
                (encode-n
                  (cadr elem)
                  tail
                  encoding-size/2)
-               encoding-size/2)))))
-      ((eqv? (car stream) tag-val)
+               encoding-size/2))
+           tag
+           replacement)))
+      ((eqv? (car stream) tag)
+       (step)
        (encode
          (cdr stream)
-         (cons 
-           tag-val
-           (cons 
-             tag-val
-             tail))))
+         (append
+           replacement
+           tail)
+         tag
+         replacement))
 
       ((pair? stream)
         (encode (cdr stream)
                 (cons (car stream)
-                      tail)))
+                      tail)
+                tag
+                replacement))
       (else
         (error "idk how you did end up here" stream))))
-  (encode stream '()))
+
+  (define (find-tag stream)
+    (define value-table (make-table))
+
+    (let loop ((stream stream))
+      (if (pair? stream)
+        (begin
+          (table-set! value-table (car stream) (+ 1 (table-ref value-table (car stream) 0)))
+          (loop (cdr stream)))))
+
+    (caar (list-sort
+           (lambda (x y)
+             (< (cdr x) (cdr y)))
+           (table->list value-table))))
+
+
+  (define (add-variables! host-config tag)
+    (let ((tag-as-string (stream->string (list tag))))
+      (host-config-feature-add! 
+        host-config 
+        'compression/lzss/tag
+        tag)
+      (host-config-feature-add!
+        host-config
+        'compression/lzss/tag-as-byte
+        (char->integer (string-ref tag-as-string 0)))
+      (host-config-feature-add!
+        host-config
+        'compression/lzss/tag-as-string
+        tag-as-string)))
+
+
+  (let* ((tag (find-tag stream))
+         (encoded-stream 
+           (LZSS 
+             stream 
+             9999999999999999 
+             9999999999999999
+             encoding-size 
+             (lzss-variable-cost encoding-size tag))))
+
+  (add-variables! host-config tag)
+
+  (encode
+    encoded-stream
+    '()
+    tag
+    (list tag 0))))
 
 
 
@@ -3042,9 +3096,12 @@
   (host-config-feature-add! host-config 'encoding/optimal/sizes (map caddr encoding))
   (host-config-feature-add! host-config 'encoding/optimal/start (map cadr encoding)))
 
+      
+
 
 (define (encode proc exports host-config byte-stats encoding-name encoding-size)
   (let* ((prog (encode-constants proc host-config))
+
          (encoding (cond
                       ((and (string=? "original" encoding-name)
                             (eqv? encoding-size 92))
@@ -3082,14 +3139,9 @@
          (compression? (host-config-feature-live? host-config 'compression/lzss))
          (stream (if compression?
                    (encode-lzss 
-                     (LZSS 
-                       stream 
-                       9999999999999999 
-                       9999999999999999
-                       encoding-size 
-                       (lzss-variable-cost encoding-size 0))
+                     stream
                      encoding-size
-                     0)
+                     host-config)
                    stream)))
 
     (stream->string
@@ -3771,11 +3823,11 @@
     #f))
 
 
-(define (list->host host-config lst prefix sep suffix)
+(define (list->host lst prefix sep suffix)
   (string-append
     prefix
     (string-concatenate
-      (map object->string (host-config-feature-live? host-config lst))
+      (map object->string lst)
       sep)
     suffix))
 
@@ -3789,7 +3841,7 @@
   (define functions
     `((encode ,encode 2)
       (rvm-code-to-bytes ,rvm-code-to-bytes 3)
-      (list->host ,(lambda (a b c d) (list->host host-config a b c d)) 5)))
+      (list->host ,list->host 5)))
 
 
 
@@ -3809,7 +3861,7 @@
           ((number? expr)
            expr)
           ((symbol? expr)
-           expr)
+           (host-config-feature-live? host-config expr))
           (else
             (error "Cannot evaluate expression in replace" expr)))))
 
@@ -3872,7 +3924,16 @@
                           (pattern     (if (symbol? pattern)
                                          (symbol->string pattern)
                                          pattern))
-                          (replacement-text (replace-eval (caddr prim) encode host-config)))
+                          (replacement-text (replace-eval (caddr prim) encode host-config))
+                          (replacement-text 
+                            (cond ((symbol? replacement-text)
+                                   (symbol->string replacement-text))
+                                  ((number? replacement-text)
+                                   (number->string replacement-text))
+                                  ((string? replacement-text)
+                                   replacement-text)
+                                  (else
+                                    (error "Replace doesn't support the type : " replacement-text)))))
                      (string-append acc (string-replace (rec "") pattern replacement-text))))
                   (else
                     acc)))))
