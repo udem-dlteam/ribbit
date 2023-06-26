@@ -81,25 +81,6 @@
         (apply for-each (append (list proc) (##map cdr lsts))))
       #f))
 
-(define (fold func base lst)
-  (if (pair? lst)
-    (fold func (func base (##field0 lst)) (##field1 lst))
-    base))
-
-;; (define (fold-until func base lst (stop-value '()))
-;;   (if (and (pair? lst) (not (equal? base stop-value)))
-;;     (fold-until func (func (car lst)) (cdr lst) stop-value)
-;;     base))
-;;
-;; (define (scan func base state lst)
-;;   (if (pair? lst)
-;;     (scan func (car lst) (func base (car lst)) (cdr lst))
-;;     state))
-
-(define (##scan-until-false func base state lst)
-  (if (and (pair? lst) state)
-    (##scan-until-false func (##field0 lst) (func base (##field0 lst)) (##field1 lst))
-    state))
 
 ;; First-class continuations.
 
@@ -112,4 +93,42 @@
                   r))))) ;; return to continuation
 
 (define call-with-current-continuation call/cc)
+
+
+;; ---------------------- UTILS NOT IN R4RS ---------------------- ;;
+
+(define (find predicate lst)
+  (if (pair? lst)
+    (if (predicate (car lst))
+      (car lst)
+      (find predicate (cdr lst)))
+    #f))
+
+(define (fold func base lst)
+  (if (pair? lst)
+    (fold func (func base (##field0 lst)) (##field1 lst))
+    base))
+
+(define (fold-until func base lst (stop-value '()))
+  (if (and (pair? lst) (not (equal? base stop-value)))
+    (fold-until func (func (car lst)) (cdr lst) stop-value)
+    base))
+
+(define (scan func base state lst)
+  (if (pair? lst)
+    (scan func (car lst) (func base (car lst)) (cdr lst))
+    state))
+
+(define (scan-until func base state lst (stop-value '()))
+  (if (and (pair? lst) (not (equal? state stop-value)))
+    (scan-until func (##field0 lst) (func base (##field0 lst)) (##field1 lst) stop-value)
+    state))
+
+(define (##scan-until-false func base state lst)
+  (if (and (pair? lst) state)
+    (##scan-until-false func (##field0 lst) (func base (##field0 lst)) (##field1 lst))
+    state))
+
+(define (partial f . args)
+  (lambda other-args (apply f (append args other-args))))
 

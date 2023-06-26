@@ -37,6 +37,12 @@
            (else 'consonant)))
 (newline)
 
+
+(display (case 42
+           (else 10)))
+(newline)
+
+
 ;;;fancy-compiler
 ;;;options: -l r4rs
 ;;;expected:
@@ -46,3 +52,4 @@
 ;;;d
 ;;;composite
 ;;;consonant
+;;;10

@@ -200,7 +200,7 @@
                    (let ((args (##field1 expr)))
                      (if (symbol? first)
                        (begin
-                         (if-feature
+                         #;(if-feature
                            (not no-err)
                            (if (not (procedure? (eval first)))
                              (crash (string-append

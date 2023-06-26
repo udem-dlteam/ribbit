@@ -1,5 +1,6 @@
 (##include-once "./error.scm")
 (##include-once "./char.scm")
+(##include-once "./control.scm")
 (##include-once "./pair-list.scm")
 (##include-once "./vector.scm")
 (##include-once "./types.scm")
@@ -21,12 +22,12 @@
    (define-primitive 
      (##get-fd-input-file filename)
      (use js/node/fs scm2str)
-     "prim1(filename => fs.openSync(scm2str(filename), 'r')),")
+     "prim1(filename => {try{return fs.openSync(scm2str(filename), 'r')}catch{return FALSE}}),")
 
    (define-primitive
      (##get-fd-output-file filename)
      (use js/node/fs scm2str)
-     "prim1(filename => fs.openSync(scm2str(filename), 'w')),")
+     "prim1(filename => {try{return fs.openSync(scm2str(filename), 'w')}catch{return FALSE}}),")
 
    (define-primitive
      (##read-char fd)
@@ -49,10 +50,8 @@
 
    (define-feature 
      ##close-output-port
-     (use ##close-input-port))
+     (use ##close-input-port)))
 
-   (define (##close-output-port port) (##close-input-port port)))
-   
   ((host c)
 
    (define-primitive
@@ -135,9 +134,7 @@
      FILE* file = (FILE*) ((long) x ^ 1);
      fclose(file);
      break;
-     }")
-
-   (define ##close-output-port ##close-input-port))
+     }"))
 
   ((host hs)
 
@@ -176,19 +173,22 @@
    (define-primitive
      (##close-input-port fd)
      (use hs/io-handle)
-     " , prim1 $ \\(RibForeign (RibHandle handle)) -> hClose handle >> pure ribTrue")
+     " , prim1 $ \\(RibForeign (RibHandle handle)) -> hClose handle >> pure ribTrue")))
 
-   (define ##close-output-port ##close-input-port)))
+
+(define (##close-output-port port) (##close-input-port port))
 
 ;; ---------------------- EOF & TYPES ---------------------- ;;
 
 (define ##eof (##rib 0 0 5))
 
+(define (##wrap-read-char port) (##read-char port))
+
 (define (eof-object? obj)
   (##eqv? obj ##eof))
 
 (define stdin-port
-  (##rib (##stdin) (##rib 0 '() #t) input-port-type)) ;; stdin
+  (##rib (##stdin) (##rib ##wrap-read-char '() #t) input-port-type)) ;; stdin
 
 (define stdout-port
   (##rib (##stdout) #t output-port-type))  ;; stdout
@@ -198,7 +198,7 @@
 
 (define (open-input-file filename)
   ;; (file_descriptor, (cursor, last_char, is_open), input_file_type)
-  (##rib (##get-fd-input-file filename) (##rib 0 '() #t) input-port-type))
+  (##rib (##get-fd-input-file filename) (##rib ##wrap-read-char '() #t) input-port-type))
 
 (define (close-input-port port)
   (if (##field2 (##field1 port))
@@ -229,7 +229,7 @@
   (let ((last-ch (##get-last-char port)))
     (if (null? last-ch)
 
-      (let ((ch (##read-char (##field0 port))))
+      (let ((ch ((##field0 (##field1 port)) (##field0 port))))
         (if (null? ch) ##eof (integer->char ch)))
 
       (begin
@@ -279,8 +279,10 @@
                             ((null? str) (read-char port))
                             ((##eqv? (length str) 1) (integer->char (##field0 str)))
                             (else (integer->char (cadr (assoc (list->string (map char-downcase (map integer->char str))) special-chars)))))))))
-                   (else
-                     (list->vector (read port))))))
+                   ((##eqv? c 40)  ;; #\(
+                     (list->vector (read port)))
+                   (else 
+                     (string->symbol (##list->string (append '(35) (read-symbol port char-downcase))))))))
           ((##eqv? c 39)      ;; #\'
            (read-char port) ;; skip "'"
            (list 'quote (read port)))
@@ -513,3 +515,58 @@
           (##write-char (cadr escape) port-val)))
       (write-chars (##field1 lst) escapes port-val))))
 
+
+;; ---------------------- UTILS NOT IN R4RS ---------------------- ;;
+
+(define (pp arg (port (current-output-port)))
+  (write arg port)
+  (newline port))
+
+(define (read-all (port (current-input-port)))
+  (let ((x (read port)))
+    (if (eof-object? x)
+        '()
+        (cons x (read-all port)))))
+
+(define (read-chars-until predicate (port (current-input-port)))
+  (let read-chars-aux ((c (read-char port)) (result '()))
+    (cond 
+      ((predicate c) (list->string (reverse result)))
+      ((eof-object? c) #f)
+      (else (read-chars-aux (read-char port) (cons c result))))))
+
+(define (read-str-until predicate (port (current-input-port)))
+  (let read-str-aux ((c (read-char port)) (result ""))
+    (cond 
+      ((predicate result) result)
+      ((eof-object? c) #f)
+      (else (read-str-aux (read-char port) (string-append result (string c)))))))
+
+(define (read-line (port (current-input-port)))
+  (read-chars-until (lambda (c) (or (eof-object? c) (eqv? c #\newline))) port))
+
+(define (read-lines-until predicate (port (current-input-port)))
+  (let loop ((line (read-line port)) (lines '()))
+    (if (predicate line)
+      (reverse (cons line lines))
+      (loop (read-line port) (cons line lines)))))
+
+(define (string-from-file filename)
+  (call-with-input-file filename (lambda (port) (read-str-until eof-object? port))))
+
+(define (open-input-string str)
+  (##rib 
+   (list (##field0 str)) 
+   (##rib
+    (lambda (port) 
+      (if (null? port)
+        port
+        (let ((c (caar port))) 
+          (##field0-set! port (cdar port)) 
+          c)))
+    '() 
+    #t)
+   input-port-type))
+
+
+(define (file-exists? filename) (notnot (##get-fd-input-file filename)))

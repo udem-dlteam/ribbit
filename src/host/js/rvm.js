@@ -45,7 +45,7 @@ getchar = () => {
 sym2str = (s) => chars2str(s[1][0]);  //debug
 chars2str = (s) => (s===NIL) ? "" : (String.fromCharCode(s[0])+chars2str(s[1]));  //debug
 
-// @@(feature (or debug debug-trace)
+// @@(feature (or debug debug-trace error-msg) (use sym2str chars2str)
 show_opnd = (o) => is_rib(o) && o[2] === 2 ? ("sym " + sym2str(o)) : 
     is_rib(o) && o[2] === 1 ? ("proc " + (!is_rib(o[0]) ? sym2str(symbol_ref(o[0])) : "")) 
     : ("int " + o);  //debug
@@ -100,7 +100,8 @@ getchar = () => pos<input[lengthAttr] && push(get_byte());
 
 // @@(feature (or error-msg debug) (use scm2str)
 halt = () => {
-	const error_msg = new Error(scm2str(pop()));
+    const error_code = pop(); 
+	const error_msg = new Error(is_rib(error_code) && error_code[2] === 3 ? scm2str(error_code) : `Exit with code: ${error_code}`);
 	throw error_msg;
 }
 // )@@
@@ -492,6 +493,12 @@ run = () => {
             if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } //debug
             let c = o[0];
 
+            // @@(feature (or debug-trace debug error-msg)
+            if (c === undefined) {
+                console.log("Undefined function: " + show_opnd(o));
+                halt();
+            }
+            // )@@
             if (is_rib(c)) {
                 // @@(feature arity-check
                 let nargs=pop();

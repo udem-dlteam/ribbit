@@ -10,6 +10,8 @@
 
 ;; Tested with Gambit v4.7.5 and above, Guile 3.0.7, Chicken 5.2.0 and Kawa 3.1
 
+(display "First\n")
+
 (cond-expand
 
  ((and chicken compiling)
@@ -90,11 +92,8 @@
                 (lambda (port) (read-line port #f)))))
          (del-file tmpin)
          (del-file tmpout)
-         out)))
+         out))))
 
-   (define list1 list)
-   (define list2 list)
-   (define list3 list))
 
   (else
 
@@ -108,8 +107,8 @@
 
 (cond-expand
 
-  (ribbit)
-
+  (ribbit 
+    (begin))
 
   (chicken
 
@@ -316,6 +315,12 @@
 
  (gambit (begin))
 
+ (ribbit 
+   (define ribbit-readline read-line)
+
+   (define (read-line port (sep #\newline))
+     (ribbit-readline port)))
+
  (else
 
    (define (read-line port sep)
@@ -435,21 +440,40 @@
    (define (string-concatenate string-list separator)
      (string-join string-list separator)))
 
+  (ribbit (begin))
+
   (else
 
-   (define (string-concatenate string-list separator)
-     (if (pair? string-list)
-         (let ((rev-string-list (reverse string-list))
-               (sep (string->list separator)))
-           (let loop ((lst (cdr rev-string-list))
-                      (result (string->list (car rev-string-list))))
-             (if (pair? lst)
-                 (loop (cdr lst)
-                       (append (string->list (car lst))
-                               (append sep
-                                       result)))
-                 (list->string result))))
-         ""))))
+    (define (string-concatenate string-list separator)
+      (if (pair? string-list)
+        (let ((rev-string-list (reverse string-list))
+              (sep (string->list separator)))
+          (let loop ((lst (cdr rev-string-list))
+                     (result (string->list (car rev-string-list))))
+            (if (pair? lst)
+              (loop (cdr lst)
+                    (append (string->list (car lst))
+                            (append sep
+                                    result)))
+              (list->string result))))
+        ""))))
+
+(cond-expand
+
+  (ribbit (begin))
+
+  (else 
+
+    (define (string-split pattern str)
+      (let ((pattern? (if (char? pattern) (lambda (c) (char=? c pattern)) pattern))
+            (final '("")))
+        (for-each 
+          (lambda (c)
+            (if (pattern? c)
+              (set! final (cons "" final))
+              (set! final (cons (string-append (car final) (string c)) (cdr final)))))
+          (string->list str))
+        (reverse final)))))
 
 ;;;----------------------------------------------------------------------------
 
@@ -482,6 +506,7 @@
 
 
 ;;;------------------------------------------------------------------------------
+(display "Line 484\n")
 
 (define predefined '(##rib false true nil)) ;; predefined symbols
 
@@ -672,17 +697,17 @@
 
 (cond-expand
 
-  (ribbit
-
-    (define c-rib rib)
-    (define c-rib-oper field0)
-    (define c-rib-opnd field1)
-    (define c-rib-next field2)
-    (define c-rib-hash error)
-
-    (define c-rib-oper-set! field0-set!)
-    (define c-rib-opnd-set! field1-set!)
-    (define c-rib-next-set! field2-set!))
+  ;; (ribbit
+  ;;
+  ;;   (define c-rib rib)
+  ;;   (define c-rib-oper field0)
+  ;;   (define c-rib-opnd field1)
+  ;;   (define c-rib-next field2)
+  ;;   (define c-rib-hash error)
+  ;;
+  ;;   (define c-rib-oper-set! field0-set!)
+  ;;   (define c-rib-opnd-set! field1-set!)
+  ;;   (define c-rib-next-set! field2-set!))
 
   (else
 
@@ -1005,6 +1030,8 @@
          ;; self-evaluating
          (c-rib const-op expr cont))))
 
+(display "Line 1008\n")
+
 (define (gen-call v cont)
   (if (eqv? cont tail)
       (c-rib jump/call-op v 0)      ;; jump
@@ -1188,7 +1215,7 @@
            ((eqv? (car x) 'feature)
             `(define-feature ,@(cdr x)))
            (else
-             (error "Cannot handle host feature" x))))
+             (error "Cannot handle host feature " x))))
        host-features))
 
 (define host-config #f)
@@ -1204,7 +1231,7 @@
            (exports->alist (cdr exprs-and-exports)))
          (host-features 
            (and parsed-vm (extract-features parsed-vm)))
-         
+         (_ (begin (pp host-features) "OUi ouI"))
          (expansion
            `(begin
               ,@(host-feature->expansion-feature host-features) ;; add host features
@@ -1476,7 +1503,7 @@
                         (rest (filter (lambda (x) (not (string? x))) (cdr expr))))
                     `(define-primitive 
                        ,@rest
-                       (@@body ,(parse-host-file (string->list* (fold string-append "" code)))))))
+                       (@@body ,(parse-host-file (fold string-append "" code))))))
                     ;(append rest (list '@@body (parse-host-file (string->list* (fold string-append "" code)))))))
 
                  ((eqv? (car expr) 'define-feature) ;; parse arguments as a source file
@@ -1488,7 +1515,7 @@
                        ,use-statement
                        ,@(map 
                            (lambda (x)
-                             `(,(car x) ,(parse-host-file (string->list* (fold string-append "" (cdr x))))))
+                             `(,(car x) ,(parse-host-file (fold string-append "" (cdr x)))))
                            rest))))
                       
 
@@ -1626,6 +1653,8 @@
 
         (else
           (expand-constant expr))))
+
+(display "Line 1632\n")
 
 (define (expand-constant x)
   (list 'quote x))
@@ -2054,7 +2083,7 @@
     (lambda (lst) 
       (let* ((sym (car lst))
              (size (cadr lst))
-             (return-val (list3 sym size counter)))
+             (return-val (list sym size counter)))
         (set! counter (+ counter size))
         return-val))
     encoding-table))
@@ -2155,7 +2184,7 @@
 
 ;(pp encoding-skip-92)
 
-
+(display "Line 2162\n")
 
 (define (encoding-inst-size encoding entry)
   (cadr (encoding-inst-get encoding entry)))
@@ -2670,6 +2699,7 @@
           2))))
   cost)
 
+(display "Line 2677\n")
 
 
 (define (encode-lzss stream encoding-size host-config)
@@ -3171,6 +3201,8 @@
           (encode-n-aux q t end encoding-size/2))))))
 
 
+(display "Line 3179\n")
+
 
 (define (encode-program proc syms encoding skip-optimization? encoding-size)
 
@@ -3222,8 +3254,8 @@
   (define (enc-inst arg op-sym arg-sym encoding-table stream)
     (if (eq? encoding-table 'raw)
       (rib (list op-sym arg-sym) arg stream)
-      (let* ((short-key   (list3 op-sym arg-sym 'short))
-             (long-key    (list3 op-sym arg-sym 'long))
+      (let* ((short-key   (list op-sym arg-sym 'short))
+             (long-key    (list op-sym arg-sym 'long))
              (short-size  (encoding-inst-size encoding-table short-key))
              (long-size   (encoding-inst-size encoding-table long-key))
              (short-start (encoding-inst-start encoding-table short-key))
@@ -3539,23 +3571,19 @@
 (define (root-dir)
   (rsc-path-directory (or (script-file) (executable-path))))
 
-(define %read-all read-all)
 
-(define (read-all)
-  (let ((x (read)))
-    (if (eof-object? x)
-        '()
-        (cons x (read-all)))))
 
 (define (read-from-file path)
-  (let* ((file-str (string-from-file path))
-         (port (open-input-string file-str)))
+  (let* ((port (open-input-file path)))
 
-    (if (and (> (string-length file-str) 1)
-             (and (eqv? (char->integer (string-ref file-str 0)) 35) ; #\#
-                  (eqv? (char->integer (string-ref file-str 1)) 33))) ; #\!
-      (read-line port)) ;; skip line
-    (%read-all port)))
+    ;; (if (and (> (string-length file-str) 1)
+    ;;          (and (eqv? (char->integer (string-ref file-str 0)) 35) ; #\#
+    ;;               (eqv? (char->integer (string-ref file-str 1)) 33))) ; #\!
+    (if (eqv? (peek-char port) #\#)
+      (begin 
+        (pp "SHABANGED")
+        (read-line port))) ;; skip line
+    (read-all port)))
 
 (define (read-library lib-path)
   (list (list '##include-once
@@ -3596,6 +3624,7 @@
 (define (extract-features parsed-file)
   (extract
     (lambda (prim acc rec)
+      ;; (pp (car prim))
       (case (car prim)
         ((primitives)
          (let ((primitives (rec '())))
@@ -3625,66 +3654,115 @@
       base
       parsed-file)))
 
-(define (next-line last-new-line)
-  (let loop ((cur last-new-line) (len 0))
-    (if (or (not (pair? cur)) (eqv? (car cur) 10)) ;; new line
-      (begin
-        ;(pp (list->string* last-new-line (+ 1 len)) )
-        (cons (and (pair? cur) (cdr cur)) 
-              (if (not (pair? cur))
-                len
-                (+ 1 len))))
-      (loop (cdr cur) (+ len 1)))))
+;; (define (next-line last-new-line)
+;;   (let loop ((cur last-new-line) (len 0))
+;;     (if (or (not (pair? cur)) (eqv? (car cur) 10)) ;; new line
+;;       (begin
+;;         ;(pp (list->string* last-new-line (+ 1 len)) )
+;;         (cons (and (pair? cur) (cdr cur)) 
+;;               (if (not (pair? cur))
+;;                 len
+;;                 (+ 1 len))))
+;;       (loop (cdr cur) (+ len 1)))))
 
-(define (detect-macro line len)
-  (let loop ((cur line) (len len) (start #f) (macro-len 0))
-    (if (<= len 2)
-      (if start
-        (cons
-          'start
-          (cons start
-                (+ 1 macro-len)))
-        (cons 'none '()))
-      (cond
-        ((and (eqv? (car cur) 64)     ;; #\@
-              (eqv? (cadr cur) 64)    ;; #\@
-              (eqv? (caddr cur) 40))  ;; #\(
-         (if start
-           (error "cannot start 2 @@\\( on the same line")
-           (loop (cdddr cur)
-                 (- len 3)
-                 cur
-                 3)))
-        ((and (eqv? (car cur)  41)    ;; #\)
-              (eqv? (cadr cur) 64)    ;; #\@
-              (eqv? (cadr cur) 64))   ;; #\@
-         (if start
-           (cons
-             'start-end ;; type
-             (cons
-               start
-               (+ 3 macro-len)))
-           (cons
-             'end ;; type
-             '())))
-        (else
-          (loop (cdr cur)
-                (- len 1)
-                start
-                (if start (+ macro-len 1) macro-len)))))))
+;; FIXME: Remove
+;; (define (detect-macro line len)
+;;   (let loop ((cur line) (len len) (start #f) (macro-len 0))
+;;     (if (<= len 2)
+;;       (if start  ;; NOTE: start is not the value '#t, it is the start of the macro
+;;         (cons
+;;           'start
+;;           (cons start
+;;                 (+ 1 macro-len)))
+;;         (cons 'none '()))
+;;       (cond
+;;         ((and (eqv? (car cur) 64)     ;; #\@
+;;               (eqv? (cadr cur) 64)    ;; #\@
+;;               (eqv? (caddr cur) 40))  ;; #\(
+;;          (if start
+;;            (error "cannot start 2 @@\\( on the same line")
+;;            (loop (cdddr cur)
+;;                  (- len 3)
+;;                  cur
+;;                  3)))
+;;         ((and (eqv? (car cur)  41)    ;; #\)
+;;               (eqv? (cadr cur) 64)    ;; #\@
+;;               (eqv? (cadr cur) 64))   ;; #\@
+;;          (if start
+;;            (cons
+;;       [2] === 3       'start-end ;; type
+;;              (cons
+;;                start
+;;                (+ 3 macro-len)))
+;;            (cons
+;;              'end ;; type
+;;              '())))
+;;         (else
+;;           (loop (cdr cur)
+;;                 (- len 1)
+;;                 start
+;;                 (if start (+ macro-len 1) macro-len)))))))
+
+(define (detect-macro line)
+  (let loop ((cur line) (start #f) (macro-len 0))
+    (let ((len (string-length cur)))
+      (if (<= len 2)
+        (if start 
+          `(start ,start . ,(+ 1 macro-len))
+          '(none))
+        (cond
+          ((string-prefix? "@@(" cur)
+           (if start
+             (error "cannot start 2 @@( on the same line")
+             (loop (substring cur 3 len) cur 3)))
+          ((string-prefix? ")@@" cur)
+           (if start
+             `(start-end ,start . ,(+ 3 macro-len))
+             '(end)))
+          (else
+            (loop (substring cur 1 len) start (if start (+ macro-len 1) macro-len))))))))
+
+(display "Line 3686\n")
 
 ;; Can be redefined by ribbit to make this function somewhat fast. It would only be (rib lst len string-type)
-(define (list->string* lst len)
-  (let ((str (make-string len (integer->char 48))))
-    (let loop ((lst lst) (i 0))
-      (if (< i len)
-        (begin
-          (string-set! str i (integer->char (car lst)))
-          (loop (cdr lst) (+ i 1)))
-        str))))
+(cond-expand 
+  (ribbit 
+    (define (list->string* lst len)
+      (rib lst len string-type)))
 
-(define (string->list* str)
-  (map char->integer (string->list str)))
+  (else
+    (define (list->string* lst len)
+      (let ((str (make-string len (integer->char 48))))
+        (let loop ((lst lst) (i 0))
+          (if (< i len)
+            (begin
+              (string-set! str i (integer->char (car lst)))
+              (loop (cdr lst) (+ i 1)))
+            str))))))
+
+(cond-expand 
+  (ribbit 
+    (define (string->list* str)
+      (field0 str)))
+
+  (else 
+    (define (string->list* str)
+      (map char->integer (string->list str)))))
+
+;; TODO: 
+(define (parse-host-file file-content)
+  (let loop ((lines (string-split file-content #\newline))
+             (parsed-file '()))
+    (if (pair? lines)
+      (let* ((cur-line (car lines))
+             (macro (detect-macro cur-line))
+             (macro-type (car macro))
+             (macro-args (cdr macro))
+             (parsed-file
+               ))
+        ())
+      (reverse (cons `(str ,(list->string* start-line start-len)) parsed-file)))))
+
 
 (define (parse-host-file cur-line)
   (let loop ((cur-line cur-line)
@@ -3695,21 +3773,23 @@
       (let* ((next-line-pair (next-line cur-line))
              (cur-end (car next-line-pair))
              (cur-len (cdr next-line-pair))
-             (macro-pair (detect-macro cur-line cur-len))
+             (macro-pair (detect-macro (list->string* cur-line (length cur-line))))
              (macro-type (car macro-pair))
              (macro-args (cdr macro-pair))
              (parsed-file
                (cond
                  ((eqv? macro-type 'end) ;; include last line
-                  (cons (cons 'str (cons (list->string* start-line (+ cur-len start-len)) '())) parsed-file))
+                  (cons `(str ,(list->string* start-line (+ cur-len start-len))) parsed-file)) 
                  ((eqv? start-len 0)
                   parsed-file)
                  ((or (eqv? macro-type 'start)
                       (eqv? macro-type 'start-end))
-                  (cons (cons 'str (cons (list->string* start-line start-len) '())) parsed-file))
+                  (cons `(str ,(list->string* start-line start-len)) parsed-file))
                  (else
                    parsed-file))))
 
+        (pp (list->string* cur-line (length cur-line)))
+        (pp macro-pair)
         (cond
           ((eqv? macro-type 'end)
            (cons cur-end
@@ -3724,10 +3804,10 @@
                   (body-pair (parse-host-file cur-end))
                   (body-cur-end (car body-pair))
                   (body-parsed  (cdr body-pair))
-                  (head (cons '@@head (cons (list->string* cur-line cur-len) '())))
-                  (body (cons '@@body (cons body-parsed '()))))
+                  (head `(@@head ,(list->string* cur-line cur-len)))
+                  (body `(@@body ,body-parsed)))
              (loop body-cur-end
-                   (cons (append macro-sexp (cons head (cons body '()))) parsed-file)
+                   (cons `(,@macro-sexp ,head ,body) parsed-file)
                    0
                    body-cur-end)))
           ((eqv? macro-type 'start-end)
@@ -3736,15 +3816,16 @@
                   (macro-string (list->string* (cddr macro) (- macro-len 4)))
                   (macro-sexp (read (open-input-string macro-string)))
                   (head-parsed (list->string* cur-line cur-len))
-                  (body (cons '@@body (cons (cons (cons 'str (cons head-parsed '())) '()) '())))
-                  (head (cons '@@head (cons head-parsed '()))))
+                  (body (cons '@@body `(((str ,head-parsed)))))
+                  (head (cons '@@head (list head-parsed))))
              (loop
                cur-end
-               (cons (append macro-sexp (cons head (cons body '()))) parsed-file)
+               (cons `(,@macro-sexp ,head ,body) parsed-file)
                0
                cur-end)))
           (else (error "Unknown macro-type"))))
-      (reverse (cons (cons 'str (cons (list->string* start-line start-len) '())) parsed-file)))))
+
+      (reverse (cons `(str ,(list->string* start-line start-len)) parsed-file)))))
 
 
 (define (unique-aux lst1 lst2)
@@ -4085,8 +4166,8 @@
     #f     ;; rvm-path
     #f     ;; minify?
     #f     ;; host-file
-    (list1 
-      (list2 92 encoding-original-92))
+    (list 
+      (list 92 encoding-original-92))
     #f     ;; byte-stats
     (compile-program
      0    ;; verbosity
@@ -4097,6 +4178,8 @@
 
 ;; verbosity parsed-vm features-enabled features-disabled program)
 
+(display "Line 4124\n")
+
 (define target "rvm")
 (cond-expand
 
@@ -4105,6 +4188,7 @@
   ;;  (pipeline-compiler))
 
   (else
+    (pp "1")
 
    (define (fancy-compiler src-path
                            output-path
@@ -4136,6 +4220,7 @@
            (display " Done.\n")
            (display msg))))
 
+     (report-first-status "Adding Ribs to the RVM...")
      (let* ((vm-source 
               (if (equal? _target "rvm")
                 #f
@@ -4145,8 +4230,7 @@
             (host-file
               (if (equal? _target "rvm")
                 #f
-                (parse-host-file
-                  (string->list* vm-source))))
+                (parse-host-file vm-source)))
 
             
 
@@ -4155,7 +4239,7 @@
 
        (set! target _target)
  
-       (report-first-status "Reading program source code...")
+       (report-status "Reading program source code...")
        (let ((program-read (read-program lib-path src-path)))
          (report-status "Compiling program...")
          (let ((program-compiled (compile-program
@@ -4179,6 +4263,7 @@
              (write-target-code output-path generated-code))))))
 
    (define (parse-cmd-line args)
+     (pp "3")
      (if (null? (cdr args))
 
          (pipeline-compiler)
@@ -4295,7 +4380,7 @@
                  encoding-name
                  byte-stats
                  )))))
-
+   (pp "start")
    (parse-cmd-line (cmd-line))
 
    (exit-program-normally)))

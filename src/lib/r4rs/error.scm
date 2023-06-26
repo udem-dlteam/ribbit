@@ -1,5 +1,5 @@
-(define (error msg)
-  (display msg)
+(define (error . msg)
+  (for-each display msg)
   (newline)
   (##exit 1))
 
