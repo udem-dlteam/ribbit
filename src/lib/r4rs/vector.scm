@@ -1,5 +1,5 @@
-(##include-once "./pair-list.scm")
 (##include-once "./types.scm")
+(##include-once "./pair-list.scm")
 
 ;; Vectors (R4RS section 6.8).
 

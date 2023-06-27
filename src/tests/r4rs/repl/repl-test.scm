@@ -189,6 +189,7 @@
   string-concatenate
   string-split
   string-prefix?
+  file-exists?
 
   quote set! define if lambda quasiquote unquote unquote-splicing
 

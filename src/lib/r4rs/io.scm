@@ -1,10 +1,10 @@
-(##include-once "./error.scm")
-(##include-once "./char.scm")
-(##include-once "./control.scm")
+(##include-once "./bool.scm")
+(##include-once "./types.scm")
 (##include-once "./pair-list.scm")
 (##include-once "./vector.scm")
-(##include-once "./types.scm")
-(##include-once "./bool.scm")
+(##include-once "./control.scm")
+(##include-once "./char.scm")
+(##include-once "./error.scm")
 
 (cond-expand
   ((host js)
@@ -542,8 +542,8 @@
       ((eof-object? c) #f)
       (else (read-str-aux (read-char port) (string-append result (string c)))))))
 
-(define (read-line (port (current-input-port)))
-  (read-chars-until (lambda (c) (or (eof-object? c) (eqv? c #\newline))) port))
+(define (read-line (port (current-input-port)) (sep #\newline))
+  (read-chars-until (lambda (c) (or (eof-object? c) (eqv? c sep))) port))
 
 (define (read-lines-until predicate (port (current-input-port)))
   (let loop ((line (read-line port)) (lines '()))

@@ -10,6 +10,7 @@
 
 ;; Tested with Gambit v4.7.5 and above, Guile 3.0.7, Chicken 5.2.0 and Kawa 3.1
 
+(display "First\n")
 
 (cond-expand
 
@@ -508,6 +509,7 @@
 
 
 ;;;------------------------------------------------------------------------------
+(display "Line 484\n")
 
 (define predefined '(##rib false true nil)) ;; predefined symbols
 
@@ -893,6 +895,8 @@
 
 
 (define (comp ctx expr cont)
+  (display "compiling: ")
+  (pp expr)
   (cond ((symbol? expr)
          (let ((v (lookup expr (ctx-cte ctx) 0)))
            (if (eqv? v expr) ;; global?
@@ -1034,6 +1038,8 @@
         (else
          ;; self-evaluating
          (c-rib const-op expr cont))))
+
+(display "Line 1008\n")
 
 (define (gen-call v cont)
   (if (eqv? cont tail)
@@ -1234,10 +1240,12 @@
            (exports->alist (cdr exprs-and-exports)))
          (host-features 
            (and parsed-vm (extract-features parsed-vm)))
+         (_ (begin (pp "Before expansion") 12))
          (expansion
            `(begin
               ,@(host-feature->expansion-feature host-features) ;; add host features
               ,(expand-begin exprs)))
+         (_ (begin (pp "After expansion") 12))
 
          (live-globals-and-features
            (liveness-analysis expansion features-enabled features-disabled exports))
@@ -1265,6 +1273,7 @@
     (if (not (host-config-feature-live?  host-config 'prim-no-arity))
       (set! tail (add-nb-args ctx 1 tail)))
 
+    (pp "Before compiling")
     (vector-set! 
       return
       0 
@@ -1277,6 +1286,7 @@
         '()))
     (vector-set! return 1 exports)
     (vector-set! return 2 host-config)
+    (pp "After compiling")
 
     ;(pp 
     ;  (list-sort 
@@ -1649,6 +1659,7 @@
         (else
           (expand-constant expr))))
 
+(display "Line 1632\n")
 
 (define (expand-constant x)
   (list 'quote x))
@@ -1751,14 +1762,14 @@
 
                 ((and (pair? expr)
                       (eqv? (car expr) '##include-once))
-                 ;; (display (string-append (make-string (- (* 2 indent-level) 1) #\-) "| Including "))
-                 ;; (write (cadr expr))
+                 (display (string-append (make-string (- (* 2 indent-level) 1) #\-) "| Including "))
+                 (write (cadr expr))
                  (if (included? (cadr expr))
                    (begin 
-                     ;; (display " (already included)\n")
+                     (display " (already included)\n")
                      r)
                    (begin 
-                     ;; (write-char #\newline)
+                     (write-char #\newline)
                      (set! indent-level (+ indent-level 1))
                      (include-file (cadr expr))
                      (let ((result (cons (expand-include (cadr expr)) r)))
@@ -2178,6 +2189,7 @@
 
 ;(pp encoding-skip-92)
 
+(display "Line 2162\n")
 
 (define (encoding-inst-size encoding entry)
   (cadr (encoding-inst-get encoding entry)))
@@ -2692,6 +2704,8 @@
           2))))
   cost)
 
+(display "Line 2677\n")
+
 
 (define (encode-lzss stream encoding-size host-config)
 
@@ -3191,6 +3205,8 @@
           t
           (encode-n-aux q t end encoding-size/2))))))
 
+
+(display "Line 3179\n")
 
 
 (define (encode-program proc syms encoding skip-optimization? encoding-size)
@@ -3709,6 +3725,8 @@
           (else
             (loop (substring cur 1 len) start (if start (+ macro-len 1) macro-len))))))))
 
+(display "Line 3686\n")
+
 ;; Can be redefined by ribbit to make this function somewhat fast. It would only be (rib lst len string-type)
 (cond-expand 
   (ribbit 
@@ -3759,9 +3777,12 @@
            (loop (cdr lines) parsed-file (string-append cur-section cur-line)))
 
           ((end)
+           (display "end :: ")
            (cons (cdr lines) (reverse parsed-file)))
 
           ((start)
+           (display "start: ")
+           (pp macro-args)
            (let* ((macro (car macro-args))
                   (macro-len (cdr macro-args))
                   (macro-string (substring macro 2 macro-len))
@@ -3772,12 +3793,16 @@
                   (head `(@@head ,cur-line))
                   (body `(@@body ,body-parsed)))
 
+             (display "start parsed: ")
+             (pp `(,@macro-sexp ,head ,body))
 
              (loop lines-after-body
                    `((,@macro-sexp ,head ,body) . ,parsed-file)
                    "")))
 
           ((start-end)
+           (display "start-end: ")
+           (pp macro-args)
            (let* ((macro (car macro-args))
                   (macro-len (cdr macro-args))
                   (macro-string (substring macro 2 (- macro-len 2)))  ;; skips the @@ and @@
@@ -3786,6 +3811,8 @@
                   (body `(@@body . (((str ,head-parsed)))))
                   (head `(@@head . (,head-parsed))))
              
+             (display "start-end parsed: ")
+             (pp `(,@macro-sexp ,head ,body))
 
              (loop
                (cdr lines)
@@ -4006,6 +4033,7 @@
                        (lambda (x y) (< (cadr x) (cadr y)))
                        (host-config-primitives host-config)))
   (define locations (host-config-locations host-config))
+  (pp "After Definitions")
 
   (letrec ((extract-func
               (lambda (prim acc rec)
@@ -4024,6 +4052,7 @@
                               (let* ((name (car prim))
                                      (index (cadr prim))
                                      (primitive (caddr prim))
+                                     (_ (begin (pp prim) 13))
                                      
                                      #;(_ (if (not primitive) (error "Cannot find needed primitive inside program :" name)))
                                      (body  (extract extract-func (cadr (soft-assoc '@@body primitive)) ""))
@@ -4038,6 +4067,7 @@
                                             ((eq? (car gen) 'head) (cadr head)))
                                       (loop (cdr gen)))
                                     ""))))))
+                     (pp "Before parsing primitives")
                      (string-append
                        acc
                        (apply string-append
@@ -4123,10 +4153,12 @@
 
     
 
+    (pp "Before Encoding")
     (let* ((target-code-before-minification
             (if (equal? target "rvm")
                 (encode 92)   ;; TODO: 256 is the number of code in the encoding.
                 (generate-file host-file host-config encode)))
+           (_ (begin (pp "After Encoding") 12))
            (target-code
             (if (or (not minify?) (equal? target "rvm"))
                 target-code-before-minification
@@ -4210,6 +4242,8 @@
 
 ;; verbosity parsed-vm features-enabled features-disabled program)
 
+(display "Line 4124\n")
+
 (define target "rvm")
 (cond-expand
 
@@ -4218,6 +4252,7 @@
   ;;  (pipeline-compiler))
 
   (else
+    (pp "1")
 
    (define (fancy-compiler src-path
                            output-path
@@ -4292,6 +4327,7 @@
              (write-target-code output-path generated-code))))))
 
    (define (parse-cmd-line args)
+     (pp "3")
      (if (null? (cdr args))
 
          (pipeline-compiler)
@@ -4408,6 +4444,7 @@
                  encoding-name
                  byte-stats
                  )))))
+   (pp "start")
    (parse-cmd-line (cmd-line))
 
    (exit-program-normally)))

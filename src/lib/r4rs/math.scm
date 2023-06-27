@@ -3,10 +3,10 @@
 (##include-once "./bool.scm")
 
 (define (max x . rest) 
-  (fold (lambda (curr best) (if (##< best curr) curr best)) x rest))
+  (##fold (lambda (curr best) (if (##< best curr) curr best)) x rest))
 
 (define (min x . rest) 
-  (fold (lambda (curr best) (if (##< best curr) best curr)) x rest))
+  (##fold (lambda (curr best) (if (##< best curr) best curr)) x rest))
 
 (define (abs x) (if (##< x 0) (##- 0 x) x))
 
@@ -28,7 +28,7 @@
       y
       (gcd-aux (remainder y x) x)))
 
-  (fold (lambda (x y)
+  (##fold (lambda (x y)
           (let ((ax (abs x)) (ay (abs y)))
             (if (##< ax ay)
               (gcd-aux ax ay)
@@ -44,7 +44,7 @@
       (let ((ax (abs x)) (ay (abs y)))
         (##* (##quotient ax (gcd ax ay)) ay))))
 
-  (fold lcm-aux 1 args))
+  (##fold lcm-aux 1 args))
 
 
 (define (denominator x) 1)

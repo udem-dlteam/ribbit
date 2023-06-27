@@ -104,9 +104,23 @@
       (find predicate (cdr lst)))
     #f))
 
+(define (filter predicate lst)
+  (let loop ((lst lst) (acc '()))
+    (if (pair? lst)
+      (loop (cdr lst) (if (predicate (car lst)) 
+                        (cons (car lst) acc) 
+                        acc))
+      (reverse acc))))
+
+;; FIXME: Remove and change the procs that depend on it
+(define (##fold func base lst)
+  (if (pair? lst)
+    (##fold func (func base (##field0 lst)) (##field1 lst))
+    base))
+
 (define (fold func base lst)
   (if (pair? lst)
-    (fold func (func base (##field0 lst)) (##field1 lst))
+    (fold func (func (##field0 lst) base) (##field1 lst))
     base))
 
 (define (fold-until func base lst (stop-value '()))

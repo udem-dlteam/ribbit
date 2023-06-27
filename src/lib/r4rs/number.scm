@@ -6,20 +6,20 @@
 ;; Numbers (R4RS section 6.5).
 
 (define (+ . args)
-  (fold (lambda (x y) (##+ x y)) 0 args))
+  (##fold (lambda (x y) (##+ x y)) 0 args))
 
 (define (* . args)
-  (fold (lambda (x y) (##* x y)) 1 args))
+  (##fold (lambda (x y) (##* x y)) 1 args))
 
 (define (- x . y)
   (if (null? y)
     (##- 0 x)
-    (fold (lambda (x y) (##- x y)) x y)))
+    (##fold (lambda (x y) (##- x y)) x y)))
 
 (define (/ x . y)
   (if (null? y)
     (##quotient 1 x)    ;; 1/x
-    (fold quotient x y)))
+    (##fold quotient x y)))
 
 (define (quotient x y) (##quotient x y))
 
