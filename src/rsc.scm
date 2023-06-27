@@ -1717,38 +1717,43 @@
     (member file-path included-files)))
 
 (define indent-level 1)
+
 (define (expand-begin* exprs rest)
   (if (pair? exprs)
-      (let ((expr (car exprs)))
-        (let ((r (expand-begin* (cdr exprs) rest)))
-          (cond ((and (pair? expr) (eqv? (car expr) 'begin))
-                 (expand-begin* (cdr expr) r))
+      (let* ((expr (car exprs))
+             (r '())
+             ;(r (expand-begin* (cdr exprs) rest))
+             (expanded-expr 
+               (cond ((and (pair? expr) (eqv? (car expr) 'begin))
+                      (expand-begin* (cdr expr) r))
 
-                ((and (pair? expr) (eqv? (car expr) 'cond-expand))
-                 (expand-cond-expand-clauses (cdr expr) r))
+                     ((and (pair? expr) (eqv? (car expr) 'cond-expand))
+                      (expand-cond-expand-clauses (cdr expr) r))
 
-                ((and (pair? expr) 
-                      (eqv? (car expr) '##include))
-                 (cons (expand-include (cadr expr)) r))
+                     ((and (pair? expr) 
+                           (eqv? (car expr) '##include))
+                      (cons (expand-include (cadr expr)) r))
 
-                ((and (pair? expr)
-                      (eqv? (car expr) '##include-once))
-                 ;; (display (string-append (make-string (- (* 2 indent-level) 1) #\-) "| Including "))
-                 ;; (write (cadr expr))
-                 (if (included? (cadr expr))
-                   (begin 
-                     ;; (display " (already included)\n")
-                     r)
-                   (begin 
-                     ;; (write-char #\newline)
-                     (set! indent-level (+ indent-level 1))
-                     (include-file (cadr expr))
-                     (let ((result (cons (expand-include (cadr expr)) r)))
-                       (set! indent-level (- indent-level 1))
-                       result))))
+                     ((and (pair? expr)
+                           (eqv? (car expr) '##include-once))
+                      ;; (display (string-append (make-string (- (* 2 indent-level) 1) #\-) "| Including "))
+                      ;; (write (cadr expr))
+                      (if (included? (cadr expr))
+                        (begin 
+                          ;; (display " (already included)\n")
+                          r)
+                        (begin 
+                          ;; (write-char #\newline)
+                          (set! indent-level (+ indent-level 1))
+                          (include-file (cadr expr))
+                          (let ((result (cons (expand-include (cadr expr)) r)))
+                            (set! indent-level (- indent-level 1))
+                            result))))
 
-                (else
-                  (cons (expand-expr expr) r)))))
+                     (else
+                       (cons (expand-expr expr) r)))))
+
+        (append expanded-expr (expand-begin* (cdr exprs) rest)))
       rest))
 
 (define (cond-expand-eval expr)
