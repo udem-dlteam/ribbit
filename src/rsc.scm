@@ -1379,16 +1379,14 @@
                           (lambda (opt-param)
                             (set! opt-params-body (append opt-params-body (expand-opt-param (car opt-param) (cadr opt-param) vararg-name))))
                           opt-params)
-                        (cons 'lambda
-                              (cons required-params
-                                    (cons (expand-body (list (list 'let* opt-params-body 
-                                                                   (expand-body (append (if variadic 
-                                                                                          '() 
-                                                                                          (list (list 'if (list '##eqv? (list '##field2 vararg-name) '0)
-                                                                                                      ;; '(error "Too many arguments were passed to the function."))))
-                                                                                                      '(crash))))
-                                                                                        (cddr expr))))))
-                                          '())))))))
+
+                        (expand-expr
+                          `(lambda 
+                             ,required-params
+                             (let* opt-params-body
+                               ,@(append 
+                                   `((if (##eqv? (##field2 ,vararg-name) '0)))
+                                   (cddr expr)))))))))
 
                  ((eqv? first 'let)
                   (let ((x (cadr expr)))
