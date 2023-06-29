@@ -18,7 +18,7 @@
 ;; (newline)
 
 ;;;fancy-compiler
-;;;options: -l r4rs
+;;;options: -l r4rs/pair-list -l r4rs/io
 ;;;expected:
 ;;;(x 12)
 ;;;(grape apple banana cherry orange kiwi)

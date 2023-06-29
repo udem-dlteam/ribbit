@@ -11,7 +11,7 @@
 (display (append '(a b) 'c))
 (newline)
 
-;;;options: -l r4rs
+;;;options: -l r4rs/pair-list -l r4rs/io
 ;;;expected:
 ;;;(x y)
 ;;;(a b c d)

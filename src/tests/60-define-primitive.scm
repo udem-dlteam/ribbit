@@ -76,8 +76,8 @@ try self.stackPush(num(val.num * val.num));
      (define-primitive (square a)
       "ERROR"))) ;; Will make test fail !
 
-(putchar (square 6))
-(putchar 10)
+(##putchar (square 6))
+(##putchar 10)
 
 ;;;options: -l max
 ;;;fancy-compiler

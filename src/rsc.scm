@@ -4112,6 +4112,7 @@
                            _target
                            input-path
                            lib-path
+                           link-path
                            minify?
                            verbosity
                            progress-status
@@ -4147,8 +4148,6 @@
                 #f
                 (parse-host-file
                   (string->list* vm-source))))
-
-            
 
             (features-enabled (cons (string->symbol (string-append "encoding/" encoding-name))
                                     features-enabled)))
@@ -4188,6 +4187,7 @@
                (input-path #f)
                (output-path #f)
                (lib-path '())
+               (link-path '())
                (src-path #f)
                (minify? #f)
                (primitives #f)
@@ -4213,6 +4213,9 @@
                           (loop (cdr rest)))
                          ((and (pair? rest) (member arg '("-l" "--library")))
                           (set! lib-path (cons (car rest) lib-path))
+                          (loop (cdr rest)))
+                         ((and (pair? rest) (member arg '("-lk" "--link")))
+                          (set! link-path (cons (car rest) link-path))
                           (loop (cdr rest)))
                          ((and (pair? rest) (member arg '("-m" "--minify")))
                           (set! minify? #t)
@@ -4286,6 +4289,7 @@
                  target
                  input-path
                  (if (eq? lib-path '()) '("default") lib-path)
+                 link-path
                  minify?
                  verbosity
                  progress-status

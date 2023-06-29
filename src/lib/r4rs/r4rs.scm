@@ -2,7 +2,12 @@
 
 (##include-once "./compiler.scm")
 (##include-once "./string.scm")
-(##include-once "./io.scm")
+
+(if-feature
+  v-port
+  (begin (##include-once "./v-io.scm"))
+  (begin (##include-once "./io.scm")))
+
 (##include-once "./error.scm")
 (##include-once "./math.scm")
 (##include-once "./number.scm")

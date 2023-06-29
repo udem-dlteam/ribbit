@@ -1,5 +1,3 @@
-;; (write (apply + (list 1 2)))
-
 (define (foo x y z)
   (write x)
   (newline)
@@ -10,7 +8,6 @@
 
 (apply foo (list 5 2 "3"))
 
-
 (define (bar x . y)
   (write x)
   (newline)
@@ -18,18 +15,6 @@
 
 (write (apply bar (list 4 (list "aa" "bb" 5) 9)))
 (newline)
-
-(define (##map proc lst)
-  (if (pair? lst)
-    (cons (proc (car lst)) (##map proc (cdr lst)))
-    '()))
-
-(define (map proc . lsts)
-  (if (pair? (car lsts))
-    (cons (apply proc (##map car lsts))
-          (apply map (append (list proc) (##map cdr lsts))))
-    '()))
-
 
 (display (map + '(1 2 3) '(4 5 6) '(7 8 9)))
 (newline)

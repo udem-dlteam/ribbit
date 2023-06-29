@@ -307,12 +307,18 @@
    (define (path-directory path) (rsc-path-directory path))
 
    (define (path-normalize path)
-     path)
+     (let loop ((path path))
+       (let ((path (string-replace path "//" "/")))
+         (if (string-prefix? "./" path)
+           (loop (substring path 2 (string-length path)))
+           (if (string-prefix? "../" path)
+             (loop (substring path 3 (string-length path)))
+             path)))))
 
    (define (path-expand path dir)
      (if (or (= (string-length dir) 0) (string-prefix? dir path))
          path
-         (if (eqv? (char->integer (string-ref dir (- (string-length dir) 1))) #\/) ;; #\/
+         (if (eqv? (string-ref dir (- (string-length dir) 1)) #\/) 
              (string-append dir path)
              (string-append dir (string-append "/" path)))))))
 
@@ -532,8 +538,7 @@
 (##quotient    17)
 (##getchar     18)
 (##putchar     19)
-(##exit        20)
-))
+(##exit        20)))
 
 (define jump/call-op 'jump/call)
 (define set-op       'set)
@@ -1232,8 +1237,10 @@
            (if (pair? exprs) exprs (cons #f '())))
          (exports
            (exports->alist (cdr exprs-and-exports)))
-         (host-features 
+
+         (host-features
            (and parsed-vm (extract-features parsed-vm)))
+
          (expansion
            `(begin
               ,@(host-feature->expansion-feature host-features) ;; add host features
@@ -2229,7 +2236,7 @@
                (c-rib const-op
                       0
                       (c-rib const-op
-                             (- 0 o)
+                             (- o)
                              (if prim-arity-check?
                                     (add-nb-args
                                       2
@@ -3563,15 +3570,15 @@
 
 
 (define (read-from-file path)
-  (let* ((port (open-input-file path)))
-
-    ;; (if (and (> (string-length file-str) 1)
-    ;;          (and (eqv? (char->integer (string-ref file-str 0)) 35) ; #\#
-    ;;               (eqv? (char->integer (string-ref file-str 1)) 33))) ; #\!
-    ;; (if (eqv? (peek-char port) #\#)
-    ;;   (begin 
-    ;;     (pp "SHABANGED")
-    ;;     (read-line port))) ;; skip line
+  (let* ((port (open-input-file path))
+         (first-line (read-line port))
+         (port (if (string-prefix? "#!" first-line)
+                 (begin 
+                   (pp "SHABANGED")
+                   port)
+                 (begin 
+                   (close-input-port port)
+                   (open-input-file path)))))
     (read-all port)))
 
 (define (read-library lib-path)
