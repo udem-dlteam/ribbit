@@ -1377,16 +1377,19 @@
 
                         (for-each
                           (lambda (opt-param)
-                            (set! opt-params-body (append opt-params-body (expand-opt-param (car opt-param) (cadr opt-param) vararg-name))))
+                            (set! opt-params-body 
+                              (append opt-params-body 
+                                      (expand-opt-param 
+                                        (car opt-param) 
+                                        (cadr opt-param) 
+                                        vararg-name))))
                           opt-params)
 
                         (expand-expr
                           `(lambda 
                              ,required-params
-                             (let* opt-params-body
-                               ,@(append 
-                                   `((if (##eqv? (##field2 ,vararg-name) '0)))
-                                   (cddr expr)))))))))
+                             (let* ,opt-params-body
+                               ,@(cddr expr))))))))
 
                  ((eqv? first 'let)
                   (let ((x (cadr expr)))
