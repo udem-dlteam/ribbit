@@ -64,6 +64,11 @@
 
 ;; ---------------------- CONVERSIONS ---------------------- ;;
 
+;;; Warning: You need to include v-io.scm for this procedure to work
+(define (object->string o)
+  (let ((str-port (open-output-string)))
+    (write o str-port)
+    (get-output-string str-port)))
 
 (define (char->integer x) (##field0 x))
 (define (integer->char n) (##rib n 0 char-type))

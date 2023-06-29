@@ -286,7 +286,21 @@ pc = n[0][2];
 
 stack = [0,0,[5,0,0]]; // primordial continuation (executes halt instr.)
 
+// @@(feature (not error-msg)
 push = (x) => ((stack = [x,stack,0]), true);
+// )@@
+
+// @@(feature error-msg
+push = (x) => {
+    if (x === undefined) {
+        console.log(stack); 
+        throw "undefined pushed to stack";
+    }
+    stack = [x,stack,0];
+    return true;
+}
+// )@@
+
 // @@(feature debug
 log_return = (s) => {console.log(s); return s;}
 // )@@
@@ -468,9 +482,9 @@ primitives = [
   prim1((x) => x[0]),                               //  @@(primitive (##field0 rib))@@
   prim1((x) => x[1]),                               //  @@(primitive (##field1 rib))@@
   prim1((x) => x[2]),                               //  @@(primitive (##field2 rib))@@
-  prim2((y, x) => x[0]=y),                          //  @@(primitive (##field0-set! rib))@@
-  prim2((y, x) => x[1]=y),                          //  @@(primitive (##field1-set! rib))@@
-  prim2((y, x) => x[2]=y),                          //  @@(primitive (##field2-set! rib))@@
+  prim2((y, x) => (x[0]=y, true)),                          //  @@(primitive (##field0-set! rib))@@
+  prim2((y, x) => (x[1]=y, true)),                          //  @@(primitive (##field1-set! rib))@@
+  prim2((y, x) => (x[2]=y, true)),                          //  @@(primitive (##field2-set! rib))@@
   prim2((y, x) => bool2scm(x===y)),              //  @@(primitive (##eqv? x y) (use bool2scm))@@
   prim2((y, x) => bool2scm(x<y)),                //  @@(primitive (##< x y) (use bool2scm))@@
   prim2((y, x) => x+y),                             //  @@(primitive (##+ x y))@@

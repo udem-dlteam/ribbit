@@ -212,7 +212,7 @@
 
 (cond-expand
 
-  ((or gambit chicken)
+  ((or gambit chicken ribbit)
 
    (define (symbol->str symbol)
      (symbol->string symbol))
@@ -412,6 +412,31 @@
    (define (list-sort compare list)
      (list-sort! compare (append list '())))))
 
+;; Can be redefined by ribbit to make this function somewhat fast. It would only be (rib lst len string-type)
+(cond-expand 
+  (ribbit 
+    (define (list->string* lst len)
+      (rib lst len string-type)))
+
+  (else
+    (define (list->string* lst len)
+      (let ((str (make-string len (integer->char 48))))
+        (let loop ((lst lst) (i 0))
+          (if (< i len)
+            (begin
+              (string-set! str i (integer->char (car lst)))
+              (loop (cdr lst) (+ i 1)))
+            str))))))
+
+(cond-expand 
+  (ribbit 
+    (define (string->list* str)
+      (field0 str)))
+
+  (else 
+    (define (string->list* str)
+      (map char->integer (string->list str)))))
+
 (cond-expand
 
  (gambit (begin))
@@ -481,7 +506,13 @@
               (set! final (cons "" final))
               (set! final (cons (string-append (car final) (string c)) (cdr final)))))
           (string->list str))
-        (reverse final)))))
+        (reverse final)))
+
+    (define (pp-return foo . x)
+      (let ((r (apply foo x)))
+        ;; (pp r)
+        r))))
+
 
 ;;;----------------------------------------------------------------------------
 
@@ -557,7 +588,7 @@
         (fold func (func (car lst) base) (cdr lst))
         base))
 
-   (define procedure2? procedure?))
+   (define (c-procedure? o) (and (c-rib? o) (eqv? (c-rib-next o) procedure-type))))
 
   (else
 
@@ -569,7 +600,7 @@
    (define singleton-type 5)
    (define char-type      6)
 
-   (define (instance? o type) (and (rib? o) (eqv? (field2 o) type)))
+   (define (instance? type) (lambda (o) (and (rib? o) (eqv? (field2 o) type))))
 
    (define rib-tag (cons '() '())) ;; make unique tag
 
@@ -589,12 +620,12 @@
    (define (field1-set! o x) (vector-set! o 1 x) o)
    (define (field2-set! o x) (vector-set! o 2 x) o)
 
-   (define (procedure2? o) (instance? o procedure-type))
-   (define (make-procedure code env) (c-rib code env procedure-type))
-   (define (procedure-code proc) (c-rib-oper proc))
-   (define (procedure-env proc) (c-rib-opnd proc))))
+   (define c-procedure? (instance? procedure-type))))
 
 
+(define (c-make-procedure code env) (c-rib code env procedure-type))
+(define (c-procedure-code proc) (c-rib-oper proc))
+(define (c-procedure-env proc) (c-rib-opnd proc))
 
 
 ;;;----------------------------------------------------------------------------
@@ -708,21 +739,30 @@
 
 (cond-expand
 
-  ;; (ribbit
-  ;;
-  ;;   (define c-rib rib)
-  ;;   (define c-rib-oper field0)
-  ;;   (define c-rib-opnd field1)
-  ;;   (define c-rib-next field2)
-  ;;   (define c-rib-hash error)
-  ;;
-  ;;   (define c-rib-oper-set! field0-set!)
-  ;;   (define c-rib-opnd-set! field1-set!)
-  ;;   (define c-rib-next-set! field2-set!))
+  (ribbit
+    (define c-rib-type -1)
+
+    (define hash-table-c-ribs (make-table))
+
+    (define c-rib? (instance? c-rib-type))
+
+    (define (make-c-rib field0 field1 field2 hash)
+      (rib field0 (rib field1 hash field2) c-rib-type))
+
+    (define (c-rib-oper c-rib) (field0 c-rib))
+    (define (c-rib-opnd c-rib) (field0 (field1 c-rib)))
+    (define (c-rib-next c-rib) (field2 (field1 c-rib)))
+    (define (c-rib-hash c-rib) (field1 (field1 c-rib)))
+
+    (define (c-rib-oper-set! c-rib v) (field0-set! c-rib v))
+    (define (c-rib-opnd-set! c-rib v) (field0-set! (field1 c-rib) v))
+    (define (c-rib-next-set! c-rib v) (field2-set! (field1 c-rib) v)))
 
   (else
 
     (define hash-table-c-ribs (make-table))
+
+    (define c-rib? rib?)
 
     (define (make-c-rib field0 field1 field2 hash)
       (rib field0 (rib field1 hash 0) field2))
@@ -734,170 +774,165 @@
 
     (define (c-rib-oper-set! c-rib v) (field0-set! c-rib v))
     (define (c-rib-opnd-set! c-rib v) (field0-set! (field1 c-rib) v))
-    (define (c-rib-next-set! c-rib v) (field2-set! c-rib v))
+    (define (c-rib-next-set! c-rib v) (field2-set! c-rib v))))
 
-    ;; Creates a rib that is unique and hashable
-    (define (c-rib field0 field1 field2)
-      (let* ((hash-table hash-table-c-ribs)
-             (hash (hash-c-rib field0 field1 field2))
-             (hash-list (table-ref hash-table hash #f))
-             (c-rib-ref (make-c-rib field0 field1 field2 hash)))
-        (if hash-list
-          (let search ((search-iter hash-list))
-            (if (pair? search-iter)
-              (if (c-rib-eq? c-rib-ref (car search-iter))
-                (car search-iter)
-                (search (cdr search-iter)))
-              (begin
-                (table-set! hash-table hash (cons c-rib-ref hash-list))
-                c-rib-ref)))
+;; Creates a rib that is unique and hashable
+(define (c-rib field0 field1 field2)
+  (let* ((hash-table hash-table-c-ribs)
+         (hash (hash-c-rib field0 field1 field2))
+         (hash-list (table-ref hash-table hash #f))
+         (c-rib-ref (make-c-rib field0 field1 field2 hash)))
+
+    (if hash-list
+      (let search ((search-iter hash-list))
+        (if (pair? search-iter)
+          (if (c-rib-eq? c-rib-ref (car search-iter))
+            (car search-iter)
+            (search (cdr search-iter)))
           (begin
-            (table-set! hash-table hash (cons c-rib-ref '()))
-            c-rib-ref))))
+            (table-set! hash-table hash (cons c-rib-ref hash-list))
+            c-rib-ref)))
+      (begin
+        (table-set! hash-table hash (cons c-rib-ref '()))
+        c-rib-ref))))
 
-    ;; Hash combine (taken from Gambit Scheme) https://github.com/gambit/gambit/blob/master/lib/_system%23.scm
-    ;; The FNV1a hash algorithm is adapted to hash values, in
-    ;; particular the hashing constants are used (see
-    ;; https://tools.ietf.org/html/draft-eastlake-fnv-12).  Because the
-    ;; hash function result is a fixnum and it needs to give the same
-    ;; result on 32 bit and 64 bit architectures, the constants are
-    ;; adapted to fit in a 32 bit fixnum.
+;; Hash combine (taken from Gambit Scheme) https://github.com/gambit/gambit/blob/master/lib/_system%23.scm
+;; The FNV1a hash algorithm is adapted to hash values, in
+;; particular the hashing constants are used (see
+;; https://tools.ietf.org/html/draft-eastlake-fnv-12).  Because the
+;; hash function result is a fixnum and it needs to give the same
+;; result on 32 bit and 64 bit architectures, the constants are
+;; adapted to fit in a 32 bit fixnum.
 
-    ;; FNV1a 32 bit constants
-    (define fnv1a-prime-32bits   16777619)
-    (define max-fixnum         4294967296)
-
-
-    (define (hash-combine a b)
-      (modulo 
-        (* fnv1a-prime-32bits
-           (+ a b))
-        max-fixnum))
-
-    (define (hash-string str)
-      (fold hash-combine 0 (map char->integer (string->list str))))
-
-    (define (c-rib-eq? c-rib1 c-rib2)
-      (let ((op1   (c-rib-oper c-rib1))
-            (op2   (c-rib-oper c-rib2))
-            (opnd1 (c-rib-opnd c-rib1))
-            (opnd2 (c-rib-opnd c-rib2))
-            (next1 (c-rib-next c-rib1))
-            (next2 (c-rib-next c-rib2))
-            (hash1 (c-rib-hash c-rib1))
-            (hash2 (c-rib-hash c-rib2)))
-
-        (and
-          (or (not hash1)  ;; check if hashes are =. If not, we skip
-              (not hash2)
-              (eqv? hash1 hash2))
-
-          (or 
-            (eqv? op1 op2) ;;test operand
-            (and (rib? op1) (rib? op2) (c-rib-eq? op1 op2)))
-
-          (or  ;; test opnd
-            (eqv? opnd1 opnd2)
-            (and (rib? opnd1) (rib? opnd2) (c-rib-eq? opnd1 opnd2)))
-          (or ;; test next
-            (eqv? next1 next2)
-            (and (rib? next1) (rib? next2) (c-rib-eq? next1 next2))))))
-
-    (define table-hash-size 512)
+;; FNV1a 32 bit constants
+(define fnv1a-prime-32bits   16777619)
+(define max-fixnum         4294967296)
 
 
-    (define (hash-c-rib field0 field1 field2) 
+(define (hash-combine a b)
+  (modulo 
+    (* fnv1a-prime-32bits
+       (+ a b))
+    max-fixnum))
 
-      ;; This is a really simple hashing function. I tested it on the 50-repl test and I got good results
-      ;;   having at most 6 elements hashed to the same value with a 512 hash table size. Most hashes had one
-      ;;   or two elements inside it.
+(define (hash-string str)
+  (fold hash-combine 0 (string->list* str)))
 
-      (define (op->hash op)
-        (cond
-          ((eq? op jump/call-op) 0)
-          ((eq? op set-op)       1)
-          ((eq? op get-op)       2)
-          ((eq? op const-op)     3)
-          ((eq? op if-op)        4)
-          ((number? op)          (+ (abs op) 4))
-          ((rib? op)             (c-rib-hash op))
+(define (c-rib-eq? c-rib1 c-rib2)
+  (let ((op1   (c-rib-oper c-rib1))
+        (op2   (c-rib-oper c-rib2))
+        (opnd1 (c-rib-opnd c-rib1))
+        (opnd2 (c-rib-opnd c-rib2))
+        (next1 (c-rib-next c-rib1))
+        (next2 (c-rib-next c-rib2))
+        (hash1 (c-rib-hash c-rib1))
+        (hash2 (c-rib-hash c-rib2)))
 
-          (else (error "Cannot hash the following instruction : " op))))
+    (and
+      (or (not hash1)  ;; check if hashes are =. If not, we skip
+          (not hash2)
+          (eqv? hash1 hash2))
 
-      (define (opnd->hash opnd)
-        (cond
-          ((symbol? opnd)
-           (hash-string (symbol->string opnd)))
-          ((number? opnd)
-           (abs opnd))
-          ((string? opnd)
-           (hash-string opnd))
-          ((char? opnd)
-           (char->integer opnd))
-          ((list? opnd)
-           (fold hash-combine 0 (map opnd->hash opnd)))
-          ((vector? opnd)
-           (fold hash-combine 0 (map opnd->hash (vector->list opnd))))
-          ((pair? opnd)
-           (hash-combine (opnd->hash (car opnd)) (opnd->hash (cdr opnd))))
-          ((rib? opnd)
-           (c-rib-hash opnd))
-          ((eq? '() opnd)
-           4)
-          ((eq? #f opnd)
-           5)
-          ((eq? #t opnd)
-           6)
-          (else (error "Cannot hash the following opnd in a c-rib" opnd))))
+      (or 
+        (eqv? op1 op2) ;;test operand
+        (and (c-rib? op1) (c-rib? op2) (c-rib-eq? op1 op2)))
 
-      (define (next->hash next)
-        (cond
-          ((number? next)
-           0)
-          ((rib? next)
-           (c-rib-hash next))
-          (else
-            (error "Cannot hash the next of the following c-rib" next))))
+      (or  ;; test opnd
+        (eqv? opnd1 opnd2)
+        (and (c-rib? opnd1) (c-rib? opnd2) (c-rib-eq? opnd1 opnd2)))
+      (or ;; test next
+        (eqv? next1 next2)
+        (and (c-rib? next1) (c-rib? next2) (c-rib-eq? next1 next2))))))
 
-      ;(pp 'rib)
-      ;(pp field0)
-      ;(pp field1)
-
-      ;(pp field2)
-      (modulo (hash-combine
-                (hash-combine
-                  (opnd->hash field1) 
-                  (op->hash field0))
-                (next->hash field2)) 
-              table-hash-size))
+(define table-hash-size 512)
 
 
+(define (hash-c-rib field0 field1 field2) 
 
-    ;; helper function to display the hash table
-    (define (display-c-rib c-rib) 
+  ;; This is a really simple hashing function. I tested it on the 50-repl test and I got good results
+  ;;   having at most 6 elements hashed to the same value with a 512 hash table size. Most hashes had one
+  ;;   or two elements inside it.
 
-      (define (display-obj obj)
-        (if (rib? obj)
-          (string-append 
-            "%" 
-            (number->string (c-rib-hash obj))
-            "%")
-          (object->string obj)))
+  (define (op->hash op)
+    (cond
+      ((eq? op jump/call-op) 0)
+      ((eq? op set-op)       1)
+      ((eq? op get-op)       2)
+      ((eq? op const-op)     3)
+      ((eq? op if-op)        4)
+      ((number? op)          (+ (abs op) 4))
+      ((c-rib? op)           (c-rib-hash op))
 
-      (let ((op   (c-rib-oper c-rib))
-            (opnd (c-rib-opnd c-rib))
-            (next (c-rib-next c-rib)))
-        (string-append
-          "["
-          (display-obj op)
-          " "
-          (display-obj opnd)
-          " "
-          (display-obj next)
-          "]")))))
+      (else (error "Cannot hash the following instruction : " op))))
 
+  (define (opnd->hash opnd)
+    (cond
+      ((null? opnd)
+       4)
+      ((eqv? #f opnd)
+       5)
+      ((eqv? #t opnd)
+       6)
+      ((symbol? opnd)
+       (hash-string (symbol->string opnd)))
+      ((number? opnd)
+       (abs opnd))
+      ((string? opnd)
+       (hash-string opnd))
+      ((char? opnd)
+       (char->integer opnd))
+      ((list? opnd)
+       (fold hash-combine 0 (map opnd->hash opnd)))
+      ((vector? opnd)
+       (fold hash-combine 0 (map opnd->hash (vector->list opnd))))
+      ((pair? opnd)
+       (hash-combine (opnd->hash (car opnd)) (opnd->hash (cdr opnd))))
+      ((c-rib? opnd)
+       (c-rib-hash opnd))
+      (else (error "Cannot hash the following opnd in a c-rib" opnd))))
+
+  (define (next->hash next)
+    (cond
+      ((number? next)
+       0)
+      ((c-rib? next)
+       (c-rib-hash next))
+      (else
+        (error "Cannot hash the next of the following c-rib" next))))
+
+  (modulo (hash-combine
+            (hash-combine
+              (opnd->hash field1) 
+              (op->hash field0))
+            (next->hash field2)) 
+          table-hash-size))
+
+
+;; helper function to display the hash table
+(define (display-c-rib c-rib) 
+
+  (define (display-obj obj)
+    (if (rib? obj)
+      (string-append 
+        "%" 
+        (number->string (c-rib-hash obj))
+        "%")
+      (object->string obj)))
+
+  (let ((op   (c-rib-oper c-rib))
+        (opnd (c-rib-opnd c-rib))
+        (next (c-rib-next c-rib)))
+    (string-append
+      "["
+      (display-obj op)
+      " "
+      (display-obj opnd)
+      " "
+      (display-obj next)
+      "]")))
 
 (define (comp ctx expr cont)
+  ;; (cond-expand (ribbit (pp expr)) (else ""))
   (cond ((symbol? expr)
          (let ((v (lookup expr (ctx-cte ctx) 0)))
            (if (eqv? v expr) ;; global?
@@ -978,7 +1013,7 @@
                              (improper-list->list params '())
                              params)))
                     (c-rib const-op
-                         (make-procedure
+                         (c-make-procedure
                            (c-rib (+ (* 2 nb-params) (if variadic 1 0))
                                   0
                                   (comp-begin (ctx-cte-set
@@ -1275,7 +1310,7 @@
     (vector-set! 
       return
       0 
-      (make-procedure
+      (c-make-procedure
         (c-rib 2 ;; 0 parameters 
                0
                (comp ctx
@@ -1916,7 +1951,8 @@
 
 
 (define (constant? g)
-  (and (pair? (cdr g))
+  (and (pair? g)
+       (pair? (cdr g))
        (null? (cddr g))
        (pair? (cadr g))
        (eqv? 'quote (car (cadr g)))))
@@ -2283,7 +2319,7 @@
                                                            '##rib
                                                            tail))))))
           ((string? o)
-           (let ((chars (map char->integer (string->list o))))
+           (let ((chars (string->list* o)))
              (build-constant chars
                              (build-constant (length chars)
                                              (c-rib const-op
@@ -2410,10 +2446,10 @@
         (cond ((eqv? op if-op)
                (traverse o))
               ((eqv? op const-op)
-               (if (procedure2? o)
+               (if (c-procedure? o)
                  (traverse (c-rib-next (c-rib-oper o))))
                (if (not (or (symbol? o)
-                            (procedure2? o)
+                            (c-procedure? o)
                             (and (number? o) (>= o 0))))
                    (let ((constant (constant-global-var o)))
                      (c-rib-oper-set! code get-op)
@@ -2432,7 +2468,7 @@
   (define syms (make-table))
 
   (define (scan-proc proc)
-    (scan (c-rib-next (procedure-code proc))))
+    (scan (c-rib-next (c-procedure-code proc))))
 
   (define (scan-opnd o pos)
     (scan-opnd-aux o pos)
@@ -2451,7 +2487,7 @@
                     (field1-set! descr (+ 1 (field1 descr))))
                    ((= pos 2)
                     (field2-set! descr (+ 1 (field2 descr)))))))
-          ((procedure2? o)
+          ((c-procedure? o)
            (scan-proc o))))
 
   (define (scan code)
@@ -2472,7 +2508,7 @@
             ((eqv? op const-op)
              (if (or 
                    (symbol? o)
-                   (procedure2? o)
+                   (c-procedure? o)
                    (and (number? o) (>= o 0)))
                  (scan-opnd o 2) ;; 2 = const
                  (error "Cannot encode constant with opnd " o)))
@@ -3273,7 +3309,7 @@
 
 
   (define (enc-proc arg encoding limit stream)
-    (let ((code (procedure-code arg)))
+    (let ((code (c-procedure-code arg)))
       (let ((nparams (c-rib-oper code)))
         (if (or (eq? limit #f) (> limit 0))
           (enc (c-rib-next code)
@@ -3315,7 +3351,7 @@
                         'int)
                        ((symbol? arg)
                         'sym)
-                       ((and (procedure2? arg) (eqv? 'const op-sym))
+                       ((and (c-procedure? arg) (eqv? 'const op-sym))
                         'proc)
                        (else 
                          (error (string-append "can't encode " (symbol->string op-sym))
@@ -3613,9 +3649,6 @@
   (find (lambda (e) (and (pair? e) (eq? (car e) sym)))
         lst))
 
-(define (pp-return foo x)
-  (foo x)
-  x)
 
 (define (extract-features parsed-file)
   (extract
@@ -3716,30 +3749,6 @@
           (else
             (loop (substring cur 1 len) start (if start (+ macro-len 1) macro-len))))))))
 
-;; Can be redefined by ribbit to make this function somewhat fast. It would only be (rib lst len string-type)
-(cond-expand 
-  (ribbit 
-    (define (list->string* lst len)
-      (rib lst len string-type)))
-
-  (else
-    (define (list->string* lst len)
-      (let ((str (make-string len (integer->char 48))))
-        (let loop ((lst lst) (i 0))
-          (if (< i len)
-            (begin
-              (string-set! str i (integer->char (car lst)))
-              (loop (cdr lst) (+ i 1)))
-            str))))))
-
-(cond-expand 
-  (ribbit 
-    (define (string->list* str)
-      (field0 str)))
-
-  (else 
-    (define (string->list* str)
-      (map char->integer (string->list str)))))
 
 (define (parse-host-file file-content)
   (let loop ((lines (if (pair? file-content) file-content (string-split file-content #\newline)))
@@ -4120,7 +4129,7 @@
                                bits)
                              (if input-path
                                (string->list* (string-from-file input-path))
-                               '())) ))
+                               '()))))
                      (if (>= verbosity 1)
                        (begin
                          (display "*** RVM code length: ")
@@ -4250,10 +4259,14 @@
        (if progress-status
          (begin (display msg) (display "...\n"))))
 
+     (define (report-done)
+       (if progress-status
+         (display "...Done.\n")))
+
      (define (report-status msg)
        (if progress-status
          (begin 
-           (display "...Done.\n")
+           (report-done)
            (report-first-status msg))))
 
      (report-first-status "Adding Ribs to the RVM")
@@ -4296,7 +4309,8 @@
                                    byte-stats
                                    program-compiled)))
              (report-status "Writing target code")
-             (write-target-code output-path generated-code))))))
+             (write-target-code output-path generated-code)
+             (report-done))))))
 
    (define (parse-cmd-line args)
      (if (null? (cdr args))

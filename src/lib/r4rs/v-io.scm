@@ -46,7 +46,7 @@
    (define-primitive
      (##close-input-port fd)
      (use js/node/fs)
-     "prim1(fd => fs.closeSync(fd)),")
+     "prim1(fd => (fs.closeSync(fd),true)),")
 
    (define-feature 
      ##close-output-port
@@ -398,8 +398,8 @@
     result))
 
 (define (write-char ch (port (current-output-port)))
-  ((##field0 (##field1 port)) ch port)  ;; call the writer with the char and the port
-  (##field1-set! (##field1 port) (string-append (##field1 (##field1 port)) (string ch)))) ;; updates the inner accumulator
+  ((##field0 (##field1 port)) ch port))  ;; call the writer with the char and the port
+  ;(##field1-set! (##field1 port) (string-append (##field1 (##field1 port)) (string ch)))) ;; updates the inner accumulator
 
 (define (write-char-code ch-code port)
   (write-char (integer->char ch-code) port))
@@ -486,6 +486,9 @@
          (write-char-code 35 port)  ;; #\#
          (write-char-code 112 port)) ;; #p
 
+        ((##rib? o)
+         (display (list (##field0 o) (##field1 o) (##field2 o))))
+
         (else
           (crash))))
 
@@ -567,7 +570,17 @@
     #t)
    input-port-type))
 
+(define (open-output-string (str ""))
+  (##rib 
+   str 
+   (##rib
+    (lambda (ch port)
+      (##field0-set! port (string-append (##field0 port) (string ch))))
+    ""
+    #t)
+   output-port-type))
+
 (define (get-output-string port)
-  (##field1 (##field1 port)))
+  (##field0 port))
 
 (define (file-exists? filename) (notnot (##get-fd-input-file filename)))
