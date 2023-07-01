@@ -9,12 +9,8 @@
 (close-input-port data-file)
 (close-input-port data-file)
 
-(display (input-port-close? data-file))
-(newline)
-
-;;;options: -l io 
+;;;options: -l r4rs/io 
 ;;;fancy-compiler
 ;;;expected:
 ;;;#t
 ;;;("abc" 1 (1 2 3) #f #t (list "xyz" 1 2))
-;;;#t

@@ -1,7 +1,7 @@
 (define x '#(1 (2 3) "allo"))
 
 
-(display x)
+(write x)
 (newline)
 
 ;;;fancy-compiler

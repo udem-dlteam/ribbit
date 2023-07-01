@@ -1,5 +1,7 @@
 HOSTS = c js py scm hs lua ml sh asm clj zig
 
+RSC_COMPILER ?= gsi -:r4rs ../../rsc.scm 
+
 all:
 
 .PHONY: prebuilt
@@ -32,10 +34,10 @@ check-repl:
 	if [ "$$HOST" = "" ]; then \
 	  for host in $(HOSTS); do \
 	    echo "====================== TESTING HOST $$host"; \
-		cd host/$$host; RSC_COMPILER="gsi -:r4rs -e $$UP_CASE ../../rsc.scm" $(MAKE) check-repl; cd ../..; \
+		cd host/$$host; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check-repl; cd ../..; \
 	  done; \
 	else \
-	  cd host/$$HOST; RSC_COMPILER="gsi -:r4rs ../../rsc.scm" $(MAKE) check-repl; cd ../..; \
+	  cd host/$$HOST; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check-repl; cd ../..; \
 	fi
 
 check-fancy:
@@ -43,7 +45,7 @@ check-fancy:
 	if [ "$$HOST" = "" ]; then \
 	  for host in $(HOSTS); do \
 	    echo "====================== TESTING HOST $$host"; \
-		cd host/$$host; RSC_COMPILER="gsi -:r4rs -e $$UP_CASE ../../rsc.scm" $(MAKE) check; cd ../..; \
+		cd host/$$host; RSC_COMPILER="gsi -:r4rs ../../rsc.scm" $(MAKE) check; cd ../..; \
 	  done; \
 	else \
 	  cd host/$$HOST; RSC_COMPILER="gsi -:r4rs ../../rsc.scm" $(MAKE) check; cd ../..; \

@@ -1084,12 +1084,12 @@
   (c-rib set-op v (gen-noop ctx cont)))
 
 (define (arity-check? ctx name)
-  #;(let ((x (and (memq 'arity-check (ctx-live-features ctx))
-                (not (and
-                       (memq 'prim-no-arity (ctx-live-features ctx))
-                       (memq name (ctx-live-features ctx)))))))
-    (if (not x)
-      (pp name)))
+  ;; (let ((x (and (memq 'arity-check (ctx-live-features ctx))
+  ;;               (not (and
+  ;;                      (memq 'prim-no-arity (ctx-live-features ctx))
+  ;;                      (memq name (ctx-live-features ctx)))))))
+  ;;   (if (not x)
+  ;;     (pp name)))
   
   (and (memq 'arity-check (ctx-live-features ctx))
        (not (and
@@ -1358,14 +1358,14 @@
         (pp (host-config-primitives (vector-ref return 2)))
         (display "*** feature location :\n")
         (pp (host-config-locations (vector-ref return 2)))))
-    #;(if (>= verbosity 2)
-      (begin
-        (display "*** primitive order:\n")
-        (pp (vector-ref return 2))))
-    #;(if (>= verbosity 3)
-      (begin
-        (display "*** live-features:\n")
-        (pp (vector-ref return 3))))
+    ;; (if (>= verbosity 2)
+    ;;   (begin
+    ;;     (display "*** primitive order:\n")
+    ;;     (pp (vector-ref return 2))))
+    ;; (if (>= verbosity 3)
+    ;;   (begin
+    ;;     (display "*** live-features:\n")
+    ;;     (pp (vector-ref return 3))))
     return))
 
 ;;;----------------------------------------------------------------------------
@@ -1565,57 +1565,57 @@
 
 
 
-                 #;((eqv? (car expr) 'define-primitive)
-                  (if (not defined-features)
-                    (error "Cannot use define-primitive while targeting a non-modifiable host")
-                    (let* ((prim-num (cons 'tbd
-                                           (cons (cons 'quote (cons 0 '()))
-                                                 (cons (cons 'quote (cons 1 '())) '())))) ;; creating cell that will be set later on
-                           (primitive-body (filter pair? (cdr expr)))
-                           (name (caar primitive-body))
-                           (code (filter string? (cdr expr)))
-                           (code (if (eqv? (length code) 1) (car code) (error "define-primitive is not well formed"))))
+                 ;; ((eqv? (car expr) 'define-primitive)
+                 ;;  (if (not defined-features)
+                 ;;    (error "Cannot use define-primitive while targeting a non-modifiable host")
+                 ;;    (let* ((prim-num (cons 'tbd
+                 ;;                           (cons (cons 'quote (cons 0 '()))
+                 ;;                                 (cons (cons 'quote (cons 1 '())) '())))) ;; creating cell that will be set later on
+                 ;;           (primitive-body (filter pair? (cdr expr)))
+                 ;;           (name (caar primitive-body))
+                 ;;           (code (filter string? (cdr expr)))
+                 ;;           (code (if (eqv? (length code) 1) (car code) (error "define-primitive is not well formed"))))
+                 ;;
+                 ;;      (set! defined-features
+                 ;;        (append defined-features
+                 ;;                (cons (cons 'primitive
+                 ;;                            (append primitive-body
+                 ;;                                    (append (cons (cons 'body (cons (cons (cons 'str (cons code '())) '()) '())) '())
+                 ;;                                            (cons (cons '@@id (cons prim-num '())) '())))) '())))
+                 ;;      (cons 'set!
+                 ;;            (cons name
+                 ;;                  (cons (cons 'rib prim-num)
+                 ;;                        '()))))))
 
-                      (set! defined-features
-                        (append defined-features
-                                (cons (cons 'primitive
-                                            (append primitive-body
-                                                    (append (cons (cons 'body (cons (cons (cons 'str (cons code '())) '()) '())) '())
-                                                            (cons (cons '@@id (cons prim-num '())) '())))) '())))
-                      (cons 'set!
-                            (cons name
-                                  (cons (cons 'rib prim-num)
-                                        '()))))))
-
-                 #;((eqv? (car expr) 'define-feature)
-                  (if (not defined-features)
-                    (error "Cannot use define-feature while targeting a non-modifiable host")
-                    (let* ((feature-name (cadr expr))
-                           (has-use (eq? (caaddr expr) 'use))
-                           (feature-use (if has-use (caddr expr) '()))
-                           (feature-location-code-pairs (if has-use (cdddr expr) (cddr expr))))
-                      (for-each 
-                        (lambda (feature-pair)
-                          (set! defined-features 
-                            (append defined-features
-                                    (cons (cons 'feature
-                                                (cons feature-name
-                                                      (cons (cons '@@location
-                                                                  (cons (car feature-pair) '()))
-                                                      (cons feature-use
-                                                            (cons
-                                                              (cons 'body 
-                                                                    (cons
-                                                                      (cons 
-                                                                        (cons 'str
-                                                                              (cons (cadr feature-pair)
-                                                                                    '()))
-                                                                        '())
-                                                                      '()))
-                                                              '())))))
-                                          '()))))
-                        feature-location-code-pairs)
-                      '#f)))
+                 ;; ((eqv? (car expr) 'define-feature)
+                 ;;  (if (not defined-features)
+                 ;;    (error "Cannot use define-feature while targeting a non-modifiable host")
+                 ;;    (let* ((feature-name (cadr expr))
+                 ;;           (has-use (eq? (caaddr expr) 'use))
+                 ;;           (feature-use (if has-use (caddr expr) '()))
+                 ;;           (feature-location-code-pairs (if has-use (cdddr expr) (cddr expr))))
+                 ;;      (for-each 
+                 ;;        (lambda (feature-pair)
+                 ;;          (set! defined-features 
+                 ;;            (append defined-features
+                 ;;                    (cons (cons 'feature
+                 ;;                                (cons feature-name
+                 ;;                                      (cons (cons '@@location
+                 ;;                                                  (cons (car feature-pair) '()))
+                 ;;                                      (cons feature-use
+                 ;;                                            (cons
+                 ;;                                              (cons 'body 
+                 ;;                                                    (cons
+                 ;;                                                      (cons 
+                 ;;                                                        (cons 'str
+                 ;;                                                              (cons (cadr feature-pair)
+                 ;;                                                                    '()))
+                 ;;                                                        '())
+                 ;;                                                      '()))
+                 ;;                                              '())))))
+                 ;;                          '()))))
+                 ;;        feature-location-code-pairs)
+                 ;;      '#f)))
 
 
                  ((eqv? first 'and)
@@ -1776,6 +1776,17 @@
   (let ((file-path (path-normalize (path-expand path pwd))))
     (member file-path included-files)))
 
+(define (expand-include-prefix include-path)
+  (cond 
+    ((string-prefix? "ribbit:" include-path)  ;; for folder "lib" where ribbit is intalled (std-lib)
+     (path-expand (substring include-path 7 (string-length include-path)) (path-expand "lib" (ribbit-root-dir))))
+
+    ((string-prefix? "lib:" include-path)  ;; for local folder "lib" where in the root of the project
+     (path-expand (substring include-path 4 (string-length include-path)) (path-expand "lib" (root-dir))))
+    ; TODO: add more. Ex: "http:" "github:" "lib:" (for folder named lib in the root of the project)
+
+    (else include-path)))
+
 (define indent-level 1)
 (define (expand-begin* exprs rest)
   (if (pair? exprs)
@@ -1789,23 +1800,19 @@
 
                 ((and (pair? expr) 
                       (eqv? (car expr) '##include))
-                 (cons (expand-include (cadr expr)) r))
+                 (cons (expand-include (expand-include-prefix (cadr expr))) r))
 
                 ((and (pair? expr)
                       (eqv? (car expr) '##include-once))
-                 ;; (display (string-append (make-string (- (* 2 indent-level) 1) #\-) "| Including "))
-                 ;; (write (cadr expr))
-                 (if (included? (cadr expr))
-                   (begin 
-                     ;; (display " (already included)\n")
-                     r)
-                   (begin 
-                     ;; (write-char #\newline)
-                     (set! indent-level (+ indent-level 1))
-                     (include-file (cadr expr))
-                     (let ((result (cons (expand-include (cadr expr)) r)))
-                       (set! indent-level (- indent-level 1))
-                       result))))
+
+                 (let* ((path (expand-include-prefix (cadr expr))))
+                   (if (not (file-exists? path))
+                     (error "The path needs to point to an existing file. Error while trying to include library at " file-path))
+                   (if (included? path)
+                       r
+                     (begin 
+                       (include-file path)
+                       (cons (expand-include path) r)))))
 
                 (else
                   (cons (expand-expr expr) r)))))
@@ -2570,9 +2577,9 @@
                       (loop4 (cdr symbols*))
                       (cons syms symbols*)))))))))))
 
-                      #;(encode-stream
-                      proc
-                      encoding)
+                      ;; (encode-stream
+                      ;; proc
+                      ;; encoding)
 (define (get-maximal-encoding encodings stats encoding-size)
 
     (define encoding-size-counter encoding-size)
@@ -3563,29 +3570,29 @@
 
 
 
-  #;(let ((stream (encode-to-stream proc encoding)))
-
-    (if byte-stats
-      (display-stats stats byte-stats encoding))
-
-    ;(pp (cons 'stream stream))
-    (string-append
-      (stream->string
-        (encode-n (- (length symbols)
-                     (length symbols*))
-                  '()
-                  (* eb/2 2)))
-      (string-append
-        (string-concatenate
-          (map (lambda (s)
-                 (let ((str (symbol->str s)))
-                   (list->string
-                     (reverse (string->list str)))))
-               symbols*)
-          ",")
-        (string-append
-          ";"
-          (stream->string stream)))))
+  ;; (let ((stream (encode-to-stream proc encoding)))
+  ;;
+  ;;   (if byte-stats
+  ;;     (display-stats stats byte-stats encoding))
+  ;;
+  ;;   ;(pp (cons 'stream stream))
+  ;;   (string-append
+  ;;     (stream->string
+  ;;       (encode-n (- (length symbols)
+  ;;                    (length symbols*))
+  ;;                 '()
+  ;;                 (* eb/2 2)))
+  ;;     (string-append
+  ;;       (string-concatenate
+  ;;         (map (lambda (s)
+  ;;                (let ((str (symbol->str s)))
+  ;;                  (list->string
+  ;;                    (reverse (string->list str)))))
+  ;;              symbols*)
+  ;;         ",")
+  ;;       (string-append
+  ;;         ";"
+  ;;         (stream->string stream)))))
 
 
 
@@ -3603,6 +3610,8 @@
 (define (root-dir)
   (rsc-path-directory (or (script-file) (executable-path))))
 
+(define (ribbit-root-dir) ;; TODO: make it work (maybe with a primitive or a env variable)
+  (root-dir))
 
 
 (define (read-from-file path)
@@ -3620,7 +3629,7 @@
 (define (read-library lib-path)
   (list (list '##include-once
    (if (equal? (rsc-path-extension lib-path) "")
-       (let* ((path (path-expand lib-path (path-expand "lib" (root-dir))))
+       (let* ((path (path-expand lib-path (path-expand "lib" (ribbit-root-dir))))
               (file-path (string-append path ".scm")))
          (if (file-exists? file-path)
            file-path
@@ -4041,7 +4050,7 @@
                                      (index (cadr prim))
                                      (primitive (caddr prim))
                                      
-                                     #;(_ (if (not primitive) (error "Cannot find needed primitive inside program :" name)))
+                                     ;(_ (if (not primitive) (error "Cannot find needed primitive inside program :" name)))
                                      (body  (extract extract-func (cadr (soft-assoc '@@body primitive)) ""))
                                      (head  (soft-assoc '@@head primitive)))
                                 (let loop ((gen gen))

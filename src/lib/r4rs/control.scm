@@ -112,6 +112,9 @@
                         acc))
       (reverse acc))))
 
+(define (compose f g)
+  (lambda args (f (apply g args))))
+
 ;; FIXME: Remove and change the procs that depend on it
 (define (##fold func base lst)
   (if (pair? lst)

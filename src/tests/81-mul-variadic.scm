@@ -11,7 +11,7 @@
 (newline)
 
 ;;;fancy-compiler
-;;;options: -l r4rs/math -l r4rs/io
+;;;options: -l r4rs/number -l r4rs/io
 ;;;expected:
 ;;;2
 ;;;5

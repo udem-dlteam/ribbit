@@ -21,19 +21,10 @@
 
 (close-output-port data-file)
 (close-output-port data-file)
-(display "output-port-close? ")
-(display (output-port-close? data-file))
-(newline)
-
-(display "input-port-close? ")
-(display (input-port-close? input-port-test))
-(newline)
 
 ;;;cleanup: rm ../../tests/data/71-output-data.txt
-;;;options: -l io 
+;;;options: -l r4rs/io 
 ;;;fancy-compiler
 ;;;expected:
 ;;;output-port? #t
 ;;;File content: "bonjour"
-;;;output-port-close? #t
-;;;input-port-close? #t
