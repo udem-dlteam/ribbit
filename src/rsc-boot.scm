@@ -1420,11 +1420,11 @@
                         (let ((param (car params)))
                           (cond 
                             ((and (symbol? param) (null? opt-params)) 
-                             (set! required-params (append required-params (cons param '())))
+                             (set! required-params (append required-params (list param)))
                              (loop (+ 1 i) (cdr params)))
 
                             ((pair? param)
-                             (set! opt-params (append opt-params (cons param '()))) 
+                             (set! opt-params (append opt-params (list param)))
                              (loop (+ 1 i) (cdr params)))
 
                             (else (error "Cannot put non-optional arguments after optional ones."))))))
@@ -1770,6 +1770,8 @@
 
 (define (include-file path)
   (let ((file-path (path-normalize (path-expand path pwd))))
+    (if (not (file-exists? file-path))
+      (error "The path needs to point to an existing file. Error while trying to include library at " file-path))
     (set! included-files (cons file-path included-files))))
 
 (define (included? path)
@@ -1806,8 +1808,6 @@
                       (eqv? (car expr) '##include-once))
 
                  (let* ((path (expand-include-prefix (cadr expr))))
-                   (if (not (file-exists? path))
-                     (error "The path needs to point to an existing file. Error while trying to include library at " file-path))
                    (if (included? path)
                        r
                      (begin 

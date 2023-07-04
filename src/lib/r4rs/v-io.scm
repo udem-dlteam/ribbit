@@ -518,7 +518,39 @@
       (write-chars (##field1 lst) escapes port))))
 
 
+;; ---------------------- OPTIONAL PROC OF R4RS ---------------------- ;;
+
+(define (with-input-from-file filename thunk)
+  (let ((old-input-port current-input-port)
+        (new-input-port (open-input-file filename)))
+    (set! current-input-port (lambda () new-input-port))
+    (let ((result (thunk)))
+      (set! current-input-port old-input-port)
+      (close-input-port new-input-port)
+      result)))
+
+(define (with-output-to-file filename thunk)
+  (let ((old-output-port current-output-port)
+        (new-output-port (open-output-file filename)))
+    (set! current-output-port (lambda () new-output-port))
+    (let ((result (thunk)))
+      (set! current-output-port old-output-port)
+      (close-output-port new-output-port)
+      result)))
+
 ;; ---------------------- UTILS NOT IN R4RS ---------------------- ;;
+
+(define (capture-output-from captured-port new-port thunk)
+  (let ((old-write-char ##write-char))
+    (set! ##write-char 
+      (lambda (ch port) 
+        (old-write-char ch
+                        (if (##eqv? port captured-port)
+                          new-port
+                          port))))
+    (let ((result (thunk)))
+      (set! ##write-char old-write-char)
+      result)))
 
 (define (pp arg (port (current-output-port)))
   (write arg port)

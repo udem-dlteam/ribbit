@@ -1,6 +1,7 @@
-(##include-once "./control.scm")
-(##include-once "./types.scm")
 (##include-once "./bool.scm")
+(##include-once "./types.scm")
+(##include-once "./number.scm")
+(##include-once "./control.scm")
 
 (define (max x . rest) 
   (##fold (lambda (curr best) (if (##< best curr) curr best)) x rest))

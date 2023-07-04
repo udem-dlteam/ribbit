@@ -111,7 +111,9 @@
   (define (number->string-aux x tail)
     (let ((q (##quotient x radix)))
       (let ((d (##- x (##* q radix))))
-        (let ((t (##rib (if (##< 9 d) (##+ 65 (##- d 10)) (##+ 48 d)) tail pair-type))) ;; cons
+        (let ((t (##rib (if (##< 9 d)
+                          (if (##eqv? radix 16) (##+ 65 (##- d 10)) (error "You know what... I quit.  " (list q d)))
+                          (##+ 48 d)) tail pair-type))) ;; cons
           (if (##< 0 q)
             (number->string-aux q t)
             t)))))
@@ -140,7 +142,7 @@
       #f))
 
   (define (string->number-aux lst)
-    (if (null? lst)
+    (if (null? lst) ;; FIXME: remove the null? check
       #f
       (string->number-aux2 lst 0 (if (##eqv? radix 16) convert-16 convert))))
 
@@ -151,15 +153,15 @@
         (if x
             (string->number-aux2 
               (##field1 lst) ;; cdr
-              (##- (##* radix n) x)
+              (##+ (##* radix n) x)
               converter)
             #f))
         n))
 
-  (let ((lst (##string->list str)))
+  (let ((lst (##field0 str)))
     (if (null? lst)
       #f
       (if (##eqv? (##field0 lst) 45) ;; car
-        (string->number-aux (##field1 lst)) ;; cdr
-        (let ((n (string->number-aux lst)))
-          (and n (##- 0 n)))))))
+        (let ((n (string->number-aux (##field1 lst))))
+          (and n (##- 0 n)))
+        (string->number-aux lst))))) ;; cdr
