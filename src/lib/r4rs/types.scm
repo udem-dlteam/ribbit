@@ -111,9 +111,7 @@
   (define (number->string-aux x tail)
     (let ((q (##quotient x radix)))
       (let ((d (##- x (##* q radix))))
-        (let ((t (##rib (if (##< 9 d)
-                          (if (##eqv? radix 16) (##+ 65 (##- d 10)) (error "You know what... I quit.  " (list q d)))
-                          (##+ 48 d)) tail pair-type))) ;; cons
+        (let ((t (##rib (if (##< 9 d) (##+ 65 (##- d 10)) (##+ 48 d)) tail pair-type))) ;; cons
           (if (##< 0 q)
             (number->string-aux q t)
             t)))))
