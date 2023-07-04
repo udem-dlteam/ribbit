@@ -1,7 +1,7 @@
-(##include-once "./control.scm")
-(##include-once "./pair-list.scm")
-(##include-once "./types.scm")
 (##include-once "./bool.scm")
+(##include-once "./types.scm")
+(##include-once "./pair-list.scm")
+(##include-once "./control.scm")
 
 ;; Numbers (R4RS section 6.5).
 

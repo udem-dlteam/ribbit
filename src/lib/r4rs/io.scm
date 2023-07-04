@@ -182,13 +182,11 @@
 
 (define ##eof (##rib 0 0 5))
 
-(define (##wrap-read-char port) (##read-char port))
-
 (define (eof-object? obj)
   (##eqv? obj ##eof))
 
 (define stdin-port
-  (##rib (##stdin) (##rib ##wrap-read-char '() #t) input-port-type)) ;; stdin
+  (##rib (##stdin) (##rib 0 '() #t) input-port-type)) ;; stdin
 
 (define stdout-port
   (##rib (##stdout) #t output-port-type))  ;; stdout
@@ -198,7 +196,7 @@
 
 (define (open-input-file filename)
   ;; (file_descriptor, (cursor, last_char, is_open), input_file_type)
-  (##rib (##get-fd-input-file filename) (##rib ##wrap-read-char '() #t) input-port-type))
+  (##rib (##get-fd-input-file filename) (##rib 0 '() #t) input-port-type))
 
 (define (close-input-port port)
   (if (##field2 (##field1 port))
@@ -229,7 +227,7 @@
   (let ((last-ch (##get-last-char port)))
     (if (null? last-ch)
 
-      (let ((ch ((##field0 (##field1 port)) (##field0 port))))
+      (let ((ch (##read-char (##field0 port))))
         (if (null? ch) ##eof (integer->char ch)))
 
       (begin

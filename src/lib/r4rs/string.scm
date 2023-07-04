@@ -1,8 +1,8 @@
-(##include-once "./control.scm")
-(##include-once "./char.scm")
-(##include-once "./pair-list.scm")
 (##include-once "./bool.scm")
 (##include-once "./types.scm")
+(##include-once "./pair-list.scm")
+(##include-once "./char.scm")
+(##include-once "./control.scm")
 
 ;; Strings (R4RS section 6.7).
 
