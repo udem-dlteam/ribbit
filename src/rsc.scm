@@ -4003,7 +4003,7 @@
                      (if (>= verbosity 1)
                        (begin
                          (display "*** RVM code length: ")
-                         (display (string-length input))
+                         (display (length input))
                          (display " bytes\n")))
                      input))))
 
