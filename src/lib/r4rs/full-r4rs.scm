@@ -127,7 +127,7 @@
   (define (number->string-aux x tail)
     (let ((q (##quotient x radix)))
       (let ((d (##- x (##* q radix))))
-        (let ((t (##rib (if (##< 9 d) (##+ 65 (##- d 10)) (##+ 48 d)) tail pair-type))) ;; cons
+        (let ((t (##rib (if (##< 9 d) (##+ 55 d) (##+ 48 d)) tail pair-type))) ;; cons
           (if (##< 0 q)
             (number->string-aux q t)
             t)))))
@@ -143,42 +143,31 @@
 
 (define (string->number str (radix 10))
 
-  (define (convert-16 c)
-    (cond 
-      ((and (##< 47 c) (##< c 58)) (##- c 48))   ;; 0-9
-      ((and (##< 64 c) (##< c 71)) (##- c 65))   ;; A-F
-      ((and (##< 96 c) (##< c 103)) (##- c 97))  ;; a-f
-      (else #f)))
-
-  (define (convert c)
-    (if (and (##< 47 c) (##< c 58)) ;; 0-9
-      (##- c 48)   
-      #f))
-
   (define (string->number-aux lst)
-    (if (null? lst) ;; FIXME: remove the null? check
-      #f
-      (string->number-aux2 lst 0 (if (##eqv? radix 16) convert-16 convert))))
+    (and (pair? lst)
+         (string->number-aux2 lst 0)))
 
-  (define (string->number-aux2 lst n converter)
+  (define (string->number-aux2 lst n)
     (if (pair? lst)
-      (let* ((c (##field0 lst))
-             (x (converter c)))
-        (if x
-            (string->number-aux2 
-              (##field1 lst) ;; cdr
-              (##+ (##* radix n) x)
-              converter)
-            #f))
+        (let* ((c (##field0 lst))
+               (x (cond ((< 47 c 58) (##- c 48))  ;; 0-9
+                        ((< 64 c 71) (##- c 55))  ;; A-F
+                        ((< 96 c 103) (##- c 87)) ;; a-f
+                        (else 99))))
+          (and (##< x radix)
+               (string->number-aux2
+                (##field1 lst) ;; cdr
+                (##- (##* radix n) x))))
         n))
 
-  (let ((lst (##field0 str)))
-    (if (null? lst)
-      #f
-      (if (##eqv? (##field0 lst) 45) ;; car
-        (let ((n (string->number-aux (##field1 lst))))
-          (and n (##- 0 n)))
-        (string->number-aux lst))))) ;; cdr
+  (let ((lst (##string->list str)))
+    (and (pair? lst)
+         (if (##eqv? (##field0 lst) 45)      ;; car
+             (string->number-aux (##field1 lst)) ;; cdr
+             (let ((n (string->number-aux (if (##eqv? (##field0 lst) 43) 
+                                            (##field1 lst)
+                                            lst))))
+               (and n (##- 0 n)))))))
 
 
 
@@ -226,16 +215,14 @@
 (define (list . args) args)
 
 (define (append . lsts)
-  (define (append-aux lsts)
-    (if (pair? lsts)
-        (let ((lst (##field0 lsts)))
-          (if (pair? lst)
-              (cons (##field0 lst) (append-aux (cons (##field1 lst) (##field1 lsts))))
-              (if (null? (##field1 lsts))
-                  lst
-                  (append-aux (##field1 lsts)))))
-        '()))
-  (append-aux lsts))
+  (if (pair? lsts)
+    (let ((lst (##field0 lsts)))
+      (if (pair? lst)
+        (cons (##field0 lst) (apply append (cons (##field1 lst) (##field1 lsts))))
+        (if (null? (##field1 lsts))
+          lst
+          (apply append (##field1 lsts)))))
+    '()))
 
 (define (reverse lst)
   (reverse-aux lst '()))
@@ -348,26 +335,21 @@
   (or (char-lower-case? ch)
       (char-upper-case? ch)))
 
-(define (char-numeric? ch)
-  (and (##< 47 (##field0 ch))   ;; #\0
-       (##< (##field0 ch) 58))) ;; #\9
+(define (char-in-range start end) 
+  (lambda (ch) (< start (##field0 ch) end)))
 
-(define (char-whitespace? ch)
-  (pair? (memq (##field0 ch) '(32 9 10 11 13))))  ;; (#\space #\tab #\newline #\vtab #\return)
+(define char-numeric? (char-in-range 47 58)) ;; #\0 #\9
 
-(define (char-lower-case? ch)
-  (and (##< 96 (##field0 ch))    ;; #\a
-       (##< (##field0 ch) 123))) ;; #\z
+(define (char-whitespace? ch) (##< (##field0 ch) 33)) ;; #\backspace #\tab #\newline #\vtab #\page #\return
 
-(define (char-upper-case? ch)
-  (and (##< 64 (##field0 ch))   ;; #\A
-       (##< (##field0 ch) 91))) ;; #\Z
+(define char-lower-case? (char-in-range 96 123)) ;; #\a #\z
+
+(define char-upper-case? (char-in-range 64 91)) ;; #\A #\Z
 
 (define (char-downcase ch)
   (if (char-upper-case? ch)
       (integer->char (##+ (##field0 ch) 32)) ; (- (##field0 #\a) (##field0 #\A))
       ch))
-
 
 
 ;; ########## Numbers (R4RS section 6.5) ########## ;;
@@ -467,8 +449,6 @@
 (define round floor)
 
 
-(define (in-range x start end)
-  (and (##<= start x) (##< x end)))
 
 ;; ########## Control (R4RS section 6.9) ########## ;;
 
@@ -599,9 +579,12 @@
 (define (string-upcase str)
   (list->string (map char-upcase (string->list str))))
 
-(define string-ci=? (transformed-call equal? string-upcase))
-(define string-ci<? (transformed-call string<? string-upcase))
-(define string-ci>? (transformed-call string>? string-upcase))
+(define (string-downcase str)
+  (list->string (map char-downcase (string->list str))))
+
+(define string-ci=? (transformed-call equal? string-downcase))
+(define string-ci<? (transformed-call string<? string-downcase))
+(define string-ci>? (transformed-call string>? string-downcase))
 (define string-ci<=? (inverse-result string-ci>?))
 (define string-ci>=? (inverse-result string-ci<?))
 
@@ -637,8 +620,6 @@
         0)))
   (string-cmp-aux (##field0 str1) (##field0 str2)))
 
-(define (string-downcase str)
-  (list->string (map char-downcase (string->list str))))
 
 (define (string-at? str sub-str start end)
   (let ((sub-str-len (string-length sub-str))
@@ -951,11 +932,11 @@
                           (cond 
                             ((null? str) (read-char port))
                             ((##eqv? (length str) 1) (integer->char (##field0 str)))
-                            (else (integer->char (cadr (assoc (list->string (map char-downcase (map integer->char str))) special-chars)))))))))
+                            (else (integer->char (cadr (assoc (string-downcase (##list->string str)) special-chars)))))))))
                    ((##eqv? c 40)  ;; #\(
                      (list->vector (read port)))
                    (else 
-                     (string->symbol (##list->string (append '(35) (read-symbol port char-downcase))))))))
+                     (string->symbol (##list->string (cons 35 (read-symbol port char-downcase))))))))
           ((##eqv? c 39)      ;; #\'
            (read-char port) ;; skip "'"
            (list 'quote (read port)))
@@ -1085,9 +1066,9 @@
            (##write-char 35 port-val)     ;; #\#
            (##write-char 92 port-val)     ;; #\\
            (let ((name (assoc (##field0 o) (map reverse special-chars)))) 
-             (if (not name)
-               (##write-char (##field0 o) port-val)
-               (display (cadr name) port))))
+             (if name
+               (display (cadr name) port)
+               (##write-char (##field0 o) port-val))))
           ((pair? o)
            (##write-char 40 port-val)  ;; #\(
            (write (##field0 o) port) ;; car
