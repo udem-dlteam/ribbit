@@ -1768,15 +1768,13 @@
 
       result)))
 
-(define (include-file path)
-  (let ((file-path (path-normalize (path-expand path pwd))))
-    (if (not (file-exists? file-path))
-      (error "The path needs to point to an existing file. Error while trying to include library at " file-path))
-    (set! included-files (cons file-path included-files))))
+(define (include-file file-path)
+  (if (not (file-exists? file-path))
+    (error "The path needs to point to an existing file. Error while trying to include library at " file-path))
+  (set! included-files (cons file-path included-files)))
 
-(define (included? path)
-  (let ((file-path (path-normalize (path-expand path pwd))))
-    (member file-path included-files)))
+(define (included? file-path)
+  (member file-path included-files))
 
 (define (expand-include-prefix include-path)
   (cond 
@@ -1802,12 +1800,12 @@
 
                 ((and (pair? expr) 
                       (eqv? (car expr) '##include))
-                 (cons (expand-include (expand-include-prefix (cadr expr))) r))
+                 (cons (path-normalize (path-expand (expand-include-prefix (cadr expr)) pwd)) r))
 
                 ((and (pair? expr)
                       (eqv? (car expr) '##include-once))
 
-                 (let* ((path (expand-include-prefix (cadr expr))))
+                 (let* ((path (path-normalize (path-expand (expand-include-prefix (cadr expr)) pwd))))
                    (if (included? path)
                        r
                      (begin 
@@ -3617,7 +3615,7 @@
 (define (read-from-file path)
   (let* ((port (open-input-file path))
          (first-line (read-line port))
-         (port (if (string-prefix? "#!" first-line)
+         (port (if (and (not (eof-object? first-line)) (string-prefix? "#!" first-line))
                  (begin 
                    (pp "SHABANGED")
                    port)
@@ -4428,7 +4426,7 @@
                          (string-append "/rvm." target))))
                  target
                  input-path
-                 (if (eq? lib-path '()) '("default") lib-path)
+                 (if (eq? lib-path '()) '("empty") lib-path)
                  minify?
                  verbosity
                  progress-status
