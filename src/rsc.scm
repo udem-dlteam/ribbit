@@ -1367,7 +1367,7 @@
                     (if (null? opt-params)
                       (cons 'lambda
                             (cons params
-                                  (cons (expand-body (cddr expr) mtx) '())))
+                                  (cons (expand-body (cddr expr) (mtx-shadow mtx params)) '())))
                       ;; Add the check for the optional params 
                       (let ((vararg-name (if variadic (last-item params) '##vararg))
                             (opt-params-body '()))
@@ -1424,9 +1424,12 @@
                                                            mtx)
                                                          '())))
                                            bindings)
-                                      (cons (expand-body (cddr expr) mtx)
+                                      (cons (expand-body (cddr expr) 
+                                                         (mtx-shadow mtx
+                                                                     (map car bindings)))
                                             '())))
-                          (expand-body (cddr expr) mtx))))))
+                          (expand-body (cddr expr) 
+                                       mtx))))))
 
                  ((eqv? first 'let*)
                   (let ((bindings (cadr expr)))
@@ -1593,7 +1596,6 @@
                    (let ((macro (mtx-search mtx (car expr))))
                      (if macro
                        (begin
-                         (step)
                          (expand-expr
                            (eval 
                              `(,macro
@@ -1644,11 +1646,13 @@
                                                (cons (cdr pattern)
                                                      (cddr expr)))
                                          '()))
-                             defs))
+                             defs)
+                       mtx)
                  (loop (cdr exprs)
                        (cons (cons pattern
                                    (cddr expr))
-                             defs)))))
+                             defs)
+                       mtx))))
             ((and (pair? expr) (eqv? 'define-macro (car expr)) (pair? (cdr expr)))
              (let ((pattern (cadr expr)))
                (if (pair? pattern)
@@ -1656,8 +1660,8 @@
                        defs
                        (mtx-add-cte 
                          mtx 
-                         (cadr expr)
-                         `(lambda (,@(cddr pattern))
+                         (caadr expr)
+                         `(lambda (,@(cdadr expr))
                             ,@(cddr expr))))
                          
                  (loop (cdr exprs)
@@ -1723,12 +1727,14 @@
 
 (define mtx-cte      field1)
 (define mtx-cte-set! field1-set!)
+(define (mtx-cte-set mtx cte)
+  (make-mtx (mtx-global mtx) cte))
 
 (define (mtx-add-global! mtx macro-name macro-value)
   (mtx-global-set! mtx (cons (list macro-name macro-value) (mtx-global mtx))))
 
 (define (mtx-add-cte mtx macro-name macro-value)
-  (cons (list macro-name macro-value) (mtx-cte mtx)))
+  (mtx-cte-set mtx (cons (list macro-name macro-value) (mtx-cte mtx))))
 
 (define (mtx-search mtx macro-name)
   (let ((macro-value (assq macro-name (append (mtx-cte mtx) (mtx-global mtx)))))
@@ -1737,8 +1743,14 @@
       #f)))
 
 ;; Shadow macro by a variable
-(define (mtx-shadow mtx macro-name) 
-  (cons (list macro-name #f) (mtx-cte mtx)))
+(define (mtx-shadow mtx variable-names) 
+  (mtx-cte-set 
+    mtx
+    (append 
+      (map (lambda (variable-name)
+             (list variable-name #f))
+           variable-names)
+      (mtx-cte mtx))))
 
 (define (expand-begin* exprs rest mtx)
   (if (pair? exprs)
