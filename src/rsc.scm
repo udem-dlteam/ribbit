@@ -1362,7 +1362,7 @@
                     (if (null? opt-params)
                       (cons 'lambda
                             (cons params
-                                  (cons (expand-body (cddr expr) (mtx-shadow mtx params)) '())))
+                                  (cons (expand-body (cddr expr) (mtx-shadow mtx (if (pair? params) (improper-list->list params '()) (list params)))) '())))
                       ;; Add the check for the optional params 
                       (let ((vararg-name (if variadic (last-item params) '##vararg))
                             (opt-params-body '()))
