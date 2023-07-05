@@ -1208,7 +1208,7 @@
          (expansion
            `(begin
               ,@(host-feature->expansion-feature host-features) ;; add host features
-              ,(expand-begin exprs)))
+              ,(expand-begin exprs (make-mtx '() '()))))
 
         
          (live-globals-and-features
@@ -1309,7 +1309,7 @@
 (define pwd (current-directory))
 (define included-files '())
 
-(define (expand-expr expr)
+(define (expand-expr expr mtx)
 
   (cond ((symbol? expr)
          expr)
@@ -1327,15 +1327,15 @@
                   (let ((var (cadr expr)))
                     (cons 'set!
                           (cons var
-                                (cons (expand-expr (caddr expr))
+                                (cons (expand-expr (caddr expr) mtx)
                                       '())))))
 
                  ((eqv? first 'if)
                   (cons 'if
-                        (cons (expand-expr (cadr expr))
-                              (cons (expand-expr (caddr expr))
+                        (cons (expand-expr (cadr expr) mtx)
+                              (cons (expand-expr (caddr expr) mtx)
                                     (cons (if (pair? (cdddr expr))
-                                            (expand-expr (cadddr expr))
+                                            (expand-expr (cadddr expr) mtx)
                                             #f)
                                           '())))))
 
@@ -1362,7 +1362,7 @@
                     (if (null? opt-params)
                       (cons 'lambda
                             (cons params
-                                  (cons (expand-body (cddr expr)) '())))
+                                  (cons (expand-body (cddr expr) (mtx-shadow mtx params)) '())))
                       ;; Add the check for the optional params 
                       (let ((vararg-name (if variadic (last-item params) '##vararg))
                             (opt-params-body '()))
@@ -1372,18 +1372,23 @@
 
                         (for-each
                           (lambda (opt-param)
-                            (set! opt-params-body (append opt-params-body (expand-opt-param (car opt-param) (cadr opt-param) vararg-name))))
+                            (set! opt-params-body 
+                              (append opt-params-body 
+                                      (expand-opt-param 
+                                        (car opt-param) 
+                                        (cadr opt-param) 
+                                        vararg-name
+                                        mtx))))
                           opt-params)
-                        (cons 'lambda
-                              (cons required-params
-                                    (cons (expand-body (list (list 'let* opt-params-body 
-                                                                   (expand-body (append (if variadic 
-                                                                                          '() 
-                                                                                          (list (list 'if (list '##eqv? (list '##field2 vararg-name) '0)
-                                                                                                      ;; '(error "Too many arguments were passed to the function."))))
-                                                                                                      '(crash))))
-                                                                                        (cddr expr))))))
-                                          '())))))))
+
+                        (expand-expr
+                          `(lambda 
+                             ,required-params
+                             (let* ,opt-params-body
+                               ,@(cddr expr)))
+                          mtx
+
+                          )))))
 
                  ((eqv? first 'let)
                   (let ((x (cadr expr)))
@@ -1402,19 +1407,24 @@
                                       '())
                                     (cons x
                                           '())))
-                            (map cadr bindings))))
+                            (map cadr bindings)))
+                        mtx)
                       (let ((bindings x))
                         (if (pair? bindings)
                           (cons 'let
                                 (cons (map (lambda (binding)
                                              (cons (car binding)
                                                    (cons (expand-expr
-                                                           (cadr binding))
+                                                           (cadr binding)
+                                                           mtx)
                                                          '())))
                                            bindings)
-                                      (cons (expand-body (cddr expr))
+                                      (cons (expand-body (cddr expr) 
+                                                         (mtx-shadow mtx
+                                                                     (map car bindings)))
                                             '())))
-                          (expand-body (cddr expr)))))))
+                          (expand-body (cddr expr) 
+                                       mtx))))))
 
                  ((eqv? first 'let*)
                   (let ((bindings (cadr expr)))
@@ -1426,7 +1436,8 @@
                                                 (cons (cdr bindings)
                                                       (cddr expr)))
                                           '()))
-                              (cdr expr))))))
+                              (cdr expr)))
+                      mtx)))
 
                  ((eqv? first 'letrec)
                   (let ((bindings (cadr expr)))
@@ -1441,10 +1452,11 @@
                                                              (cons (cadr binding)
                                                                    '()))))
                                                bindings)
-                                          (cddr expr)))))))
+                                          (cddr expr))))
+                      mtx)))
 
                  ((eqv? first 'begin)
-                  (expand-begin (cdr expr)))
+                  (expand-begin (cdr expr) mtx))
 
                  ((eqv? first 'define)
                   (let ((pattern (cadr expr)))
@@ -1454,19 +1466,26 @@
                                   (cons (expand-expr
                                           (cons 'lambda
                                                 (cons (cdr pattern)
-                                                      (cddr expr))))
+                                                      (cddr expr)))
+                                          mtx)
                                         '())))
                       (cons 'set!
                             (cons pattern
-                                  (cons (expand-expr (caddr expr))
+                                  (cons (expand-expr 
+                                          (caddr expr)
+                                          mtx)
                                         '()))))))
 
                  ((eqv? first 'if-feature)
                   (cons 'if-feature
                         (cons (cadr expr)
-                              (cons (expand-expr (caddr expr))
+                              (cons (expand-expr 
+                                      (caddr expr)
+                                      mtx)
                                     (cons (if (pair? (cdddr expr))
-                                            (expand-expr (cadddr expr))
+                                            (expand-expr 
+                                              (cadddr expr)
+                                              mtx)
                                             #f)
                                           '())))))
 
@@ -1477,7 +1496,6 @@
                     `(define-primitive 
                        ,@rest
                        (@@body ,(parse-host-file (string->list* (fold string-append "" code)))))))
-                    ;(append rest (list '@@body (parse-host-file (string->list* (fold string-append "" code)))))))
 
                  ((eqv? (car expr) 'define-feature) ;; parse arguments as a source file
                   (let* ((bindings (cddr expr))
@@ -1491,64 +1509,6 @@
                              `(,(car x) ,(parse-host-file (string->list* (fold string-append "" (cdr x))))))
                            rest))))
                       
-
-                      
-
-
-
-                 #;((eqv? (car expr) 'define-primitive)
-                  (if (not defined-features)
-                    (error "Cannot use define-primitive while targeting a non-modifiable host")
-                    (let* ((prim-num (cons 'tbd
-                                           (cons (cons 'quote (cons 0 '()))
-                                                 (cons (cons 'quote (cons 1 '())) '())))) ;; creating cell that will be set later on
-                           (primitive-body (filter pair? (cdr expr)))
-                           (name (caar primitive-body))
-                           (code (filter string? (cdr expr)))
-                           (code (if (eqv? (length code) 1) (car code) (error "define-primitive is not well formed"))))
-
-                      (set! defined-features
-                        (append defined-features
-                                (cons (cons 'primitive
-                                            (append primitive-body
-                                                    (append (cons (cons 'body (cons (cons (cons 'str (cons code '())) '()) '())) '())
-                                                            (cons (cons '@@id (cons prim-num '())) '())))) '())))
-                      (cons 'set!
-                            (cons name
-                                  (cons (cons 'rib prim-num)
-                                        '()))))))
-
-                 #;((eqv? (car expr) 'define-feature)
-                  (if (not defined-features)
-                    (error "Cannot use define-feature while targeting a non-modifiable host")
-                    (let* ((feature-name (cadr expr))
-                           (has-use (eq? (caaddr expr) 'use))
-                           (feature-use (if has-use (caddr expr) '()))
-                           (feature-location-code-pairs (if has-use (cdddr expr) (cddr expr))))
-                      (for-each 
-                        (lambda (feature-pair)
-                          (set! defined-features 
-                            (append defined-features
-                                    (cons (cons 'feature
-                                                (cons feature-name
-                                                      (cons (cons '@@location
-                                                                  (cons (car feature-pair) '()))
-                                                      (cons feature-use
-                                                            (cons
-                                                              (cons 'body 
-                                                                    (cons
-                                                                      (cons 
-                                                                        (cons 'str
-                                                                              (cons (cadr feature-pair)
-                                                                                    '()))
-                                                                        '())
-                                                                      '()))
-                                                              '())))))
-                                          '()))))
-                        feature-location-code-pairs)
-                      '#f)))
-
-
                  ((eqv? first 'and)
                   (expand-expr
                     (if (pair? (cdr expr))
@@ -1560,7 +1520,8 @@
                                           (cons #f
                                                 '()))))
                         (cadr expr))
-                      #t)))
+                      #t)
+                    mtx))
 
                  ((eqv? first 'or)
                   (expand-expr
@@ -1582,7 +1543,8 @@
                                                       '()))))
                               '())))
                         (cadr expr))
-                      #f)))
+                      #f)
+                    mtx))
 
                  ((eqv? first 'cond)
                   (expand-expr
@@ -1596,7 +1558,8 @@
                                           (cons (cons 'cond
                                                       (cddr expr))
                                                 '())))))
-                      #f)))
+                      #f)
+                    mtx))
 
                  ((eqv? first 'case)
                   (let ((key (cadr expr)))
@@ -1604,7 +1567,9 @@
                       (if (pair? clauses)
                         (let ((clause (car clauses)))
                           (if (eqv? (car clause) 'else)
-                            (expand-expr (cons 'begin (cdr clause)))
+                            (expand-expr 
+                              (cons 'begin (cdr clause))
+                              mtx)
                             (expand-expr
                               (cons 'if
                                     (cons (cons '##case-memv
@@ -1618,11 +1583,20 @@
                                                 (cons (cons 'case
                                                             (cons key
                                                                   (cdr clauses)))
-                                                      '())))))))
+                                                      '()))))
+                              mtx)))
                         #f))))
 
                  (else
-                   (expand-list expr)))))
+                   (let ((macro (mtx-search mtx (car expr))))
+                     (if macro
+                       (begin
+                         (expand-expr
+                           (eval 
+                             `(,macro
+                                ,@(cdr expr)))
+                           mtx))
+                       (expand-list expr mtx)))))))
 
         (else
           (expand-constant expr))))
@@ -1653,37 +1627,64 @@
         (list '##qq-cons (parse (car x) depth) (parse (cdr x) depth))))))
 
 
-(define (expand-body exprs)
-  (let loop ((exprs exprs) (defs '()))
+(define (expand-body exprs mtx)
+  (let loop ((exprs exprs) (defs '()) (mtx mtx))
     (if (pair? exprs)
         (let ((expr (car exprs)))
-          (if (and (pair? expr) (eqv? 'define (car expr)) (pair? (cdr expr)))
-              (let ((pattern (cadr expr)))
-                (if (pair? pattern)
-                    (loop (cdr exprs)
-                          (cons (cons (car pattern)
-                                      (cons (cons 'lambda
-                                                  (cons (cdr pattern)
-                                                        (cddr expr)))
-                                            '()))
-                                defs))
-                    (loop (cdr exprs)
-                          (cons (cons pattern
-                                      (cddr expr))
-                                defs))))
-              (expand-body-done defs exprs)))
-        (expand-body-done defs '(0)))))
+          (cond
+            ((and (pair? expr) (eqv? 'define (car expr)) (pair? (cdr expr)))
+             (let ((pattern (cadr expr)))
+               (if (pair? pattern)
+                 (loop (cdr exprs)
+                       (cons (cons (car pattern)
+                                   (cons (cons 'lambda
+                                               (cons (cdr pattern)
+                                                     (cddr expr)))
+                                         '()))
+                             defs)
+                       mtx)
+                 (loop (cdr exprs)
+                       (cons (cons pattern
+                                   (cddr expr))
+                             defs)
+                       mtx))))
+            ((and (pair? expr) (eqv? 'define-macro (car expr)) (pair? (cdr expr)))
+             (let ((pattern (cadr expr)))
+               (if (pair? pattern)
+                 (loop (cdr exprs)
+                       defs
+                       (mtx-add-cte 
+                         mtx 
+                         (caadr expr)
+                         `(lambda (,@(cdadr expr))
+                            ,@(cddr expr))))
+                         
+                 (loop (cdr exprs)
+                       defs
+                       (let ((macro-name (cadr expr))
+                             (macro-value (caddr expr)))
+                         (if (not (eq? (car macro-value) 'lambda))
+                           (error "*** define-macro: expected lambda expression" macro-value))
 
-(define (expand-body-done defs exprs)
+                         (mtx-add-cte
+                           mtx
+                           macro-name 
+                           macro-value))))))
+            (else
+              (expand-body-done defs exprs mtx))))
+        (expand-body-done defs '(0) mtx))))
+
+(define (expand-body-done defs exprs mtx)
   (if (pair? defs)
       (expand-expr
        (cons 'letrec
              (cons (reverse defs)
-                   exprs)))
-      (expand-begin exprs)))
+                   exprs))
+       mtx)
+      (expand-begin exprs mtx)))
 
-(define (expand-begin exprs)
-  (let ((x (expand-begin* exprs '())))
+(define (expand-begin exprs mtx)
+  (let ((x (expand-begin* exprs '() mtx)))
     (if (pair? x)
         (if (pair? (cdr x))
             (cons 'begin x)
@@ -1691,13 +1692,13 @@
         (expand-constant 0)))) ;; unspecified value
 
 
-(define (expand-include path)
+(define (expand-include path mtx)
   (let ((old-pwd pwd) 
         (file-path (path-normalize (path-expand path pwd))))
 
     (set! pwd (path-directory file-path))
 
-    (let ((result (expand-begin (read-from-file file-path))))
+    (let ((result (expand-begin (read-from-file file-path) mtx)))
 
       (set! pwd old-pwd)
 
@@ -1712,38 +1713,96 @@
     (member file-path included-files)))
 
 (define indent-level 1)
-(define (expand-begin* exprs rest)
+
+(define (make-mtx global-macro cte)  ;; macro-contex object
+  (rib global-macro cte 0))
+
+(define mtx-global      field0)
+(define mtx-global-set! field0-set!)
+
+(define mtx-cte      field1)
+(define mtx-cte-set! field1-set!)
+(define (mtx-cte-set mtx cte)
+  (make-mtx (mtx-global mtx) cte))
+
+(define (mtx-add-global! mtx macro-name macro-value)
+  (mtx-global-set! mtx (cons (list macro-name macro-value) (mtx-global mtx))))
+
+(define (mtx-add-cte mtx macro-name macro-value)
+  (mtx-cte-set mtx (cons (list macro-name macro-value) (mtx-cte mtx))))
+
+(define (mtx-search mtx macro-name)
+  (let ((macro-value (assq macro-name (append (mtx-cte mtx) (mtx-global mtx)))))
+    (if macro-value
+      (cadr macro-value)
+      #f)))
+
+;; Shadow macro by a variable
+(define (mtx-shadow mtx variable-names) 
+  (mtx-cte-set 
+    mtx
+    (append 
+      (map (lambda (variable-name)
+             (list variable-name #f))
+           variable-names)
+      (mtx-cte mtx))))
+
+(define (expand-begin* exprs rest mtx)
   (if (pair? exprs)
-      (let ((expr (car exprs)))
-        (let ((r (expand-begin* (cdr exprs) rest)))
-          (cond ((and (pair? expr) (eqv? (car expr) 'begin))
-                 (expand-begin* (cdr expr) r))
+      (let* ((expr (car exprs))
+             (r '())
+             (expanded-expr 
+               (cond ((and (pair? expr) (eqv? (car expr) 'begin))
+                      (expand-begin* (cdr expr) r mtx))
 
-                ((and (pair? expr) (eqv? (car expr) 'cond-expand))
-                 (expand-cond-expand-clauses (cdr expr) r))
+                     ((and (pair? expr) (eqv? (car expr) 'cond-expand))
+                      (expand-cond-expand-clauses (cdr expr) r mtx))
 
-                ((and (pair? expr) 
-                      (eqv? (car expr) '##include))
-                 (cons (expand-include (cadr expr)) r))
+                     ((and (pair? expr) 
+                           (eqv? (car expr) '##include))
+                      (cons (expand-include (cadr expr)) r mtx))
 
-                ((and (pair? expr)
-                      (eqv? (car expr) '##include-once))
-                 ;; (display (string-append (make-string (- (* 2 indent-level) 1) #\-) "| Including "))
-                 ;; (write (cadr expr))
-                 (if (included? (cadr expr))
-                   (begin 
-                     ;; (display " (already included)\n")
-                     r)
-                   (begin 
-                     ;; (write-char #\newline)
-                     (set! indent-level (+ indent-level 1))
-                     (include-file (cadr expr))
-                     (let ((result (cons (expand-include (cadr expr)) r)))
-                       (set! indent-level (- indent-level 1))
-                       result))))
+                     ((and (pair? expr)
+                           (eqv? (car expr) '##include-once))
+                      ;; (display (string-append (make-string (- (* 2 indent-level) 1) #\-) "| Including "))
+                      ;; (write (cadr expr))
 
-                (else
-                  (cons (expand-expr expr) r)))))
+                      (if (included? (cadr expr))
+                        (begin 
+                          ;; (display " (already included)\n")
+                          r)
+                        (begin 
+                          ;; (write-char #\newline)
+                          ;(set! indent-level (+ indent-level 1))
+                          (include-file (cadr expr))
+                          (let ((result (cons (expand-include (cadr expr) mtx) r)))
+                            ;(set! indent-level (- indent-level 1))
+                            result))))
+
+                     ((and (pair? expr)
+                           (eqv? (car expr) 'define-macro))
+                      (if (pair? (cadr expr))
+                        (mtx-add-global! 
+                          mtx 
+                          (caadr expr) 
+                          `(lambda (,@(cdadr expr))
+                             ,@(cddr expr)))
+                        (let ((macro-name (cadr expr))
+                              (macro-value (caddr expr)))
+                          (if (not (eq? (car macro-value) 'lambda))
+                            (error "*** define-macro: expected lambda expression" macro-value))
+
+                          (mtx-add-global!
+                            mtx
+                            macro-name 
+                            macro-value)))
+                      r)
+
+
+                     (else
+                       (cons (expand-expr expr mtx) r)))))
+
+        (append expanded-expr (expand-begin* (cdr exprs) rest mtx)))
       rest))
 
 (define (cond-expand-eval expr)
@@ -1758,28 +1817,28 @@
         (else
          (eqv? expr 'ribbit))))
 
-(define (expand-cond-expand-clauses clauses rest)
+(define (expand-cond-expand-clauses clauses rest mtx)
   (if (pair? clauses)
       (let ((clause (car clauses)))
         (if (or (eqv? 'else (car clause))
                 (cond-expand-eval (car clause)))
-            (expand-begin* (cdr clause) rest)
-            (expand-cond-expand-clauses (cdr clauses) rest)))
+            (expand-begin* (cdr clause) rest mtx)
+            (expand-cond-expand-clauses (cdr clauses) rest mtx)))
       rest))
 
-(define (expand-list exprs)
+(define (expand-list exprs mtx)
   (if (pair? exprs)
-      (cons (expand-expr (car exprs))
-            (expand-list (cdr exprs)))
+      (cons (expand-expr (car exprs) mtx)
+            (expand-list (cdr exprs) mtx))
       '()))
 
 
-(define (expand-opt-param param-name param-default vararg-name)
+(define (expand-opt-param param-name param-default vararg-name mtx)
   ;; If this part is not performant enough, replace the set! with a
   ;; (vararg (if (eqv? vararg '()) '() (field1 vararg)))
   ;; after every optional arg clause
   `((,param-name (if (##eqv? ,vararg-name '())
-                    ,(expand-expr param-default)
+                    ,(expand-expr param-default mtx)
                     (let ((value (##field0 ,vararg-name)))
                       (set! ,vararg-name (##field1 ,vararg-name))
                       value)))))
