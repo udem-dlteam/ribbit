@@ -548,28 +548,30 @@
 
 (define predefined '(##rib false true nil)) ;; predefined symbols
 
-(define default-primitives '(
-(##rib         0) ;; predefined by RVM (must be first and 0)
-(##id          1)
-(##arg1        2)
-(##arg2        3)
-(##close       4)
-(##rib?        5)
-(##field0      6)
-(##field1      7)
-(##field2      8)
-(##field0-set! 9)
-(##field1-set! 10)
-(##field2-set! 11)
-(##eqv?        12)
-(##<           13)
-(##+           14)
-(##-           15)
-(##*           16)
-(##quotient    17)
-(##getchar     18)
-(##putchar     19)
-(##exit        20)))
+(define default-primitives 
+  (map 
+    (lambda (p) `(primitive ,p (@@head "") (@@body (str ""))))
+    '((##rib x y z)
+      (##id x)
+      (##arg1 x y)
+      (##arg2 x y)
+      (##close rib)
+      (##rib? o)
+      (##field0 x)
+      (##field1 x)
+      (##field2 x)
+      (##field0-set! x v)
+      (##field1-set! x v)
+      (##field2-set! x v)
+      (##eqv? o1 o2)
+      (##< x y)
+      (##+ x y)
+      (##- x y)
+      (##* x y)
+      (##quotient x y)
+      (##getchar)
+      (##putchar c)
+      (##exit code))))
 
 (define jump/call-op 'jump/call)
 (define set-op       'set)
@@ -1049,31 +1051,38 @@
                                  cont))))
 
                  (else
-                  (let ((args (cdr expr)))
-                    (if (symbol? first)
-                        (comp-call ctx
-                                   args
-                                   (lambda (ctx)
-                                     (let ((v (lookup first (ctx-cte ctx) 0)))
-                                       (if (arity-check? ctx first)
-                                         (add-nb-args ctx 
-                                                      (length args)
-                                                      (gen-call 
-                                                        (if (and (number? v)
-                                                                 (memq 'arity-check (ctx-live-features ctx)))
-                                                          (+ v 1)
-                                                          v)
-                                                        cont))
-                                         (gen-call v cont)))))
-                        (comp-bind ctx
-                                   '(_)
-                                   (cons first '())
-                                   (cons (cons '_ args) '())
-                                   cont)))))))
+                   (let ((args (cdr expr)))
+                     (if (symbol? first)
+                       (begin
+                         (let ((call-sym (assoc first call-stats)))
+                           (if call-sym 
+                             (set-car! (cdr call-sym) (+ 1 (cadr call-sym)))
+                             (set! call-stats (cons (list first 1) call-stats))))
+                         (comp-call ctx
+                                    args
+                                    (lambda (ctx)
+                                      (let ((v (lookup first (ctx-cte ctx) 0)))
+                                        (if (arity-check? ctx first)
+                                          (add-nb-args ctx 
+                                                       (length args)
+                                                       (gen-call 
+                                                         (if (and (number? v)
+                                                                  (memq 'arity-check (ctx-live-features ctx)))
+                                                           (+ v 1)
+                                                           v)
+                                                         cont))
+                                          (gen-call v cont))))))
+                       (comp-bind ctx
+                                  '(_)
+                                  (cons first '())
+                                  (cons (cons '_ args) '())
+                                  cont)))))))
 
         (else
          ;; self-evaluating
          (c-rib const-op expr cont))))
+
+(define call-stats '())
 
 (define (gen-call v cont)
   (if (eqv? cont tail)
@@ -1273,8 +1282,7 @@
          (exports
            (exports->alist (cdr exprs-and-exports)))
 
-         (host-features
-           (and parsed-vm (extract-features parsed-vm)))
+         (host-features (extract-features (or parsed-vm default-primitives)))
 
          (expansion
            `(begin
@@ -4140,7 +4148,7 @@
                      (if (>= verbosity 1)
                        (begin
                          (display "*** RVM code length: ")
-                         (display (string-length input))
+                         (display (length input))
                          (display " bytes\n")))
                      input))))
 
@@ -4148,7 +4156,7 @@
 
     (let* ((target-code-before-minification
             (if (equal? target "rvm")
-                (encode 92)   ;; TODO: 256 is the number of code in the encoding.
+                (stream->string (encode 92))   ;; NOTE: 92 is the number of code in the encoding.
                 (generate-file host-file host-config encode)))
            (target-code
             (if (or (not minify?) (equal? target "rvm"))
@@ -4255,7 +4263,8 @@
                            features-enabled
                            features-disabled
                            encoding-name
-                           byte-stats)
+                           byte-stats
+                           call-stats?)
 
      ;; This version of the compiler reads the program and runtime library
      ;; source code from files and it supports various options.  It can
@@ -4304,6 +4313,8 @@
                                    features-enabled
                                    features-disabled
                                    program-read)))
+           (if call-stats?
+             (pp (list-sort (lambda (stat1 stat2) (> (cadr stat1) (cadr stat2))) call-stats)))
            (report-status "Generating target code")
            (let ((generated-code (generate-code
                                    _target
@@ -4337,6 +4348,7 @@
                (rvm-path #f)
                (progress-status #f)
                (byte-stats #f)
+               (call-stats #f)
                (encoding-name "original"))
 
            (let loop ((args (cdr args)))
@@ -4377,6 +4389,10 @@
                          ((and (pair? rest) (member arg '("-bs" "--byte-stats")))
                           (set! byte-stats (string->number (car rest)))
                           (loop (cdr rest)))
+
+                         ((member arg '("-cs" "--call-stats"))
+                          (set! call-stats #t)
+                          (loop rest))
 
                          ((member arg '("-v" "--v"))
                           (set! verbosity (+ verbosity 1))
@@ -4435,7 +4451,7 @@
                  features-disabled
                  encoding-name
                  byte-stats
-                 )))))
+                 call-stats)))))
    (parse-cmd-line (cmd-line))
 
    (exit-program-normally)))

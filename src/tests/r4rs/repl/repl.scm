@@ -204,7 +204,11 @@
   or
 
   ;#; ;; support for cond special form
-  cond)
+  cond
+
+  space
+  tab
+  return)
 
 (repl)
 

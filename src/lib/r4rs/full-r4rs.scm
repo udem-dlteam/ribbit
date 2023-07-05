@@ -94,7 +94,7 @@
 
 (define (##map proc lst)
   (if (pair? lst)
-    (cons (proc (##field0 lst)) (##map proc (##field1 lst)))
+    (##cons (proc (##field0 lst)) (##map proc (##field1 lst)))
     '()))
 
 (define (list->string lst) (##list->string (##map char->integer lst)))
@@ -113,7 +113,7 @@
         (if (equal? (##field1 sym) str)
           sym
           (string->symbol-aux str (##field1 syms))))
-      (let ((sym (string->uninterned-symbol str)))
+      (let ((sym (##rib #f (string-append str) symbol-type))) ;; string->uninterned-symbol
         (set! symtbl (##rib sym symtbl pair-type)) ;; cons
         sym)))
 
@@ -173,6 +173,12 @@
 
 ;; ########## Pairs and lists (R4RS section 6.3) ########## ;;
 
+(cond-expand 
+  ((host js)
+   (define-primitive
+     (##cons car cdr)
+     "prim2((cdr, car) => [car,cdr,0]),")))
+
 (define (cons car cdr) (##rib car cdr pair-type))
 (define (car x) (##field0 x))
 (define (cdr x) (##field1 x))
@@ -218,7 +224,7 @@
   (if (pair? lsts)
     (let ((lst (##field0 lsts)))
       (if (pair? lst)
-        (cons (##field0 lst) (apply append (cons (##field1 lst) (##field1 lsts))))
+        (##cons (##field0 lst) (apply append (##cons (##field1 lst) (##field1 lsts))))
         (if (null? (##field1 lsts))
           lst
           (apply append (##field1 lsts)))))
@@ -229,7 +235,7 @@
 
 (define (reverse-aux lst result)
   (if (pair? lst)
-    (reverse-aux (##field1 lst) (cons (##field0 lst) result))
+    (reverse-aux (##field1 lst) (##cons (##field0 lst) result))
     result))
 
 (define (list-ref lst i)
@@ -280,7 +286,7 @@
 
 (define (make-list k fill lst)
   (if (##< 0 k)
-      (make-list (##- k 1) fill (cons fill lst))
+      (make-list (##- k 1) fill (##cons fill lst))
       lst))
 
 
@@ -325,9 +331,14 @@
       (integer->char (##- (##field0 ch) 32)) ; (- (##field0 #\A) (##field0 #\a))
       ch))
 
-(define char-ci=? (transformed-call char=? char-upcase))
-(define char-ci<? (transformed-call char<? char-upcase))
-(define char-ci>? (transformed-call char>? char-upcase))
+(define (char-downcase ch)
+  (if (char-upper-case? ch)
+      (integer->char (##+ (##field0 ch) 32)) ; (- (##field0 #\a) (##field0 #\A))
+      ch))
+
+(define char-ci=? (transformed-call char=? char-downcase))
+(define char-ci<? (transformed-call char<? char-downcase))
+(define char-ci>? (transformed-call char>? char-downcase))
 (define char-ci<=? (inverse-result char-ci>?))
 (define char-ci>=? (inverse-result char-ci<?))
 
@@ -346,10 +357,6 @@
 
 (define char-upper-case? (char-in-range 64 91)) ;; #\A #\Z
 
-(define (char-downcase ch)
-  (if (char-upper-case? ch)
-      (integer->char (##+ (##field0 ch) 32)) ; (- (##field0 #\a) (##field0 #\A))
-      ch))
 
 
 ;; ########## Numbers (R4RS section 6.5) ########## ;;
@@ -515,7 +522,7 @@
 
 (define (map proc . lsts)
   (if (pair? (##field0 lsts))
-    (cons (apply proc (##map car lsts))
+    (##cons (apply proc (##map car lsts))
           (apply map (append (list proc) (##map cdr lsts))))
     '()))
 
@@ -593,7 +600,7 @@
   (define (substring-aux str start end tail)
     (if (##< start end)
       (let ((i (##- end 1)))
-        (substring-aux str start i (cons (string-ref str i) tail)))
+        (substring-aux str start i (##cons (string-ref str i) tail)))
       (list->string tail)))
 
   (substring-aux str start end '()))
@@ -897,10 +904,10 @@
 
 ;; ---------------------- READ ---------------------- ;;
 
-(define special-chars '(("newline" 10) 
-                        ("space" 32) 
-                        ("tab" 9)
-                        ("return" 13)))
+(define special-chars '((newline 10) 
+                        (space 32) 
+                        (tab 9)
+                        (return 13)))
 
 (define escapes '((10 110)   ;; \n -> n
                   (13 116)   ;; \t -> t
@@ -925,18 +932,16 @@
                     #t)
                    ((##eqv? c 92)        ;; #\\
                     (read-char port) ;; skip "\\"
-                    (let ((ch (peek-char port)))
-                      (if (char-whitespace? ch) 
-                        (read-char port)
-                        (let ((str (read-symbol port (lambda (x) x))))
-                          (cond 
-                            ((null? str) (read-char port))
-                            ((##eqv? (length str) 1) (integer->char (##field0 str)))
-                            (else (integer->char (cadr (assoc (string-downcase (##list->string str)) special-chars)))))))))
+                    (let ((ch (peek-char port))
+                          (str (read-symbol port '())))
+                      (cond 
+                        ((##eqv? (##field1 str) 0) (read-char port))
+                        ((##eqv? (##field1 str) 1) ch)
+                        (else (integer->char (cadr (assq (string->symbol str) special-chars)))))))
                    ((##eqv? c 40)  ;; #\(
                      (list->vector (read port)))
                    (else 
-                     (string->symbol (##list->string (cons 35 (read-symbol port char-downcase))))))))
+                     (string->symbol (read-symbol port (list #\#)))))))
           ((##eqv? c 39)      ;; #\'
            (read-char port) ;; skip "'"
            (list 'quote (read port)))
@@ -956,35 +961,31 @@
            (##list->string (read-chars '() port)))
           (else
             ;; (read-char port) ;; skip first char
-            (let ((s (##list->string (read-symbol port char-downcase))))
+            (let ((s (read-symbol port '())))
               (let ((n (string->number s)))
                 (or n
                     (string->symbol s))))))))
 
 (define (read-list port)
   (let ((c (peek-char-non-whitespace port)))
-    (cond 
-      ((##eqv? c 41) ;; #\)
-       (read-char port) ;; skip ")"
-       '())
-      (else (let ((first (read port)))
-              (if (and (symbol? first) (equal? (symbol->string first) "."))
-                (let ((result (read port)))
-                  (read-char port)
-                  result)
-                (cons first (read-list port))))))))
+    (if (##eqv? c 41) ;; #\)
+      (begin
+        (read-char port) ;; skip ")"
+        '())
+      (let ((first (read port)))
+        (if (and (symbol? first) (equal? (symbol->string first) "."))
+          (let ((result (read port)))
+            (read-char port)
+            result)
+          (##cons first (read-list port)))))))
 
-(define (read-symbol port case-transform)
-  ;; FIXME: change char-downcase to char-upcase
-  (let ((c (##field0 (case-transform (peek-char port)))))
+(define (read-symbol port lst)
+  (let ((c (##field0 (peek-char port))))
     (if (or (##eqv? c 40)  ;; #\(
             (##eqv? c 41)  ;; #\)
-            (##eqv? c 0)   ;; eof
             (##< c 33))    ;; whitespace
-        '()
-        (begin
-          (read-char port)
-          (cons c (read-symbol port case-transform))))))
+      (list->string (reverse lst))
+      (read-symbol port (##cons (char-downcase (read-char port)) lst)))))
 
 (define (read-chars lst port)
   (let ((c (##field0 (read-char port))))
@@ -1004,7 +1005,7 @@
                     lst 0)
               port)))
           (else
-           (read-chars (cons c lst) port)))))
+           (read-chars (##cons c lst) port)))))
 
 (define (peek-char-non-whitespace port)
   (let ((c (peek-char port)))
@@ -1065,9 +1066,9 @@
           ((char? o)
            (##write-char 35 port-val)     ;; #\#
            (##write-char 92 port-val)     ;; #\\
-           (let ((name (assoc (##field0 o) (map reverse special-chars)))) 
+           (let ((name (assv (##field0 o) (map reverse special-chars)))) 
              (if name
-               (display (cadr name) port)
+               (write (cadr name) port)
                (##write-char (##field0 o) port-val))))
           ((pair? o)
            (##write-char 40 port-val)  ;; #\(
@@ -1131,7 +1132,7 @@
            (##write-char 35 port-val)  ;; #\#
            (##write-char 40 port-val)  ;; #\(
            (if (##< 0 (##field1 o))
-             (let ((l (##field0 o)))   ;; vector->list
+             (let ((l (vector->list o)))   ;; vector->list
                (display (##field0 l) port)
                (print-list (##field1 l) display port)))
            (##write-char 41 port-val)) ;; #\)
@@ -1180,14 +1181,14 @@
   (let ((x (read port)))
     (if (eof-object? x)
         '()
-        (cons x (read-all port)))))
+        (##cons x (read-all port)))))
 
 (define (read-chars-until predicate (port (current-input-port)))
   (let read-chars-aux ((c (read-char port)) (result '()))
     (cond 
       ((predicate c) (list->string (reverse result)))
       ((eof-object? c) #f)
-      (else (read-chars-aux (read-char port) (cons c result))))))
+      (else (read-chars-aux (read-char port) (##cons c result))))))
 
 (define (read-str-until predicate (port (current-input-port)))
   (let read-str-aux ((c (read-char port)) (result ""))
@@ -1202,8 +1203,8 @@
 (define (read-lines-until predicate (port (current-input-port)))
   (let loop ((line (read-line port)) (lines '()))
     (if (predicate line)
-      (reverse (cons line lines))
-      (loop (read-line port) (cons line lines)))))
+      (reverse (##cons line lines))
+      (loop (read-line port) (##cons line lines)))))
 
 (define (string-from-file filename)
   (call-with-input-file filename (lambda (port) (read-str-until eof-object? port))))
@@ -1246,8 +1247,8 @@
 
 (define (add-nb-args nb tail)
   (##rib const-op
-       nb
-       tail))
+   nb
+   tail))
 
 (define (improper-length lst)
   (if (pair? lst)
@@ -1256,8 +1257,8 @@
 
 (define (improper-list->list lst tail)
   (if (pair? lst)
-    (improper-list->list (##field1 lst) (cons (##field0 lst) tail))
-    (reverse (cons lst tail))))
+    (improper-list->list (##field1 lst) (##cons (##field0 lst) tail))
+    (reverse (##cons lst tail))))
 
 (define (last-item lst)
   (if (pair? lst)
@@ -1275,14 +1276,31 @@
 
                  ((##eqv? first 'quasiquote)
                   (comp cte
-                        (expand-qq (cadr expr))
+                        (let parse ((x (cadr expr)) (depth 1)) ;; expand-qq
+                          (cond 
+                            ((not (pair? x))
+                             (if (vector? x)
+                               (##qq-list '##qq-list->vector (parse (##field0 x) depth))
+                               (expand-constant x)))
+                            ((##eqv? (##field0 x) 'unquote)
+                             (if (##eqv? depth 1)
+                               (cadr x)
+                               (##qq-list '##qq-cons (expand-constant 'unquote) (parse (##field1 x) (##- depth 1)))))
+                            ((and (pair? (##field0 x)) (##eqv? (caar x) 'unquote-splicing))
+                             (if (##eqv? depth 1)
+                               (##qq-list '##qq-append (cadar x) (parse (##field1 x) depth))
+                               (##qq-list '##qq-cons (##qq-list '##qq-cons (expand-constant 'unquote-splicing) (parse (cdar x) (##- depth 1))) (parse (##field1 x) depth))))
+                            ((##eqv? (##field0 x) 'quasiquote)
+                             (##qq-list '##qq-cons (expand-constant 'quasiquote) (parse (##field1 x) (##+ depth 1))))
+                            (else
+                              (##qq-list '##qq-cons (parse (##field0 x) depth) (parse (##field1 x) depth)))))
                         cont))
 
                  ((or (##eqv? first 'set!) (##eqv? first 'define))
                   (let ((pattern (cadr expr)))
                     (if (pair? pattern)
                       (comp cte
-                            (cons 'lambda (cons (##field1 pattern) (cddr expr)))
+                            (##cons 'lambda (##cons (##field1 pattern) (cddr expr)))
                             (gen-assign (lookup (##field0 pattern) cte 1)
                                         cont))
                       (comp cte
@@ -1310,8 +1328,8 @@
                        (##rib nb-params
                         0
                         (comp-begin (extend params
-                                            (cons #f
-                                                  (cons #f
+                                            (##cons #f
+                                                  (##cons #f
                                                         cte)))
                                     (cddr expr)
                                     tail))
@@ -1343,8 +1361,8 @@
                  ((##eqv? first 'letrec)
                   (let ((bindings (cadr expr)))
                     (comp cte
-                          (cons 'let
-                                (cons (map (lambda (binding)
+                          (##cons 'let
+                                (##cons (map (lambda (binding)
                                              (list (##field0 binding) #f))
                                            bindings)
                                       (append (map (lambda (binding)
@@ -1360,7 +1378,7 @@
                           (let ((second (cadr expr)))
                             (if (pair? (cddr expr))
                               (build-if second
-                                        (cons 'and (cddr expr))
+                                        (##cons 'and (cddr expr))
                                         #f)
                               second))
                           #t)
@@ -1376,7 +1394,7 @@
                                     (list (list '_ second))
                                     (build-if '_
                                               '_
-                                              (cons 'or (cddr expr))))
+                                              (##cons 'or (cddr expr))))
                               second))
                           #f)
                         cont))
@@ -1386,10 +1404,10 @@
                   (comp cte
                         (if (pair? (##field1 expr))
                           (if (##eqv? (caadr expr) 'else)
-                            (cons 'begin (cdadr expr))
+                            (##cons 'begin (cdadr expr))
                             (build-if (caadr expr)
-                                      (cons 'begin (cdadr expr))
-                                      (cons 'cond (cddr expr))))
+                                      (##cons 'begin (cdadr expr))
+                                      (##cons 'cond (cddr expr))))
                           #f)
                         cont))
 
@@ -1400,10 +1418,10 @@
                             (if (pair? clauses)
                               (let ((clause (##field0 clauses)))
                                 (if (##eqv? (##field0 clause) 'else)
-                                  (cons 'begin (##field1 clause))
-                                  (build-if (cons 'memv (cons key (list (list 'quote (##field0 clause)))))
-                                            (cons 'begin (##field1 clause))
-                                            (cons 'case (cons key (##field1 clauses))))))
+                                  (##cons 'begin (##field1 clause))
+                                  (build-if (##cons 'memv (##cons key (list (list 'quote (##field0 clause)))))
+                                            (##cons 'begin (##field1 clause))
+                                            (##cons 'case (##cons key (##field1 clauses))))))
                               #f)
                             cont))))
 
@@ -1411,7 +1429,7 @@
                    ;;                  #; ;; support for calls with only variable in operator position
                    ;;                  (comp-call cte
                    ;;                             (##field1 expr)
-                   ;;                             (cons first cont))
+                   ;;                             (##cons first cont))
                    ;#; ;; support for calls with any expression in operator position
                    (let ((args (##field1 expr)))
                      (if (symbol? first)
@@ -1426,14 +1444,14 @@
                          (comp-call cte
                                     args
                                     (length args)
-                                    (cons first cont)))
+                                    (##cons first cont)))
                        (comp-bind cte
                                   '(_)
                                   (list first)
                                   ;;                                   #; ;; support for single expression in body
-                                  ;;                                   (cons '_ args)
+                                  ;;                                   (##cons '_ args)
                                   ;#; ;; support for multiple expressions in body
-                                  (list (cons '_ args))
+                                  (list (##cons '_ args))
                                   cte
                                   cont)))))))
 
@@ -1442,7 +1460,7 @@
           (##rib const-op expr cont))))
 
 ;#; ;; support for and, or, cond special forms
-(define (build-if a b c) (cons 'if (list a b c)))
+(define (build-if a b c) (##cons 'if (list a b c)))
 
 (define (expand-constant expr)
   (##qq-list 'quote expr))
@@ -1474,11 +1492,11 @@
       (comp cte
             expr
             ;#; ;; support for multiple expressions in body
-            (comp-bind (cons #f cte)
+            (comp-bind (##cons #f cte)
                        (##field1 vars)
                        (##field1 exprs)
                        body 
-                       (cons var body-cte)
+                       (##cons var body-cte)
                        (if (##eqv? cont tail)
                          cont
                          (if-feature 
@@ -1537,24 +1555,22 @@
   (if (pair? exprs)
     (comp cte
           (##field0 exprs)
-          (comp-call (cons #f cte)
+          (comp-call (##cons #f cte)
                      (##field1 exprs)
                      nb-args
                      var-cont))
     (let ((var (##field0 var-cont)))
       (let ((cont (##field1 var-cont)))
         (let ((v (lookup var cte 0)))
-          ;; should be unecessary because there shouldn't be any primitive called this way
-          ;; (if-feature 
-          ;;   prim-no-arity
-          ;;   (if (##rib? (##field0 (##field0 var))) 
-          ;;     (add-nb-args
-          ;;       nb-args
-          ;;       (gen-call (if (integer? v) (##+ 1 v) v) cont))
-          ;;     (gen-call (if (integer? v) (##+ 1 v) v) cont))
+          (if-feature
+            prim-no-arity
+            ;; add-nb-args doesn't exist
+            (##rib const-op
+             nb-args
+             (gen-call (if (integer? v) (##+ 1 v) v) cont))
             (add-nb-args
               nb-args
-              (gen-call (if (integer? v) (##+ 1 v) v) cont)))))))
+              (gen-call (if (integer? v) (##+ 1 v) v) cont))))))))
 
 (define (lookup var cte i)
   (if (pair? cte)
@@ -1565,7 +1581,7 @@
 
 (define (extend vars cte)
   (if (pair? vars)
-      (cons (##field0 vars) (extend (##field1 vars) cte))
+      (##cons (##field0 vars) (extend (##field1 vars) cte))
       cte))
 
 (define tail
