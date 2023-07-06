@@ -1787,29 +1787,35 @@
 
 (define mtx-cte      field1)
 (define mtx-cte-set! field1-set!)
+
 (define (mtx-cte-set mtx cte)
   (make-mtx (mtx-global mtx) cte))
+
 (define (included? file-path)
   (member file-path included-files))
 
 (define (mtx-add-global! mtx macro-name macro-value)
   (mtx-global-set! mtx (cons (list macro-name macro-value) (mtx-global mtx))))
-(define (expand-include-prefix include-path)
-  (cond 
-    ((string-prefix? "ribbit:" include-path)  ;; for folder "lib" where ribbit is intalled (std-lib)
-     (path-expand (substring include-path 7 (string-length include-path)) (path-expand "lib" (ribbit-root-dir))))
+
 
 (define (mtx-add-cte mtx macro-name macro-value)
   (mtx-cte-set mtx (cons (list macro-name macro-value) (mtx-cte mtx))))
-    ((string-prefix? "lib:" include-path)  ;; for local folder "lib" where in the root of the project
-     (path-expand (substring include-path 4 (string-length include-path)) (path-expand "lib" (root-dir))))
-    ; TODO: add more. Ex: "http:" "github:" "lib:" (for folder named lib in the root of the project)
-
+    
 (define (mtx-search mtx macro-name)
   (let ((macro-value (assq macro-name (append (mtx-cte mtx) (mtx-global mtx)))))
     (if macro-value
       (cadr macro-value)
       #f)))
+
+(define (expand-include-prefix include-path)
+  (cond 
+    ((string-prefix? "ribbit:" include-path)  ;; for folder "lib" where ribbit is intalled (std-lib)
+     (path-expand (substring include-path 7 (string-length include-path)) (path-expand "lib" (ribbit-root-dir))))
+    ((string-prefix? "lib:" include-path)  ;; for local folder "lib" where in the root of the project
+     (path-expand (substring include-path 4 (string-length include-path)) (path-expand "lib" (root-dir))))
+
+    ; TODO: add more. Ex: "http:" "github:" "lib:" (for folder named lib in the root of the project)
+
     (else include-path)))
 
 ;; Shadow macro by a variable
@@ -1835,24 +1841,17 @@
 
                      ((and (pair? expr) 
                            (eqv? (car expr) '##include))
-                      (cons (expand-include (cadr expr)) r mtx))
+                      (cons (path-normalize (path-expand (expand-include-prefix (cadr expr)) pwd)) r))
 
                      ((and (pair? expr)
                            (eqv? (car expr) '##include-once))
-                      ;; (display (string-append (make-string (- (* 2 indent-level) 1) #\-) "| Including "))
-                      ;; (write (cadr expr))
 
-                      (if (included? (cadr expr))
-                        (begin 
-                          ;; (display " (already included)\n")
-                          r)
-                        (begin 
-                          ;; (write-char #\newline)
-                          ;(set! indent-level (+ indent-level 1))
-                          (include-file (cadr expr))
-                          (let ((result (cons (expand-include (cadr expr) mtx) r)))
-                            ;(set! indent-level (- indent-level 1))
-                            result))))
+                      (let* ((path (path-normalize (path-expand (expand-include-prefix (cadr expr)) pwd))))
+                        (if (included? path)
+                          r
+                          (begin 
+                            (include-file path)
+                            (cons (expand-include path mtx) r)))))
 
                      ((and (pair? expr)
                            (eqv? (car expr) 'define-macro))
@@ -1878,19 +1877,6 @@
                        (cons (expand-expr expr mtx) r)))))
 
         (append expanded-expr (expand-begin* (cdr exprs) rest mtx)))
-                ((and (pair? expr) 
-                      (eqv? (car expr) '##include))
-                 (cons (path-normalize (path-expand (expand-include-prefix (cadr expr)) pwd)) r))
-
-                ((and (pair? expr)
-                      (eqv? (car expr) '##include-once))
-
-                 (let* ((path (path-normalize (path-expand (expand-include-prefix (cadr expr)) pwd))))
-                   (if (included? path)
-                       r
-                     (begin 
-                       (include-file path)
-                       (cons (expand-include path) r)))))
       rest))
 
 (define (cond-expand-eval expr)
