@@ -9,6 +9,4 @@
 
 (define (make-vector k) (list->vector (make-list k 0)))
 
-(define (make-vector-fill k fill) (list->vector (make-list k fill)))
-
 (define (vector . args) (list->vector args))

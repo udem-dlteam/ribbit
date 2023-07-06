@@ -18,15 +18,25 @@ build-all:
 tests/*: all
 	TEST_FILTER="$@" $(MAKE) check
 	
+bench:
+	@if [ "$$HOST" = "" ]; then \
+	  for host in $(HOSTS); do \
+	    echo "====================== BENCHMARKING HOST $$host"; \
+	    cd host/$$host; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) bench; cd ../..; \
+	  done; \
+	else \
+	  cd host/$$HOST; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) bench; cd ../..; \
+	fi
 
 check:
 	@if [ "$$HOST" = "" ]; then \
 	  for host in $(HOSTS); do \
 	    echo "====================== TESTING HOST $$host"; \
-	    cd host/$$host; $(MAKE) check; cd ../..; \
+	    cd host/$$host; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check; cd ../..; \
 	  done; \
 	else \
-	  cd host/$$HOST; $(MAKE) check; cd ../..; \
+	  cd host/$$HOST; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check; cd ../..; \
+	  ps; \
 	fi
 
 check-repl:
@@ -110,6 +120,9 @@ check-bootstrap:
 	  echo "====================== ***FAILED*** BOOTSTRAP USING HOST $$host EXECUTED WITH $$host_interpreter"; \
 	  exit 1; \
 	fi
+
+
+
 
 clean:
 	@for host in $(HOSTS); do \

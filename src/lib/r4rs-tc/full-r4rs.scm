@@ -177,11 +177,9 @@
   ((host js)
    (define-primitive
      (##cons car cdr)
-     "prim2((cdr, car) => [car,cdr,0]),"))
-  (else 
-    (define (##cons car cdr) (##rib car cdr pair-type))))
+     "prim2((cdr, car) => [car,cdr,0]),")))
 
-(define (cons car cdr) (##cons car cdr))
+(define (cons car cdr) (##rib car cdr pair-type))
 (define (car x) (##field0 x))
 (define (cdr x) (##field1 x))
 (define (set-car! x car) (##field0-set! x car))
@@ -315,7 +313,6 @@
 (define (vector-set! vect i x) (list-set! (##field0 vect) i x))
 
 (define (make-vector k) (list->vector (make-list k 0 '())))
-(define (make-vector-fill k fill) (list->vector (make-list k fill '())))
 
 (define (vector . args) (list->vector args))
 
