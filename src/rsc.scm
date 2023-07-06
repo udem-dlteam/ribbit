@@ -10,6 +10,7 @@
 
 ;; Tested with Gambit v4.7.5 and above, Guile 3.0.7, Chicken 5.2.0 and Kawa 3.1
 
+
 (cond-expand
 
  ((and chicken compiling)
@@ -90,11 +91,8 @@
                 (lambda (port) (read-line port #f)))))
          (del-file tmpin)
          (del-file tmpout)
-         out)))
+         out))))
 
-   (define list1 list)
-   (define list2 list)
-   (define list3 list))
 
   (else
 
@@ -108,8 +106,8 @@
 
 (cond-expand
 
-  (ribbit)
-
+  (ribbit 
+    (begin))
 
   (chicken
 
@@ -214,7 +212,7 @@
 
 (cond-expand
 
-  ((or gambit chicken)
+  ((or gambit chicken ribbit)
 
    (define (symbol->str symbol)
      (symbol->string symbol))
@@ -305,16 +303,31 @@
                (substring path 0 (+ i 1))
                (loop (- i 1))))))
 
+   ;; TODO: define `path-directory`
+   (define (path-directory path) (rsc-path-directory path))
+
+   (define (path-normalize path)
+     (let loop ((path path))
+       (let ((path (string-replace path "//" "/")))
+         (if (string-prefix? "./" path)
+           (loop (substring path 2 (string-length path)))
+           (if (string-prefix? "../" path)
+             (loop (substring path 3 (string-length path)))
+             path)))))
+
    (define (path-expand path dir)
-     (if (= (string-length dir) 0)
+     (if (or (= (string-length dir) 0) (string-prefix? dir path))
          path
-         (if (= (char->integer (string-ref dir (- (string-length dir) 1))) 47) ;; #\/
+         (if (eqv? (string-ref dir (- (string-length dir) 1)) #\/) 
              (string-append dir path)
              (string-append dir (string-append "/" path)))))))
 
 (cond-expand
 
  (gambit (begin))
+
+ (ribbit 
+   (begin))
 
  (else
 
@@ -399,6 +412,31 @@
    (define (list-sort compare list)
      (list-sort! compare (append list '())))))
 
+;; Can be redefined by ribbit to make this function somewhat fast. It would only be (rib lst len string-type)
+(cond-expand 
+  (ribbit 
+    (define (list->string* lst len)
+      (rib lst len string-type)))
+
+  (else
+    (define (list->string* lst len)
+      (let ((str (make-string len (integer->char 48))))
+        (let loop ((lst lst) (i 0))
+          (if (< i len)
+            (begin
+              (string-set! str i (integer->char (car lst)))
+              (loop (cdr lst) (+ i 1)))
+            str))))))
+
+(cond-expand 
+  (ribbit 
+    (define (string->list* str)
+      (field0 str)))
+
+  (else 
+    (define (string->list* str)
+      (map char->integer (string->list str)))))
+
 (cond-expand
 
  (gambit (begin))
@@ -435,21 +473,46 @@
    (define (string-concatenate string-list separator)
      (string-join string-list separator)))
 
+  (ribbit (begin))
+
   (else
 
-   (define (string-concatenate string-list separator)
-     (if (pair? string-list)
-         (let ((rev-string-list (reverse string-list))
-               (sep (string->list separator)))
-           (let loop ((lst (cdr rev-string-list))
-                      (result (string->list (car rev-string-list))))
-             (if (pair? lst)
-                 (loop (cdr lst)
-                       (append (string->list (car lst))
-                               (append sep
-                                       result)))
-                 (list->string result))))
-         ""))))
+    (define (string-concatenate string-list separator)
+      (if (pair? string-list)
+        (let ((rev-string-list (reverse string-list))
+              (sep (string->list separator)))
+          (let loop ((lst (cdr rev-string-list))
+                     (result (string->list (car rev-string-list))))
+            (if (pair? lst)
+              (loop (cdr lst)
+                    (append (string->list (car lst))
+                            (append sep
+                                    result)))
+              (list->string result))))
+        ""))))
+
+(cond-expand
+
+  (ribbit (begin))
+
+  (else 
+
+    (define (string-split str pattern)
+      (let ((pattern? (if (char? pattern) (lambda (c) (char=? c pattern)) pattern))
+            (final '("")))
+        (for-each 
+          (lambda (c)
+            (if (pattern? c)
+              (set! final (cons "" final))
+              (set! final (cons (string-append (car final) (string c)) (cdr final)))))
+          (string->list str))
+        (reverse final)))
+
+    (define (pp-return foo . x)
+      (let ((r (apply foo x)))
+        ;; (pp r)
+        r))))
+
 
 ;;;----------------------------------------------------------------------------
 
@@ -485,29 +548,30 @@
 
 (define predefined '(##rib false true nil)) ;; predefined symbols
 
-(define default-primitives '(
-(##rib         0) ;; predefined by RVM (must be first and 0)
-(##id          1)
-(##arg1        2)
-(##arg2        3)
-(##close       4)
-(##rib?        5)
-(##field0      6)
-(##field1      7)
-(##field2      8)
-(##field0-set! 9)
-(##field1-set! 10)
-(##field2-set! 11)
-(##eqv?        12)
-(##<           13)
-(##+           14)
-(##-           15)
-(##*           16)
-(##quotient    17)
-(##getchar     18)
-(##putchar     19)
-(##exit        20)
-))
+(define default-primitives 
+  (map 
+    (lambda (p) `(primitive ,p (@@head "") (@@body (str ""))))
+    '((##rib x y z)
+      (##id x)
+      (##arg1 x y)
+      (##arg2 x y)
+      (##close rib)
+      (##rib? o)
+      (##field0 x)
+      (##field1 x)
+      (##field2 x)
+      (##field0-set! x v)
+      (##field1-set! x v)
+      (##field2-set! x v)
+      (##eqv? o1 o2)
+      (##< x y)
+      (##+ x y)
+      (##- x y)
+      (##* x y)
+      (##quotient x y)
+      (##getchar)
+      (##putchar c)
+      (##exit code))))
 
 (define jump/call-op 'jump/call)
 (define set-op       'set)
@@ -521,7 +585,12 @@
 
   (ribbit
 
-   (define procedure2? procedure?))
+    (define (fold func base lst)
+      (if (pair? lst)
+        (fold func (func (car lst) base) (cdr lst))
+        base))
+
+   (define (c-procedure? o) (and (c-rib? o) (eqv? (c-rib-next o) procedure-type))))
 
   (else
 
@@ -533,7 +602,7 @@
    (define singleton-type 5)
    (define char-type      6)
 
-   (define (instance? o type) (and (rib? o) (eqv? (field2 o) type)))
+   (define (instance? type) (lambda (o) (and (rib? o) (eqv? (field2 o) type))))
 
    (define rib-tag (cons '() '())) ;; make unique tag
 
@@ -553,12 +622,12 @@
    (define (field1-set! o x) (vector-set! o 1 x) o)
    (define (field2-set! o x) (vector-set! o 2 x) o)
 
-   (define (procedure2? o) (instance? o procedure-type))
-   (define (make-procedure code env) (c-rib code env procedure-type))
-   (define (procedure-code proc) (c-rib-oper proc))
-   (define (procedure-env proc) (c-rib-opnd proc))))
+   (define c-procedure? (instance? procedure-type))))
 
 
+(define (c-make-procedure code env) (c-rib code env procedure-type))
+(define (c-procedure-code proc) (c-rib-oper proc))
+(define (c-procedure-env proc) (c-rib-opnd proc))
 
 
 ;;;----------------------------------------------------------------------------
@@ -673,21 +742,29 @@
 (cond-expand
 
   (ribbit
+    (define c-rib-type -1)
 
-    (define c-rib rib)
-    (define c-rib-oper field0)
-    (define c-rib-opnd field1)
-    (define c-rib-next field2)
-    (define c-rib-hash error)
+    (define hash-table-c-ribs (make-table))
 
-    (define c-rib-oper-set! field0-set!)
-    (define c-rib-opnd-set! field1-set!)
-    (define c-rib-next-set! field2-set!))
+    (define c-rib? (instance? c-rib-type))
+
+    (define (make-c-rib field0 field1 field2 hash)
+      (rib field0 (rib field1 hash field2) c-rib-type))
+
+    (define (c-rib-oper c-rib) (field0 c-rib))
+    (define (c-rib-opnd c-rib) (field0 (field1 c-rib)))
+    (define (c-rib-next c-rib) (field2 (field1 c-rib)))
+    (define (c-rib-hash c-rib) (field1 (field1 c-rib)))
+
+    (define (c-rib-oper-set! c-rib v) (field0-set! c-rib v))
+    (define (c-rib-opnd-set! c-rib v) (field0-set! (field1 c-rib) v))
+    (define (c-rib-next-set! c-rib v) (field2-set! (field1 c-rib) v)))
 
   (else
 
     (define hash-table-c-ribs (make-table))
 
+    (define c-rib? rib?)
     (define (make-c-rib field0 field1 field2 hash)
       (rib field0 (rib field1 hash 0) field2))
 
@@ -698,171 +775,163 @@
 
     (define (c-rib-oper-set! c-rib v) (field0-set! c-rib v))
     (define (c-rib-opnd-set! c-rib v) (field0-set! (field1 c-rib) v))
-    (define (c-rib-next-set! c-rib v) (field2-set! c-rib v))
+    (define (c-rib-next-set! c-rib v) (field2-set! c-rib v))))
 
-    ;; Creates a rib that is unique and hashable
-    (define (c-rib field0 field1 field2)
-      (let* ((hash-table hash-table-c-ribs)
-             (hash (hash-c-rib field0 field1 field2))
-             (hash-list (table-ref hash-table hash #f))
-             (c-rib-ref (make-c-rib field0 field1 field2 hash)))
-        (if hash-list
-          (let search ((search-iter hash-list))
-            (if (pair? search-iter)
-              (if (c-rib-eq? c-rib-ref (car search-iter))
-                (car search-iter)
-                (search (cdr search-iter)))
-              (begin
-                (table-set! hash-table hash (cons c-rib-ref hash-list))
-                c-rib-ref)))
+;; Creates a rib that is unique and hashable
+(define (c-rib field0 field1 field2)
+  (let* ((hash-table hash-table-c-ribs)
+         (hash (hash-c-rib field0 field1 field2))
+         (hash-list (table-ref hash-table hash #f))
+         (c-rib-ref (make-c-rib field0 field1 field2 hash)))
+
+    (if hash-list
+      (let search ((search-iter hash-list))
+        (if (pair? search-iter)
+          (if (c-rib-eq? c-rib-ref (car search-iter))
+            (car search-iter)
+            (search (cdr search-iter)))
           (begin
-            (table-set! hash-table hash (cons c-rib-ref '()))
-            c-rib-ref))))
+            (table-set! hash-table hash (cons c-rib-ref hash-list))
+            c-rib-ref)))
+      (begin
+        (table-set! hash-table hash (cons c-rib-ref '()))
+        c-rib-ref))))
 
-    ;; Hash combine (taken from Gambit Scheme) https://github.com/gambit/gambit/blob/master/lib/_system%23.scm
-    ;; The FNV1a hash algorithm is adapted to hash values, in
-    ;; particular the hashing constants are used (see
-    ;; https://tools.ietf.org/html/draft-eastlake-fnv-12).  Because the
-    ;; hash function result is a fixnum and it needs to give the same
-    ;; result on 32 bit and 64 bit architectures, the constants are
-    ;; adapted to fit in a 32 bit fixnum.
+;; Hash combine (taken from Gambit Scheme) https://github.com/gambit/gambit/blob/master/lib/_system%23.scm
+;; The FNV1a hash algorithm is adapted to hash values, in
+;; particular the hashing constants are used (see
+;; https://tools.ietf.org/html/draft-eastlake-fnv-12).  Because the
+;; hash function result is a fixnum and it needs to give the same
+;; result on 32 bit and 64 bit architectures, the constants are
+;; adapted to fit in a 32 bit fixnum.
 
-    ;; FNV1a 32 bit constants
-    (define fnv1a-prime-32bits   16777619)
-    (define max-fixnum         4294967296)
-
-
-    (define (hash-combine a b)
-      (modulo 
-        (* fnv1a-prime-32bits
-           (+ a b))
-        max-fixnum))
-
-    (define (hash-string str)
-      (fold hash-combine 0 (map char->integer (string->list str))))
-
-    (define (c-rib-eq? c-rib1 c-rib2)
-      (let ((op1   (c-rib-oper c-rib1))
-            (op2   (c-rib-oper c-rib2))
-            (opnd1 (c-rib-opnd c-rib1))
-            (opnd2 (c-rib-opnd c-rib2))
-            (next1 (c-rib-next c-rib1))
-            (next2 (c-rib-next c-rib2))
-            (hash1 (c-rib-hash c-rib1))
-            (hash2 (c-rib-hash c-rib2)))
-
-        (and
-          (or (not hash1)  ;; check if hashes are =. If not, we skip
-              (not hash2)
-              (eqv? hash1 hash2))
-
-          (or 
-            (eqv? op1 op2) ;;test operand
-            (and (rib? op1) (rib? op2) (c-rib-eq? op1 op2)))
-
-          (or  ;; test opnd
-            (eqv? opnd1 opnd2)
-            (and (rib? opnd1) (rib? opnd2) (c-rib-eq? opnd1 opnd2)))
-          (or ;; test next
-            (eqv? next1 next2)
-            (and (rib? next1) (rib? next2) (c-rib-eq? next1 next2))))))
-
-    (define table-hash-size 512)
+;; FNV1a 32 bit constants
+(define fnv1a-prime-32bits   16777619)
+(define max-fixnum         4294967296)
 
 
-    (define (hash-c-rib field0 field1 field2) 
+(define (hash-combine a b)
+  (modulo 
+    (* fnv1a-prime-32bits
+       (+ a b))
+    max-fixnum))
 
-      ;; This is a really simple hashing function. I tested it on the 50-repl test and I got good results
-      ;;   having at most 6 elements hashed to the same value with a 512 hash table size. Most hashes had one
-      ;;   or two elements inside it.
+(define (hash-string str)
+  (fold hash-combine 0 (string->list* str)))
 
-      (define (op->hash op)
-        (cond
-          ((eq? op jump/call-op) 0)
-          ((eq? op set-op)       1)
-          ((eq? op get-op)       2)
-          ((eq? op const-op)     3)
-          ((eq? op if-op)        4)
-          ((number? op)          (+ (abs op) 4))
-          ((rib? op)             (c-rib-hash op))
+(define (c-rib-eq? c-rib1 c-rib2)
+  (let ((op1   (c-rib-oper c-rib1))
+        (op2   (c-rib-oper c-rib2))
+        (opnd1 (c-rib-opnd c-rib1))
+        (opnd2 (c-rib-opnd c-rib2))
+        (next1 (c-rib-next c-rib1))
+        (next2 (c-rib-next c-rib2))
+        (hash1 (c-rib-hash c-rib1))
+        (hash2 (c-rib-hash c-rib2)))
 
-          (else (error "Cannot hash the following instruction : " op))))
+    (and
+      (or (not hash1)  ;; check if hashes are =. If not, we skip
+          (not hash2)
+          (eqv? hash1 hash2))
 
-      (define (opnd->hash opnd)
-        (cond
-          ((symbol? opnd)
-           (hash-string (symbol->string opnd)))
-          ((number? opnd)
-           (abs opnd))
-          ((string? opnd)
-           (hash-string opnd))
-          ((char? opnd)
-           (char->integer opnd))
-          ((list? opnd)
-           (fold hash-combine 0 (map opnd->hash opnd)))
-          ((vector? opnd)
-           (fold hash-combine 0 (map opnd->hash (vector->list opnd))))
-          ((pair? opnd)
-           (hash-combine (opnd->hash (car opnd)) (opnd->hash (cdr opnd))))
-          ((rib? opnd)
-           (c-rib-hash opnd))
-          ((eq? '() opnd)
-           4)
-          ((eq? #f opnd)
-           5)
-          ((eq? #t opnd)
-           6)
-          (else (error "Cannot hash the following opnd in a c-rib" opnd))))
+      (or 
+        (eqv? op1 op2) ;;test operand
+        (and (c-rib? op1) (c-rib? op2) (c-rib-eq? op1 op2)))
 
-      (define (next->hash next)
-        (cond
-          ((number? next)
-           0)
-          ((rib? next)
-           (c-rib-hash next))
-          (else
-            (error "Cannot hash the next of the following c-rib" next))))
+      (or  ;; test opnd
+        (eqv? opnd1 opnd2)
+        (and (c-rib? opnd1) (c-rib? opnd2) (c-rib-eq? opnd1 opnd2)))
+      (or ;; test next
+        (eqv? next1 next2)
+        (and (c-rib? next1) (c-rib? next2) (c-rib-eq? next1 next2))))))
 
-      ;(pp 'rib)
-      ;(pp field0)
-      ;(pp field1)
-
-      ;(pp field2)
-      (modulo (hash-combine
-                (hash-combine
-                  (opnd->hash field1) 
-                  (op->hash field0))
-                (next->hash field2)) 
-              table-hash-size))
+(define table-hash-size 512)
 
 
+(define (hash-c-rib field0 field1 field2) 
 
-    ;; helper function to display the hash table
-    (define (display-c-rib c-rib) 
+  ;; This is a really simple hashing function. I tested it on the 50-repl test and I got good results
+  ;;   having at most 6 elements hashed to the same value with a 512 hash table size. Most hashes had one
+  ;;   or two elements inside it.
 
-      (define (display-obj obj)
-        (if (rib? obj)
-          (string-append 
-            "%" 
-            (number->string (c-rib-hash obj))
-            "%")
-          (object->string obj)))
+  (define (op->hash op)
+    (cond
+      ((eq? op jump/call-op) 0)
+      ((eq? op set-op)       1)
+      ((eq? op get-op)       2)
+      ((eq? op const-op)     3)
+      ((eq? op if-op)        4)
+      ((number? op)          (+ (abs op) 4))
+      ((c-rib? op)           (c-rib-hash op))
 
-      (let ((op   (c-rib-oper c-rib))
-            (opnd (c-rib-opnd c-rib))
-            (next (c-rib-next c-rib)))
-        (string-append
-          "["
-          (display-obj op)
-          " "
-          (display-obj opnd)
-          " "
-          (display-obj next)
-          "]")))))
+      (else (error "Cannot hash the following instruction : " op))))
 
+  (define (opnd->hash opnd)
+    (cond
+      ((null? opnd)
+       4)
+      ((eqv? #f opnd)
+       5)
+      ((eqv? #t opnd)
+       6)
+      ((symbol? opnd)
+       (hash-string (symbol->string opnd)))
+      ((number? opnd)
+       (abs opnd))
+      ((string? opnd)
+       (hash-string opnd))
+      ((char? opnd)
+       (char->integer opnd))
+      ((list? opnd)
+       (fold hash-combine 0 (map opnd->hash opnd)))
+      ((vector? opnd)
+       (fold hash-combine 0 (map opnd->hash (vector->list opnd))))
+      ((pair? opnd)
+       (hash-combine (opnd->hash (car opnd)) (opnd->hash (cdr opnd))))
+      ((c-rib? opnd)
+       (c-rib-hash opnd))
+      (else (error "Cannot hash the following opnd in a c-rib" opnd))))
+
+  (define (next->hash next)
+    (cond
+      ((number? next)
+       0)
+      ((c-rib? next)
+       (c-rib-hash next))
+      (else
+        (error "Cannot hash the next of the following c-rib" next))))
+
+  (modulo (hash-combine
+            (hash-combine
+              (opnd->hash field1) 
+              (op->hash field0))
+            (next->hash field2)) 
+          table-hash-size))
+;; helper function to display the hash table
+(define (display-c-rib c-rib) 
+
+  (define (display-obj obj)
+    (if (rib? obj)
+      (string-append 
+        "%" 
+        (number->string (c-rib-hash obj))
+        "%")
+      (object->string obj)))
+
+  (let ((op   (c-rib-oper c-rib))
+        (opnd (c-rib-opnd c-rib))
+        (next (c-rib-next c-rib)))
+    (string-append
+      "["
+      (display-obj op)
+      " "
+      (display-obj opnd)
+      " "
+      (display-obj next)
+      "]")))
 
 (define (comp ctx expr cont)
-
+  ;; (cond-expand (ribbit (pp expr)) (else ""))
   (cond ((symbol? expr)
          (let ((v (lookup expr (ctx-cte ctx) 0)))
            (if (eqv? v expr) ;; global?
@@ -943,7 +1012,7 @@
                              (improper-list->list params '())
                              params)))
                     (c-rib const-op
-                         (make-procedure
+                         (c-make-procedure
                            (c-rib (+ (* 2 nb-params) (if variadic 1 0))
                                   0
                                   (comp-begin (ctx-cte-set
@@ -979,31 +1048,38 @@
                                  cont))))
 
                  (else
-                  (let ((args (cdr expr)))
-                    (if (symbol? first)
-                        (comp-call ctx
-                                   args
-                                   (lambda (ctx)
-                                     (let ((v (lookup first (ctx-cte ctx) 0)))
-                                       (if (arity-check? ctx first)
-                                         (add-nb-args ctx 
-                                                      (length args)
-                                                      (gen-call 
-                                                        (if (and (number? v)
-                                                                 (memq 'arity-check (ctx-live-features ctx)))
-                                                          (+ v 1)
-                                                          v)
-                                                        cont))
-                                         (gen-call v cont)))))
-                        (comp-bind ctx
-                                   '(_)
-                                   (cons first '())
-                                   (cons (cons '_ args) '())
-                                   cont)))))))
+                   (let ((args (cdr expr)))
+                     (if (symbol? first)
+                       (begin
+                         (let ((call-sym (assoc first call-stats)))
+                           (if call-sym 
+                             (set-car! (cdr call-sym) (+ 1 (cadr call-sym)))
+                             (set! call-stats (cons (list first 1) call-stats))))
+                         (comp-call ctx
+                                    args
+                                    (lambda (ctx)
+                                      (let ((v (lookup first (ctx-cte ctx) 0)))
+                                        (if (arity-check? ctx first)
+                                          (add-nb-args ctx 
+                                                       (length args)
+                                                       (gen-call 
+                                                         (if (and (number? v)
+                                                                  (memq 'arity-check (ctx-live-features ctx)))
+                                                           (+ v 1)
+                                                           v)
+                                                         cont))
+                                          (gen-call v cont))))))
+                       (comp-bind ctx
+                                  '(_)
+                                  (cons first '())
+                                  (cons (cons '_ args) '())
+                                  cont)))))))
 
         (else
          ;; self-evaluating
          (c-rib const-op expr cont))))
+
+(define call-stats '())
 
 (define (gen-call v cont)
   (if (eqv? cont tail)
@@ -1014,12 +1090,12 @@
   (c-rib set-op v (gen-noop ctx cont)))
 
 (define (arity-check? ctx name)
-  #;(let ((x (and (memq 'arity-check (ctx-live-features ctx))
-                (not (and
-                       (memq 'prim-no-arity (ctx-live-features ctx))
-                       (memq name (ctx-live-features ctx)))))))
-    (if (not x)
-      (pp name)))
+  ;; (let ((x (and (memq 'arity-check (ctx-live-features ctx))
+  ;;               (not (and
+  ;;                      (memq 'prim-no-arity (ctx-live-features ctx))
+  ;;                      (memq name (ctx-live-features ctx)))))))
+  ;;   (if (not x)
+  ;;     (pp name)))
   
   (and (memq 'arity-check (ctx-live-features ctx))
        (not (and
@@ -1188,7 +1264,7 @@
            ((eqv? (car x) 'feature)
             `(define-feature ,@(cdr x)))
            (else
-             (error "Cannot handle host feature" x))))
+             (error "Cannot handle host feature " x))))
        host-features))
 
 (define host-config #f)
@@ -1202,9 +1278,9 @@
            (if (pair? exprs) exprs (cons #f '())))
          (exports
            (exports->alist (cdr exprs-and-exports)))
-         (host-features 
-           (and parsed-vm (extract-features parsed-vm)))
-         
+
+         (host-features (extract-features (or parsed-vm default-primitives)))
+
          (expansion
            `(begin
               ,@(host-feature->expansion-feature host-features) ;; add host features
@@ -1240,7 +1316,7 @@
     (vector-set! 
       return
       0 
-      (make-procedure
+      (c-make-procedure
         (c-rib 2 ;; 0 parameters 
                0
                (comp ctx
@@ -1249,7 +1325,6 @@
         '()))
     (vector-set! return 1 exports)
     (vector-set! return 2 host-config)
-
 
     ;(pp 
     ;  (list-sort 
@@ -1289,14 +1364,14 @@
         (pp (host-config-primitives (vector-ref return 2)))
         (display "*** feature location :\n")
         (pp (host-config-locations (vector-ref return 2)))))
-    #;(if (>= verbosity 2)
-      (begin
-        (display "*** primitive order:\n")
-        (pp (vector-ref return 2))))
-    #;(if (>= verbosity 3)
-      (begin
-        (display "*** live-features:\n")
-        (pp (vector-ref return 3))))
+    ;; (if (>= verbosity 2)
+    ;;   (begin
+    ;;     (display "*** primitive order:\n")
+    ;;     (pp (vector-ref return 2))))
+    ;; (if (>= verbosity 3)
+    ;;   (begin
+    ;;     (display "*** live-features:\n")
+    ;;     (pp (vector-ref return 3))))
     return))
 
 ;;;----------------------------------------------------------------------------
@@ -1351,11 +1426,11 @@
                         (let ((param (car params)))
                           (cond 
                             ((and (symbol? param) (null? opt-params)) 
-                             (set! required-params (append required-params (cons param '())))
+                             (set! required-params (append required-params (list param)))
                              (loop (+ 1 i) (cdr params)))
 
                             ((pair? param)
-                             (set! opt-params (append opt-params (cons param '()))) 
+                             (set! opt-params (append opt-params (list param)))
                              (loop (+ 1 i) (cdr params)))
 
                             (else (error "Cannot put non-optional arguments after optional ones."))))))
@@ -1495,7 +1570,8 @@
                         (rest (filter (lambda (x) (not (string? x))) (cdr expr))))
                     `(define-primitive 
                        ,@rest
-                       (@@body ,(parse-host-file (string->list* (fold string-append "" code)))))))
+                       (@@body ,(parse-host-file (fold string-append "" code))))))
+                    ;(append rest (list '@@body (parse-host-file (string->list* (fold string-append "" code)))))))
 
                  ((eqv? (car expr) 'define-feature) ;; parse arguments as a source file
                   (let* ((bindings (cddr expr))
@@ -1506,7 +1582,7 @@
                        ,use-statement
                        ,@(map 
                            (lambda (x)
-                             `(,(car x) ,(parse-host-file (string->list* (fold string-append "" (cdr x))))))
+                             `(,(car x) ,(parse-host-file (fold string-append "" (cdr x)))))
                            rest))))
                       
                  ((eqv? first 'and)
@@ -1572,12 +1648,7 @@
                               mtx)
                             (expand-expr
                               (cons 'if
-                                    (cons (cons '##case-memv
-                                                (cons key
-                                                      (cons (cons 'quote
-                                                                  (cons (car clause)
-                                                                        '()))
-                                                            '())))
+                                    (cons (list '##case-memv key (list 'quote (car clause)))
                                           (cons (cons 'begin
                                                       (cdr clause))
                                                 (cons (cons 'case
@@ -1704,38 +1775,42 @@
 
       result)))
 
-(define (include-file path)
-  (let ((file-path (path-normalize (path-expand path pwd))))
-    (set! included-files (cons file-path included-files))))
-
-(define (included? path)
-  (let ((file-path (path-normalize (path-expand path pwd))))
-    (member file-path included-files)))
-
-(define indent-level 1)
-
 (define (make-mtx global-macro cte)  ;; macro-contex object
   (rib global-macro cte 0))
 
 (define mtx-global      field0)
 (define mtx-global-set! field0-set!)
+(define (include-file file-path)
+  (if (not (file-exists? file-path))
+    (error "The path needs to point to an existing file. Error while trying to include library at " file-path))
+  (set! included-files (cons file-path included-files)))
 
 (define mtx-cte      field1)
 (define mtx-cte-set! field1-set!)
 (define (mtx-cte-set mtx cte)
   (make-mtx (mtx-global mtx) cte))
+(define (included? file-path)
+  (member file-path included-files))
 
 (define (mtx-add-global! mtx macro-name macro-value)
   (mtx-global-set! mtx (cons (list macro-name macro-value) (mtx-global mtx))))
+(define (expand-include-prefix include-path)
+  (cond 
+    ((string-prefix? "ribbit:" include-path)  ;; for folder "lib" where ribbit is intalled (std-lib)
+     (path-expand (substring include-path 7 (string-length include-path)) (path-expand "lib" (ribbit-root-dir))))
 
 (define (mtx-add-cte mtx macro-name macro-value)
   (mtx-cte-set mtx (cons (list macro-name macro-value) (mtx-cte mtx))))
+    ((string-prefix? "lib:" include-path)  ;; for local folder "lib" where in the root of the project
+     (path-expand (substring include-path 4 (string-length include-path)) (path-expand "lib" (root-dir))))
+    ; TODO: add more. Ex: "http:" "github:" "lib:" (for folder named lib in the root of the project)
 
 (define (mtx-search mtx macro-name)
   (let ((macro-value (assq macro-name (append (mtx-cte mtx) (mtx-global mtx)))))
     (if macro-value
       (cadr macro-value)
       #f)))
+    (else include-path)))
 
 ;; Shadow macro by a variable
 (define (mtx-shadow mtx variable-names) 
@@ -1803,6 +1878,19 @@
                        (cons (expand-expr expr mtx) r)))))
 
         (append expanded-expr (expand-begin* (cdr exprs) rest mtx)))
+                ((and (pair? expr) 
+                      (eqv? (car expr) '##include))
+                 (cons (path-normalize (path-expand (expand-include-prefix (cadr expr)) pwd)) r))
+
+                ((and (pair? expr)
+                      (eqv? (car expr) '##include-once))
+
+                 (let* ((path (path-normalize (path-expand (expand-include-prefix (cadr expr)) pwd))))
+                   (if (included? path)
+                       r
+                     (begin 
+                       (include-file path)
+                       (cons (expand-include path) r)))))
       rest))
 
 (define (cond-expand-eval expr)
@@ -1945,7 +2033,8 @@
 
 
 (define (constant? g)
-  (and (pair? (cdr g))
+  (and (pair? g)
+       (pair? (cdr g))
        (null? (cddr g))
        (pair? (cadr g))
        (eqv? 'quote (car (cadr g)))))
@@ -2113,7 +2202,7 @@
     (lambda (lst) 
       (let* ((sym (car lst))
              (size (cadr lst))
-             (return-val (list3 sym size counter)))
+             (return-val (list sym size counter)))
         (set! counter (+ counter size))
         return-val))
     encoding-table))
@@ -2266,7 +2355,7 @@
                (c-rib const-op
                       0
                       (c-rib const-op
-                             (- 0 o)
+                             (- o)
                              (if prim-arity-check?
                                     (add-nb-args
                                       2
@@ -2313,7 +2402,7 @@
                                                            '##rib
                                                            tail))))))
           ((string? o)
-           (let ((chars (map char->integer (string->list o))))
+           (let ((chars (string->list* o)))
              (build-constant chars
                              (build-constant (length chars)
                                              (c-rib const-op
@@ -2440,10 +2529,10 @@
         (cond ((eqv? op if-op)
                (traverse o))
               ((eqv? op const-op)
-               (if (procedure2? o)
+               (if (c-procedure? o)
                  (traverse (c-rib-next (c-rib-oper o))))
                (if (not (or (symbol? o)
-                            (procedure2? o)
+                            (c-procedure? o)
                             (and (number? o) (>= o 0))))
                    (let ((constant (constant-global-var o)))
                      (c-rib-oper-set! code get-op)
@@ -2462,7 +2551,7 @@
   (define syms (make-table))
 
   (define (scan-proc proc)
-    (scan (c-rib-next (procedure-code proc))))
+    (scan (c-rib-next (c-procedure-code proc))))
 
   (define (scan-opnd o pos)
     (scan-opnd-aux o pos)
@@ -2481,7 +2570,7 @@
                     (field1-set! descr (+ 1 (field1 descr))))
                    ((= pos 2)
                     (field2-set! descr (+ 1 (field2 descr)))))))
-          ((procedure2? o)
+          ((c-procedure? o)
            (scan-proc o))))
 
   (define (scan code)
@@ -2502,7 +2591,7 @@
             ((eqv? op const-op)
              (if (or 
                    (symbol? o)
-                   (procedure2? o)
+                   (c-procedure? o)
                    (and (number? o) (>= o 0)))
                  (scan-opnd o 2) ;; 2 = const
                  (error "Cannot encode constant with opnd " o)))
@@ -2564,9 +2653,9 @@
                       (loop4 (cdr symbols*))
                       (cons syms symbols*)))))))))))
 
-                      #;(encode-stream
-                      proc
-                      encoding)
+                      ;; (encode-stream
+                      ;; proc
+                      ;; encoding)
 (define (get-maximal-encoding encodings stats encoding-size)
 
     (define encoding-size-counter encoding-size)
@@ -3281,8 +3370,8 @@
   (define (enc-inst arg op-sym arg-sym encoding-table stream)
     (if (eq? encoding-table 'raw)
       (rib (list op-sym arg-sym) arg stream)
-      (let* ((short-key   (list3 op-sym arg-sym 'short))
-             (long-key    (list3 op-sym arg-sym 'long))
+      (let* ((short-key   (list op-sym arg-sym 'short))
+             (long-key    (list op-sym arg-sym 'long))
              (short-size  (encoding-inst-size encoding-table short-key))
              (long-size   (encoding-inst-size encoding-table long-key))
              (short-start (encoding-inst-start encoding-table short-key))
@@ -3304,7 +3393,7 @@
 
 
   (define (enc-proc arg encoding limit stream)
-    (let ((code (procedure-code arg)))
+    (let ((code (c-procedure-code arg)))
       (let ((nparams (c-rib-oper code)))
         (if (or (eq? limit #f) (> limit 0))
           (enc (c-rib-next code)
@@ -3346,7 +3435,7 @@
                         'int)
                        ((symbol? arg)
                         'sym)
-                       ((and (procedure2? arg) (eqv? 'const op-sym))
+                       ((and (c-procedure? arg) (eqv? 'const op-sym))
                         'proc)
                        (else 
                          (error (string-append "can't encode " (symbol->string op-sym))
@@ -3558,29 +3647,29 @@
 
 
 
-  #;(let ((stream (encode-to-stream proc encoding)))
-
-    (if byte-stats
-      (display-stats stats byte-stats encoding))
-
-    ;(pp (cons 'stream stream))
-    (string-append
-      (stream->string
-        (encode-n (- (length symbols)
-                     (length symbols*))
-                  '()
-                  (* eb/2 2)))
-      (string-append
-        (string-concatenate
-          (map (lambda (s)
-                 (let ((str (symbol->str s)))
-                   (list->string
-                     (reverse (string->list str)))))
-               symbols*)
-          ",")
-        (string-append
-          ";"
-          (stream->string stream)))))
+  ;; (let ((stream (encode-to-stream proc encoding)))
+  ;;
+  ;;   (if byte-stats
+  ;;     (display-stats stats byte-stats encoding))
+  ;;
+  ;;   ;(pp (cons 'stream stream))
+  ;;   (string-append
+  ;;     (stream->string
+  ;;       (encode-n (- (length symbols)
+  ;;                    (length symbols*))
+  ;;                 '()
+  ;;                 (* eb/2 2)))
+  ;;     (string-append
+  ;;       (string-concatenate
+  ;;         (map (lambda (s)
+  ;;                (let ((str (symbol->str s)))
+  ;;                  (list->string
+  ;;                    (reverse (string->list str)))))
+  ;;              symbols*)
+  ;;         ",")
+  ;;       (string-append
+  ;;         ";"
+  ;;         (stream->string stream)))))
 
 
 
@@ -3598,29 +3687,27 @@
 (define (root-dir)
   (rsc-path-directory (or (script-file) (executable-path))))
 
-(define %read-all read-all)
+(define (ribbit-root-dir) ;; TODO: make it work (maybe with a primitive or a env variable)
+  (root-dir))
 
-(define (read-all)
-  (let ((x (read)))
-    (if (eof-object? x)
-        '()
-        (cons x (read-all)))))
 
 (define (read-from-file path)
-  (let* ((file-str (string-from-file path))
-         (port (open-input-string file-str)))
-
-    (if (and (> (string-length file-str) 1)
-             (and (eqv? (char->integer (string-ref file-str 0)) 35) ; #\#
-                  (eqv? (char->integer (string-ref file-str 1)) 33))) ; #\!
-      (read-line port)) ;; skip line
-    (%read-all port)))
+  (let* ((port (open-input-file path))
+         (first-line (read-line port))
+         (port (if (and (not (eof-object? first-line)) (string-prefix? "#!" first-line))
+                 (begin 
+                   (pp "SHABANGED")
+                   port)
+                 (begin 
+                   (close-input-port port)
+                   (open-input-file path)))))
+    (read-all port)))
 
 (define (read-library lib-path)
   (list (list '##include-once
    (if (equal? (rsc-path-extension lib-path) "")
-       (let* ((path (path-expand lib-path (path-expand "lib" (root-dir))))
-             (file-path (string-append path ".scm")))
+       (let* ((path (path-expand lib-path (path-expand "lib" (ribbit-root-dir))))
+              (file-path (string-append path ".scm")))
          (if (file-exists? file-path)
            file-path
            (error (string-append "The path needs to point to an existing file. Error while trying to include library at " file-path))))
@@ -3648,23 +3735,19 @@
   (find (lambda (e) (and (pair? e) (eq? (car e) sym)))
         lst))
 
-(define (pp-return foo x)
-  (foo x)
-  x)
 
 (define (extract-features parsed-file)
   (extract
     (lambda (prim acc rec)
+      ;; (pp (car prim))
       (case (car prim)
         ((primitives)
          (let ((primitives (rec '())))
            (append primitives acc)))
-        ((primitive)
-         (cons prim acc))
-        ((feature)
+        ((primitive feature)
          (cons prim acc))
         (else
-         acc)))
+          acc)))
     parsed-file
     '()))
 
@@ -3684,127 +3767,201 @@
       base
       parsed-file)))
 
-(define (next-line last-new-line)
-  (let loop ((cur last-new-line) (len 0))
-    (if (or (not (pair? cur)) (eqv? (car cur) 10)) ;; new line
-      (begin
-        ;(pp (list->string* last-new-line (+ 1 len)) )
-        (cons (and (pair? cur) (cdr cur)) 
-              (if (not (pair? cur))
-                len
-                (+ 1 len))))
-      (loop (cdr cur) (+ len 1)))))
+;; (define (next-line last-new-line)
+;;   (let loop ((cur last-new-line) (len 0))
+;;     (if (or (not (pair? cur)) (eqv? (car cur) 10)) ;; new line
+;;       (begin
+;;         ;(pp (list->string* last-new-line (+ 1 len)) )
+;;         (cons (and (pair? cur) (cdr cur)) 
+;;               (if (not (pair? cur))
+;;                 len
+;;                 (+ 1 len))))
+;;       (loop (cdr cur) (+ len 1)))))
 
-(define (detect-macro line len)
-  (let loop ((cur line) (len len) (start #f) (macro-len 0))
-    (if (<= len 2)
-      (if start
-        (cons
-          'start
-          (cons start
-                (+ 1 macro-len)))
-        (cons 'none '()))
-      (cond
-        ((and (eqv? (car cur) 64)     ;; #\@
-              (eqv? (cadr cur) 64)    ;; #\@
-              (eqv? (caddr cur) 40))  ;; #\(
-         (if start
-           (error "cannot start 2 @@\\( on the same line")
-           (loop (cdddr cur)
-                 (- len 3)
-                 cur
-                 3)))
-        ((and (eqv? (car cur)  41)    ;; #\)
-              (eqv? (cadr cur) 64)    ;; #\@
-              (eqv? (cadr cur) 64))   ;; #\@
-         (if start
-           (cons
-             'start-end ;; type
-             (cons
-               start
-               (+ 3 macro-len)))
-           (cons
-             'end ;; type
-             '())))
-        (else
-          (loop (cdr cur)
-                (- len 1)
-                start
-                (if start (+ macro-len 1) macro-len)))))))
+;; FIXME: Remove
+;; (define (detect-macro line len)
+;;   (let loop ((cur line) (len len) (start #f) (macro-len 0))
+;;     (if (<= len 2)
+;;       (if start  ;; NOTE: start is not the value '#t, it is the start of the macro
+;;         (cons
+;;           'start
+;;           (cons start
+;;                 (+ 1 macro-len)))
+;;         (cons 'none '()))
+;;       (cond
+;;         ((and (eqv? (car cur) 64)     ;; #\@
+;;               (eqv? (cadr cur) 64)    ;; #\@
+;;               (eqv? (caddr cur) 40))  ;; #\(
+;;          (if start
+;;            (error "cannot start 2 @@\\( on the same line")
+;;            (loop (cdddr cur)
+;;                  (- len 3)
+;;                  cur
+;;                  3)))
+;;         ((and (eqv? (car cur)  41)    ;; #\)
+;;               (eqv? (cadr cur) 64)    ;; #\@
+;;               (eqv? (cadr cur) 64))   ;; #\@
+;;          (if start
+;;            (cons
+;;       [2] === 3       'start-end ;; type
+;;              (cons
+;;                start
+;;                (+ 3 macro-len)))
+;;            (cons
+;;              'end ;; type
+;;              '())))
+;;         (else
+;;           (loop (cdr cur)
+;;                 (- len 1)
+;;                 start
+;;                 (if start (+ macro-len 1) macro-len)))))))
 
-;; Can be redefined by ribbit to make this function somewhat fast. It would only be (rib lst len string-type)
-(define (list->string* lst len)
-  (let ((str (make-string len (integer->char 48))))
-    (let loop ((lst lst) (i 0))
-      (if (< i len)
-        (begin
-          (string-set! str i (integer->char (car lst)))
-          (loop (cdr lst) (+ i 1)))
-        str))))
+(define (detect-macro line)
+  (let loop ((cur line) (start #f) (macro-len 0))
+    (let ((len (string-length cur)))
+      (if (<= len 2)
+        (if start 
+          `(start ,start . ,(+ 1 macro-len))
+          '(none))
+        (cond
+          ((string-prefix? "@@(" cur)
+           (if start
+             (error "cannot start 2 @@( on the same line")
+             (loop (substring cur 3 len) cur 3)))
+          ((string-prefix? ")@@" cur)
+           (if start
+             `(start-end ,start . ,(+ 3 macro-len))
+             '(end)))
+          (else
+            (loop (substring cur 1 len) start (if start (+ macro-len 1) macro-len))))))))
 
-(define (string->list* str)
-  (map char->integer (string->list str)))
 
-(define (parse-host-file cur-line)
-  (let loop ((cur-line cur-line)
+(define (parse-host-file file-content)
+  (let loop ((lines (if (pair? file-content) file-content (string-split file-content #\newline)))
              (parsed-file '())
-             (start-len 0)
-             (start-line cur-line))
-    (if (pair? cur-line)
-      (let* ((next-line-pair (next-line cur-line))
-             (cur-end (car next-line-pair))
-             (cur-len (cdr next-line-pair))
-             (macro-pair (detect-macro cur-line cur-len))
-             (macro-type (car macro-pair))
-             (macro-args (cdr macro-pair))
+             (cur-section ""))
+    (if (pair? lines)
+      (let* ((cur-line (string-append (car lines) "\n"))
+             (macro (detect-macro cur-line))
+             (macro-type (car macro))
+             (macro-args (cdr macro))
              (parsed-file
-               (cond
-                 ((eqv? macro-type 'end) ;; include last line
-                  (cons (cons 'str (cons (list->string* start-line (+ cur-len start-len)) '())) parsed-file))
-                 ((eqv? start-len 0)
+               (cond 
+                 ((eq? macro-type 'end)
+                  `((str ,(string-append cur-section cur-line)) . ,parsed-file))
+                 ((string=? cur-section "")
                   parsed-file)
-                 ((or (eqv? macro-type 'start)
-                      (eqv? macro-type 'start-end))
-                  (cons (cons 'str (cons (list->string* start-line start-len) '())) parsed-file))
+                 ((memq macro-type '(start start-end))
+                  `((str ,cur-section) . ,parsed-file))
                  (else
                    parsed-file))))
 
-        (cond
-          ((eqv? macro-type 'end)
-           (cons cur-end
-                 (reverse parsed-file)))
-          ((eqv? macro-type 'none)
-           (loop cur-end parsed-file (+ cur-len start-len) start-line))
-          ((eqv? macro-type 'start)
-           (let* ((macro (car macro-args))
-                  (macro-len (cdr macro-args))
-                  (macro-string (list->string* (cddr macro) (- macro-len 2)))
-                  (macro-sexp (read (open-input-string (string-append macro-string ")"))))
-                  (body-pair (parse-host-file cur-end))
-                  (body-cur-end (car body-pair))
-                  (body-parsed  (cdr body-pair))
-                  (head (cons '@@head (cons (list->string* cur-line cur-len) '())))
-                  (body (cons '@@body (cons body-parsed '()))))
-             (loop body-cur-end
-                   (cons (append macro-sexp (cons head (cons body '()))) parsed-file)
-                   0
-                   body-cur-end)))
-          ((eqv? macro-type 'start-end)
-           (let* ((macro (car macro-args))
-                  (macro-len (cdr macro-args))
-                  (macro-string (list->string* (cddr macro) (- macro-len 4)))
-                  (macro-sexp (read (open-input-string macro-string)))
-                  (head-parsed (list->string* cur-line cur-len))
-                  (body (cons '@@body (cons (cons (cons 'str (cons head-parsed '())) '()) '())))
-                  (head (cons '@@head (cons head-parsed '()))))
-             (loop
-               cur-end
-               (cons (append macro-sexp (cons head (cons body '()))) parsed-file)
-               0
-               cur-end)))
-          (else (error "Unknown macro-type"))))
-      (reverse (cons (cons 'str (cons (list->string* start-line start-len) '())) parsed-file)))))
+        (case macro-type
+          ((none)
+           (loop (cdr lines) parsed-file (string-append cur-section cur-line)))
 
+          ((end)
+           (cons (cdr lines) (reverse parsed-file)))
+
+          ((start)
+           (let* ((macro (car macro-args))
+                  (macro-len (cdr macro-args))
+                  (macro-string (substring macro 2 macro-len))
+                  (macro-sexp (read (open-input-string (string-append macro-string ")"))))
+                  (body-pair (parse-host-file (cdr lines)))
+                  (lines-after-body (car body-pair))
+                  (body-parsed  (cdr body-pair))
+                  (head `(@@head ,cur-line))
+                  (body `(@@body ,body-parsed)))
+
+
+             (loop lines-after-body
+                   `((,@macro-sexp ,head ,body) . ,parsed-file)
+                   "")))
+
+          ((start-end)
+           (let* ((macro (car macro-args))
+                  (macro-len (cdr macro-args))
+                  (macro-string (substring macro 2 (- macro-len 2)))  ;; skips the @@ and @@
+                  (macro-sexp (read (open-input-string macro-string)))
+                  (head-parsed cur-line)
+                  (body `(@@body . (((str ,head-parsed)))))
+                  (head `(@@head . (,head-parsed))))
+             
+
+             (loop
+               (cdr lines)
+               `((,@macro-sexp ,head ,body) . ,parsed-file)
+               "")))
+
+          (else (error "Unknown macro-type"))))
+
+      (reverse `((str ,cur-section) . ,parsed-file)))))
+
+;;
+;; (define (parse-host-file cur-line)
+;;   (let loop ((cur-line cur-line)
+;;              (parsed-file '())
+;;              (start-len 0)
+;;              (start-line cur-line))
+;;     (if (pair? cur-line)
+;;       (let* ((next-line-pair (next-line cur-line))
+;;              (cur-end (car next-line-pair))
+;;              (cur-len (cdr next-line-pair))
+;;              (macro-pair (detect-macro (list->string* cur-line (length cur-line))))
+;;              (macro-type (car macro-pair))
+;;              (macro-args (cdr macro-pair))
+;;              (parsed-file
+;;                (cond
+;;                  ((eqv? macro-type 'end) ;; include last line
+;;                   (cons `(str ,(list->string* start-line (+ cur-len start-len))) parsed-file)) 
+;;                  ((eqv? start-len 0)
+;;                   parsed-file)
+;;                  ((or (eqv? macro-type 'start)
+;;                       (eqv? macro-type 'start-end))
+;;                   (cons `(str ,(list->string* start-line start-len)) parsed-file))
+;;                  (else
+;;                    parsed-file))))
+;;
+;;         (pp (list->string* cur-line (length cur-line)))
+;;         (pp macro-pair)
+;;         (cond
+;;           ((eqv? macro-type 'end)
+;;            (cons cur-end
+;;                  (reverse parsed-file)))
+;;           ((eqv? macro-type 'none)
+;;            (loop cur-end parsed-file (+ cur-len start-len) start-line))
+;;           ((eqv? macro-type 'start)
+;;            (let* ((macro (car macro-args))
+;;                   (macro-len (cdr macro-args))
+;;                   (macro-string (list->string* (cddr macro) (- macro-len 2)))
+;;                   (macro-sexp (read (open-input-string (string-append macro-string ")"))))
+;;                   (body-pair (parse-host-file cur-end))
+;;                   (body-cur-end (car body-pair))
+;;                   (body-parsed  (cdr body-pair))
+;;                   (head `(@@head ,(list->string* cur-line cur-len)))
+;;                   (body `(@@body ,body-parsed)))
+;;              (loop body-cur-end
+;;                    (cons `(,@macro-sexp ,head ,body) parsed-file)
+;;                    0
+;;                    body-cur-end)))
+;;           ((eqv? macro-type 'start-end)
+;;            (let* ((macro (car macro-args))
+;;                   (macro-len (cdr macro-args))
+;;                   (macro-string (list->string* (cddr macro) (- macro-len 4)))
+;;                   (macro-sexp (read (open-input-string macro-string)))
+;;                   (head-parsed (list->string* cur-line cur-len))
+;;                   (body (cons '@@body `(((str ,head-parsed)))))
+;;                   (head (cons '@@head (list head-parsed))))
+;;              (loop
+;;                cur-end
+;;                (cons `(,@macro-sexp ,head ,body) parsed-file)
+;;                0
+;;                cur-end)))
+;;           (else (error "Unknown macro-type"))))
+;;
+;;       (reverse (cons `(str ,(list->string* start-line start-len)) parsed-file)))))
+;;
 
 (define (unique-aux lst1 lst2)
   (if (pair? lst1)
@@ -3817,9 +3974,9 @@
   (unique-aux lst '()))
 
 (define (eval-feature expr true-values)
-  (cond ((and (pair? expr) (eqv? (car expr) 'not))
+  (cond ((and (pair? expr) (eq? (car expr) 'not))
          (not (eval-feature (cadr expr) true-values)))
-        ((and (pair? expr) (eqv? (car expr) 'and))
+        ((and (pair? expr) (eq? (car expr) 'and))
          (not (memv #f (map (lambda (x) (eval-feature x true-values)) (cdr expr)))))
         ((and (pair? expr) (eqv? (car expr) 'or))
          (not (not (memv #t (map (lambda (x) (eval-feature x true-values)) (cdr expr))))))
@@ -3948,7 +4105,7 @@
 (define (generate-file parsed-file host-config encode)
   (define live-features (host-config-features host-config))
   (define primitives (list-sort 
-                       (lambda (x y) (< (cadr x) (cadr y) ))
+                       (lambda (x y) (< (cadr x) (cadr y)))
                        (host-config-primitives host-config)))
   (define locations (host-config-locations host-config))
 
@@ -3970,7 +4127,7 @@
                                      (index (cadr prim))
                                      (primitive (caddr prim))
                                      
-                                     #;(_ (if (not primitive) (error "Cannot find needed primitive inside program :" name)))
+                                     ;(_ (if (not primitive) (error "Cannot find needed primitive inside program :" name)))
                                      (body  (extract extract-func (cadr (soft-assoc '@@body primitive)) ""))
                                      (head  (soft-assoc '@@head primitive)))
                                 (let loop ((gen gen))
@@ -4057,8 +4214,8 @@
                                encoding-name
                                bits)
                              (if input-path
-                               (map char->integer (string->list (string-from-file input-path)))
-                               '())) ))
+                               (string->list* (string-from-file input-path))
+                               '()))))
                      (if (>= verbosity 1)
                        (begin
                          (display "*** RVM code length: ")
@@ -4108,10 +4265,9 @@
 (define (write-target-code output-path target-code)
   (if (equal? output-path "-")
       (display target-code)
-      (with-output-to-file
-          output-path
-        (lambda ()
-          (display target-code)))))
+      (call-with-output-file output-path
+        (lambda (port)
+          (display target-code port)))))
 
 ;;;----------------------------------------------------------------------------
 
@@ -4144,8 +4300,8 @@
     #f     ;; rvm-path
     #f     ;; minify?
     #f     ;; host-file
-    (list1 
-      (list2 92 encoding-original-92))
+    (list 
+      (list 92 encoding-original-92))
     #f     ;; byte-stats
     (compile-program
      0    ;; verbosity
@@ -4171,7 +4327,6 @@
                            _target
                            input-path
                            lib-path
-                           link-path
                            minify?
                            verbosity
                            progress-status
@@ -4179,7 +4334,8 @@
                            features-enabled
                            features-disabled
                            encoding-name
-                           byte-stats)
+                           byte-stats
+                           call-stats?)
 
      ;; This version of the compiler reads the program and runtime library
      ;; source code from files and it supports various options.  It can
@@ -4188,14 +4344,19 @@
 
      (define (report-first-status msg)
        (if progress-status
-         (begin (display msg))))
+         (begin (display msg) (display "...\n"))))
+
+     (define (report-done)
+       (if progress-status
+         (display "...Done.\n")))
 
      (define (report-status msg)
        (if progress-status
          (begin 
-           (display " Done.\n")
-           (display msg))))
+           (report-done)
+           (report-first-status msg))))
 
+     (report-first-status "Adding Ribs to the RVM")
      (let* ((vm-source 
               (if (equal? _target "rvm")
                 #f
@@ -4205,24 +4366,27 @@
             (host-file
               (if (equal? _target "rvm")
                 #f
-                (parse-host-file
-                  (string->list* vm-source))))
+                (parse-host-file vm-source)))
+
+            
 
             (features-enabled (cons (string->symbol (string-append "encoding/" encoding-name))
                                     features-enabled)))
 
        (set! target _target)
- 
-       (report-first-status "Reading program source code...")
+
+       (report-status "Reading program source code")
        (let ((program-read (read-program lib-path src-path)))
-         (report-status "Compiling program...")
+         (report-status "Compiling program")
          (let ((program-compiled (compile-program
                                    verbosity
                                    host-file
                                    features-enabled
                                    features-disabled
                                    program-read)))
-           (report-status "Generating target code...")
+           (if call-stats?
+             (pp (list-sort (lambda (stat1 stat2) (> (cadr stat1) (cadr stat2))) call-stats)))
+           (report-status "Generating target code")
            (let ((generated-code (generate-code
                                    _target
                                    verbosity
@@ -4233,8 +4397,9 @@
                                    encoding-name
                                    byte-stats
                                    program-compiled)))
-             (report-status "Writing target code...\n")
-             (write-target-code output-path generated-code))))))
+             (report-status "Writing target code")
+             (write-target-code output-path generated-code)
+             (report-done))))))
 
    (define (parse-cmd-line args)
      (if (null? (cdr args))
@@ -4246,7 +4411,6 @@
                (input-path #f)
                (output-path #f)
                (lib-path '())
-               (link-path '())
                (src-path #f)
                (minify? #f)
                (primitives #f)
@@ -4255,6 +4419,7 @@
                (rvm-path #f)
                (progress-status #f)
                (byte-stats #f)
+               (call-stats #f)
                (encoding-name "original"))
 
            (let loop ((args (cdr args)))
@@ -4272,9 +4437,6 @@
                           (loop (cdr rest)))
                          ((and (pair? rest) (member arg '("-l" "--library")))
                           (set! lib-path (cons (car rest) lib-path))
-                          (loop (cdr rest)))
-                         ((and (pair? rest) (member arg '("-lk" "--link")))
-                          (set! link-path (cons (car rest) link-path))
                           (loop (cdr rest)))
                          ((and (pair? rest) (member arg '("-m" "--minify")))
                           (set! minify? #t)
@@ -4298,6 +4460,10 @@
                          ((and (pair? rest) (member arg '("-bs" "--byte-stats")))
                           (set! byte-stats (string->number (car rest)))
                           (loop (cdr rest)))
+
+                         ((member arg '("-cs" "--call-stats"))
+                          (set! call-stats #t)
+                          (loop rest))
 
                          ((member arg '("-v" "--v"))
                           (set! verbosity (+ verbosity 1))
@@ -4347,8 +4513,7 @@
                          (string-append "/rvm." target))))
                  target
                  input-path
-                 (if (eq? lib-path '()) '("default") lib-path)
-                 link-path
+                 (if (eq? lib-path '()) '("empty") lib-path)
                  minify?
                  verbosity
                  progress-status
@@ -4357,8 +4522,7 @@
                  features-disabled
                  encoding-name
                  byte-stats
-                 )))))
-
+                 call-stats)))))
    (parse-cmd-line (cmd-line))
 
    (exit-program-normally)))
