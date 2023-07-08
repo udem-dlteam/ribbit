@@ -83,7 +83,12 @@ bench:
 	      if [ "$$INTERPRETER" != "" ]; then \
 	        stdin="$(sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://')"; \
 	        echo -n "Run Time: "; \
+			ps; \
 	        echo "$$stdin" | time -f '%E seconds' $$INTERPRETER benchmark.$$host "$$argv" > benchmark.$$host.out; \
+			if [ "$$?" != 0 ]; then \
+			  echo "/!\\ ERROR /!\\"; \
+			  continue; \
+			fi; \
 	      else \
 	        $$COMPILER benchmark.$$host.exe benchmark.$$host; \
 	        echo -n "Program-size (compiled): "; \
@@ -91,6 +96,10 @@ bench:
 	        stdin="$(sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://')"; \
 	        echo -n "Run Time: "; \
 	        echo "$$stdin" | time -f '%E seconds' ./benchmark.$$host.exe "$$argv" > benchmark.$$host.out; \
+			if [ "$$?" != 0 ]; then \
+			  echo "/!\\ ERROR /!\\"; \
+			  continue; \
+			fi; \
 	      fi; \
 	      sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - benchmark.$$host.out; \
 	      rm -f benchmark.$$host*; \

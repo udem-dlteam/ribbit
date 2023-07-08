@@ -74,11 +74,6 @@
   (list?-aux obj obj))
 
 
-(define (length lst)
-  (if (pair? lst)
-      (##+ 1 (length (##field1 lst)))
-      0))
-
 ;; ---------------------- CONVERSIONS ---------------------- ;;
 
 ;;; Warning: You need to include v-io.scm for this procedure to work
@@ -88,7 +83,24 @@
     (get-output-string str-port)))
 
 (define (char->integer x) (##field0 x))
+
+(define-signature
+  char->integer 
+  ((x
+     guard: (char? x)
+     expected: "CHARACTER")))
+
+
+
 (define (integer->char n) (##rib n 0 char-type))
+
+(define-signature
+  integer->char 
+  ((n
+     guard: (integer? n)
+     expected: "INTEGER")))
+
+
 
 (define (##list->string lst) (##rib lst (length lst) string-type))
 (define (##string->list x) (##field0 x))
@@ -99,12 +111,17 @@
     '()))
 
 (define (list->string lst) (##list->string (##map char->integer lst)))
-(define (string->list s) (##map integer->char (##string->list s)))
-
 (define (list->vector lst) (##rib lst (length lst) vector-type))
-(define (vector->list x) (##field0 x))
 
-(define (symbol->string x) (##field1 x))
+(define-signatures
+  (list->string list->vector)
+  ((lst 
+     guard: (list? lst)
+     expected: "LIST")))
+
+
+
+(define (string->list str) (##map integer->char (##string->list str)))
 
 (define (string->symbol str)
 
@@ -124,6 +141,33 @@
 
 (define symtbl (##field1 ##rib)) ;; get symbol table
 
+(define-signatures
+  (string->list string->symbol)
+  ((str 
+     guard: (string? str)
+     expected: "STRING")))
+
+
+(define (vector->list x) (##field0 x))
+
+(define-signature
+  vector->list 
+  ((x
+     guard: (vector? x)
+     expected: "VECTOR")))
+ 
+
+
+(define (symbol->string x) (##field1 x))
+
+(define-signature
+  symbol->string 
+  ((x
+     guard: (symbol? x)
+     expected: "SYMBOL")))
+
+
+
 (define (number->string x (radix 10))
   (define (number->string-aux x tail)
     (let ((q (##quotient x radix)))
@@ -140,6 +184,18 @@
       chars 
       (length chars)
       string-type)))
+
+
+(define-signature 
+  number->string 
+  ((x
+     guard: (number? x)
+     expected: "NUMBER")
+   (radix 
+     default: 10
+     guard: (memv radix '(2 8 10 16))
+     expected: "Either 2, 8, 10, or 16")))
+
 
 
 (define (string->number str (radix 10))
@@ -180,3 +236,14 @@
         (let ((n (string->number-aux (##field1 lst))))
           (and n (##- 0 n)))
         (string->number-aux lst))))) ;; cdr
+
+
+(define-signature 
+  string->number 
+  ((str
+     guard: (string? str)
+     expected: "STRING")
+   (radix 
+     default: 10
+     guard: (memv radix '(2 8 10 16))
+     expected: "Either 2, 8, 10, or 16")))

@@ -1,5 +1,7 @@
 ;; R4RS as a library for ribbit.
 
+
+(##include-once "./tc.scm")
 (##include-once "./bool.scm")
 (##include-once "./types.scm")
 (##include-once "./pair-list.scm")

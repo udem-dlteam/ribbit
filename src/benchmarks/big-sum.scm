@@ -1,11 +1,9 @@
-(define range (vector->list (make-vector-fill 1000 1)))
+(define range (vector->list (make-vector-fill 5000 1)))
 
-(display (let loop ((total 0) (rest range))
+(let loop ((total 0) (rest range))
   (if (pair? rest)
     (loop (+ total (car rest)) (cdr rest))
-    total)))
-(newline)
+    total))
 
 ;;;options: -l r4rs; -l r4rs/full-r4rs
 ;;;expected:
-;;;1000

@@ -475,7 +475,7 @@
            (##write-char 35 port-val)  ;; #\#
            (##write-char 40 port-val)  ;; #\(
            (if (##< 0 (##field1 o))
-             (let ((l (vector->list o)))   ;; vector->list
+             (let ((l (##field0 o)))   ;; vector->list
                (display (##field0 l) port)
                (print-list (##field1 l) display port)))
            (##write-char 41 port-val)) ;; #\)
@@ -486,6 +486,15 @@
 
           (else
             (crash)))))
+
+(define-signatures
+  (display write)
+  ((o)
+   (port 
+     default: (current-output-port)
+     guard: (output-port? port)
+     expected: "OUTPUT-PORT")))
+
 
 (define (print-list lst mode port)
   (cond 

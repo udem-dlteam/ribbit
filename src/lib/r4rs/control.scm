@@ -74,6 +74,7 @@
           (apply map (append (list proc) (##map cdr lsts))))
     '()))
 
+
 (define (for-each proc . lsts)
   (if (pair? (##field0 lsts))
       (begin
@@ -144,6 +145,11 @@
 (define (##scan-until-false func base state lst)
   (if (and (pair? lst) state)
     (##scan-until-false func (##field0 lst) (func base (##field0 lst)) (##field1 lst))
+    state))
+
+(define (all pred lst (state #t))
+  (if (and (pair? lst) state)
+    (all pred (cdr lst) (pred (car lst)))
     state))
 
 (define (partial f . args)

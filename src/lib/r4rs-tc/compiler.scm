@@ -79,7 +79,9 @@
                         (cadr expr)
                         (##rib if-op
                              (comp cte (caddr expr) cont)
-                             (comp cte (cadddr expr) cont))))
+                             (if (null? (cdddr expr))
+                               cont
+                               (comp cte (cadddr expr) cont)))))
 
                  ((##eqv? first 'lambda)
                   (let* ((params (cadr expr))

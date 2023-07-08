@@ -2,22 +2,73 @@
 (##include-once "./types.scm")
 (##include-once "./pair-list.scm")
 (##include-once "./char.scm")
+(##include-once "./number.scm")
 (##include-once "./control.scm")
 
 ;; Strings (R4RS section 6.7).
 
 (define (string-length x) (##field1 x))
 
+(define-signature
+  string-length
+  ((x
+     guard: (string? x)
+     expected: "STRING")))
+
+
+
 (define (string-ref str i) (integer->char (list-ref (##field0 str) i)))
+
+(define-signature
+  string-ref
+  ((str 
+     guard: (string? str)
+     expected: "STRING")
+   (i
+     guard: (< -1 i (##field1 str))
+     expected: (string-append "A NUMBER between 0 and " (number->string (string-length str))))))
+
+
 (define (string-set! str i ch) (list-set! (##field0 str) i (##field0 ch)))
 
-(define (make-string k (ch #\space)) (list->string (make-list k ch)))
+(define-signature
+  string-set!
+  ((str 
+     guard: (string? str)
+     expected: "STRING")
+   (i
+     guard: (and (integer? i) (< -1 i (##field1 str)))
+     expected: (string-append "INTEGER between 0 and " (number->string (string-length str))))
+   (ch
+     guard: (char? ch)
+     expected: "CHARACTER")))
 
-(define (string . args) (list->string args))
 
-;; (define (string=? str1 str2) (##eqv? (string-cmp str1 str2) 0))
-;; (define (string<? str1 str2) (##< (string-cmp str1 str2) 0))
-;; (define (string>? str1 str2) (##< 0 (string-cmp str1 str2)))
+
+(define (make-string k ch) (list->string (make-list k ch)))
+
+(define-signature
+  make-string
+  ((k
+     guard: (integer? k)
+     expected: "INTEGER")
+   (ch
+     default: #\space
+     guard: (char? ch)
+     expected: "CHARACTER")))
+
+
+
+
+(define (string . chars) (list->string chars))
+
+(define-signature
+  string
+  ((chars 
+     rest-param:
+     guard: (all char? chars)
+     expected: "CHARACTERs")))
+
 
 (define (string=? str1 str2) (equal? str1 str2))
 (define (string<? str1 str2) (##< (string-cmp str1 str2) 0))
@@ -32,6 +83,17 @@
 (define (string-ci<=? str1 str2) (not (string-ci>? str1 str2)))
 (define (string-ci>=? str1 str2) (not (string-ci<? str1 str2)))
 
+(define-signatures
+  (string=? string<? string>? string<=? string>=? string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?)
+  ((str1 
+     guard: (string? str1)
+     expected: "STRING")
+   (str2 
+     guard: (string? str2)
+     expected: "STRING")))
+
+
+
 (define (substring str start end)
 
   (define (substring-aux str start end tail)
@@ -42,9 +104,31 @@
 
   (substring-aux str start end '()))
 
-(define (string-append . args)
-  (list->string (apply append (map string->list args))))
+(define-signature
+  substring
+  ((str 
+     guard: (string? str)
+     expected: "STRING")
+   (start 
+     guard: (and (integer? start) (<= 0 start end))
+     expected: (string-append "INTEGER between 0 and the end value (" (number->string end) ")"))
+   (end 
+     guard: (and (integer? end) (<= end (string-length str)))
+     expected: (string-append "INTEGER between the start value (" 
+                              (number->string start) ") and " 
+                              (number->string  (string-length str))))))
 
+
+
+(define (string-append . strs)
+  (list->string (apply append (map string->list strs))))
+
+(define-signature
+  string-append
+  ((strs 
+     rest-param:
+     guard: (all string? strs)
+     expected: "STRINGs")))
 
 ;; ---------------------- UTILS NOT IN R4RS ---------------------- ;;
 

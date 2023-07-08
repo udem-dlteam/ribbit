@@ -5,40 +5,57 @@
 (define (cons car cdr) (##rib car cdr pair-type))
 (define (car x) (##field0 x))
 (define (cdr x) (##field1 x))
+
+(define-signatures
+  (car cdr)
+  ((x
+     guard: (pair? x)
+     expected: "PAIR")))
+
+
 (define (set-car! x car) (##field0-set! x car))
 (define (set-cdr! x cdr) (##field1-set! x cdr))
 
-(define (cadr pair) (##field0 (##field1 pair)))
-(define (cddr pair) (##field1 (##field1 pair)))
-(define (caddr pair) (cadr (##field1 pair)))
-(define (cadddr pair) (caddr (##field1 pair)))
+(define-signatures
+  (set-car! set-cdr!)
+  ((x
+     guard: (pair? x)
+     expected: "PAIR")
+   (value)))
 
-(define (caar pair) (##field0 (##field0 pair)))
-(define (cdar pair) (##field1 (##field0 pair)))
 
-(define (caaar pair) (caar (##field0 pair)))
-(define (caadr pair) (caar (##field1 pair)))
-(define (cadar pair) (cadr (##field0 pair)))
-(define (cdaar pair) (cdar (##field0 pair)))
-(define (cdadr pair) (cdar (##field1 pair)))
-(define (cddar pair) (cddr (##field0 pair)))
-(define (cdddr pair) (cddr (##field1 pair)))
 
-(define (caaaar pair) (caaar (##field0 pair)))
-(define (caaadr pair) (caaar (##field1 pair)))
-(define (caadar pair) (caadr (##field0 pair)))
-(define (caaddr pair) (caadr (##field1 pair)))
-(define (cadaar pair) (cadar (##field0 pair)))
-(define (cadadr pair) (cadar (##field1 pair)))
-(define (caddar pair) (caddr (##field0 pair)))
-(define (cdaaar pair) (cdaar (##field0 pair)))
-(define (cdaadr pair) (cdaar (##field1 pair)))
-(define (cdadar pair) (cdadr (##field0 pair)))
-(define (cdaddr pair) (cdadr (##field1 pair)))
-(define (cddaar pair) (cddar (##field0 pair)))
-(define (cddadr pair) (cddar (##field1 pair)))
-(define (cdddar pair) (cdddr (##field0 pair)))
-(define (cddddr pair) (cdddr (##field1 pair)))
+(define (cadr pair) (car (cdr pair)))
+(define (cddr pair) (cdr (cdr pair)))
+(define (caddr pair) (cadr (cdr pair)))
+(define (cadddr pair) (caddr (cdr pair)))
+
+(define (caar pair) (car (car pair)))
+(define (cdar pair) (cdr (car pair)))
+
+(define (caaar pair) (caar (car pair)))
+(define (caadr pair) (caar (cdr pair)))
+(define (cadar pair) (cadr (car pair)))
+(define (cdaar pair) (cdar (car pair)))
+(define (cdadr pair) (cdar (cdr pair)))
+(define (cddar pair) (cddr (car pair)))
+(define (cdddr pair) (cddr (cdr pair)))
+
+(define (caaaar pair) (caaar (car pair)))
+(define (caaadr pair) (caaar (cdr pair)))
+(define (caadar pair) (caadr (car pair)))
+(define (caaddr pair) (caadr (cdr pair)))
+(define (cadaar pair) (cadar (car pair)))
+(define (cadadr pair) (cadar (cdr pair)))
+(define (caddar pair) (caddr (car pair)))
+(define (cdaaar pair) (cdaar (car pair)))
+(define (cdaadr pair) (cdaar (cdr pair)))
+(define (cdadar pair) (cdadr (car pair)))
+(define (cdaddr pair) (cdadr (cdr pair)))
+(define (cddaar pair) (cddar (car pair)))
+(define (cddadr pair) (cddar (cdr pair)))
+(define (cdddar pair) (cdddr (car pair)))
+(define (cddddr pair) (cdddr (cdr pair)))
 
 
 (define (list . args) args)
@@ -47,6 +64,22 @@
   (if (pair? lst)
       (##+ 1 (length (##field1 lst)))
       0))
+
+(define (reverse lst)
+  (define (reverse-aux lst result)
+    (if (pair? lst)
+      (reverse-aux (##field1 lst) (cons (##field0 lst) result))
+      result))
+  (reverse-aux lst '()))
+
+
+(define-signatures
+  (length reverse)
+  ((lst 
+     guard: (list? lst)
+     expected: "LIST")))
+
+
 
 (define (append . lsts)
   (define (append-aux lsts)
@@ -60,13 +93,13 @@
         '()))
   (append-aux lsts))
 
-(define (reverse lst)
-  (reverse-aux lst '()))
+(define-signature 
+  append
+  ((lst 
+     rest-param:
+     guard: (or (null? lst) (all list? (cdr (reverse lst))))
+     expected: "All LISTs except the last arg")))
 
-(define (reverse-aux lst result)
-  (if (pair? lst)
-      (reverse-aux (##field1 lst) (cons (##field0 lst) result))
-      result))
 
 (define (list-ref lst i)
   (##field0 (list-tail lst i)))
@@ -79,6 +112,17 @@
       (list-tail (##field1 lst) (##- i 1))
       lst))
 
+(define-signatures
+  (list-ref list-tail)
+  ((lst 
+     guard: (list? lst)
+     expected: "LIST")
+   (i
+     guard: (and (integer? i) (< -1 i (length lst)))
+     expected: (string-append "INTEGER between 0 and " (number->string (length lst))))))
+
+
+
 (define (memv x lst)
   (if (pair? lst)
       (if (eqv? x (##field0 lst))
@@ -86,7 +130,7 @@
           (memv x (##field1 lst)))
       #f))
 
-(define memq memv)
+(define (memq x lst) (memv x lst))
 
 (define ##case-memv memv)
 
@@ -97,6 +141,15 @@
           (member x (##field1 lst)))
       #f))
 
+(define-signatures
+  (member memv memq)
+  ((x)
+   (lst 
+     guard: (list? lst)
+     expected: "LIST")))
+
+
+
 (define (assv x lst)
   (if (pair? lst)
       (let ((couple (##field0 lst)))
@@ -105,7 +158,7 @@
             (assv x (##field1 lst))))
       #f))
 
-(define assq assv)
+(define (assq x lst) (assv x lst))
 
 (define (assoc x lst)
   (if (pair? lst)
@@ -114,6 +167,15 @@
             couple
             (assoc x (##field1 lst))))
       #f))
+
+(define-signatures
+  (assoc assq assv)
+  ((x)
+   (lst 
+     guard: (and (list? lst) (all pair? lst))
+     expected: "LIST of PAIRs")))
+
+
 
 (define (make-list k fill)
   (make-list-aux k fill '()))

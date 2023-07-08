@@ -1665,7 +1665,7 @@
                          (expand-expr
                            (eval 
                              `(,macro
-                                ,@(cdr expr)))
+                                ,@(map expand-constant (cdr expr))))
                            mtx))
                        (expand-list expr mtx)))))))
 

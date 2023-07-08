@@ -55,8 +55,23 @@
 
 ;; Control features (R4RS section 6.9).
 
-;; (define (apply f arg1 . args) (##apply f (append (list arg1) args))))
 (define (apply f args) (##apply f args))
+
+(define-signature
+  apply
+  ((f 
+     guard: (let* ((nb-args-raw (##field0 (##field0 f)))
+                   (variadic? (odd? nb-args-raw))
+                   (nb-args (##quotient nb-args-raw 2)))
+              (or variadic? (##eqv? nb-args (length args))))
+     expected: (string-append "A PROCEDURE with a number of params equal to the number of args (called with " 
+                              (number->string (length args)) " and taking only " (number->string nb-args) ")"))
+
+   (args 
+     guard: (list? args)
+     expected: "LIST")))
+
+
 
 (define (make-procedure code env) (##rib code env procedure-type))
 (define (procedure-code x) (##field0 x))
@@ -82,6 +97,27 @@
       #f))
 
 
+(define-signatures
+  (map for-each)
+  ((proc 
+     guard: (let* ((nb-args-raw (##field0 (##field0 proc)))
+                   (variadic? (odd? nb-args-raw))
+                   (nb-args (##quotient nb-args-raw 2)))
+              (or variadic? (##eqv? nb-args (length lsts))))
+     expected: "A PROCEDURE that takes a number of args equal to the number of LISTs")
+
+   (lsts 
+     rest-param:
+     guard: (or (null? lsts) 
+                (and (all list? lsts) 
+                     (##scan-until-false 
+                      (lambda (lst1 lst2) (##eqv? (length lst1) (length lst2)))
+                      (car lsts)
+                      #t
+                      (cdr lsts))))
+     expected: "LISTs with the same length")))
+
+
 ;; First-class continuations.
 
 (define (call/cc receiver)
@@ -91,6 +127,15 @@
                   (##field0-set! c2 (##field0 c)) ;; set "stack" field
                   (##field2-set! c2 (##field2 c)) ;; set "pc" field
                   r))))) ;; return to continuation
+
+(define-signature 
+  call/cc
+  ((receiver 
+     guard: (let* ((nb-args-raw (##field0 (##field0 receiver)))
+                   (variadic? (odd? nb-args-raw))
+                   (nb-args (##quotient nb-args-raw 2)))
+              (or variadic? (##eqv? nb-args 1)))
+     expected: "A PROCEDURE that takes a one argument (a PROCEDURE)")))
 
 (define call-with-current-continuation call/cc)
 
@@ -144,6 +189,11 @@
 (define (##scan-until-false func base state lst)
   (if (and (pair? lst) state)
     (##scan-until-false func (##field0 lst) (func base (##field0 lst)) (##field1 lst))
+    state))
+
+(define (all pred lst (state #t))
+  (if (and (pair? lst) state)
+    (all pred (##field1 lst) (pred (##field0 lst)))
     state))
 
 (define (partial f . args)
