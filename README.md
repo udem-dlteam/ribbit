@@ -4,7 +4,7 @@ A small, portable and extensible Scheme implementation that supports closures, t
 
 Ribbit currently supports 9 targets such as *JavaScript*, *Assembly (x86)*, *C*, *Python* and *POSIX Shell*, with more to come !
 
-For more information about Ribbit, you can look at our papers in the [paper section](#ressearch-and-papers) or check out [all supported targets](#supported-targets)
+For more information about Ribbit, you can look at our papers in the [paper section](#research-and-papers) or check out [all supported targets](#supported-targets)
 
 ## Try it now !
 
