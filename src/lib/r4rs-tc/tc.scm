@@ -1,21 +1,25 @@
-(define (##append lst1 lst2)
-  (if (pair? lst1)
-    (cons (##field0 lst1) (##append (##field1 lst1) lst2))
+(define-macro (tc-pair-type) 0)
+
+(define-macro 
+  (tc-pair? o)
+  `(and (##rib? ,o) (##eqv? (##field2 ,o) (tc-pair-type))))
+
+(define (##tc-append lst1 lst2)
+  (if (tc-pair? lst1)
+    (##rib (##field0 lst1) (##tc-append (##field1 lst1) lst2) (tc-pair-type)) ;; cons
     lst2))
 
-(define (##list . args) args)
+(define (##tc-list . args) args)
 
-(define (##not o)
-  (##eqv? o #f))
-
+;; ntc means "no type check"
 (define-macro
-  (define-signature proc-name args-info)
-  (let ((mangled-name (string->symbol (string-append "==##==" (symbol->string proc-name) "==##==")))
+  (define-signature proc args-info)
+  (let ((ntc-proc (string->symbol (string-append "##ntc-" (symbol->string proc))))
         (variadic? #f))
     `(begin
-       (set! ,mangled-name ,proc-name)
+       (set! ,ntc-proc ,proc)
        (define 
-         ,(let loop ((args (list proc-name)) (rest args-info))
+         ,(let loop ((args (list proc)) (rest args-info))
             (if (pair? rest)
               (let ((arg-name (caar rest))
                     (default (let ((maybe-default (memq 'default: (car rest))))
@@ -46,8 +50,8 @@
                    (if (not expected)
                      (error "You must define the 'expected' field when defining a guard")
                      (loop 
-                       (cons `(if (##not ,guard) 
-                                (error "In procedure " ',proc-name " : (ARGUMENT " ,i ") " ,expected " expected."))
+                       (cons `(if (##eqv? ,guard #f)  ;; not
+                                (error "In procedure " ',proc " : (ARGUMENT " ,i ") " ,expected " expected."))
                              guards) 
                        (+ i 1)
                        (cdr rest)))
@@ -55,8 +59,8 @@
                (reverse guards)))
          ,(if variadic? 
             (let ((reverse-args (reverse args-info)))
-              `(##apply ,mangled-name (##append (##list ,@(reverse (map car (cdr reverse-args)))) ,(caar reverse-args))))
-            `(,mangled-name ,@(map car args-info)))))))
+              `(##apply ,ntc-proc (##tc-append (##tc-list ,@(reverse (map car (cdr reverse-args)))) ,(caar reverse-args))))
+            `(,ntc-proc ,@(map car args-info)))))))
 
 
 (define-macro

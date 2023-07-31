@@ -1,7 +1,7 @@
 (##include-once "./bool.scm")
 (##include-once "./types.scm")
 (##include-once "./pair-list.scm")
-(##include-once "./io.scm")
+;;(##include-once "./io.scm")
 (##include-once "./error.scm")
 (##include-once "./control.scm")
 
@@ -18,7 +18,21 @@
   @...@  --- |____________________|
  (-----)
 ( >___< )
-^^ ~~~ ^^`), true),")))
+^^ ~~~ ^^`), true),"))
+
+  ((host py)
+   (define-primitive
+     (welcome-msg)
+     "lambda: push(print(''' 
+              ____________________
+             |                    |
+             | Welcome to Ribbit! |
+             |                    |
+    λ        | - Rib the Frog     |
+  @...@  --- |____________________|
+ (-----)
+( >___< )
+^^ ~~~ ^^''')),")))
 
 ;; Compiler from Ribbit Scheme to RVM code.
 

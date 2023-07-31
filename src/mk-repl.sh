@@ -6,5 +6,6 @@ else
     lib='r4rs'
 fi
 
-gsi -:r4rs ./rsc.scm -t js -l "$lib" -f+ js/node "$@" -o ./repl.js ./tests/r4rs/repl/repl-test.scm
-node --trace-uncaught ./repl.js
+gsi -:r4rs ./rsc.scm -t py -l "$lib" "$@" -o ./repl.py ./tests/r4rs/repl/repl.scm
+# node --trace-uncaught ./repl.js
+python3 ./repl.py

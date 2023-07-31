@@ -510,7 +510,7 @@
 
     (define (pp-return foo . x)
       (let ((r (apply foo x)))
-        ;; (pp r)
+        (pp r)
         r))))
 
 
@@ -1276,8 +1276,6 @@
            (car exprs-and-exports))
          (exprs
            (if (pair? exprs) exprs (cons #f '())))
-         (exports
-           (exports->alist (cdr exprs-and-exports)))
 
          (host-features (extract-features (or parsed-vm default-primitives)))
 
@@ -1286,6 +1284,8 @@
               ,@(host-feature->expansion-feature host-features) ;; add host features
               ,(expand-begin exprs (make-mtx '() '()))))
 
+         (exports
+           (exports->alist (cdr exprs-and-exports)))
         
          (live-globals-and-features
            (liveness-analysis expansion features-enabled features-disabled exports))
@@ -4213,7 +4213,7 @@
 
     (let* ((target-code-before-minification
             (if (equal? target "rvm")
-                (encode 256)   ;; TODO: 256 is the number of code in the encoding.
+                (encode 256)   ;; NOTE: 256 is the number of code in the encoding.
                 (generate-file host-file host-config encode)))
            (target-code
             (if (or (not minify?) (equal? target "rvm"))

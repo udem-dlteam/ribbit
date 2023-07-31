@@ -184,14 +184,6 @@
   load
   eval
   ;; error
-  open-input-string
-  read-lines-until
-  string-concatenate
-  string-split
-  string-prefix?
-  file-exists?
-  ##params
-  ##can-call?
 
   quote set! define if lambda quasiquote unquote unquote-splicing
 
@@ -212,7 +204,11 @@
   or
 
   ;#; ;; support for cond special form
-  cond)
+  cond
+
+  space
+  tab
+  return)
 
 (repl)
 
