@@ -1,0 +1,11 @@
+#!/bin/sh
+
+if [ "$LIB" = "" ]; then 
+    LIB="-l r4rs -l r4rs/misc"
+fi
+
+if [ "$HOST" = "" ]; then 
+    HOST="js"
+fi
+
+gsi -:r4rs ./rsc.scm -t "$HOST" $LIB "$@" -o ./rsi."$HOST" ./lib/r4rs/rsi.scm

@@ -2,10 +2,6 @@
 (##include-once "ribbit:prim-wrap-macros.scm")
 
 
-;;; ---------- SYMBOL TABLE ---------- ;;;
-(define symbol-table (%field1 ##rib)) 
-
-
 ;;; ---------- TYPES & MACROS ---------- ;;;
 (define-type meta-rib-data)
 (define-type meta-rib-op)
@@ -27,6 +23,15 @@
   `(define (,writer-name data rib-type config port)
      ,@body))
 
+(define-macro 
+  (define-ins-config name . configs)
+  (let ((config-list '()))
+    (for-each (lambda (config)
+                (set! config-list (cons config config-list)))
+              configs)
+    `(define ,name
+       `,config-list)))
+
 ;;; ---------- CONFIG ---------- ;;;
 
 
@@ -46,6 +51,7 @@
 (define-inspector default-proc-inspector 
   (if (%rib? (%field0 rib)) ;; procedure is not a primitive
     (%field2-set! (%field0 rib) (##inspect-op (%field2 (%field0 rib)))))
+    ;;(%field2-set! (%field0 rib) (##ntc-list-ref (%field1 (%close #f)) (%field0 rib)))
   rib)
 
 (define-type-namer default-proc-type-namer 
@@ -142,8 +148,6 @@
   primitive-procedure-writer
   (display "(primitive-procedure " port)
   (display (%field0 data) port)
-  (display " " port)
-  (display (list-ref symbol-table (%field0 data)) port)
   (display ")\n" port))
 
 (define-inspector-writer

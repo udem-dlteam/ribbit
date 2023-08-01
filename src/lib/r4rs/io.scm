@@ -232,6 +232,7 @@
 (define stdout-port
   (##rib (##stdout-fd) #t output-port-type))  ;; stdout
 
+(define ##reader-case-transform char-downcase) 
 
 ;; ---------------------- INPUT ---------------------- ;;
 
@@ -321,7 +322,7 @@
                    ((##eqv? c 40)  ;; #\(
                      (list->vector (read port)))
                    (else 
-                     (string->symbol (##list->string (append '(35) (read-symbol port char-downcase))))))))
+                     (string->symbol (##list->string (append '(35) (read-symbol port ##reader-case-transform))))))))
           ((##eqv? c 39)      ;; #\'
            (read-char port) ;; skip "'"
            (list 'quote (read port)))
@@ -341,7 +342,7 @@
            (##list->string (read-chars '() port)))
           (else
             ;; (read-char port) ;; skip first char
-            (let ((s (##list->string (read-symbol port char-downcase))))
+            (let ((s (##list->string (read-symbol port ##reader-case-transform))))
               (let ((n (string->number s)))
                 (or n
                     (string->symbol s))))))))
