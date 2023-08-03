@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [ "$LIB" = "" ]; then 
-    LIB="-l r4rs -l r4rs/misc"
+    LIB="-l r4rs/r4rs-v-io -l r4rs/sys"
 fi
 
 if [ "$HOST" = "" ]; then 

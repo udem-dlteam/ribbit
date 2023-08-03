@@ -1,3 +1,5 @@
+#!/bin/sh
+
 if [ "$1" = "full" ]; then
     lib='r4rs/full-r4rs'
     shift

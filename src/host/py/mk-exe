@@ -1,0 +1,8 @@
+#!/bin/sh 
+
+
+EXEC_PATH=$(which python3)
+RVM_CONTENT=$(cat "$1")
+
+echo "#!$EXEC_PATH" > "$1" 
+echo "$RVM_CONTENT" >> "$1"

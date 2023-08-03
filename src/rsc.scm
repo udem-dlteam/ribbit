@@ -58,6 +58,9 @@
    (define (del-file path)
      (delete-file path)))
 
+  (ribbit 
+    (begin))
+
   (else
    (define (shell-cmd command)
      #f)
@@ -1275,7 +1278,7 @@
          (exprs
            (car exprs-and-exports))
          (exprs
-           (if (pair? exprs) exprs (cons #f '())))
+           (if (pair? exprs) exprs '(#f)))
 
          (host-features (extract-features (or parsed-vm default-primitives)))
 
@@ -2060,7 +2063,7 @@
 
 
 (define (liveness expr env export-all?)
-
+  (define export-all (live-env-live-feature? env 'export-all))
 
   (define (add-val val)
     (cond ((symbol? val)
@@ -2092,11 +2095,9 @@
                         (if (in? var cte) ;; local var?
                           (liveness val cte #f)
                           (begin
-                            ;(if export-all? (add var)) Don't understand why
-                            (let ((g (live-env-live? env var))) ;; variable live?
+                            (let ((g (or export-all (live-env-live? env var)))) ;; variable live?
                               (if g
                                 (begin
-                                  
                                   (set-cdr! g (cons val (cdr g))) 
                                   (liveness val cte #f))
                                 #f)))))))
@@ -2144,8 +2145,6 @@
                       (if (eval-feature feature-expr (live-env-features env))
                         (liveness (caddr expr) cte #f)
                         (liveness (cadddr expr) cte #f))))
-
-
 
                    (else
                     (liveness-list expr cte)))))
@@ -4183,12 +4182,6 @@
          (host-config
            (vector-ref proc-exports-and-features 2))
 
-         ;(primitives
-         ;  (vector-ref proc-exports-and-features 2))
-         ;(live-features
-         ;  (vector-ref proc-exports-and-features 3))
-         ;(features
-         ;  (vector-ref proc-exports-and-features 4))
          (encode (lambda (bits)
                    (let ((input 
                            (append 
@@ -4309,7 +4302,9 @@
 
    (define (fancy-compiler src-path
                            output-path
+                           exe-output-path
                            rvm-path
+                           generate-profile
                            _target
                            input-path
                            lib-path
@@ -4354,7 +4349,7 @@
                 #f
                 (parse-host-file vm-source)))
 
-            
+
 
             (features-enabled (cons (string->symbol (string-append "encoding/" encoding-name))
                                     features-enabled)))
@@ -4373,19 +4368,28 @@
            (if call-stats?
              (pp (list-sort (lambda (stat1 stat2) (> (cadr stat1) (cadr stat2))) call-stats)))
            (report-status "Generating target code")
-           (let ((generated-code (generate-code
-                                   _target
-                                   verbosity
-                                   input-path
-                                   rvm-path
-                                   minify?
-                                   host-file
-                                   encoding-name
-                                   byte-stats
-                                   program-compiled)))
-             (report-status "Writing target code")
-             (write-target-code output-path generated-code)
-             (report-done))))))
+           (let* ((host-config (vector-ref program-compiled 2))
+
+                  (live-features (host-config-features host-config))
+                  (primitives (list-sort 
+                                (lambda (x y) (< (cadr x) (cadr y)))
+                                (host-config-primitives host-config))))
+
+             (let ((generated-code (generate-code
+                                     _target
+                                     verbosity
+                                     input-path
+                                     rvm-path
+                                     minify?
+                                     host-file
+                                     encoding-name
+                                     byte-stats
+                                     program-compiled)))
+               (report-status "Writing target code")
+               (write-target-code output-path generated-code)
+               (if exe-output-path
+                 (shell-cmd (string-append (path-directory rvm-path) "/mk-exe " output-path " " exe-output-path)))
+               (report-done)))))))
 
    (define (parse-cmd-line args)
      (if (null? (cdr args))
@@ -4394,8 +4398,11 @@
 
          (let ((verbosity 0)
                (target "rvm")
+               (generate-strip #f)
+               (base-strip #f)
                (input-path #f)
                (output-path #f)
+               (exe-output-path #f)
                (lib-path '())
                (src-path #f)
                (minify? #f)
@@ -4420,6 +4427,14 @@
                           (loop (cdr rest)))
                          ((and (pair? rest) (member arg '("-o" "--output")))
                           (set! output-path (car rest))
+                          (loop (cdr rest)))
+                         ((and (pair? rest) (member arg '("-s" "--strip")))
+                          (set! base-strip (if (string=? (car rest) "-") 
+                                             (read-line (current-input-port) #f) 
+                                             (call-with-input-file 
+                                               (car rest)
+                                               (lambda (port)
+                                                 (read-line port #f)))))
                           (loop (cdr rest)))
                          ((and (pair? rest) (member arg '("-l" "--library")))
                           (set! lib-path (cons (car rest) lib-path))
@@ -4446,6 +4461,27 @@
                          ((and (pair? rest) (member arg '("-bs" "--byte-stats")))
                           (set! byte-stats (string->number (car rest)))
                           (loop (cdr rest)))
+
+                         ((member arg '("-gs" "--generate-strip"))
+                          (if (and (pair? rest) 
+                                   (>= (string-length (car rest)) 1)
+                                   (string=? (substring (car rest) 0 1) "-"))
+                            (begin
+                              (set! generate-strip #t)
+                              (loop rest))
+                            (begin 
+                              (set! generate-strip (car rest))
+                              (loop (cdr rest)))))
+
+                         ((member arg '("-x" "--exe" "--executable"))
+                          (if (and (pair? rest) 
+                                   (not (string=? (substring (car rest) 0 1) "-")))
+                            (begin 
+                              (set! exe-output-path (car rest))
+                              (loop (cdr rest)))
+                            (begin
+                              (set! exe-output-path #t)
+                              (loop rest))))
 
                          ((member arg '("-cs" "--call-stats"))
                           (set! call-stats #t)
@@ -4491,15 +4527,22 @@
                        (string-append
                          src-path
                          (string-append "." target))))
+                 (and exe-output-path
+                      (if (string? exe-output-path)
+                        exe-output-path
+                        (string-append
+                          src-path
+                          (string-append "." target ".exe"))))
                  (or rvm-path
                      (string-append
                        "host/"
                        (string-append
                          target
                          (string-append "/rvm." target))))
+                 generate-strip
                  target
                  input-path
-                 (if (eq? lib-path '()) '("empty") lib-path)
+                 (if (null? lib-path) '("empty") lib-path)
                  minify?
                  verbosity
                  progress-status
