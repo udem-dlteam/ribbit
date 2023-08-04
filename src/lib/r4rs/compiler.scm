@@ -32,7 +32,23 @@
   @...@  --- |____________________|
  (-----)
 ( >___< )
-^^ ~~~ ^^''')),")))
+^^ ~~~ ^^''')),"))
+
+  ((host c)
+   (define-primitive
+     (welcome-msg)
+     "printf(\"\\
+              ____________________\\n\\
+             |                    |\\n\\
+             | Welcome to Ribbit! |\\n\\
+             |                    |\\n\\
+    λ        | - Rib the Frog     |\\n\\
+  @...@  --- |____________________|\\n\\
+ (-----)\\n\\
+( >___< )\\n\\
+^^ ~~~ ^^\\n\");
+   push2(NIL, PAIR_TAG);
+   break;")))
 
 ;; Compiler from Ribbit Scheme to RVM code.
 

@@ -216,7 +216,6 @@
      (use hs/io-handle)
      " , prim1 $ \\(RibForeign (RibHandle handle)) -> hClose handle >> pure ribTrue")))
 
-
 (define (##close-output-fd port) (##close-input-fd port))
 
 ;; ---------------------- EOF & TYPES ---------------------- ;;
@@ -226,55 +225,200 @@
 (define (eof-object? obj)
   (##eqv? obj ##eof))
 
-(define stdin-port
-  (##rib (##stdin-fd) (##rib 0 '() #t) input-port-type)) ;; stdin
-
-(define stdout-port
-  (##rib (##stdout-fd) #t output-port-type))  ;; stdout
-
 (define ##reader-case-transform char-downcase) 
 
+(define-macro 
+  (%write-char-code ch-code port)
+  `(if-feature v-port
+     (write-char (integer->char ,ch-code) ,port)
+     (##write-char-fd ,ch-code (##field0 ,port))))
+
+(if-feature
+  (not v-port)
+  (begin
+    (define stdin-port
+      (##rib (##stdin-fd) (##rib 0 '() #t) input-port-type)) ;; stdin
+
+    (define stdout-port
+      (##rib (##stdout-fd) #t output-port-type))  ;; stdout
+
+    ;; ---------------------- INPUT ---------------------- ;;
+
+    (define (open-input-file filename)
+      ;; (file_descriptor, (cursor, last_char, is_open), input_file_type)
+      (##rib (##get-fd-input-file filename) (##rib 0 '() #t) input-port-type))
+
+    (define (close-input-port port)
+      (if (##field2 (##field1 port))
+        (begin 
+          (##field2-set! (##field1 port) #f)
+          (##close-input-fd (##field0 port)))))
+
+    (define (##get-last-char port)
+      (##field1 (##field1 port)))
+
+    (define (##set-last-char port ch)
+      (##field1-set! (##field1 port) ch))
+
+    (define (input-port-close? port)
+      (not (##field2 (##field1 port))))
+
+    (define (read-char (port (current-input-port))) 
+      (if (input-port-close? port) (crash))
+      (let ((last-ch (##get-last-char port)))
+        (if (null? last-ch)
+
+          (let ((ch (##read-char-fd (##field0 port))))
+            (if (null? ch) ##eof (integer->char ch)))
+
+          (begin
+            (##set-last-char port '())
+            last-ch))))
+
+    ;; ---------------------- OUTPUT ---------------------- ;;
+
+    (define (open-output-file filename)
+      ;; (file_descriptor, is_open, write_file_type)
+      (##rib (##get-fd-output-file filename) #t output-port-type))
+
+    (define (close-output-port port)
+      (if (##field1 port)
+        (begin
+          (##field1-set! port #f)
+          (##close-output-fd (##field0 port)))))
+
+    (define (output-port-close? port)
+      (not (##field1 port)))
+
+    (define (write-char ch (port (current-output-port)))
+      (##write-char-fd (##field0 ch) (##field0 port))))
+
+  (begin 
+    (define-macro
+      (%get-port-reader port)
+      `(##field0 (##field1 ,port)))
+
+    (define-macro
+      (%get-port-writer port)
+      `(##field0 (##field1 ,port)))
+
+    (define-macro
+      (%get-port-closer port)
+      `(##field1 (##field1 ,port)))
+
+    (define (close-output-fd port) (##close-output-fd (##field0 port)))
+    (define (close-input-fd port) (##close-input-fd (##field0 port)))
+
+    (define (##read-char port) (let ((c (##read-char-fd (##field0 port))))
+                                 (if (null? c) ##eof (integer->char c))))
+
+    (define (##write-char ch port) (##write-char-fd (##field0 ch) (##field0 port)))
+
+    (define (##make-input-port fd reader closer)
+      (##rib fd (##rib reader closer '()) input-port-type))
+
+    (define (##make-output-port fd writer closer)
+      (##rib fd (##rib writer closer #t) output-port-type))
+
+    (define stdin-port
+      (##make-input-port (##stdin-fd) ##read-char close-input-fd)) ;; stdin
+
+    (define stdout-port
+      (##make-output-port (##stdout-fd) ##write-char close-output-fd)) ;; stdout
+
+    (define (close-port port)
+      (if (##field2 (##field1 port))
+        (begin 
+          (##field2-set! (##field1 port) #f)
+          ((%get-port-closer port) port))))
+
+    (define (port-closed? port)
+      (not (##field2 (##field1 port))))
+
+
+    ;; ---------------------- INPUT ---------------------- ;;
+
+    (define (open-input-file filename)
+      ;; (file_descriptor, (cursor, last_char, is_open), input_file_type)
+      (##make-input-port (##get-fd-input-file filename) ##read-char close-input-fd))
+
+    (define close-input-port close-port)
+
+    (define (##get-last-char port)
+      (##field2 (##field1 port)))
+
+    (define (##set-last-char port ch)
+      (##field2-set! (##field1 port) ch))
+
+    (define (read-char (port (current-input-port))) 
+      (if (port-closed? port) (crash))
+      (let ((last-ch (##get-last-char port)))
+        (if (null? last-ch)
+          ((%get-port-reader port) port)
+          (begin
+            (##set-last-char port '())
+            last-ch))))
+
+
+    ;; ---------------------- OUTPUT ---------------------- ;;
+
+    (define (open-output-file filename)
+      ;; (file_descriptor, is_open, write_file_type)
+      (##make-output-port (##get-fd-output-file filename) ##write-char close-output-fd))
+
+    (define close-output-port close-port)
+
+    (define (write-char ch (port (current-output-port)))
+      ((%get-port-writer port) ch port))  ;; call the writer with the char and the port
+
+    ;; ---------------------- UTILS NOT IN R4RS ---------------------- ;;
+
+    (define (capture-output-from captured-port new-port thunk)
+      (let ((old-write-char ##write-char))
+        (set! ##write-char 
+          (lambda (ch port) 
+            (old-write-char ch
+                            (if (##eqv? port captured-port)
+                              new-port
+                              port))))
+        (let ((result (thunk)))
+          (set! ##write-char old-write-char)
+          result)))
+
+    (define (open-input-string str)
+      (##make-input-port 
+       (string->list str)
+       (lambda (port) ;; reader
+         (if (null? (##field0 port)) ;; no more characters
+           ##eof
+           (let ((c (##field0 (##field0 port))))
+             (##field0-set! port (##field1 (##field0 port)))
+             c)))
+       (lambda (port) #f))) ;; closer
+
+    (define (open-output-string (str ""))
+      (##make-output-port 
+       str 
+       (lambda (ch port) ;; writer
+         (##field0-set! port (string-append (##field0 port) (string ch))))
+       (lambda (port) #f))) ;; closer
+
+    (define (get-output-string port)
+      (##field0 port))))
+
+
+;; ###################### COMMON ###################### ;;
+
+(define (current-input-port) stdin-port)
+(define (current-output-port) stdout-port)
+
 ;; ---------------------- INPUT ---------------------- ;;
-
-(define (open-input-file filename)
-  ;; (file_descriptor, (cursor, last_char, is_open), input_file_type)
-  (##rib (##get-fd-input-file filename) (##rib 0 '() #t) input-port-type))
-
-(define (close-input-port port)
-  (if (##field2 (##field1 port))
-    (begin 
-      (##field2-set! (##field1 port) #f)
-      (##close-input-fd (##field0 port)))))
-
-(define (##get-last-char port)
-  (##field1 (##field1 port)))
-
-(define (##set-last-char port ch)
-  (##field1-set! (##field1 port) ch))
-
-(define (input-port-close? port)
-  (not (##field2 (##field1 port))))
-
-(define (current-input-port)
-  stdin-port)
 
 (define (call-with-input-file filename proc)
   (let* ((port (open-input-file filename))
          (result (proc port)))
     (close-input-port port)
     result))
-
-(define (read-char (port (current-input-port))) 
-  (if (input-port-close? port) (crash))
-  (let ((last-ch (##get-last-char port)))
-    (if (null? last-ch)
-
-      (let ((ch (##read-char-fd (##field0 port))))
-        (if (null? ch) ##eof (integer->char ch)))
-
-      (begin
-        (##set-last-char port '())
-        last-ch))))
 
 (define (peek-char (port (current-input-port)))
   (let ((ch (read-char port)))
@@ -283,10 +427,10 @@
 
 ;; ---------------------- READ ---------------------- ;;
 
-(define special-chars '(("newline" 10) 
-                        ("space" 32) 
-                        ("tab" 9)
-                        ("return" 13)))
+(define special-chars '((newline 10) 
+                        (space 32) 
+                        (tab 9)
+                        (return 13)))
 
 (define escapes '((10 110)   ;; \n -> n
                   (13 116)   ;; \t -> t
@@ -294,7 +438,6 @@
                   (34 34)))  ;; \" -> "
 
 (define (read (port (current-input-port)))
-
   (let ((c (peek-char-non-whitespace port)))
     (cond ((eof-object? c) c)
           ((##eqv? c 40)            ;; #\(
@@ -311,18 +454,16 @@
                     #t)
                    ((##eqv? c 92)        ;; #\\
                     (read-char port) ;; skip "\\"
-                    (let ((ch (peek-char port)))
-                      (if (char-whitespace? ch) 
-                        (read-char port)
-                        (let ((str (read-symbol port (lambda (x) x))))
-                          (cond 
-                            ((null? str) (read-char port))
-                            ((##eqv? (length str) 1) (integer->char (##field0 str)))
-                            (else (integer->char (cadr (assoc (list->string (map char-downcase (map integer->char str))) special-chars)))))))))
+                    (let ((ch (peek-char port))
+                          (str (read-symbol port '())))
+                      (cond 
+                        ((##eqv? (##field1 str) 0) (read-char port))
+                        ((##eqv? (##field1 str) 1) ch)
+                        (else (integer->char (cadr (assq (string->symbol str) special-chars)))))))
                    ((##eqv? c 40)  ;; #\(
-                     (list->vector (read port)))
+                    (list->vector (read port)))
                    (else 
-                     (string->symbol (##list->string (append '(35) (read-symbol port ##reader-case-transform))))))))
+                     (string->symbol (read-symbol port (list #\#)))))))
           ((##eqv? c 39)      ;; #\'
            (read-char port) ;; skip "'"
            (list 'quote (read port)))
@@ -342,35 +483,32 @@
            (##list->string (read-chars '() port)))
           (else
             ;; (read-char port) ;; skip first char
-            (let ((s (##list->string (read-symbol port ##reader-case-transform))))
+            (let ((s (read-symbol port '())))
               (let ((n (string->number s)))
                 (or n
                     (string->symbol s))))))))
 
+
 (define (read-list port)
   (let ((c (peek-char-non-whitespace port)))
-    (cond 
-      ((##eqv? c 41) ;; #\)
-       (read-char port) ;; skip ")"
-       '())
-      (else (let ((first (read port)))
-              (if (and (symbol? first) (equal? (symbol->string first) "."))
-                (let ((result (read port)))
-                  (read-char port)
-                  result)
-                (cons first (read-list port))))))))
+    (if (##eqv? c 41) ;; #\)
+      (begin
+        (read-char port) ;; skip ")"
+        '())
+      (let ((first (read port)))
+        (if (and (symbol? first) (equal? (symbol->string first) "."))
+          (let ((result (read port)))
+            (read-char port)
+            result)
+          (cons first (read-list port)))))))
 
-(define (read-symbol port case-transform)
-  ;; FIXME: change char-downcase to char-upcase
-  (let ((c (##field0 (case-transform (peek-char port)))))
+(define (read-symbol port lst)
+  (let ((c (##field0 (peek-char port))))
     (if (or (##eqv? c 40)  ;; #\(
             (##eqv? c 41)  ;; #\)
-            (##eqv? c 0)   ;; eof
             (##< c 33))    ;; whitespace
-        '()
-        (begin
-          (read-char port)
-          (cons c (read-symbol port case-transform))))))
+      (list->string (reverse lst))
+      (read-symbol port (cons (char-downcase (read-char port)) lst)))))
 
 (define (read-chars lst port)
   (let ((c (##field0 (read-char port))))
@@ -379,18 +517,18 @@
           ((##eqv? c 92)                 ;; #\\
            (let ((c2 (##field0 (read-char port))))
              (read-chars
-              (##rib (cond
-                     ;#; ;; support for \n in strings
-                     ((##eqv? c2 110) 10) ;; #\n
-                     ;#; ;; support for \r in strings
-                     ((##eqv? c2 114) 13) ;; #\r
-                     ;#; ;; support for \t in strings
-                     ((##eqv? c2 116) 9)  ;; #\t
-                     (else          c2))
-                    lst 0)
-              port)))
+               (cons (cond
+                       ;#; ;; support for \n in strings
+                       ((##eqv? c2 110) 10) ;; #\n
+                       ;#; ;; support for \r in strings
+                       ((##eqv? c2 114) 13) ;; #\r
+                       ;#; ;; support for \t in strings
+                       ((##eqv? c2 116) 9)  ;; #\t
+                       (else          c2))
+                     lst)
+               port)))
           (else
-           (read-chars (cons c lst) port)))))
+            (read-chars (cons c lst) port)))))
 
 (define (peek-char-non-whitespace port)
   (let ((c (peek-char port)))
@@ -407,28 +545,13 @@
 (define (skip-comment port)
   (let ((c (read-char port)))
     (if (eof-object? c)
-        c
-        (if (##eqv? (##field0 c) 10) ;; #\newline
-            (peek-char-non-whitespace port)
-            (skip-comment port)))))
+      c
+      (if (##eqv? (##field0 c) 10) ;; #\newline
+        (peek-char-non-whitespace port)
+        (skip-comment port)))))
 
 
 ;; ---------------------- OUTPUT ---------------------- ;;
-
-(define (open-output-file filename)
-  ;; (file_descriptor, is_open, write_file_type)
-  (##rib (##get-fd-output-file filename) #t output-port-type))
-
-(define (close-output-port port)
-  (if (##field1 port)
-    (begin
-      (##field1-set! port #f)
-      (##close-output-fd (##field0 port)))))
-
-(define (current-output-port) stdout-port)
-
-(define (output-port-close? port)
-  (not (##field1 port)))
 
 (define (call-with-output-file filename proc)
   (let* ((port (open-output-file filename))
@@ -436,130 +559,139 @@
     (close-output-port port)
     result))
 
-(define (write-char ch (port (current-output-port)))
-  (##write-char-fd (##field0 ch) (##field0 port)))
-
 (define (newline (port (current-output-port)))
-  (##write-char-fd 10 (##field0 port)))  ;; #\newline
+  (%write-char-code 10 port))  ;; #\newline
 
 (define (write o (port (current-output-port)))
-  (let ((port-val (##field0 port)))
-    (cond ((string? o)
-           (##write-char-fd 34 port-val)     ;; #\"
-           (write-chars (##field0 o) escapes port-val)
-           (##write-char-fd 34 port-val))    ;; #\"
-          ((char? o)
-           (##write-char-fd 35 port-val)     ;; #\#
-           (##write-char-fd 92 port-val)     ;; #\\
-           (let ((name (assoc (##field0 o) (map reverse special-chars)))) 
-             (if (not name)
-               (##write-char-fd (##field0 o) port-val)
-               (display (cadr name) port))))
-          ((pair? o)
-           (##write-char-fd 40 port-val)  ;; #\(
-           (write (##field0 o) port) ;; car
-           (print-list (##field1 o) write port) ;; cdr
-           (##write-char-fd 41 port-val)) ;; #\)
-          ((vector? o)
-           (##write-char-fd 35 port-val)  ;; #\#
-           (##write-char-fd 40 port-val)  ;; #\(
-           (if (##< 0 (##field1 o))
-             (let ((l (##field0 o)))   ;; vector->list
-               (write (##field0 l) port)
-               (print-list (##field1 l) write port)))
-           (##write-char-fd 41 port-val)) ;; #\)
-          (else
-            (display o port)))))
+  (cond ((string? o)
+         (%write-char-code 34 port)     ;; #\"
+         (write-chars (##field0 o) escapes port)
+         (%write-char-code 34 port))    ;; #\"
+        ((char? o)
+         (%write-char-code 35 port)     ;; #\#
+         (%write-char-code 92 port)     ;; #\\
+         (let ((name (assv (##field0 o) (map reverse special-chars)))) 
+           (if (not name)
+             (write-char o port)
+             (write (cadr name) port))))
+        ((pair? o)
+         (%write-char-code 40 port)  ;; #\(
+         (write (##field0 o) port) ;; car
+         (print-list (##field1 o) write port) ;; cdr
+         (%write-char-code 41 port)) ;; #\)
+        ((vector? o)
+         (%write-char-code 35 port)  ;; #\#
+         (%write-char-code 40 port)  ;; #\(
+         (if (##< 0 (##field1 o))
+           (let ((l (##field0 o)))   ;; vector->list
+             (write (##field0 l) port)
+             (print-list (##field1 l) write port)))
+         (%write-char-code 41 port)) ;; #\)
+        (else
+          (display o port))))
 
 (define (display o (port (current-output-port)))
-  (let ((port-val (##field0 port)))
-    (cond ((not o)
-           (##write-char-fd 35 port-val)     ;; #\#
-           (##write-char-fd 102 port-val))   ;; #f
+  (cond ((not o)
+         (%write-char-code 35 port)     ;; #\#
+         (%write-char-code 102 port))   ;; #f
 
-          ((##eqv? o #t)
-           (##write-char-fd 35 port-val)     ;; #\#
-           (##write-char-fd 116 port-val))   ;; #t
+        ((##eqv? o #t)
+         (%write-char-code 35 port)     ;; #\#
+         (%write-char-code 116 port))   ;; #t
 
-          ((eof-object? o)
-           (##write-char-fd 35 port-val)     ;; #\#
-           (##write-char-fd 101 port-val))   ;; #e
+        ((eof-object? o)
+         (%write-char-code 35 port)     ;; #\#
+         (%write-char-code 101 port))   ;; #e
 
-          ((null? o)
-           (##write-char-fd 40 port-val)  ;; #\(
-           (##write-char-fd 41 port-val)) ;; #\)
+        ((null? o)
+         (%write-char-code 40 port)  ;; #\(
+         (%write-char-code 41 port)) ;; #\)
 
-          ((integer? o)
-           (display (number->string o) port))
+        ((integer? o)
+         (display (number->string o) port))
 
-          ((input-port? o)
-           (display (vector (##field0 o) (##field2 (##field1 o)) (##field2 o)) port))
+        ((or (input-port? o) (output-port? o))
+         (display (vector (##field2 (##field1 o)) (##field2 o))))
 
-          ((output-port? o)
-           (display (vector (##field0 o) (##field1 o) (##field2 o)) port))
+        ((char? o)
+         (write-char o port))
 
-          ((char? o)
-           (##write-char-fd (##field0 o) port-val))
+        ((pair? o)
+         (%write-char-code 40 port)  ;; #\(
+         (display (##field0 o) port) ;; car
+         (print-list (##field1 o) display port) ;; cdr
+         (%write-char-code 41 port)) ;; #\)
 
-          ((pair? o)
-           (##write-char-fd 40 port-val)  ;; #\(
-           (display (##field0 o) port) ;; car
-           (print-list (##field1 o) display port) ;; cdr
-           (##write-char-fd 41 port-val)) ;; #\)
+        ((symbol? o)
+         (write-chars (##field0 (##field1 o)) '() port))
 
-          ((symbol? o)
-           (write-chars (##field0 (##field1 o)) '() port-val))
+        ((string? o)
+         (write-chars (##field0 o) '() port)) ;; chars
 
-          ((string? o)
-           (write-chars (##field0 o) '() port-val)) ;; chars
+        ((vector? o)
+         (%write-char-code 35 port)  ;; #\#
+         (%write-char-code 40 port)  ;; #\(
+         (if (##< 0 (##field1 o))
+           (let ((l (##field0 o)))   ;; vector->list
+             (display (##field0 l) port)
+             (print-list (##field1 l) display port)))
+         (%write-char-code 41 port)) ;; #\)
 
-          ((vector? o)
-           (##write-char-fd 35 port-val)  ;; #\#
-           (##write-char-fd 40 port-val)  ;; #\(
-           (if (##< 0 (##field1 o))
-             (let ((l (##field0 o)))   ;; vector->list
-               (display (##field0 l) port)
-               (print-list (##field1 l) display port)))
-           (##write-char-fd 41 port-val)) ;; #\)
+        ((procedure? o)
+         (%write-char-code 35 port)  ;; #\#
+         (%write-char-code 112 port)) ;; #p
 
-          ((procedure? o)
-           (##write-char-fd 35 port-val)  ;; #\#
-           (##write-char-fd 112 port-val)) ;; #p
+        ((##rib? o)
+         (display (list (##field0 o) (##field1 o) (##field2 o))))
 
-          ((##rib? o)
-           (display "<rib \v" port)
-           (write (vector (##field0 o) (##field1 o) (##field2 o)) port)
-           (display ">" port))
-
-          (else
-            (crash)))))
+        (else
+          (crash))))
 
 (define (print-list lst mode port)
   (cond 
     ((pair? lst)
-     (##write-char-fd 32 (##field0 port)) ;; #\space
+     (%write-char-code 32 port) ;; #\space
      (mode (##field0 lst) port) ;; car
      (print-list (##field1 lst) mode port))  ;; cdr
 
     ((null? lst) #f)
 
     (else
-      (let ((port-val (##field0 port)))
-        (##write-char-fd 32 port-val) ;; #\space
-        (##write-char-fd 46 port-val) ;; #\.
-        (##write-char-fd 32 port-val)) ;; #\space
+      (%write-char-code 32 port) ;; #\space
+      (%write-char-code 46 port) ;; #\.
+      (%write-char-code 32 port) ;; #\space
       (mode lst port))))
 
-(define (write-chars lst escapes port-val)
+(define (write-chars lst escapes port)
   (if (pair? lst)
     (let ((escape (assq (##field0 lst) escapes)))
       (if (not escape)
-        (##write-char-fd (##field0 lst) port-val)
+        (%write-char-code (##field0 lst) port)
         (begin
-          (##write-char-fd 92 port-val) ;; #\\
-          (##write-char-fd (cadr escape) port-val)))
-      (write-chars (##field1 lst) escapes port-val))))
+          (%write-char-code 92 port)
+          (%write-char-code (cadr escape) port)))
+      (write-chars (##field1 lst) escapes port))))
 
+
+;; ---------------------- OPTIONAL PROC OF R4RS ---------------------- ;;
+
+(define (with-input-from-file filename thunk)
+  (let ((old-input-port current-input-port)
+        (new-input-port (open-input-file filename)))
+    (set! current-input-port (lambda () new-input-port))
+    (let ((result (thunk)))
+      (set! current-input-port old-input-port)
+      (close-input-port new-input-port)
+      result)))
+
+(define (with-output-to-file filename thunk)
+  (let ((old-output-port current-output-port)
+        (new-output-port (open-output-file filename)))
+    (set! current-output-port (lambda () new-output-port))
+    (let ((result (thunk)))
+      (set! current-output-port old-output-port)
+      (close-output-port new-output-port)
+      result)))
 
 ;; ---------------------- UTILS NOT IN R4RS ---------------------- ;;
 

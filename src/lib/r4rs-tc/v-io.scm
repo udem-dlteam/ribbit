@@ -44,13 +44,13 @@
      "prim2((fd, ch) => fs.writeSync(fd, String.fromCodePoint(ch), null, 'utf8')),")
 
    (define-primitive
-     (##close-input-port fd)
+     (##close-input-fd fd)
      (use js/node/fs)
      "prim1(fd => (fs.closeSync(fd),true)),")
 
    (define-feature 
-     ##close-output-port
-     (use ##close-input-port)))
+     ##close-output-fd
+     (use ##close-input-fd)))
 
   ((host c)
 
@@ -127,7 +127,7 @@
      }")
 
    (define-primitive
-     (##close-input-port fd)
+     (##close-input-fd fd)
      (use c/stdio)
      "{
      PRIM1();
@@ -171,43 +171,68 @@
      " , prim2 $ \\(RibInt ch) (RibForeign (RibHandle handle)) -> hPutChar handle (chr ch) >> pure ribTrue")
 
    (define-primitive
-     (##close-input-port fd)
+     (##close-input-fd fd)
      (use hs/io-handle)
      " , prim1 $ \\(RibForeign (RibHandle handle)) -> hClose handle >> pure ribTrue")))
 
 
-(define (##close-output-port port-fd) (##close-input-port port-fd))
+(define (##close-output-fd port-fd) (##close-input-fd port-fd))
+
+(define (close-output-fd port) (##close-output-fd (##field0 port)))
+(define (close-input-fd port) (##close-input-fd (##field0 port)))
 
 ;; ---------------------- EOF & TYPES ---------------------- ;;
 
 (define ##eof (##rib 0 0 5))
+
+(define (eof-object? obj)
+  (##eqv? obj ##eof))
 
 (define (##read-char port) (let ((c (##read-char-fd (##field0 port))))
                              (if (null? c) ##eof (integer->char c))))
 
 (define (##write-char ch port) (##write-char-fd (##field0 ch) (##field0 port)))
 
-(define (eof-object? obj)
-  (##eqv? obj ##eof))
+(define (##make-input-port fd reader closer)
+  (##rib fd (##rib reader closer '()) input-port-type))
+
+(define (##make-output-port fd writer closer)
+  (##rib fd (##rib writer closer #t) output-port-type))
 
 (define stdin-port
-  (##rib (##stdin) (##rib ##read-char '() #t) input-port-type)) ;; stdin
+  (##make-input-port (##stdin) ##read-char close-input-fd)) ;; stdin
 
 (define stdout-port
-  (##rib (##stdout) (##rib ##write-char "" #t) output-port-type))  ;; stdout
+  (##make-output-port (##stdout) ##write-char close-output-fd)) ;; stdout
 
+(define-macro
+  (%get-port-reader port)
+  `(##field0 (##field1 ,port)))
+
+(define-macro
+  (%get-port-writer port)
+  `(##field0 (##field1 ,port)))
+
+(define-macro
+  (%get-port-closer port)
+  `(##field1 (##field1 ,port)))
+
+(define (close-port port)
+  (if (##field2 (##field1 port))
+    (begin 
+      (##field2-set! (##field1 port) #f)
+      ((%get-port-closer port) port))))
+
+(define (port-closed? port)
+  (not (##field2 (##field1 port))))
 
 ;; ---------------------- INPUT ---------------------- ;;
 
 (define (open-input-file filename)
   ;; (file_descriptor, (cursor, last_char, is_open), input_file_type)
-  (##rib (##get-fd-input-file filename) (##rib ##read-char '() #t) input-port-type))
+  (##make-input-port (##get-fd-input-file filename) ##read-char close-input-fd))
 
-(define (close-input-port port)
-  (if (##field2 (##field1 port))
-    (begin 
-      (##field2-set! (##field1 port) #f)
-      (##close-input-port (##field0 port)))))
+(define close-input-port close-port)
 
 (define (##get-last-char port)
   (##field1 (##field1 port)))
@@ -215,11 +240,7 @@
 (define (##set-last-char port ch)
   (##field1-set! (##field1 port) ch))
 
-(define (input-port-close? port)
-  (not (##field2 (##field1 port))))
-
-(define (current-input-port)
-  stdin-port)
+(define (current-input-port) stdin-port)
 
 (define (call-with-input-file filename proc)
   (let* ((port (open-input-file filename))
@@ -228,11 +249,10 @@
     result))
 
 (define (read-char (port (current-input-port))) 
-  (if (input-port-close? port) (crash))
+  (if (port-closed? port) (crash))
   (let ((last-ch (##get-last-char port)))
     (if (null? last-ch)
-      (let ((reader (##field0 (##field1 port))))
-        (reader port))
+      ((%get-port-reader port) port)
       (begin
         (##set-last-char port '())
         last-ch))))
@@ -378,16 +398,9 @@
 
 (define (open-output-file filename)
   ;; (file_descriptor, is_open, write_file_type)
-  (##rib (##get-fd-output-file filename) (##rib ##write-char "" #t) output-port-type))
+  (##make-output-port (##get-fd-output-file filename) ##write-char close-output-fd))
 
-(define (close-output-port port)
-  (if (##field1 port)
-    (begin
-      (##field2-set! (##field1 port) #f)
-      (##close-output-port (##field0 port)))))
-
-(define (output-port-close? port)
-  (not (##field2 (##field1 port))))
+(define close-output-port close-port)
 
 (define (current-output-port) stdout-port)
 
@@ -398,7 +411,7 @@
     result))
 
 (define (write-char ch (port (current-output-port)))
-  ((##field0 (##field1 port)) ch port))  ;; call the writer with the char and the port
+  ((%get-port-writer port) ch port))  ;; call the writer with the char and the port
   ;(##field1-set! (##field1 port) (string-append (##field1 (##field1 port)) (string ch)))) ;; updates the inner accumulator
 
 (define (write-char-code ch-code port)
@@ -589,28 +602,22 @@
   (call-with-input-file filename (lambda (port) (read-str-until eof-object? port))))
 
 (define (open-input-string str)
-  (##rib 
+  (##make-input-port 
    (string->list str)
-   (##rib
-    (lambda (port) 
-      (if (null? (##field0 port)) ;; no more characters
-        ##eof
-        (let ((c (caar port)))
-          (##field0-set! port (cdar port)) 
-          c)))
-    '() 
-    #t)
-   input-port-type))
+   (lambda (port) ;; reader
+     (if (null? (##field0 port)) ;; no more characters
+       ##eof
+       (let ((c (caar port)))
+         (##field0-set! port (cdar port)) 
+         c)))
+   (lambda (port) #f))) ;; closer
 
 (define (open-output-string (str ""))
-  (##rib 
+  (##make-output-port 
    str 
-   (##rib
-    (lambda (ch port)
-      (##field0-set! port (string-append (##field0 port) (string ch))))
-    ""
-    #t)
-   output-port-type))
+   (lambda (ch port) ;; writer
+     (##field0-set! port (string-append (##field0 port) (string ch))))
+   (lambda (port) #f))) ;; closer
 
 (define (get-output-string port)
   (##field0 port))

@@ -27,7 +27,7 @@
   (gambit
 
    (define (shell-cmd command)
-     (shell-command command))
+     (cdr (shell-command command #t)))
 
    (define (del-file path)
      (delete-file path)))
@@ -309,15 +309,6 @@
    ;; TODO: define `path-directory`
    (define (path-directory path) (rsc-path-directory path))
 
-   (define (path-normalize path)
-     (let loop ((path path))
-       (let ((path (string-replace path "//" "/")))
-         (if (string-prefix? "./" path)
-           (loop (substring path 2 (string-length path)))
-           (if (string-prefix? "../" path)
-             (loop (substring path 3 (string-length path)))
-             path)))))
-
    (define (path-expand path dir)
      (if (or (= (string-length dir) 0) (string-prefix? dir path))
          path
@@ -325,6 +316,14 @@
              (string-append dir path)
              (string-append dir (string-append "/" path)))))))
 
+(define (path-normalize path)
+     (let loop ((path path))
+       (let ((path (string-replace path "//" "/")))
+         (if (string-prefix? "./" path)
+           (loop (substring path 2 (string-length path)))
+           (if (string-prefix? "../" path)
+             (loop (substring path 3 (string-length path)))
+             path)))))
 (cond-expand
 
  (gambit (begin))
@@ -1384,7 +1383,13 @@
 (define defined-features '()) ;; used as parameters for expand-functions
 
 ;; For includes
-(define pwd (current-directory))
+(define current-resource `(file ,(current-directory) "MAIN"))
+(define resource-type car)
+(define resource-dir cadr)
+(define resource-file caddr)
+(define (make-resource type file)
+  `(,type ,(path-directory file) ,file))
+
 (define included-files '())
 
 (define (expand-expr expr mtx)
@@ -1537,6 +1542,8 @@
                   (expand-begin (cdr expr) mtx))
 
                  ((eqv? first 'define)
+                  (if (not (pair? (cdr expr)))
+                    (report-error "Ill defined form of 'define"))
                   (let ((pattern (cadr expr)))
                     (if (pair? pattern)
                       (cons 'set!
@@ -1661,6 +1668,11 @@
                               mtx)))
                         #f))))
 
+                 ((and (pair? expr) 
+                       (eqv? (car expr) '##include-str))
+                  (expand-expr (read-str-resource (parse-resource (cadr expr))) mtx))
+
+
                  (else
                    (let ((macro (mtx-search mtx (car expr))))
                      (if macro
@@ -1765,27 +1777,21 @@
             (car x))
         (expand-constant 0)))) ;; unspecified value
 
-
-(define (expand-include path mtx)
-  (let ((old-pwd pwd) 
-        (file-path (path-normalize (path-expand path pwd))))
-
-    (set! pwd (path-directory file-path))
-
-    (let ((result (expand-begin (read-from-file file-path) mtx)))
-
-      (set! pwd old-pwd)
-
-      result)))
+(define (report-error err-type . args)
+  (error (string-append "Error: " 
+                        err-type 
+                        " in " 
+                        (resource-file current-resource) 
+                        ". " 
+                        (string-concatenate (map object->string args) " "))))
 
 (define (make-mtx global-macro cte)  ;; macro-contex object
   (rib global-macro cte 0))
 
 (define mtx-global      field0)
 (define mtx-global-set! field0-set!)
-(define (include-file file-path)
-  (if (not (file-exists? file-path))
-    (error "The path needs to point to an existing file. Error while trying to include library at " file-path))
+
+(define (add-included-resource! file-path)
   (set! included-files (cons file-path included-files)))
 
 (define mtx-cte      field1)
@@ -1810,16 +1816,75 @@
       (cadr macro-value)
       #f)))
 
-(define (expand-include-prefix include-path)
+(define (parse-resource include-path)
   (cond 
+    ((string-prefix? "./" include-path)  ;; for local folder "lib" where in the root of the project
+     (make-resource (car current-resource) (path-normalize (path-expand (substring include-path 2 (string-length include-path)) (resource-dir current-resource)))))
+
     ((string-prefix? "ribbit:" include-path)  ;; for folder "lib" where ribbit is intalled (std-lib)
-     (path-expand (substring include-path 7 (string-length include-path)) (path-expand "lib" (ribbit-root-dir))))
+     (make-resource 'file (path-normalize (path-expand (substring include-path 7 (string-length include-path)) (path-expand "lib" (ribbit-root-dir))))))
+
     ((string-prefix? "lib:" include-path)  ;; for local folder "lib" where in the root of the project
-     (path-expand (substring include-path 4 (string-length include-path)) (path-expand "lib" (root-dir))))
+     (make-resource 'file (path-normalize (path-expand (substring include-path 4 (string-length include-path)) (path-expand "lib" (root-dir))))))
+
+    ((string-prefix? "ipfs:" include-path)  ;; for local folder "lib" where in the root of the project
+     (make-resource 'ipfs (path-normalize (substring include-path 5 (string-length include-path)))))
+
+    ((string-prefix? "http:" include-path)  ;; for folder "lib" where ribbit is intalled (std-lib)
+     (make-resource 'http (path-normalize (substring include-path 5 (string-length include-path)))))
 
     ; TODO: add more. Ex: "http:" "github:" "lib:" (for folder named lib in the root of the project)
+    (else (make-resource 'file include-path))))
 
-    (else include-path)))
+(define (read-str-resource resource)
+  (let ((resource-path (resource-file resource)))
+    (case (resource-type resource)
+      ((file)
+       (if (not (file-exists? resource-path))
+         (error "The path needs to point to an existing file. Error while trying to include library at " resource-path))
+       (string-from-file resource-path))
+
+      ((ipfs)
+       (shell-cmd (string-append "ipfs cat " resource-path)))
+
+      ((http)
+       (shell-cmd (string-append "curl --silent http://" resource-path))))))
+
+(define (expand-resource resource mtx)
+  (let ((old-current-resource current-resource))
+    (set! current-resource resource)
+    (let ((result (expand-begin (read-all (open-input-string (read-str-resource resource))) mtx)))
+      (set! current-resource old-current-resource)
+      result)))
+  ;; (case (resource-type resource)
+  ;;   ((file)
+  ;;    (if (not (file-exists? path))
+  ;;      (error "The path needs to point to an existing file. Error while trying to include library at " path))
+  ;;    (let ((old-current-resource current-resource) 
+  ;;          (set! current-resource (make-resource 'file file-path))
+  ;;          (let ((result (expand-begin (read-from-file file-path) mtx)))
+  ;;            (set! current-resource old-current-resource)
+  ;;            result))))
+  ;;
+  ;;   ((ipfs)
+  ;;    (let ((old-current-resource current-resource) 
+  ;;          (resource-path (if (eq? (car current-resource) 'ipfs) 
+  ;;                           (path-normalize (path-expand (resource-file resource) (resource-dir current-resource)))
+  ;;                           (resource-file resource))))
+  ;;      (set! current-resource (make-resource 'ipfs resource-path))
+  ;;      (let ((result (expand-begin (read-from-ipfs resource-path) mtx)))
+  ;;        (set! current-resource old-current-resource)
+  ;;        result)))
+  ;;
+  ;;   ((http)
+  ;;    (let ((old-current-resource current-resource) 
+  ;;          (resource-path (if (eq? (car current-resource) 'http) 
+  ;;                           (path-normalize (path-expand (resource-file resource) (resource-dir current-resource)))
+  ;;                           (resource-file resource))))
+  ;;      (set! current-resource (make-resource 'http resource-path))
+  ;;      (let ((result (expand-begin (read-from-http resource-path) mtx)))
+  ;;        (set! current-resource old-current-resource)
+  ;;        result)))))
 
 ;; Shadow macro by a variable
 (define (mtx-shadow mtx variable-names) 
@@ -1844,17 +1909,17 @@
 
                      ((and (pair? expr) 
                            (eqv? (car expr) '##include))
-                      (cons (path-normalize (path-expand (expand-include-prefix (cadr expr)) pwd)) r))
+                      (cons (expand-resource (parse-resource (cadr expr)) mtx) r))
 
                      ((and (pair? expr)
                            (eqv? (car expr) '##include-once))
 
-                      (let* ((path (path-normalize (path-expand (expand-include-prefix (cadr expr)) pwd))))
-                        (if (included? path)
+                      (let ((resource (parse-resource (cadr expr))))
+                        (if (included? resource)
                           r
-                          (begin 
-                            (include-file path)
-                            (cons (expand-include path mtx) r)))))
+                          (begin
+                            (add-included-resource! resource)
+                            (cons (expand-resource resource mtx) r)))))
 
                      ((and (pair? expr)
                            (eqv? (car expr) 'define-macro))
@@ -3704,7 +3769,21 @@
               (read-all)
               (read-from-file src-path))))
 
+(define (read-from-ipfs hash)
+  (display (string-append "Reading from IPFS " hash "..."))
+  (let ((result (shell-cmd (string-append "ipfs cat " hash))))
+    (display " Done\n")
+    (if (not (string? result))
+      (error "File not found on IPFS")
+      (read-all (open-input-string result)))))
 
+(define (read-from-http url)
+  (display (string-append "GET from http://" url "..."))
+  (let ((result (shell-cmd (string-append "curl http://" url))))
+    (display " Done\n")
+    (if (not (string? result))
+      (error "File not found...")
+      (read-all (open-input-string result)))))
 ;;;----------------------------------------------------------------------------
 
 ;; Host file expression parsing, evalutation and substitution
