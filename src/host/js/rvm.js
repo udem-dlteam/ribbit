@@ -4,7 +4,6 @@
 input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"; 
 // )@@
 
-
 // @@(location decl)@@
 
 // @@(feature (or debug debug-trace)
@@ -21,8 +20,7 @@ isNode = process?.versions?.node != null;
 if (isNode) { // @@(feature (and js/node js/web))@@
 
 
-
-// @@(feature js/node
+// @@(feature (or js/node (not js/web))
 // Implement putchar/getchar to the terminal 
 
 fs = require("fs"); // @@(feature (or js/node/fs ##getchar ##putchar))@@

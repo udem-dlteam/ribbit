@@ -20,9 +20,8 @@
 
    (define-primitive
      (##shell-cmd cmd)
-     (use js/node js/node/fs scm2list list2scm scm2str host2scm)
-     "prim1(cmd => { let [command, ...args] = scm2str(cmd).split(' ');
-     return host2scm(String(require('child_process').spawnSync(command, args).stdout)) }),")
+     (use js/node js/node/fs scm2list list2scm scm2str str2scm)
+     "prim1(cmd => str2scm(String(require('child_process').execSync(`sh -c '${scm2str(cmd)}'`)))),")
 
    (define (list-dir dir-name) (##list-dir dir-name))
    (define (current-directory) (##current-directory)))
@@ -51,6 +50,8 @@
      int len = 0;
      obj chrs = NIL;
      obj last_letter = NIL;
+     // FIXME: Potential problem if a GC happens in the middle of this loop. 
+     // Sorry future person fixing this, hopefully you are not me haha
      while (fgets(buffer, sizeof(buffer), process) != NULL) {
       int i = 0;
       while (buffer[i++]);

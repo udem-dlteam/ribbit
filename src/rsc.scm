@@ -2705,7 +2705,7 @@
     (define (recalculate)
       (for-each
         (lambda (encoding)
-          (if (pair? encoding)
+          (if (and (pair? encoding) (table-ref (table-ref stats (car encoding)) (cadr encoding) #f)) ;; FIXME: this check is needed because the instruction might be missing
             (table-set! 
               running-sums 
               encoding 
@@ -2716,7 +2716,7 @@
                      calculate-gain-long) 
                    (table-ref 
                      (table-ref stats (car encoding))
-                     (cadr encoding))
+                     (cadr encoding) #f)
                    (list (car encoding)
                          (cadr encoding))
                    encoding-size-counter

@@ -66,8 +66,6 @@ if [ "$COMPILER" = "" ]; then
 fi
 
 if ! $COMPILER "$@"; then
-    echo "*** compilation error:"
-    cat "$RVM.temp" # print errors
-    rm "$RVM.temp"
+    echo "*** compilation error"
     exit 1
 fi
