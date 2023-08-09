@@ -1,0 +1,6 @@
+#!/bin/sh
+
+echo "[[Building...]]"
+time ./rsc $@ -x bootstrap -f+ v-port -l r4rs -l r4rs/sys -l r4rs/debug -l prim-wrap -o ./bootstrap.tmp ./rsc.scm 
+echo "[[Done]]"
+

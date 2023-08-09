@@ -1,3 +1,5 @@
+# @@(location import)@@
+
 # @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
 input=");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" # RVM code that prints HELLO!
 # )@@
@@ -9,6 +11,7 @@ import os # @@(feature py/io)@@
 import sys
 stdo=sys.stdout
 # )@@
+
 
 # @@(feature ##putchar
 putchar=lambda c:[stdo.write(chr(c)),stdo.flush(),c][2]
@@ -139,12 +142,23 @@ def scm2list(l):
  return [l[0]] + scm2list(l[1]) if l is not NIL else []
 # )@@
 
+# @@(feature list_str2scm (use str2scm)
+def list_str2scm(l):
+ return [str2scm(l[0]),list_str2scm(l[1:]),0] if len(l) else NIL
+# )@@
 
 # @@(feature scm2str
 def scm2str(s):
  def chars2str(c):
   return (chr(c[0]) + chars2str(c[1])) if c is not NIL else "" 
  return chars2str(s[0])
+# )@@
+
+# @@(feature str2scm
+def str2scm(s):
+ def chars2scm(c):
+  return [ord(c[0]),str2scm(c[1:]),0] if len(c) else NIL
+ return [chars2scm(s),len(s),3]
 # )@@
 
 def prim1(f):
