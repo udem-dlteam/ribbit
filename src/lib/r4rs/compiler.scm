@@ -1,8 +1,7 @@
 (##include-once "./bool.scm")
 (##include-once "./types.scm")
 (##include-once "./pair-list.scm")
-;;(##include-once "./io.scm")
-(##include-once "./error.scm")
+(##include-once "./io.scm")
 (##include-once "./control.scm")
 
 (cond-expand
@@ -391,7 +390,8 @@
 (define (eval expr)
   ((make-procedure (##rib 0 0 (comp '() expr tail)) '())))
 
-(define (##repl-inner)
+
+(define (repl)
   (if-feature 
     (not quiet)
     (if-feature 
@@ -400,20 +400,13 @@
       (display "> ")))
   (let ((expr (read)))
     (if (eof-object? expr)
-      (newline)
+      (begin 
+        (newline)
+        (##exit 0))
       (begin
         (write (eval expr))
         (newline)
-        (##repl-inner)))))
-
-(define (repl)
-  (if-feature 
-    (and (not hide-frog) (not quiet))
-    (begin 
-      (welcome-msg)
-      (newline)))
-  (##repl-inner)
-  (##exit 0))
+        (repl)))))
 
 
 ;; ---------------------- LOAD ---------------------- ;;

@@ -26,6 +26,27 @@
    (define (list-dir dir-name) (##list-dir dir-name))
    (define (current-directory) (##current-directory)))
 
+  ((host py)
+
+   (define-feature py/sys (use) (import "import os,sys"))
+
+   (define-primitive 
+     (##cmd-line)
+     (use py/sys str2scm list_str2scm argv)
+     "lambda: push(list_str2scm(sys.argv)),")
+
+   (define-primitive 
+     (##current-directory)
+     (use py/sys str2scm)
+     "lambda:push(str2scm(os.path.dirname(os.path.abspath(__file__)))),")
+
+   (define-primitive
+     (##shell-cmd cmd)
+     (use py/sys scm2list list_str2scm scm2str str2scm)
+     "prim1(lambda cmd: str2scm(os.popen(f'sh -c \\'{scm2str(cmd)}\\'').read())),")
+
+   (define (list-dir dir-name) (##list-dir dir-name))
+   (define (current-directory) (##current-directory)))
   ((host c)
    (define-primitive
      (##cmd-line)

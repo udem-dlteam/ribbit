@@ -227,6 +227,7 @@
     (close-input-port port)
     result))
 
+
 (define (read-char (port (current-input-port))) 
   (if (input-port-close? port) (crash))
   (let ((last-ch (##get-last-char port)))
