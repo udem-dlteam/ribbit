@@ -1279,55 +1279,33 @@
 (define host-config #f)
 
 (define (compile-program verbosity parsed-vm features-enabled features-disabled program)
-  (pp "1")
   (let* ((exprs-and-exports
            (extract-exports program))
-         (_ (pp "2"))
          (exprs
            (car exprs-and-exports))
-         (_ (pp "3"))
          (exprs
            (if (pair? exprs) exprs '(#f)))
-         (_ (pp "4"))
-
          (host-features (extract-features (or parsed-vm default-primitives)))
-         (_ (pp "5"))
-
          (expansion
            `(begin
               ,@(host-feature->expansion-feature host-features) ;; add host features
               ,(expand-begin exprs (make-mtx '() '()))))
-         (_ (pp "6"))
-
          (exports
            (exports->alist (cdr exprs-and-exports)))
-         (_ (pp "7"))
-        
          (live-globals-and-features
            (liveness-analysis expansion features-enabled features-disabled exports))
-         (_ (pp "8"))
-
          (live-globals
            (car live-globals-and-features))
-         (_ (pp "9"))
-
          (live-features
            (cdr live-globals-and-features))
-         (_ (pp "10"))
-
          (exports
            (or (and (not (memq 'debug live-features)) exports) ;; export everything when debug is activated
                (map (lambda (v)
                       (let ((var (car v)))
                         (cons var var)))
                     live-globals)))
-         (_ (pp "11"))
-
          (host-config-ctx (make-host-config live-features '() '()))
-         (_ (pp "12"))
-
          (ctx (make-ctx '() live-globals exports live-features))
-         (_ (pp "13"))
          (return (make-vector 3)))
 
     (set! host-config host-config-ctx)
@@ -1704,14 +1682,11 @@
                  (else
                    (let ((macro (mtx-search mtx (car expr))))
                      (if macro
-                       (begin
-                         (pp `(,macro
-                               ,@(map expand-constant (cdr expr))))
-                         (expand-expr
-                           (eval 
-                             `(,macro
-                                ,@(map expand-constant (cdr expr))))
-                           mtx))
+                       (expand-expr
+                         (eval 
+                           `(,macro
+                              ,@(map expand-constant (cdr expr))))
+                         mtx)
                        (expand-list expr mtx)))))))
 
         (else
@@ -1877,7 +1852,6 @@
                         (if (included? resource)
                           r
                           (begin
-                            (pp resource)
                             (add-included-resource! resource)
                             (cons (expand-resource resource mtx) r)))))
 
@@ -1993,9 +1967,6 @@
 (define (read-str-resource resource)
   (let ((resource-path (resource-file resource))
         (reader (assq (resource-type resource) resource-str-reader-table)))
-    (display "Reading resource: ")
-    (write resource)
-    (newline)
     (if reader 
       ((cadr reader) resource-path)
       (error "No resource reader found for resource-type:" (resource-type resource)))))
