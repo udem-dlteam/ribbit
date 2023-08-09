@@ -2881,9 +2881,107 @@
           2))))
   cost)
 
+(define (decompress-lzss-2b stream bit-header length-header offset-header)
+  (define header-tag (if (eqv? bit-header 2) 192 128))
+
+  (define ones (lambda (x) (- (arithmetic-shift 1 x) 1)))
+
+  ;; gives a number with a n 1 followed by m 0 in the binary representation
+  (define mask (lambda (n m) (arithmetic-shift (ones n) m)))
 
 
-(define (encode-lzss stream encoding-size host-config)
+
+  (define (decode stream tail)
+    (if (pair? stream)
+      (if (>= (car stream)  192)
+        (let ((first-bit (car stream))
+              (second-bit (cadr stream)))
+          (decode
+            (cddr stream)
+            (cons
+              (list
+                (+
+                  (* 256 (bitwise-and first-bit (mask (- offset-header 8) 0)))
+                  second-bit)
+                (+ 3 (arithmetic-shift (bitwise-and first-bit (mask length-header (- offset-header 8))) (- 8 offset-header))))
+              tail)))
+        (decode
+          (cdr stream)
+          (cons (car stream) tail)))
+
+        
+      
+      tail))
+
+  (decode stream '()))
+
+
+
+(define (encode-lzss-on-two-bytes stream bit-header length-header offset-header encoding-size host-config)
+  ;; assuming tag is all 1
+  (define header-tag (if (eqv? bit-header 2) 192 128))
+
+  ;(define encoding-size/2 (quotient encoding-size 2))
+
+  (define (encode encoded-stream tail)
+    (if (pair? encoded-stream)
+      (let ((code (car encoded-stream)))
+        (encode 
+          (cdr encoded-stream)
+          (cond
+            ((pair? code)
+             (step)
+             (let* ((offset (car code))
+                    (len (cadr code))
+                    (first-byte
+                      (+
+                        header-tag
+                        (* (- len 3) (arithmetic-shift 1 (- offset-header 8)))
+                        (arithmetic-shift offset -8)))
+                    (second-byte
+                      (bitwise-and offset 255)))
+               (pp (cons code first-byte))
+               ;(pp (cons code second-byte))
+               `(,first-byte
+                 ,second-byte
+                 .
+                 ,tail)))
+            (else
+              (cons 
+                code 
+                tail)))))
+      tail))
+
+  (if (not (eqv? (+ bit-header length-header offset-header) 16))
+    (error "Bit header, length header and offset header must add up to 16"))
+
+  (let* ((encoded-stream 
+           (LZSS 
+             stream 
+             (arithmetic-shift 1 offset-header)
+             (arithmetic-shift 1 length-header)
+             encoding-size 
+             (lambda (x) (if (pair? x) 2 1))))
+         (return (encode
+                   encoded-stream
+                   '()))
+         (dec (decompress-lzss-2b 
+                return
+                bit-header
+                length-header
+                offset-header)))
+
+    #;(pp 
+      (reverse (map list dec encoded-stream)))
+
+
+    (if (equal? dec
+                encoded-stream)
+      (display "... ensuring that decompression works ...")
+      (error "Decompression failed"))))
+
+
+(define (encode-lzss-with-tag stream encoding-size host-config)
 
   (define encoding-size/2 (quotient encoding-size 2))
 
@@ -3302,73 +3400,210 @@
         (cons (car stream) result))
       result)))
 
+
 (define (encode proc exports host-config byte-stats encoding-name encoding-size)
-  (let* ((prog (encode-constants proc host-config))
+  (define max-encoding-size encoding-size)
 
-         (hyperbyte? (host-config-feature-live? host-config 'encoding/hyperbyte))
-         (encoding-size 
-           (if hyperbyte? 
-             (if (not (eqv? encoding-size 256))
-               (error "Hyperbyte encoding only supports 256 byte encoding")
-               16)
-             encoding-size))
-         
+  ;; state
+  (let ((encoding      #f) ;; chosen encoding
+        (stream        #f) ;; stream of encoded bytes (output)
+        (symtbl        #f) ;; symbol table
+        (stream-symtbl #f));; symbols at the beginning of the RIBN
 
-         (encoding (cond
-                      ((and (string=? "original" encoding-name)
-                            (eqv? encoding-size 92))
-                       encoding-original-92)
-                      ((and (string=? "skip" encoding-name)
-                            (eqv? encoding-size 92))
-                       encoding-skip-92)
+    ;; define phases
+    (define (p/enc-const)
+      (set! proc (encode-constants proc host-config)))
 
-                      ((string=? "optimal" encoding-name)
-                       (let* ((symtbl-and-symbols* (encode-symtbl prog exports host-config 20)) ;; we assume 20 shorts, will be re-evaluated
-                              (raw-stream (encode-program prog (car symtbl-and-symbols*) 'raw #t encoding-size)) 
-                              (stats (get-stat-from-raw (make-table) raw-stream))
-                              (encoding 
-                                (calculate-start
-                                  (encoding-optimal-order
-                                    (encoding-table->encoding-list
-                                      (get-maximal-encoding 
-                                        (map car encoding-skip-92)
-                                        stats
-                                        encoding-size))))))
-                         (encoding-optimal-add-variables encoding host-config)
-                         encoding))
+    (define (p/enc-prog)
+      (set! 
+        stream 
+        (encode-program 
+          prog 
+          symtbl 
+          encoding 
+          (encoding-inst-get encoding '(skip int long))
+          encoding-size)))
 
-                      (else
-                        (error "Cannot find encoding :" encoding-name))))
+    (define (p/enc-symtbl)
+      (let* ((symtbl-and-symbols* (encode-symtbl prog exports host-config (encoding-inst-size encoding '(call sym short))))
+             (symbol* (cdr symtbl-and-symbols*)))
+        (set! symtbl   (car symtbl-and-symbols*))
+        (set! stream-symtbl (symtbl->stream symtbl symbol* max-encoding-size))))
 
-         (symtbl-and-symbols* (encode-symtbl prog exports host-config (encoding-inst-size encoding '(call sym short))))
-         (symtbl (car symtbl-and-symbols*))
-         (symbols* (cdr symtbl-and-symbols*))
-         (stream (encode-program prog symtbl encoding (encoding-inst-get encoding '(skip int long)) encoding-size))
+    (define (p/comp-tag)
+      (set! stream
+        (encode-lzss-with-tag
+          stream
+          encoding-size
+          host-config)))
 
-         (symtbl-stream (symtbl->stream symtbl symbols* (if hyperbyte? 256 encoding-size)))
-         (stream 
-           (if hyperbyte?
-             stream
-             (append symtbl-stream stream)))
+    (define (p/comp-2b)
+      (set! stream
+        (encode-lzss-on-two-bytes
+          stream
+          (if (eqv? compression/2b-bits 192)
+            2
+            1)
+          4
+          10
+          encoding-size
+          host-config)))
 
-         (compression? (host-config-feature-live? host-config 'compression/lzss))
-         (stream (if compression?
-                   (encode-lzss 
-                     stream
-                     encoding-size
-                     host-config)
-                   stream)))
+    (define (p/merge-prog-sym)
+      (set! stream (append stream-symtbl stream)))
 
-    (if hyperbyte?
-      (append 
-        (if compression?
-          (encode-lzss
-            symtbl-stream
-            256
-            host-config)
-          symtbl-stream)
-        (encode-hyperbyte stream))
+
+    (define (optimal-encoding)
+      (let* ((symtbl-and-symbols* (encode-symtbl prog exports host-config 20)) ;; we assume 20 shorts, will be re-evaluated
+             (raw-stream (encode-program prog (car symtbl-and-symbols*) 'raw #t encoding-size)) 
+             (stats (get-stat-from-raw (make-table) raw-stream))
+             (encoding 
+               (calculate-start
+                 (encoding-optimal-order
+                   (encoding-table->encoding-list
+                     (get-maximal-encoding 
+                       (map car encoding-skip-92)
+                       stats
+                       encoding-size))))))
+        (encoding-optimal-add-variables encoding host-config)
+        encoding))
+
+    
+
+    ;; dispatch 
+
+    (define (live? . syms)
+      (let loop ((syms syms))
+        (if (host-config-feature-live? host-config (car syms))
+          (loop (cdr syms))
+          #f)))
+
+    (let 
+      ;; options
+      ((compression? (live? 'encoding/compression 'encoding/compression/2b 'encoding/compression/tag))
+       (compression/2b? (live? 'encoding/compression/2b))
+       (compression/tag? (live? 'encoding/compression/tag))
+       (hyperbyte? (live? 'encoding/hyperbyte)))
+
+
+      ;; Dispatch logic
+      (p/enc-const) ;; always encode constants
+
+
+      (if compression/2b?
+        (set! encoding-size 192)) ;; reserving some bytes for the compression algorithm
+
+      (if hyperbyte?
+        (set! encoding-size 16)) 
+
+      ;; Choose encoding
+      (set! encoding
+        (cond
+          ((and (string=? "original" encoding-name)
+                (eqv? encoding-size 92))
+           encoding-original-92)
+          ((and (string=? "skip" encoding-name)
+                (eqv? encoding-size 92))
+           encoding-skip-92)
+          ((string=? "optimal" encoding-name)
+           (optimal-encoding))
+          (else
+            (error "Cannot find encoding (or number of byte not supported) :" encoding-name))))
+
+      (p/enc-symtbl)
+      (p/enc-prog)   
+
+      ;; Apply hyperbyte
+      (if hyperbyte?
+        (set! stream (encode-hyperbyte stream)))
+
+      ;; merge symtbl and prog
+      (p/merge-prog-sym)
+
+      ;; apply compression
+      (if compression? 
+        (if compression/tag?
+          (p/comp-tag)
+          (p/comp-2b)))
+
       stream)))
+
+
+
+  
+  
+
+
+  
+  
+
+;(define (encode proc exports host-config byte-stats encoding-name encoding-size)
+;  (let* ((prog (encode-constants proc host-config))
+;
+;         (hyperbyte? (host-config-feature-live? host-config 'encoding/hyperbyte))
+;         (encoding-size 
+;           (if hyperbyte? 
+;             (if (not (eqv? encoding-size 256))
+;               (error "Hyperbyte encoding only supports 256 byte encoding")
+;               16)
+;             encoding-size))
+;         
+;
+;         (encoding (cond
+;                      ((and (string=? "original" encoding-name)
+;                            (eqv? encoding-size 92))
+;                       encoding-original-92)
+;                      ((and (string=? "skip" encoding-name)
+;                            (eqv? encoding-size 92))
+;                       encoding-skip-92)
+;
+;                      ((string=? "optimal" encoding-name)
+;                       (let* ((symtbl-and-symbols* (encode-symtbl prog exports host-config 20)) ;; we assume 20 shorts, will be re-evaluated
+;                              (raw-stream (encode-program prog (car symtbl-and-symbols*) 'raw #t encoding-size)) 
+;                              (stats (get-stat-from-raw (make-table) raw-stream))
+;                              (encoding 
+;                                (calculate-start
+;                                  (encoding-optimal-order
+;                                    (encoding-table->encoding-list
+;                                      (get-maximal-encoding 
+;                                        (map car encoding-skip-92)
+;                                        stats
+;                                        encoding-size))))))
+;                         (encoding-optimal-add-variables encoding host-config)
+;                         encoding))
+;
+;                      (else
+;                        (error "Cannot find encoding :" encoding-name))))
+;
+;         (symtbl-and-symbols* (encode-symtbl prog exports host-config (encoding-inst-size encoding '(call sym short))))
+;         (symtbl (car symtbl-and-symbols*))
+;         (symbols* (cdr symtbl-and-symbols*))
+;         (stream (encode-program prog symtbl encoding (encoding-inst-get encoding '(skip int long)) encoding-size))
+;
+;         (symtbl-stream (symtbl->stream symtbl symbols* (if hyperbyte? 256 encoding-size)))
+;         (stream 
+;           (if hyperbyte?
+;             stream
+;             (append symtbl-stream stream)))
+;
+;         (compression? (host-config-feature-live? host-config 'compression/lzss))
+;         (stream (if compression?
+;                   (encode-lzss 
+;                     stream
+;                     encoding-size
+;                     host-config)
+;                   stream)))
+;
+;    (if hyperbyte?
+;      (append 
+;        (if compression?
+;          (encode-lzss
+;            symtbl-stream
+;            256
+;            host-config)
+;          symtbl-stream)
+;        (encode-hyperbyte stream))
+;      stream)))
 
 (define (encode-n n stream encoding-size/2)
   (encode-n-aux n stream stream encoding-size/2))
