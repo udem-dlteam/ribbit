@@ -8,11 +8,9 @@
 (##include-once "./number.scm")
 (##include-once "./math.scm")
 (##include-once "./io.scm")
-(##include-once "./error.scm")
 (##include-once "./control.scm")
 (##include-once "./string.scm")
 (##include-once "./compiler.scm")
-
 
 ;;;----------------------------------------------------------------------------
 

@@ -4,7 +4,6 @@
 (##include-once "./pair-list.scm")
 (##include-once "./control.scm")
 (##include-once "./char.scm")
-(##include-once "./error.scm")
 
 (cond-expand
   ((host js)
@@ -227,6 +226,7 @@
 
 (define ##reader-case-transform char-downcase) 
 
+
 (define-macro 
   (%write-char-code ch-code port)
   `(if-feature v-port
@@ -350,7 +350,7 @@
     (define (##set-last-char port ch)
       (##field2-set! (##field1 port) ch))
 
-    (define (read-char (port (current-input-port))) 
+    (define (read-char (port (current-input-port)))
       (if (port-closed? port) (crash))
       (let ((last-ch (##get-last-char port)))
         (if (null? last-ch)
@@ -693,7 +693,17 @@
       (close-output-port new-output-port)
       result)))
 
+
+
 ;; ---------------------- UTILS NOT IN R4RS ---------------------- ;;
+
+(define (error . msg)
+  (for-each (lambda (x) (display x) (display " ")) msg)
+  (newline)
+  (##exit 1))
+
+(define (crash)
+  (error "(._.')"))
 
 (define (pp arg (port (current-output-port)))
   (write arg port)
@@ -731,4 +741,4 @@
 (define (string-from-file filename)
   (call-with-input-file filename (lambda (port) (read-str-until eof-object? port))))
 
-(define (file-exists? filename) (notnot (##get-fd-input-file filename)))
+(define (file-exists? filename) (not (not (##get-fd-input-file filename))))

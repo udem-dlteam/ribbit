@@ -10,6 +10,7 @@
 
 ;; Tested with Gambit v4.7.5 and above, Guile 3.0.7, Chicken 5.2.0 and Kawa 3.1
 
+(define ##RIBBIT-VERSION "0.2.0")
 
 (cond-expand
 
@@ -294,7 +295,7 @@
      (let loop ((i (- (string-length path) 1)))
        (if (< i 0)
            ""
-           (if (= (char->integer (string-ref path i)) 46) ;; #\.
+           (if (eqv? (string-ref path i) #\.)
                (substring path i (string-length path))
                (loop (- i 1))))))
 
@@ -302,7 +303,7 @@
      (let loop ((i (- (string-length path) 1)))
        (if (< i 0)
            "./"
-           (if (= (char->integer (string-ref path i)) 47) ;; #\/
+           (if (eqv? (string-ref path i) #\/)
                (substring path 0 (+ i 1))
                (loop (- i 1))))))
 
@@ -318,18 +319,19 @@
 
 (define (path-normalize path)
      (let loop ((path path))
-       (let ((path (string-replace path "//" "/")))
+       (let ((path (string-replace (string-replace path "//" "/") "/./" "/")))
          (if (string-prefix? "./" path)
            (loop (substring path 2 (string-length path)))
            (if (string-prefix? "../" path)
              (loop (substring path 3 (string-length path)))
              path)))))
+
 (cond-expand
 
  (gambit (begin))
 
- (ribbit 
-   (begin))
+ ;; (ribbit 
+ ;;   (begin))
 
  (else
 
@@ -515,7 +517,11 @@
         (pp r)
         r))))
 
-
+(define (display-return foo . x)
+  (let ((r (apply foo x)))
+    (display r)
+    (newline)
+    r))
 ;;;----------------------------------------------------------------------------
 
 (define (display-rib rib depth)
@@ -641,6 +647,7 @@
 (define (ctx-cte ctx) (field0 ctx))
 (define (ctx-live ctx) (field0 (field1 ctx)))
 (define (ctx-live-features ctx) (field1 (field1 ctx)))
+
 (define (ctx-exports ctx) (field2 ctx))
 
 (define (ctx-cte-set ctx x)
@@ -1004,7 +1011,7 @@
 
                  ((eqv? first 'lambda)
                   (let* ((params (cadr expr))
-                         (variadic (or (symbol? params) (not (eq? (last-item params) '()))))
+                         (variadic (or (symbol? params) (not (null? (last-item params)))))
                          (nb-params
                            (if variadic
                              (improper-length params)
@@ -1272,31 +1279,41 @@
 (define host-config #f)
 
 (define (compile-program verbosity parsed-vm features-enabled features-disabled program)
+  (pp "1")
   (let* ((exprs-and-exports
            (extract-exports program))
+         (_ (pp "2"))
          (exprs
            (car exprs-and-exports))
+         (_ (pp "3"))
          (exprs
            (if (pair? exprs) exprs '(#f)))
+         (_ (pp "4"))
 
          (host-features (extract-features (or parsed-vm default-primitives)))
+         (_ (pp "5"))
 
          (expansion
            `(begin
               ,@(host-feature->expansion-feature host-features) ;; add host features
               ,(expand-begin exprs (make-mtx '() '()))))
+         (_ (pp "6"))
 
          (exports
            (exports->alist (cdr exprs-and-exports)))
+         (_ (pp "7"))
         
          (live-globals-and-features
            (liveness-analysis expansion features-enabled features-disabled exports))
+         (_ (pp "8"))
 
          (live-globals
            (car live-globals-and-features))
+         (_ (pp "9"))
 
          (live-features
            (cdr live-globals-and-features))
+         (_ (pp "10"))
 
          (exports
            (or (and (not (memq 'debug live-features)) exports) ;; export everything when debug is activated
@@ -1304,10 +1321,13 @@
                       (let ((var (car v)))
                         (cons var var)))
                     live-globals)))
+         (_ (pp "11"))
 
          (host-config-ctx (make-host-config live-features '() '()))
+         (_ (pp "12"))
 
          (ctx (make-ctx '() live-globals exports live-features))
+         (_ (pp "13"))
          (return (make-vector 3)))
 
     (set! host-config host-config-ctx)
@@ -1382,6 +1402,13 @@
 
 (define defined-features '()) ;; used as parameters for expand-functions
 
+;; (cond-expand
+;;   (ribbit
+;;    (define (current-directory) (path-directory (car (cmd-line)))))
+;;
+;;   (else 
+;;     (begin)))
+
 ;; For includes
 (define current-resource `(file ,(current-directory) "MAIN"))
 (define resource-type car)
@@ -1390,7 +1417,7 @@
 (define (make-resource type file)
   `(,type ,(path-directory file) ,file))
 
-(define included-files '())
+(define included-resources '())
 
 (define (expand-expr expr mtx)
 
@@ -1400,188 +1427,190 @@
         ((pair? expr)
          (let ((first (car expr)))
 
-           (cond ((eqv? first 'quote)
-                  (expand-constant (cadr expr)))
+           (cond  
+             ((eqv? first '##RIBBIT-VERSION)
+              (expand-constant ##RIBBIT-VERSION))
 
-                 ((eqv? first 'quasiquote)
-                  (expand-quasiquote (cadr expr)))
+             ((eqv? first 'quote)
+              (expand-constant (cadr expr)))
 
-                 ((eqv? first 'set!)
-                  (let ((var (cadr expr)))
-                    (cons 'set!
-                          (cons var
-                                (cons (expand-expr (caddr expr) mtx)
+             ((eqv? first 'quasiquote)
+              (expand-quasiquote (cadr expr)))
+
+             ((eqv? first 'set!)
+              (let ((var (cadr expr)))
+                (cons 'set!
+                      (cons var
+                            (cons (expand-expr (caddr expr) mtx)
+                                  '())))))
+
+             ((eqv? first 'if)
+              (cons 'if
+                    (cons (expand-expr (cadr expr) mtx)
+                          (cons (expand-expr (caddr expr) mtx)
+                                (cons (if (pair? (cdddr expr))
+                                        (expand-expr (cadddr expr) mtx)
+                                        #f)
                                       '())))))
 
-                 ((eqv? first 'if)
-                  (cons 'if
-                        (cons (expand-expr (cadr expr) mtx)
-                              (cons (expand-expr (caddr expr) mtx)
-                                    (cons (if (pair? (cdddr expr))
-                                            (expand-expr (cadddr expr) mtx)
-                                            #f)
-                                          '())))))
+             ((eqv? first 'lambda)
+              (let* ((params (cadr expr)) 
+                     (opt-params '())
+                     (required-params '())
+                     (variadic (or (symbol? params) (not (eq? (last-item params) '()))))
+                     (nb-params (if variadic (improper-length params) (length params))))
+                ;; Gather all optional params from the parameter list
+                (let loop ((i 0) (params params))
+                  (if (< i nb-params)
+                    (let ((param (car params)))
+                      (cond 
+                        ((and (symbol? param) (null? opt-params)) 
+                         (set! required-params (append required-params (list param)))
+                         (loop (+ 1 i) (cdr params)))
 
-                 ((eqv? first 'lambda)
-                  (let* ((params (cadr expr)) 
-                         (opt-params '())
-                         (required-params '())
-                         (variadic (or (symbol? params) (not (eq? (last-item params) '()))))
-                         (nb-params (if variadic (improper-length params) (length params))))
-                    ;; Gather all optional params from the parameter list
-                    (let loop ((i 0) (params params))
-                      (if (< i nb-params)
-                        (let ((param (car params)))
-                          (cond 
-                            ((and (symbol? param) (null? opt-params)) 
-                             (set! required-params (append required-params (list param)))
-                             (loop (+ 1 i) (cdr params)))
+                        ((pair? param)
+                         (set! opt-params (append opt-params (list param)))
+                         (loop (+ 1 i) (cdr params)))
 
-                            ((pair? param)
-                             (set! opt-params (append opt-params (list param)))
-                             (loop (+ 1 i) (cdr params)))
+                        (else (error "Cannot put non-optional arguments after optional ones."))))))
+                (if (null? opt-params)
+                  (cons 'lambda
+                        (cons params
+                              (cons (expand-body (cddr expr) (mtx-shadow mtx (if (pair? params) (improper-list->list params '()) (list params)))) '())))
+                  ;; Add the check for the optional params 
+                  (let ((vararg-name (if variadic (last-item params) '##vararg))
+                        (opt-params-body '()))
+                    (if (pair? required-params)
+                      (set-cdr! (list-tail required-params (- (length required-params) 1)) vararg-name)
+                      (set! required-params vararg-name))
 
-                            (else (error "Cannot put non-optional arguments after optional ones."))))))
-                    (if (null? opt-params)
-                      (cons 'lambda
-                            (cons params
-                                  (cons (expand-body (cddr expr) (mtx-shadow mtx (if (pair? params) (improper-list->list params '()) (list params)))) '())))
-                      ;; Add the check for the optional params 
-                      (let ((vararg-name (if variadic (last-item params) '##vararg))
-                            (opt-params-body '()))
-                        (if (pair? required-params)
-                          (set-cdr! (list-tail required-params (- (length required-params) 1)) vararg-name)
-                          (set! required-params vararg-name))
+                    (for-each
+                      (lambda (opt-param)
+                        (set! opt-params-body 
+                          (append opt-params-body 
+                                  (expand-opt-param 
+                                    (car opt-param) 
+                                    (cadr opt-param) 
+                                    vararg-name
+                                    mtx))))
+                      opt-params)
 
-                        (for-each
-                          (lambda (opt-param)
-                            (set! opt-params-body 
-                              (append opt-params-body 
-                                      (expand-opt-param 
-                                        (car opt-param) 
-                                        (cadr opt-param) 
-                                        vararg-name
-                                        mtx))))
-                          opt-params)
-
-                        (expand-expr
-                          `(lambda 
-                             ,required-params
-                             (let* ,opt-params-body
-                               ,@(cddr expr)))
-                          mtx
-
-                          )))))
-
-                 ((eqv? first 'let)
-                  (let ((x (cadr expr)))
-                    (if (symbol? x) ;; named let?
-                      (expand-expr
-                        (let ((bindings (caddr expr)))
-                          (cons
-                            (cons
-                              'letrec
-                              (cons (cons
-                                      (cons x
-                                            (cons (cons 'lambda
-                                                        (cons (map car bindings)
-                                                              (cdddr expr)))
-                                                  '()))
-                                      '())
-                                    (cons x
-                                          '())))
-                            (map cadr bindings)))
-                        mtx)
-                      (let ((bindings x))
-                        (if (pair? bindings)
-                          (cons 'let
-                                (cons (map (lambda (binding)
-                                             (cons (car binding)
-                                                   (cons (expand-expr
-                                                           (cadr binding)
-                                                           mtx)
-                                                         '())))
-                                           bindings)
-                                      (cons (expand-body (cddr expr) 
-                                                         (mtx-shadow mtx
-                                                                     (map car bindings)))
-                                            '())))
-                          (expand-body (cddr expr) 
-                                       mtx))))))
-
-                 ((eqv? first 'let*)
-                  (let ((bindings (cadr expr)))
                     (expand-expr
-                      (cons 'let
-                            (if (and (pair? bindings) (pair? (cdr bindings)))
-                              (cons (cons (car bindings) '())
-                                    (cons (cons 'let*
-                                                (cons (cdr bindings)
-                                                      (cddr expr)))
-                                          '()))
-                              (cdr expr)))
-                      mtx)))
+                      `(lambda 
+                         ,required-params
+                         (let* ,opt-params-body
+                           ,@(cddr expr)))
+                      mtx)))))
 
-                 ((eqv? first 'letrec)
-                  (let ((bindings (cadr expr)))
-                    (expand-expr
+             ((eqv? first 'let)
+              (let ((x (cadr expr)))
+                (if (symbol? x) ;; named let?
+                  (expand-expr
+                    (let ((bindings (caddr expr)))
+                      (cons
+                        (cons
+                          'letrec
+                          (cons (cons
+                                  (cons x
+                                        (cons (cons 'lambda
+                                                    (cons (map car bindings)
+                                                          (cdddr expr)))
+                                              '()))
+                                  '())
+                                (cons x
+                                      '())))
+                        (map cadr bindings)))
+                    mtx)
+                  (let ((bindings x))
+                    (if (pair? bindings)
                       (cons 'let
                             (cons (map (lambda (binding)
-                                         (cons (car binding) (cons #f '())))
+                                         (cons (car binding)
+                                               (cons (expand-expr
+                                                       (cadr binding)
+                                                       mtx)
+                                                     '())))
                                        bindings)
-                                  (append (map (lambda (binding)
-                                                 (cons 'set!
-                                                       (cons (car binding)
-                                                             (cons (cadr binding)
-                                                                   '()))))
-                                               bindings)
-                                          (cddr expr))))
-                      mtx)))
-
-                 ((eqv? first 'begin)
-                  (expand-begin (cdr expr) mtx))
-
-                 ((eqv? first 'define)
-                  (if (not (pair? (cdr expr)))
-                    (report-error "Ill defined form of 'define"))
-                  (let ((pattern (cadr expr)))
-                    (if (pair? pattern)
-                      (cons 'set!
-                            (cons (car pattern)
-                                  (cons (expand-expr
-                                          (cons 'lambda
-                                                (cons (cdr pattern)
-                                                      (cddr expr)))
-                                          mtx)
+                                  (cons (expand-body (cddr expr) 
+                                                     (mtx-shadow mtx
+                                                                 (map car bindings)))
                                         '())))
-                      (cons 'set!
-                            (cons pattern
-                                  (cons (expand-expr 
-                                          (caddr expr)
+                      (expand-body (cddr expr) 
+                                   mtx))))))
+
+             ((eqv? first 'let*)
+              (let ((bindings (cadr expr)))
+                (expand-expr
+                  (cons 'let
+                        (if (and (pair? bindings) (pair? (cdr bindings)))
+                          (cons (cons (car bindings) '())
+                                (cons (cons 'let*
+                                            (cons (cdr bindings)
+                                                  (cddr expr)))
+                                      '()))
+                          (cdr expr)))
+                  mtx)))
+
+             ((eqv? first 'letrec)
+              (let ((bindings (cadr expr)))
+                (expand-expr
+                  (cons 'let
+                        (cons (map (lambda (binding)
+                                     (cons (car binding) (cons #f '())))
+                                   bindings)
+                              (append (map (lambda (binding)
+                                             (cons 'set!
+                                                   (cons (car binding)
+                                                         (cons (cadr binding)
+                                                               '()))))
+                                           bindings)
+                                      (cddr expr))))
+                  mtx)))
+
+             ((eqv? first 'begin)
+              (expand-begin (cdr expr) mtx))
+
+             ((eqv? first 'define)
+              (if (not (pair? (cdr expr)))
+                (report-error "Ill defined form of 'define")
+                (let ((pattern (cadr expr)))
+                  (if (pair? pattern)
+                    (cons 'set!
+                          (cons (car pattern)
+                                (cons (expand-expr
+                                        (cons 'lambda
+                                              (cons (cdr pattern)
+                                                    (cddr expr)))
+                                        mtx)
+                                      '())))
+                    (cons 'set!
+                          (cons pattern
+                                (cons (expand-expr 
+                                        (caddr expr)
+                                        mtx)
+                                      '())))))))
+
+             ((eqv? first 'if-feature)
+              (cons 'if-feature
+                    (cons (cadr expr)
+                          (cons (expand-expr 
+                                  (caddr expr)
+                                  mtx)
+                                (cons (if (pair? (cdddr expr))
+                                        (expand-expr 
+                                          (cadddr expr)
                                           mtx)
-                                        '()))))))
-
-                 ((eqv? first 'if-feature)
-                  (cons 'if-feature
-                        (cons (cadr expr)
-                              (cons (expand-expr 
-                                      (caddr expr)
-                                      mtx)
-                                    (cons (if (pair? (cdddr expr))
-                                            (expand-expr 
-                                              (cadddr expr)
-                                              mtx)
-                                            #f)
-                                          '())))))
+                                        #f)
+                                      '())))))
 
 
-                 ((eqv? (car expr) 'define-primitive) ;; parse arguments as source file
-                  (let ((code (filter string? (cdr expr)))
-                        (rest (filter (lambda (x) (not (string? x))) (cdr expr))))
-                    `(define-primitive 
-                       ,@rest
-                       (@@body ,(parse-host-file (fold string-append "" code))))))
-                    ;(append rest (list '@@body (parse-host-file (string->list* (fold string-append "" code)))))))
+             ((eqv? (car expr) 'define-primitive) ;; parse arguments as source file
+              (let ((code (filter string? (cdr expr)))
+                    (rest (filter (lambda (x) (not (string? x))) (cdr expr))))
+                `(define-primitive 
+                   ,@rest
+                   (@@body ,(parse-host-file (fold string-append "" code))))))
+             ;(append rest (list '@@body (parse-host-file (string->list* (fold string-append "" code)))))))
 
                  ((eqv? (car expr) 'define-feature) ;; parse arguments as a source file
                   (let* ((bindings (cddr expr))
@@ -1672,11 +1701,12 @@
                        (eqv? (car expr) '##include-str))
                   (expand-expr (read-str-resource (parse-resource (cadr expr))) mtx))
 
-
                  (else
                    (let ((macro (mtx-search mtx (car expr))))
                      (if macro
                        (begin
+                         (pp `(,macro
+                               ,@(map expand-constant (cdr expr))))
                          (expand-expr
                            (eval 
                              `(,macro
@@ -1791,8 +1821,8 @@
 (define mtx-global      field0)
 (define mtx-global-set! field0-set!)
 
-(define (add-included-resource! file-path)
-  (set! included-files (cons file-path included-files)))
+(define (add-included-resource! resource)
+  (set! included-resources (cons resource included-resources)))
 
 (define mtx-cte      field1)
 (define mtx-cte-set! field1-set!)
@@ -1800,8 +1830,8 @@
 (define (mtx-cte-set mtx cte)
   (make-mtx (mtx-global mtx) cte))
 
-(define (included? file-path)
-  (member file-path included-files))
+(define (included? resource)
+  (member resource included-resources))
 
 (define (mtx-add-global! mtx macro-name macro-value)
   (mtx-global-set! mtx (cons (list macro-name macro-value) (mtx-global mtx))))
@@ -1812,79 +1842,7 @@
     
 (define (mtx-search mtx macro-name)
   (let ((macro-value (assq macro-name (append (mtx-cte mtx) (mtx-global mtx)))))
-    (if macro-value
-      (cadr macro-value)
-      #f)))
-
-(define (parse-resource include-path)
-  (cond 
-    ((string-prefix? "./" include-path)  ;; for local folder "lib" where in the root of the project
-     (make-resource (car current-resource) (path-normalize (path-expand (substring include-path 2 (string-length include-path)) (resource-dir current-resource)))))
-
-    ((string-prefix? "ribbit:" include-path)  ;; for folder "lib" where ribbit is intalled (std-lib)
-     (make-resource 'file (path-normalize (path-expand (substring include-path 7 (string-length include-path)) (path-expand "lib" (ribbit-root-dir))))))
-
-    ((string-prefix? "lib:" include-path)  ;; for local folder "lib" where in the root of the project
-     (make-resource 'file (path-normalize (path-expand (substring include-path 4 (string-length include-path)) (path-expand "lib" (root-dir))))))
-
-    ((string-prefix? "ipfs:" include-path)  ;; for local folder "lib" where in the root of the project
-     (make-resource 'ipfs (path-normalize (substring include-path 5 (string-length include-path)))))
-
-    ((string-prefix? "http:" include-path)  ;; for folder "lib" where ribbit is intalled (std-lib)
-     (make-resource 'http (path-normalize (substring include-path 5 (string-length include-path)))))
-
-    ; TODO: add more. Ex: "http:" "github:" "lib:" (for folder named lib in the root of the project)
-    (else (make-resource 'file include-path))))
-
-(define (read-str-resource resource)
-  (let ((resource-path (resource-file resource)))
-    (case (resource-type resource)
-      ((file)
-       (if (not (file-exists? resource-path))
-         (error "The path needs to point to an existing file. Error while trying to include library at " resource-path))
-       (string-from-file resource-path))
-
-      ((ipfs)
-       (shell-cmd (string-append "ipfs cat " resource-path)))
-
-      ((http)
-       (shell-cmd (string-append "curl --silent http://" resource-path))))))
-
-(define (expand-resource resource mtx)
-  (let ((old-current-resource current-resource))
-    (set! current-resource resource)
-    (let ((result (expand-begin (read-all (open-input-string (read-str-resource resource))) mtx)))
-      (set! current-resource old-current-resource)
-      result)))
-  ;; (case (resource-type resource)
-  ;;   ((file)
-  ;;    (if (not (file-exists? path))
-  ;;      (error "The path needs to point to an existing file. Error while trying to include library at " path))
-  ;;    (let ((old-current-resource current-resource) 
-  ;;          (set! current-resource (make-resource 'file file-path))
-  ;;          (let ((result (expand-begin (read-from-file file-path) mtx)))
-  ;;            (set! current-resource old-current-resource)
-  ;;            result))))
-  ;;
-  ;;   ((ipfs)
-  ;;    (let ((old-current-resource current-resource) 
-  ;;          (resource-path (if (eq? (car current-resource) 'ipfs) 
-  ;;                           (path-normalize (path-expand (resource-file resource) (resource-dir current-resource)))
-  ;;                           (resource-file resource))))
-  ;;      (set! current-resource (make-resource 'ipfs resource-path))
-  ;;      (let ((result (expand-begin (read-from-ipfs resource-path) mtx)))
-  ;;        (set! current-resource old-current-resource)
-  ;;        result)))
-  ;;
-  ;;   ((http)
-  ;;    (let ((old-current-resource current-resource) 
-  ;;          (resource-path (if (eq? (car current-resource) 'http) 
-  ;;                           (path-normalize (path-expand (resource-file resource) (resource-dir current-resource)))
-  ;;                           (resource-file resource))))
-  ;;      (set! current-resource (make-resource 'http resource-path))
-  ;;      (let ((result (expand-begin (read-from-http resource-path) mtx)))
-  ;;        (set! current-resource old-current-resource)
-  ;;        result)))))
+    (and macro-value (cadr macro-value))))
 
 ;; Shadow macro by a variable
 (define (mtx-shadow mtx variable-names) 
@@ -1895,6 +1853,7 @@
              (list variable-name #f))
            variable-names)
       (mtx-cte mtx))))
+
 
 (define (expand-begin* exprs rest mtx)
   (if (pair? exprs)
@@ -1918,6 +1877,7 @@
                         (if (included? resource)
                           r
                           (begin
+                            (pp resource)
                             (add-included-resource! resource)
                             (cons (expand-resource resource mtx) r)))))
 
@@ -1932,12 +1892,11 @@
                         (let ((macro-name (cadr expr))
                               (macro-value (caddr expr)))
                           (if (not (eq? (car macro-value) 'lambda))
-                            (error "*** define-macro: expected lambda expression" macro-value))
-
-                          (mtx-add-global!
-                            mtx
-                            macro-name 
-                            macro-value)))
+                            (error "*** define-macro: expected lambda expression" macro-value)
+                            (mtx-add-global!
+                              mtx
+                              macro-name 
+                              macro-value))))
                       r)
 
 
@@ -1994,6 +1953,60 @@
   ;;                     )
   ;;               )
   ;;         )))
+
+
+;;;----------------------------------------------------------------------------
+
+;; Resource reading and parsing.
+
+(define resource-str-reader-table 
+  `((ribbit
+      ,(lambda (resource-path)
+         (let ((resource-path (path-normalize (path-expand resource-path (path-expand "lib" (ribbit-root-dir))))))
+           (if (not (file-exists? resource-path))
+             (error "The path needs to point to an existing file. Error while trying to include library at" resource-path)
+             (string-from-file resource-path)))))
+
+    (file ,(lambda (resource-path) 
+             (if (not (file-exists? resource-path))
+               (error "The path needs to point to an existing file. Error while trying to include library at" resource-path)
+               (string-from-file resource-path))))))
+
+(define (add-resource-str-reader! name reader)
+  (if (or (not (symbol? name)) (memq #\: (string->list (symbol->string name))))
+    (error "The resource reader name must be a symbol that doesn't contain #\\:"))
+  (if (assq name resource-str-reader-table)
+    (error "The resource reader already exists:" name))
+  (set! resource-str-reader-table (append resource-str-reader-table (list (list name reader)))))
+
+(define (parse-resource include-path)
+  (if (string-prefix? "./" include-path)  ;; for local folder "lib" where in the root of the project
+    (make-resource (car current-resource) (path-normalize (path-expand (path-normalize include-path) (resource-dir current-resource))))
+
+    (let* ((splitted (string-split include-path #\:))
+           (resource-prefix (car splitted))
+           (resource-path (cdr splitted)))
+      (if (null? resource-path)
+        (make-resource (car current-resource) (path-normalize (path-expand (path-normalize include-path) (resource-dir current-resource))))
+        (make-resource (string->symbol resource-prefix) (path-normalize (string-concatenate resource-path ":")))))))
+
+(define (read-str-resource resource)
+  (let ((resource-path (resource-file resource))
+        (reader (assq (resource-type resource) resource-str-reader-table)))
+    (display "Reading resource: ")
+    (write resource)
+    (newline)
+    (if reader 
+      ((cadr reader) resource-path)
+      (error "No resource reader found for resource-type:" (resource-type resource)))))
+
+(define (expand-resource resource mtx)
+  (let ((old-current-resource current-resource))
+    (set! current-resource resource)
+    (let ((result (expand-begin (read-all (open-input-string (read-str-resource resource))) mtx)))
+      (set! current-resource old-current-resource)
+      result)))
+
 
 ;;;----------------------------------------------------------------------------
 
@@ -3743,7 +3756,7 @@
 
 (define (read-from-file path)
   (let* ((port (open-input-file path))
-         (first-line (read-line port))
+         (first-line (read-line port #\newline))
          (port (if (and (not (eof-object? first-line)) (string-prefix? "#!" first-line))
                  (begin 
                    (pp "SHABANGED")
@@ -3754,14 +3767,13 @@
     (read-all port)))
 
 (define (read-library lib-path)
-  (list (list '##include-once
-   (if (equal? (rsc-path-extension lib-path) "")
-       (let* ((path (path-expand lib-path (path-expand "lib" (ribbit-root-dir))))
-              (file-path (string-append path ".scm")))
-         (if (file-exists? file-path)
-           file-path
-           (error (string-append "The path needs to point to an existing file. Error while trying to include library at " file-path))))
-       lib-path))))
+  (list (list 
+      '##include-once
+      (string-append 
+        "ribbit:"
+        (if (equal? (rsc-path-extension lib-path) "")
+          (string-append lib-path ".scm")
+          lib-path)))))
 
 (define (read-program lib-path src-path)
   (append (apply append (map read-library lib-path))
@@ -3769,21 +3781,6 @@
               (read-all)
               (read-from-file src-path))))
 
-(define (read-from-ipfs hash)
-  (display (string-append "Reading from IPFS " hash "..."))
-  (let ((result (shell-cmd (string-append "ipfs cat " hash))))
-    (display " Done\n")
-    (if (not (string? result))
-      (error "File not found on IPFS")
-      (read-all (open-input-string result)))))
-
-(define (read-from-http url)
-  (display (string-append "GET from http://" url "..."))
-  (let ((result (shell-cmd (string-append "curl http://" url))))
-    (display " Done\n")
-    (if (not (string? result))
-      (error "File not found...")
-      (read-all (open-input-string result)))))
 ;;;----------------------------------------------------------------------------
 
 ;; Host file expression parsing, evalutation and substitution
@@ -4427,8 +4424,6 @@
               (if (equal? _target "rvm")
                 #f
                 (parse-host-file vm-source)))
-
-
 
             (features-enabled (cons (string->symbol (string-append "encoding/" encoding-name))
                                     features-enabled)))

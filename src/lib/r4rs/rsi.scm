@@ -1,3 +1,7 @@
+(##include-once "ribbit:r4rs.scm")
+(##include-once "ribbit:r4rs/sys.scm")
+(##include-once "ribbit:r4rs/io-style.scm")
+
 (define args (cmd-line))
 
 (define src-path #f)
@@ -45,4 +49,11 @@
 
 (if src-path (load src-path))
 
-(if go-in-repl (repl))
+(if go-in-repl 
+  (begin 
+    (display-with-style (string-append "Ribbit " (##RIBBIT-VERSION) " (R4RS)\n") 'red)
+    ;; (if-feature (and (not hide-frog) (not quiet))
+    ;;   (begin 
+    ;;     (welcome-msg)
+    ;;     (newline)))
+    (repl)))
