@@ -2990,6 +2990,7 @@
                       tail)
                 tag
                 replacement))
+
       (else
         (error "idk how you did end up here" stream))))
 
@@ -3375,6 +3376,8 @@
 (define (encode proc exports host-config byte-stats encoding-name encoding-size)
   (define max-encoding-size encoding-size)
 
+  (define compression/2b/bits 1) ;; can be 1 or 2
+
   ;; state
   (let ((encoding      #f) ;; chosen encoding
         (stream        #f) ;; stream of encoded bytes (output)
@@ -3389,14 +3392,14 @@
       (set! 
         stream 
         (encode-program 
-          prog 
+          proc 
           symtbl 
           encoding 
           (encoding-inst-get encoding '(skip int long))
           encoding-size)))
 
     (define (p/enc-symtbl)
-      (let* ((symtbl-and-symbols* (encode-symtbl prog exports host-config (encoding-inst-size encoding '(call sym short))))
+      (let* ((symtbl-and-symbols* (encode-symtbl proc exports host-config (encoding-inst-size encoding '(call sym short))))
              (symbol* (cdr symtbl-and-symbols*)))
         (set! symtbl   (car symtbl-and-symbols*))
         (set! stream-symtbl (symtbl->stream symtbl symbol* max-encoding-size))))
@@ -3412,9 +3415,7 @@
       (set! stream
         (encode-lzss-on-two-bytes
           stream
-          (if (eqv? compression/2b-bits 192)
-            2
-            1)
+          compression/2b/bits
           4
           10
           encoding-size
@@ -3425,8 +3426,8 @@
 
 
     (define (optimal-encoding)
-      (let* ((symtbl-and-symbols* (encode-symtbl prog exports host-config 20)) ;; we assume 20 shorts, will be re-evaluated
-             (raw-stream (encode-program prog (car symtbl-and-symbols*) 'raw #t encoding-size)) 
+      (let* ((symtbl-and-symbols* (encode-symtbl proc exports host-config 20)) ;; we assume 20 shorts, will be re-evaluated
+             (raw-stream (encode-program proc (car symtbl-and-symbols*) 'raw #t encoding-size)) 
              (stats (get-stat-from-raw (make-table) raw-stream))
              (encoding 
                (calculate-start
@@ -3445,15 +3446,17 @@
 
     (define (live? . syms)
       (let loop ((syms syms))
-        (if (host-config-feature-live? host-config (car syms))
-          (loop (cdr syms))
-          #f)))
+        (if (null? syms)
+          #f
+          (if (host-config-feature-live? host-config (car syms))
+            #t
+            (loop (cdr syms))))))
 
-    (let 
+    (let* 
       ;; options
-      ((compression? (live? 'encoding/compression 'encoding/compression/2b 'encoding/compression/tag))
-       (compression/2b? (live? 'encoding/compression/2b))
-       (compression/tag? (live? 'encoding/compression/tag))
+      ((compression/2b? (live? 'compression/lzss/2b))
+       (compression/tag? (live? 'compression/lzss/tag 'compression/lzss 'compression))
+       (compression? (or compression/2b? compression/tag?))
        (hyperbyte? (live? 'encoding/hyperbyte)))
 
 
@@ -3462,10 +3465,22 @@
 
 
       (if compression/2b?
-        (set! encoding-size 192)) ;; reserving some bytes for the compression algorithm
+        (begin
+          (if (not (eqv? encoding-size 256))
+            (error "2b compression only works with 256 bytes encoding"))
+          (cond 
+            ((eqv? compression/2b/bits 1)
+             (set! encoding-size 192))
+            ((eqv? compression/2b/bits 2)
+             (set! encoding-size 128))
+            (else
+              (error "2b compression only works with 1 or 2 bits")))))
 
       (if hyperbyte?
-        (set! encoding-size 16)) 
+        (begin
+          (if (not (eqv? encoding-size 256))
+            (error "Hyperbyte only works with 256 bytes encoding"))
+          (set! encoding-size 16)))
 
       ;; Choose encoding
       (set! encoding
