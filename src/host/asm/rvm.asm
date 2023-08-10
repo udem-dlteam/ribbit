@@ -1264,14 +1264,14 @@ prim_dispatch_table:
 	dd   prim_getchar     ;; @@(primitive (##getchar))@@
 	dd   prim_putchar     ;; @@(primitive (##putchar c))@@
 	dd   prim_exit        ;; @@(primitive (##exit n))@@  
-	dd   prim_stdin       ;; @@(primitive (##stdin))@@  
-	dd   prim_stdout      ;; @@(primitive (##stdout))@@  
+	dd   prim_stdin_fd       ;; @@(primitive (##stdin-fd))@@  
+	dd   prim_stdout_fd      ;; @@(primitive (##stdout-fd))@@  
     dd   prim_get_fd_input_file ;; @@(primitive (##get-fd-input-file filename))@@
     dd   prim_get_fd_output_file ;; @@(primitive (##get-fd-output-file filename))@@
-    dd   prim_read_char ;; @@(primitive (##read-char fd))@@
-    dd   prim_write_char ;; @@(primitive (##write-char c fd))@@
-    dd   prim_close_port ;; @@(primitive (##close-input-port fd))@@
-    dd   prim_close_port ;; @@(primitive (##close-output-port fd))@@
+    dd   prim_read_char_fd ;; @@(primitive (##read-char-fd fd))@@
+    dd   prim_write_char_fd ;; @@(primitive (##write-char-fd c fd))@@
+    dd   prim_close_fd ;; @@(primitive (##close-input-fd fd))@@
+    dd   prim_close_fd ;; @@(primitive (##close-output-fd fd))@@
     dd   prim_apply      ;; @@(primitive (##apply function args))@@
     dd   prim_welcome    ;; @@(primitive (welcome-msg))@@
 
@@ -1810,15 +1810,15 @@ prim_exit:
 ;; )@@
 
 
-;; @@(feature ##stdin
-prim_stdin:
+;; @@(feature ##stdin-fd
+prim_stdin_fd:
     NBARGS(0)
     mov dword LAST_ARG, FIX(0x0)
     ret
 ;; )@@
 
-;; @@(feature ##stdout
-prim_stdout:
+;; @@(feature ##stdout-fd
+prim_stdout_fd:
     NBARGS(0)
     mov dword LAST_ARG, FIX(0x1)
     ret
@@ -1869,8 +1869,8 @@ prim_get_fd_output_file:
     jmp common_input_output_file
 ;; )@@
 
-;; @@(feature ##read-char (use raw_int_to_scheme_int)
-prim_read_char:
+;; @@(feature ##read-char-fd (use raw_int_to_scheme_int)
+prim_read_char_fd:
 
 	push ecx
 
@@ -1887,16 +1887,16 @@ prim_read_char:
 	test eax, eax
 	pop  LAST_ARG		; get buffer (0 if no byte read)
 	pop  ecx
-	jne  prim_read_char_done
+	jne  prim_read_char_fd_done
     lea  LAST_ARG, [NIL]
     ret
-prim_read_char_done:
+prim_read_char_fd_done:
 	jmp  raw_int_to_scheme_int
 ;; )@@
 
 
-;; @@(feature ##write-char (use raw_int_to_scheme_int)
-prim_write_char:
+;; @@(feature ##write-char-fd (use raw_int_to_scheme_int)
+prim_write_char_fd:
 
 	push PREV_ARG
 	push ecx
@@ -1917,8 +1917,8 @@ prim_write_char:
 ;; )@@ 
 
 
-;; @@(feature (or ##close-input-port ##close-output-port)
-prim_close_port:
+;; @@(feature (or ##close-input-fd ##close-output-fd)
+prim_close_fd:
     shr  LAST_ARG, 1
     mov  ebx, SYS_CLOSE
     xchg eax, ebx
@@ -1989,8 +1989,8 @@ prim_welcome:
 
 ;;; The compressed RVM code
 
-;; @@(replace "41,59,39,108,118,68,63,109,62,108,118,82,68,63,109,62,108,118,82,65,63,109,62,108,118,82,65,63,109,62,108,118,82,58,63,109,62,108,118,82,61,33,40,58,110,108,107,109,33,39,58,110,108,107,118,54,123" (encode-as-bytes 256 "" "," "")
-rvm_code:	db 41,59,39,108,118,68,63,109,62,108,118,82,68,63,109,62,108,118,82,65,63,109,62,108,118,82,65,63,109,62,108,118,82,58,63,109,62,108,118,82,61,33,40,58,110,108,107,109,33,39,58,110,108,107,118,54,123,0 ; RVM code that prints HELLO!
+;; @@(replace "41,59,39,108,118,68,63,109,62,108,118,82,68,63,109,62,108,118,82,65,63,109,62,108,118,82,65,63,109,62,108,118,82,58,63,109,62,108,118,82,61,33,40,58,110,108,107,109,33,39,58,110,108,107,118,54,123" (encode 92)
+rvm_code:	dd "41,59,39,108,118,68,63,109,62,108,118,82,68,63,109,62,108,118,82,65,63,109,62,108,118,82,65,63,109,62,108,118,82,58,63,109,62,108,118,82,61,33,40,58,110,108,107,109,33,39,58,110,108,107,118,54,123,0" ; RVM code that prints HELLO!
 ;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
