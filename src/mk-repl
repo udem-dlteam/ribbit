@@ -8,7 +8,7 @@ if [ "$HOST" = "" ]; then
     HOST="js"
 fi
 
-gsi -:r4rs ./rsc.scm -t "$HOST" -l "$LIB" "$@" -o ./repl."$HOST" ./lib/r4rs/repl.scm
+gsi -:r4rs ./rsc.scm -t "$HOST" -l "$LIB" "$@" -x ./repl -o ./repl."$HOST" ./lib/r4rs/repl.scm
 
 case "$HOST" in 
     js)

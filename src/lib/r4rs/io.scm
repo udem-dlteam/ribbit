@@ -669,7 +669,7 @@
         (%write-char-code (##field0 lst) port)
         (begin
           (%write-char-code 92 port)
-          (%write-char-code (cadr escape) port)))
+          (%write-char-code (##field0 (##field1 escape)) port)))
       (write-chars (##field1 lst) escapes port))))
 
 

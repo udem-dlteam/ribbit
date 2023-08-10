@@ -4683,7 +4683,9 @@
                (report-status "Writing target code")
                (write-target-code output-path generated-code)
                (if exe-output-path
-                 (shell-cmd (string-append (path-directory rvm-path) "/mk-exe " output-path " " exe-output-path)))
+                 (begin 
+                   (report-status "Generating executable")
+                   (shell-cmd (string-append (path-directory rvm-path) "mk-exe " output-path " " exe-output-path))))
                (report-done)))))))
 
    (define (parse-cmd-line args)
@@ -4829,11 +4831,13 @@
                           src-path
                           (string-append "." target ".exe"))))
                  (or rvm-path
-                     (string-append
-                       "host/"
+                     (path-expand
                        (string-append
-                         target
-                         (string-append "/rvm." target))))
+                         "host/"
+                         (string-append
+                           target
+                           (string-append "/rvm." target)))
+                       (path-directory (car (cmd-line)))))
                  generate-strip
                  target
                  input-path

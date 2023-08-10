@@ -1,12 +1,20 @@
-(define-macro (tc-pair-type) 0)
-
 (define-macro 
   (tc-pair? o)
-  `(and (##rib? ,o) (##eqv? (##field2 ,o) (tc-pair-type))))
+  `(and (##rib? ,o) (##eqv? (##field2 ,o) 0)))
+
+(define (##tc-error . msgs)
+  (let loop ((msgs msgs))
+    (if (pair? msgs)
+      (begin
+        (set! assq (lambda (x y) #f))
+        (##ntc-display (##field0 msgs))
+        (loop (##field1 msgs)))
+      (##exit 1))))
+
 
 (define (##tc-append lst1 lst2)
-  (if (tc-pair? lst1)
-    (##rib (##field0 lst1) (##tc-append (##field1 lst1) lst2) (tc-pair-type)) ;; cons
+  (if (pair? lst1)
+    (##rib (##field0 lst1) (##tc-append (##field1 lst1) lst2) 0) ;; cons
     lst2))
 
 (define (##tc-list . args) args)
@@ -47,6 +55,9 @@
                           args) 
                         (cdr rest))))
               (reverse args)))
+         ;; ,(if (not (eq? proc 'assq))
+         ;;     `(display ',proc)
+         ;;     '())
          ,@(let loop ((guards '()) (i 1) (rest args-info))
              (if (pair? rest)
                (let* ((arg-info (car rest))
@@ -60,8 +71,8 @@
                      (error "You must define the 'expected' field when defining a guard")
                      (loop 
                        (cons `(if (##eqv? ,guard #f)  ;; not
-                                (error "In procedure " ',proc " : (ARGUMENT " ,i ") " ,expected " expected."))
-                             guards) 
+                                (##tc-error "In procedure " ',proc ": (ARGUMENT " ,i ") " ,expected " expected."))
+                             guards)
                        (+ i 1)
                        (cdr rest)))
                    (loop guards (+ i 1) (cdr rest))))
@@ -79,6 +90,13 @@
 
 
 ;; ########## Types (R4RS section 3.4 + others) ########## ;;
+
+(define-signature
+  string-append
+  ((strs 
+     rest-param:
+     guard: (all string? strs)
+     expected: "STRINGs")))
 
 (define-signature
   char->integer 
@@ -382,12 +400,6 @@
                               (##ntc-number->string start) ") and " 
                               (##ntc-number->string  (##field1 str))))))
 
-(define-signature
-  string-append
-  ((strs 
-     rest-param:
-     guard: (all string? strs)
-     expected: "STRINGs")))
 
 ;; ########## I/O (R4RS section 6.10) ########## ;;
 
@@ -435,13 +447,6 @@
 
 (define-signatures
   (read-char peek-char read)
-  ((port 
-     default: (current-input-port)
-     guard: (input-port? port)
-     expected: "INPUT-PORT")))
-
-(define-signature 
-  read 
   ((port 
      default: (current-input-port)
      guard: (input-port? port)
