@@ -28,7 +28,7 @@
   (gambit
 
    (define (shell-cmd command)
-     (cdr (shell-command command #t)))
+     (shell-command command))
 
    (define (del-file path)
      (delete-file path)))
@@ -2736,7 +2736,6 @@
                        (table-set! optimal (append instruction '(long)) index)
                        optimal))
                    (optimal-table-value (sum-byte-count value-table (reverse instruction) optimal-table encoding-size))
-                   ;(_ (if (and (memq 'int instruction) (memq 'const instruction)) (step)))
                    (gain               (- old-gain optimal-table-value))
                    (new-old-gain       optimal-table-value)
                    (new-index          (+ index 1)))
@@ -2901,7 +2900,6 @@
           (cdr encoded-stream)
           (cond
             ((pair? code)
-             (step)
              (let* ((offset (car code))
                     (len (cadr code))
                     (first-byte
@@ -2942,14 +2940,12 @@
                 length-header
                 offset-header)))
 
-    #;(pp 
-      (reverse (map list dec encoded-stream)))
-
-
     (if (equal? dec
                 encoded-stream)
       (display "... ensuring that decompression works ...")
-      (error "Decompression failed"))))
+      (error "Decompression failed"))
+    return
+    ))
 
 
 (define (encode-lzss-with-tag stream encoding-size host-config)
@@ -3512,6 +3508,7 @@
           (p/comp-tag)
           (p/comp-2b)))
 
+
       stream)))
 
 
@@ -3908,7 +3905,6 @@
 
   ;      (output-to-file "ribn-256.txt" encoded-proc)
 
-  ;      (step)
 
 
   ;      (pp (length encoded-proc))
@@ -3923,7 +3919,6 @@
   ;      ; #;(pp
   ;      ; (fold costc 0 test))
 
-  ;      (step)
   ;      encoded-proc)))
   
 
@@ -4352,7 +4347,13 @@
     (stream->string (encode encoding-size)))
 
   (define (encode-as-bytes encoding-size prefix sep suffix)
-    (list->host (encode encoding-size) prefix sep suffix))
+    (list->host 
+      (if (eqv? encoding-size 92) ;;
+        (string->list* (stream->string (encode encoding-size)))
+        (encode encoding-size)) 
+      prefix 
+      sep 
+      suffix))
 
 
   (define functions
@@ -4683,9 +4684,16 @@
                (report-status "Writing target code")
                (write-target-code output-path generated-code)
                (if exe-output-path
-                 (begin 
-                   (report-status "Generating executable")
-                   (shell-cmd (string-append (path-directory rvm-path) "mk-exe " output-path " " exe-output-path))))
+                 (let ((status 
+                         (shell-cmd 
+                           (string-append 
+                             (path-directory rvm-path) 
+                             "mk-exe " 
+                             output-path 
+                             " " 
+                             exe-output-path))))
+                   (if (not (equal? status 0))
+                     (error "Error generating executable\n"))))
                (report-done)))))))
 
    (define (parse-cmd-line args)
