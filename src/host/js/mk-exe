@@ -1,8 +1,8 @@
 #!/bin/sh 
 
 
-EXEC_PATH=$(which node)
-RVM_CONTENT=$(cat "$1")
+EXEC_PATH="$(which node)"
+RVM_CONTENT="$(cat "$1")"
 EXE="$2"
 
 echo "#!$EXEC_PATH" > "$EXE" 

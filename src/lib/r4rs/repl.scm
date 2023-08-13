@@ -210,6 +210,13 @@
   tab
   return)
 
+
+;; (if-feature 
+;;   (and (not hide-frog) (not quiet))
+;;   (begin 
+;;     (welcome-msg)
+;;     (newline)))
+
 (repl)
 
 ;;;fancy-compiler

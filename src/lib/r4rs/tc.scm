@@ -77,10 +77,18 @@
                        (cdr rest)))
                    (loop guards (+ i 1) (cdr rest))))
                (reverse guards)))
-         ,(if variadic? 
-            (let ((reverse-args (reverse args-info)))
-              `(##apply ,ntc-proc (##tc-append (##tc-list ,@(reverse (map car (cdr reverse-args)))) ,(caar reverse-args))))
-            `(,ntc-proc ,@(map car args-info)))))))
+         ;; (let ((tc-proc ,proc))
+         ;;   (set! ,proc ,ntc-proc)
+         ;;
+           ;; (let ((result 
+           ,(if variadic? 
+                            (let ((reverse-args (reverse args-info)))
+                              `(##apply ,ntc-proc (##tc-append (##tc-list ,@(reverse (map car (cdr reverse-args)))) ,(caar reverse-args))))
+                            `(,ntc-proc ,@(map car args-info)))
+           ;; ))
+             ;; (set! ,proc tc-proc)
+             ;; result))
+    ))))
 
 
 (define-macro

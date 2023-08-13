@@ -1109,7 +1109,7 @@
   (and (memq 'arity-check (ctx-live-features ctx))
        (not (and
               (memq 'prim-no-arity (ctx-live-features ctx))
-              (memq name (ctx-live-features ctx))))))
+              (memq name (host-config-primitives ctx))))))
 
 (define (is-call? ctx name cont)
   (let* ((arity-check (arity-check? ctx name))

@@ -233,6 +233,11 @@
      (write-char (integer->char ,ch-code) ,port)
      (##write-char-fd ,ch-code (##field0 ,port))))
 
+;; (define (%write-char-code ch-code port)
+;;   (if-feature v-port
+;;     (write-char (integer->char ch-code) port)
+;;     (##write-char-fd ch-code (##field0 port))))
+
 (if-feature
   (not v-port)
   (begin

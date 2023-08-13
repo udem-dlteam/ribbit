@@ -8,4 +8,4 @@ if [ "$HOST" = "" ]; then
     HOST="js"
 fi
 
-gsi -:r4rs ./rsc.scm -t "$HOST" $LIB "$@" -o ./rsi."$HOST" ./lib/r4rs/rsi.scm
+./rsc -t "$HOST" $LIB $@ -o ./rsi."$HOST" -x rsi -f+ export-all ./lib/r4rs/rsi.scm
