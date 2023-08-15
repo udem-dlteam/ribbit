@@ -2724,7 +2724,6 @@
           (reverse lst))))
 
     (define (calculate-gain-long value-table instruction max offset current-encoding-table encoding-size)
-
       (let ((current-table-value (sum-byte-count value-table (reverse instruction) current-encoding-table encoding-size)))
         (let loop ((index (+ offset 1)) 
                    (old-gain current-table-value) 
@@ -2851,29 +2850,59 @@
           2))))
   cost)
 
-(define (decompress-lzss-2b stream bit-header length-header offset-header)
-  (define header-tag (if (eqv? bit-header 2) 192 128))
+;(define (decompress-lzss-2b stream bit-header length-header offset-header)
+;  (define header-tag (if (eqv? bit-header 2) 192 128))
+;
+;  (define ones (lambda (x) (- (arithmetic-shift 1 x) 1)))
+;
+;  ;; gives a number with a n 1 followed by m 0 in the binary representation
+;  (define mask (lambda (n m) (arithmetic-shift (ones n) m)))
+;
+;
+;
+;  (define (decode stream tail)
+;    (if (pair? stream)
+;      (if (>= (car stream) header-tag)
+;        (let ((first-bit (car stream))
+;              (second-bit (cadr stream)))
+;          (decode
+;            (cddr stream)
+;            (cons
+;              (list
+;                (+
+;                  (* 256 (bitwise-and first-bit (mask (- offset-header 8) 0)))
+;                  second-bit)
+;                (+ 3 (arithmetic-shift (bitwise-and first-bit (mask length-header (- offset-header 8))) (- 8 offset-header))))
+;              tail)))
+;        (decode
+;          (cdr stream)
+;          (cons (car stream) tail)))
+;
+;        
+;      
+;      tail))
+;
+;  (decode stream '()))
 
-  (define ones (lambda (x) (- (arithmetic-shift 1 x) 1)))
-
-  ;; gives a number with a n 1 followed by m 0 in the binary representation
-  (define mask (lambda (n m) (arithmetic-shift (ones n) m)))
-
-
+(define (decode-lzss-2b stream range-len max-len max-encoding-size )
+  (define range-start (- max-encoding-size range-len))
 
   (define (decode stream tail)
     (if (pair? stream)
-      (if (>= (car stream)  192)
-        (let ((first-bit (car stream))
-              (second-bit (cadr stream)))
+      (if (>= (car stream) range-start)
+        (let* ((first-bit (car stream))
+               (second-bit (cadr stream))
+               (combined (+ (* (- first-bit range-start) max-encoding-size) second-bit))
+               (decoded-first (quotient combined max-len))
+               (decoded-second (+ 3 (modulo combined max-len))))
+
+          ;(step)
           (decode
             (cddr stream)
             (cons
               (list
-                (+
-                  (* 256 (bitwise-and first-bit (mask (- offset-header 8) 0)))
-                  second-bit)
-                (+ 3 (arithmetic-shift (bitwise-and first-bit (mask length-header (- offset-header 8))) (- 8 offset-header))))
+                decoded-first
+                decoded-second)
               tail)))
         (decode
           (cdr stream)
@@ -2885,67 +2914,125 @@
 
   (decode stream '()))
 
+(define (encode-lzss-2b stream range-len max-len max-encoding-size host-config)
+  (define range-start (- max-encoding-size range-len))
 
-
-(define (encode-lzss-on-two-bytes stream bit-header length-header offset-header encoding-size host-config)
-  ;; assuming tag is all 1
-  (define header-tag (if (eqv? bit-header 2) 192 128))
-
-  ;(define encoding-size/2 (quotient encoding-size 2))
-
-  (define (encode encoded-stream tail)
-    (if (pair? encoded-stream)
-      (let ((code (car encoded-stream)))
-        (encode 
-          (cdr encoded-stream)
-          (cond
-            ((pair? code)
-             (let* ((offset (car code))
-                    (len (cadr code))
-                    (first-byte
-                      (+
-                        header-tag
-                        (* (- len 3) (arithmetic-shift 1 (- offset-header 8)))
-                        (arithmetic-shift offset -8)))
-                    (second-byte
-                      (bitwise-and offset 255)))
-               (pp (cons code first-byte))
-               ;(pp (cons code second-byte))
-               `(,first-byte
-                 ,second-byte
-                 .
-                 ,tail)))
-            (else
-              (cons 
-                code 
-                tail)))))
+  (define (encode stream tail)
+    (if (pair? stream)
+      (let ((code (car stream)))
+        (if (pair? code)
+          (let* ((offset (car code))
+                 (len (cadr code))
+                 (n   (+ (- len 3) (* offset max-len)))
+                 (first (quotient n max-encoding-size))
+                 (second  (modulo n max-encoding-size)))
+            (encode
+              (cdr stream)
+              (cons
+                (+ range-start first)
+                (cons 
+                  second
+                  tail))))
+          (encode
+            (cdr stream)
+            (cons code tail))))
       tail))
 
-  (if (not (eqv? (+ bit-header length-header offset-header) 16))
-    (error "Bit header, length header and offset header must add up to 16"))
-
   (let* ((encoded-stream 
-           (LZSS 
+           (LZSS
              stream 
-             (arithmetic-shift 1 offset-header)
-             (arithmetic-shift 1 length-header)
-             encoding-size 
+             (quotient (* range-len max-encoding-size) max-len)
+             max-len
+             max-encoding-size 
              (lambda (x) (if (pair? x) 2 1))))
          (return (encode
                    encoded-stream
                    '()))
-         (dec (decompress-lzss-2b 
-                return
-                bit-header
-                length-header
-                offset-header)))
+         (dec (decode-lzss-2b 
+                return 
+                range-len
+                max-len
+                max-encoding-size)))
+
+
+    ;(step)
+    ;(pp (map list dec encoded-stream return))
+    ;(pp (length dec))
+    ;(pp (length encoded-stream))
+    ;(pp (filter (lambda (x) (not (equal? (car x) (cadr x)))) (map list dec encoded-stream)))
 
     (if (equal? dec
                 encoded-stream)
       (display "... ensuring that decompression works ...")
       (error "Decompression failed"))
-    return
-    ))
+    return))
+
+  
+
+
+
+;(define (encode-lzss-on-two-bytes stream bit-header length-header offset-header encoding-size host-config)
+;  ;; assuming tag is all 1
+;  (define header-tag (if (eqv? bit-header 2) 192 128))
+;
+;  ;(define encoding-size/2 (quotient encoding-size 2))
+;
+;  (define (encode encoded-stream tail)
+;    (if (pair? encoded-stream)
+;      (let ((code (car encoded-stream)))
+;        (encode 
+;          (cdr encoded-stream)
+;          (cond
+;            ((pair? code)
+;             (let* ((offset (car code))
+;                    (len (cadr code))
+;                    (first-byte
+;                      (+
+;                        header-tag
+;                        (* (- len 3) (arithmetic-shift 1 (- offset-header 8)))
+;                        (arithmetic-shift offset -8)))
+;                    (second-byte
+;                      (bitwise-and offset 255)))
+;               ;(pp (list code first-byte second-byte))
+;               `(,first-byte
+;                 ,second-byte
+;                 .
+;                 ,tail)))
+;            (else
+;              (cons 
+;                code 
+;                tail)))))
+;      tail))
+;
+;  (if (not (eqv? (+ bit-header length-header offset-header) 16))
+;    (error "Bit header, length header and offset header must add up to 16"))
+;
+;  (let* ((encoded-stream 
+;           (LZSS 
+;             stream 
+;             (- (arithmetic-shift 1 offset-header) 1)
+;             (- (arithmetic-shift 1 length-header) 1)
+;             encoding-size 
+;             (lambda (x) (if (pair? x) 2 1))))
+;         (return (encode
+;                   encoded-stream
+;                   '()))
+;         (dec (decompress-lzss-2b 
+;                return
+;                bit-header
+;                length-header
+;                offset-header)))
+;
+;;    (pp (map list dec encoded-stream))
+;;    (pp (length dec))
+;;    (pp (length encoded-stream))
+;;    (pp (filter (lambda (x) (not (equal? (car x) (cadr x)))) (map list dec encoded-stream)))
+;
+;    (if (equal? dec
+;                encoded-stream)
+;      (display "... ensuring that decompression works ...")
+;      (error "Decompression failed"))
+;    return))
 
 
 (define (encode-lzss-with-tag stream encoding-size host-config)
@@ -3009,7 +3096,7 @@
     (let ((tag-as-string (stream->string (list tag))))
       (host-config-feature-add! 
         host-config 
-        'compression/lzss/tag
+        'compression/lzss/tag-as-code
         tag)
       (host-config-feature-add!
         host-config
@@ -3126,7 +3213,10 @@
       (let ((sorted 
               (list-sort
                 (lambda (x y)
-                  (> (gain x) (gain y)))
+                  (if (= (gain x) (gain y))
+                    (not (pair? x))
+                    (> (gain x) (gain y))))
+                  
                 matchings)))
         (car sorted)))
 
@@ -3372,7 +3462,12 @@
 (define (encode proc exports host-config byte-stats encoding-name encoding-size)
   (define max-encoding-size encoding-size)
 
-  (define compression/2b/bits 1) ;; can be 1 or 2
+  ;; 1 = 128 codes reserved for compression (128-255)
+  ;; 2 = 64  codes reserved for compression (192-255)
+
+  (define compression/lzss/2b/codes 44) 
+  (define compression/lzss/2b/max-len 11)
+
 
   ;; state
   (let ((encoding      #f) ;; chosen encoding
@@ -3409,13 +3504,21 @@
 
     (define (p/comp-2b)
       (set! stream
-        (encode-lzss-on-two-bytes
+        (encode-lzss-2b
           stream
-          compression/2b/bits
-          4
-          10
-          encoding-size
+          compression/lzss/2b/codes
+          compression/lzss/2b/max-len
+          max-encoding-size
           host-config)))
+
+        ;(encode-lzss-on-two-bytes
+        ;  stream
+        ;  compression/2b/bits
+        ;  4
+        ;  10
+        ;  encoding-size
+        ;  host-config)))
+
 
     (define (p/merge-prog-sym)
       (set! stream (append stream-symtbl stream)))
@@ -3462,15 +3565,20 @@
 
       (if compression/2b?
         (begin
-          (if (not (eqv? encoding-size 256))
-            (error "2b compression only works with 256 bytes encoding"))
-          (cond 
-            ((eqv? compression/2b/bits 1)
-             (set! encoding-size 192))
-            ((eqv? compression/2b/bits 2)
-             (set! encoding-size 128))
-            (else
-              (error "2b compression only works with 1 or 2 bits")))))
+          (if (< (- encoding-size compression/lzss/2b/codes) 0)
+            (error "Too many codes reserved for 2b-compression"))
+          (set! encoding-size (- encoding-size compression/lzss/2b/codes))))
+
+
+          ;(if (not (eqv? encoding-size 256))
+          ;  (error "2b compression only works with 256 bytes encoding"))
+          ;(cond 
+          ;  ((eqv? compression/2b/bits 1)
+          ;   (set! encoding-size 192))
+          ;  ((eqv? compression/2b/bits 2)
+          ;   (set! encoding-size 128))
+          ;  (else
+          ;    (error "2b compression only works with 1 or 2 bits")))))
 
       (if hyperbyte?
         (begin
@@ -3487,10 +3595,15 @@
           ((and (string=? "skip" encoding-name)
                 (eqv? encoding-size 92))
            encoding-skip-92)
+          ((string=? "test" encoding-name)
+           #f)
           ((string=? "optimal" encoding-name)
            (optimal-encoding))
           (else
             (error "Cannot find encoding (or number of byte not supported) :" encoding-name))))
+
+
+
 
       (p/enc-symtbl)
       (p/enc-prog)   
@@ -3499,25 +3612,76 @@
       (if hyperbyte?
         (set! stream (encode-hyperbyte stream)))
 
+      ;; compression on 92 applies only on the program (not symtbl)
+      (if (and compression/2b? (eqv? max-encoding-size 92))
+        (p/comp-2b))
+
       ;; merge symtbl and prog
       (p/merge-prog-sym)
 
       ;; apply compression
-      (if compression? 
-        (if compression/tag?
-          (p/comp-tag)
-          (p/comp-2b)))
+      (if compression/tag?
+        (p/comp-tag))
+
+      (if (and compression/2b? (eqv? max-encoding-size 256))
+        (p/comp-2b))
 
 
       stream)))
 
+;      (if (string=? encoding-name "test")
+;        (let loop2 ((lst-len (iota 10 3 1)))
+;          (when (pair? lst-len)
+;            (display (string-append "*** Testing length :" (number->string (car lst-len)) "\n"))
+;            (let loop ((lst (iota 20 16 4)))
+;              (when (pair? lst)
+;
+;                (set! encoding-size (car lst))
+;                (set! encoding (optimal-encoding))
+;
+;                (p/enc-symtbl)
+;                (p/enc-prog)
+;                (p/merge-prog-sym)
+;
+;                (let* ((rest-bits (max 0 (- 92 (car lst))))
+;                       (len (car lst-len))
+;                       (entropy-on-2-bits (* rest-bits 92))
+;                       (max-offset (floor (/ entropy-on-2-bits (- len 2))))
+;                       (lzss-comp 
+;                         (LZSS 
+;                           stream 
+;                           max-offset
+;                           len ;; hard-coded
+;                           encoding-size 
+;                           (lambda (x) (if (pair? x) 2 1))))
+;                       (total-length (fold (lambda (x acc) (+ acc (if (pair? x) 2 1))) 0 lzss-comp)))
+;
+;                  (display 
+;                    (string-append 
+;                      "Codes : "
+;                      (number->string (car lst)) 
+;                      "\n"
+;                      "Program size (without compression) : "
+;                      (number->string (length stream))
+;                      "\n"
+;                      "Compression with 1-bit backpointers : "
+;                      (number->string (length lzss-comp))
+;                      "\n"
+;                      "Compression on " (number->string entropy-on-2-bits) " codes (max-len " (number->string len) ", max-offset " (number->string max-offset) ") : "
+;                      (number->string total-length)
+;                      "\n\n"
+;                      )))
+;
+;                (table-set! t (cons (car lst) (car lst-len)) (length stream))
+;                (loop (cdr lst))))
+;            (loop2 (cdr lst-len)))))
 
 
-  
-  
 
 
-  
+
+
+
   
 
 ;(define (encode proc exports host-config byte-stats encoding-name encoding-size)
@@ -4380,6 +4544,7 @@
           ((number? expr)
            expr)
           ((symbol? expr)
+           (pp expr)
            (host-config-feature-live? host-config expr))
           (else
             (error "Cannot evaluate expression in replace" expr)))))
@@ -4452,7 +4617,7 @@
                                   ((string? replacement-text)
                                    replacement-text)
                                   (else
-                                    (error "Replace doesn't support the type : " replacement-text)))))
+                                    (error "Error while replacing doesn't support the type : " replacement-text)))))
                      (string-append acc (string-replace (rec "") pattern replacement-text))))
                   (else
                     acc)))))
