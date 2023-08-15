@@ -108,7 +108,9 @@
                         (cadr expr)
                         (##rib if-op
                              (comp cte (caddr expr) cont)
-                             (comp cte (cadddr expr) cont))))
+                             (if (null? (cdddr expr))
+                               cont
+                               (comp cte (cadddr expr) cont)))))
 
                  ((##eqv? first 'lambda)
                   (let* ((params (cadr expr))
@@ -358,9 +360,11 @@
       (let ((cont (##field1 var-cont)))
         (let ((v (lookup var cte 0)))
           ;; should be unecessary because there shouldn't be any primitive called this way
+          (display v)
+          (newline)
           ;; (if-feature 
           ;;   prim-no-arity
-          ;;   (if (##rib? (##field0 (##field0 var))) 
+          ;;   (if (##rib? (##field0 (##field0 var)))
           ;;     (add-nb-args
           ;;       nb-args
           ;;       (gen-call (if (integer? v) (##+ 1 v) v) cont))

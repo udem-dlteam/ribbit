@@ -1,9 +1,10 @@
 (##include-once "ribbit:r4rs.scm")
 (##include-once "ribbit:r4rs/sys.scm")
-(##include-once "ribbit:r4rs/io-style.scm")
+;; (##include-once "ribbit:r4rs/io-style.scm")
 
 (define args (cmd-line))
 
+(pp "hello")
 (define src-path #f)
 (define go-in-repl #f)
 (define eval-expr #f)
@@ -51,7 +52,10 @@
 
 (if go-in-repl 
   (begin 
-    (display-with-style (string-append "Ribbit " (##RIBBIT-VERSION) " (R4RS)\n") 'red)
+    (if-feature (not quiet)
+      (begin
+        (display (string-append "Ribbit " (##RIBBIT-VERSION) " (R4RS)\n"))
+        (newline)))
     ;; (if-feature (and (not hide-frog) (not quiet))
     ;;   (begin 
     ;;     (welcome-msg)
