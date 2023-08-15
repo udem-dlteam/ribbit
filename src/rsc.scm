@@ -1687,7 +1687,7 @@
                          mtx)
                        (let ((dispatch-rule (mtx-dr-search mtx expr)))
                          (if dispatch-rule
-                           (expand-expr (dispatch-proc-call dispatch-rule (cdr expr)) mtx)
+                           (expand-dispatched-call dispatch-rule (cdr expr) mtx)
                            (expand-list expr mtx)))))))))
 
         (else
@@ -1830,23 +1830,6 @@
            (> (dr-precision dr1) (dr-precision dr2)))
          dispatch-rules)))
 
-(define (dispatch-proc-call dr args)
-  (letrec ((zipped-args (filter 
-                          (lambda (zipped-arg) (symbol? (car zipped-arg))) 
-                          (map cons (dispatch-rule-formals dr) args)))
-           (replace (lambda (dr-formal)
-                      (cond 
-                        ((symbol? dr-formal)
-                         (let ((value (assq dr-formal zipped-args)))
-                           (if value 
-                             (cdr value)
-                             dr-formal)))
-                        ((pair? dr-formal)
-                         (map replace dr-formal))
-                        (else 
-                          dr-formal)))))
-    (map replace (dispatch-rule-replacement dr))))
-
 (define (make-mtx global-macro cte global-dispatch-rules)  ;; macro-contex object
   (rib global-macro cte global-dispatch-rules))
 
@@ -1958,11 +1941,13 @@
                           (let ((dr-name (caadr expr))
                                 (dr-formals (cdadr expr))
                                 (dr-replacement (caddr expr)))
-                            (mtx-add-dispatch-rule! 
-                              mtx
-                              dr-name 
-                              dr-formals
-                              dr-replacement))
+                            (if (not (eq? (car dr-replacement) 'lambda))
+                              (error "*** define-dispatch-rule: expected lambda expression" dr-replacement)
+                              (mtx-add-dispatch-rule! 
+                                mtx
+                                dr-name 
+                                dr-formals
+                                dr-replacement)))
                           (error "*** define-dispatch-rule: variadic dispatch-rules are not allowed."))
                         (error "*** define-dispatch-rule: expected "))
                       r)
@@ -1993,6 +1978,38 @@
             (expand-begin* (cdr clause) rest mtx)
             (expand-cond-expand-clauses (cdr clauses) rest mtx)))
       rest))
+
+(define active-dispatch-rules '())
+(define (expand-dispatched-call dr args mtx)
+  (if (find (lambda (used-dr) (dispatch-rule=? used-dr dr)) active-dispatch-rules)
+    (error "*** dispatch-rule-expansion: dispatch rules are not allowed to be called recursively:\n"
+           dr))
+  (letrec ((dr-args (filter 
+                      (lambda (arg) (not (eq? arg '##dispatch-rule-ignore)))
+                      (map (lambda (dr-formal arg) 
+                             (if (symbol? dr-formal)
+                               arg 
+                               '##dispatch-rule-ignore)) 
+                           (dispatch-rule-formals dr) args))))
+    ;; (replace (lambda (dr-formal)
+    ;;            (cond 
+    ;;              ((symbol? dr-formal)
+    ;;               (let ((value (assq dr-formal zipped-args)))
+    ;;                 (if value 
+    ;;                   (cdr value)
+    ;;                   dr-formal)))
+    ;;              ((pair? dr-formal)
+    ;;               (map replace dr-formal))
+    ;;              (else 
+    ;;                dr-formal))))
+    (set! active-dispatch-rules (cons dr active-dispatch-rules))
+    (let ((result (expand-expr 
+                    (eval `(,(dispatch-rule-replacement dr)
+                             ,@(map expand-constant dr-args)))
+                    mtx)))
+      (set! active-dispatch-rules (cdr active-dispatch-rules))
+      result)))
+
 
 (define (expand-list exprs mtx)
   (if (pair? exprs)

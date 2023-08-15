@@ -360,8 +360,8 @@
       (let ((cont (##field1 var-cont)))
         (let ((v (lookup var cte 0)))
           ;; should be unecessary because there shouldn't be any primitive called this way
-          (display v)
-          (newline)
+          ;; (display v)
+          ;; (newline)
           ;; (if-feature 
           ;;   prim-no-arity
           ;;   (if (##rib? (##field0 (##field0 var)))
