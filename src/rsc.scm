@@ -1392,6 +1392,7 @@
 (define resource-type car)
 (define resource-dir cadr)
 (define resource-file caddr)
+
 (define (make-resource type file)
   `(,type ,(path-directory file) ,file))
 
@@ -2066,8 +2067,7 @@
     var
     (and
       (not (live-env-feature-disabled? live-env var)) ;; check not disabled
-      (live-env-set-features! live-env (cons var (live-env-features live-env)))
-      var)))
+      (live-env-set-features! live-env (cons var (live-env-features live-env))))))
 
 
 (define (constant? g)
@@ -4551,10 +4551,13 @@
 
 
 (define (generate-file parsed-file host-config encode)
+
   (define live-features (host-config-features host-config))
+
   (define primitives (list-sort 
                        (lambda (x y) (< (cadr x) (cadr y)))
                        (host-config-primitives host-config)))
+
   (define locations (host-config-locations host-config))
 
   (letrec ((extract-func
@@ -4637,7 +4640,7 @@
   (let ((file-content (call-with-input-file path (lambda (port) (read-line port #f)))))
        (if (eof-object? file-content) "" file-content)))
 
-(define (generate-code target verbosity input-path rvm-path minify? host-file encoding-name byte-stats proc-exports-and-features) ;features-enabled features-disabled source-vm
+(define (generate-code target verbosity input-path rvm-path exe-output-path output-path minify? host-file encoding-name byte-stats proc-exports-and-features) ;features-enabled features-disabled source-vm
   (let* ((proc
            (vector-ref proc-exports-and-features 0))
          (exports
@@ -4665,11 +4668,9 @@
                          (display " bytes\n")))
                      input))))
 
-    
-
     (let* ((target-code-before-minification
             (if (equal? target "rvm")
-                (encode 256)   ;; NOTE: 256 is the number of code in the encoding.
+                (encode 92)   ;; NOTE: 92 is the number of code in the encoding.
                 (generate-file host-file host-config encode)))
            (target-code
             (if (or (not minify?) (equal? target "rvm"))
@@ -4681,6 +4682,10 @@
                    (string-append target "/minify"))
                   (root-dir))
                  target-code-before-minification))))
+
+
+      (write-target-code output-path exe-output-path rvm-path target-code)
+
       target-code)))
 
 
@@ -4704,16 +4709,57 @@
            (reverse (cons (substring str i (string-length str)) out))
            "")))))
 
-(define (write-target-code output-path target-code)
+(define (write-target-code output-path exe-output-path rvm-path target-code)
   (if (equal? output-path "-")
       (display target-code)
       (call-with-output-file output-path
         (lambda (port)
-          (display target-code port)))))
+          (display target-code port))))
+
+  (if exe-output-path
+    (let ((status 
+            (shell-cmd 
+              (string-append 
+                (path-directory rvm-path) 
+                "mk-exe " 
+                output-path 
+                " " 
+                exe-output-path))))
+      (if (not (equal? status 0))
+        (error "Error generating executable\n")))))
+
+;;;----------------------------------------------------------------------------
+
+;; Progress status
+
+(define progress-status #f)
+
+(define (report-first-status msg cont)
+  (if progress-status 
+    (begin (display msg) (display "...\n")))
+  cont)
+
+(define (report-done)
+  (if progress-status
+    (display "...Done.\n")))
+
+(define (report-status msg cont)
+  (if progress-status 
+    (begin 
+      (report-done)
+      (report-first-status msg #f)))
+  cont)
 
 ;;;----------------------------------------------------------------------------
 
 ;; Compiler entry points.
+
+
+;; This version of the compiler reads the program and runtime library
+;; source code from files and it supports various options.  It can
+;; merge the compacted RVM code with the implementation of the RVM
+;; for a specific target and minify the resulting target code.
+
 
 
 (define target "rvm")
@@ -4727,7 +4773,7 @@
                         lib-path
                         minify?
                         verbosity
-                        progress-status
+                        _progress-status
                         primitives
                         features-enabled
                         features-disabled
@@ -4735,26 +4781,10 @@
                         byte-stats
                         call-stats?)
 
-  ;; This version of the compiler reads the program and runtime library
-  ;; source code from files and it supports various options.  It can
-  ;; merge the compacted RVM code with the implementation of the RVM
-  ;; for a specific target and minify the resulting target code.
 
-  (define (report-first-status msg)
-    (if progress-status
-      (begin (display msg) (display "...\n"))))
+  (set! target _target) ;; hack to propagate the target to the expension phase
+  (set! progress-status _progress-status)
 
-  (define (report-done)
-    (if progress-status
-      (display "...Done.\n")))
-
-  (define (report-status msg)
-    (if progress-status
-      (begin 
-        (report-done)
-        (report-first-status msg))))
-
-  (report-first-status "Adding Ribs to the RVM")
   (let* ((vm-source 
            (if (equal? _target "rvm")
              #f
@@ -4764,56 +4794,50 @@
          (host-file
            (if (equal? _target "rvm")
              #f
-             (parse-host-file vm-source)))
+             (report-first-status
+               "Parsing host file"
+               (parse-host-file vm-source))))
 
-         (features-enabled (cons (string->symbol (string-append "encoding/" encoding-name))
-                                 features-enabled)))
+         (features-enabled 
+           (cons 
+             (string->symbol 
+               (string-append "encoding/" encoding-name))
+             features-enabled))
 
-    (set! target _target)
+         (program-read 
+           (report-status 
+             "Reading program source code" 
+             (read-program lib-path src-path)))
 
-    (report-status "Reading program source code")
-    (let ((program-read (read-program lib-path src-path)))
-      (report-status "Compiling program")
-      (let ((program-compiled (compile-program
-                                verbosity
-                                host-file
-                                features-enabled
-                                features-disabled
-                                program-read)))
-        (if call-stats?
-          (pp (list-sort (lambda (stat1 stat2) (> (cadr stat1) (cadr stat2))) call-stats)))
-        (report-status "Generating target code")
-        (let* ((host-config (vector-ref program-compiled 2))
+         (program-compiled 
+           (report-status
+             "Compiling program"
+             (compile-program
+               verbosity
+               host-file
+               features-enabled
+               features-disabled
+               program-read))))
 
-               (live-features (host-config-features host-config))
-               (primitives (list-sort 
-                             (lambda (x y) (< (cadr x) (cadr y)))
-                             (host-config-primitives host-config))))
+      (if call-stats?
+        (pp (list-sort (lambda (stat1 stat2) (> (cadr stat1) (cadr stat2))) call-stats)))
 
-          (let ((generated-code (generate-code
-                                  _target
-                                  verbosity
-                                  input-path
-                                  rvm-path
-                                  minify?
-                                  host-file
-                                  encoding-name
-                                  byte-stats
-                                  program-compiled)))
-            (report-status "Writing target code")
-            (write-target-code output-path generated-code)
-            (if exe-output-path
-              (let ((status 
-                      (shell-cmd 
-                        (string-append 
-                          (path-directory rvm-path) 
-                          "mk-exe " 
-                          output-path 
-                          " " 
-                          exe-output-path))))
-                (if (not (equal? status 0))
-                  (error "Error generating executable\n"))))
-            (report-done)))))))
+      (report-status
+        "Generating target code"
+        (generate-code
+          _target
+          verbosity
+          input-path
+          rvm-path
+          exe-output-path
+          output-path
+          minify?
+          host-file
+          encoding-name
+          byte-stats
+          program-compiled))
+
+      (report-done)))
 
 (define (parse-cmd-line args)
   (if (null? (cdr args))
