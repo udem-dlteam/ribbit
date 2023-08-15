@@ -1289,7 +1289,7 @@
          (expansion
            `(begin
               ,@(host-feature->expansion-feature host-features) ;; add host features
-              ,(expand-begin exprs (make-mtx '() '()))))
+              ,(expand-begin exprs (make-mtx '() '() '()))))
          (exports
            (exports->alist (cdr exprs-and-exports)))
          (live-globals-and-features
@@ -1685,7 +1685,10 @@
                            `(,macro
                               ,@(map expand-constant (cdr expr))))
                          mtx)
-                       (expand-list expr mtx)))))))
+                       (let ((dispatch-rule (mtx-dr-search mtx expr)))
+                         (if dispatch-rule
+                           (expand-expr (dispatch-proc-call dispatch-rule (cdr expr)) mtx)
+                           (expand-list expr mtx)))))))))
 
         (else
           (expand-constant expr))))
@@ -1788,8 +1791,64 @@
                         ". " 
                         (string-concatenate (map object->string args) " "))))
 
-(define (make-mtx global-macro cte)  ;; macro-contex object
-  (rib global-macro cte 0))
+
+
+;; dispatch rules manipulation procedure
+(define (make-dispatch-rule dr-name dr-formals dr-replacement)
+  (rib dr-name dr-formals dr-replacement))
+
+(define dispatch-rule-name field0)
+(define dispatch-rule-formals field1)
+(define dispatch-rule-replacement field2)
+(define (dr-precision dr)
+  (length (filter 
+            (lambda (dr-formal) (not (symbol? dr-formal))) 
+            (dispatch-rule-formals dr))))
+
+(define (dispatch-rule=? dr1 dr2)
+  (and (eq? (dispatch-rule-name dr1) (dispatch-rule-name dr2))
+       (eqv? (length (dispatch-rule-formals dr1)) (length (dispatch-rule-formals dr2)))
+       (all (lambda (zipped-formals)
+              (or (and 
+                    (symbol? (car zipped-formals))
+                    (symbol? (cdr zipped-formals)))
+                  (equal? (car zipped-formals) (cdr zipped-formals))))
+            (map cons (dispatch-rule-formals dr1) (dispatch-rule-formals dr2)))))
+
+;;; proc-call must be of the form: '(<proc-name> <args>)
+(define (dispatch-rule-match? dr proc-call)
+  (and (eq? (dispatch-rule-name dr) (car proc-call))
+       (eqv? (length (dispatch-rule-formals dr)) (length (cdr proc-call)))
+       (all (lambda (zipped-arg)
+              (or (symbol? (car zipped-arg))
+                  (equal? (car zipped-arg) (cdr zipped-arg))))
+            (map cons (dispatch-rule-formals dr) (cdr proc-call)))))
+
+(define (most-precise-dispatch-rule dispatch-rules)
+  (car (list-sort 
+         (lambda (dr1 dr2) 
+           (> (dr-precision dr1) (dr-precision dr2)))
+         dispatch-rules)))
+
+(define (dispatch-proc-call dr args)
+  (letrec ((zipped-args (filter 
+                          (lambda (zipped-arg) (symbol? (car zipped-arg))) 
+                          (map cons (dispatch-rule-formals dr) args)))
+           (replace (lambda (dr-formal)
+                      (cond 
+                        ((symbol? dr-formal)
+                         (let ((value (assq dr-formal zipped-args)))
+                           (if value 
+                             (cdr value)
+                             dr-formal)))
+                        ((pair? dr-formal)
+                         (map replace dr-formal))
+                        (else 
+                          dr-formal)))))
+    (map replace (dispatch-rule-replacement dr))))
+
+(define (make-mtx global-macro cte global-dispatch-rules)  ;; macro-contex object
+  (rib global-macro cte global-dispatch-rules))
 
 (define mtx-global      field0)
 (define mtx-global-set! field0-set!)
@@ -1801,7 +1860,10 @@
 (define mtx-cte-set! field1-set!)
 
 (define (mtx-cte-set mtx cte)
-  (make-mtx (mtx-global mtx) cte))
+  (make-mtx (mtx-global mtx) cte (mtx-dispatch-rules mtx)))
+
+(define mtx-dispatch-rules  field2)
+(define mtx-dispatch-rules-set! field2-set!)
 
 (define (included? resource)
   (member resource included-resources))
@@ -1809,6 +1871,16 @@
 (define (mtx-add-global! mtx macro-name macro-value)
   (mtx-global-set! mtx (cons (list macro-name macro-value) (mtx-global mtx))))
 
+(define (mtx-add-dispatch-rule! mtx dr-name dr-formals dr-replacement)
+  (let* ((dr (make-dispatch-rule dr-name dr-formals dr-replacement))
+         (collision (find (lambda (existing-dr) (dispatch-rule=? existing-dr dr)) (mtx-dispatch-rules mtx))))
+    (if collision
+      (error "*** define-dispatch-rule: a dispatch-rule signature must be unique. Collision between\n"
+             (cons (dispatch-rule-name collision) (dispatch-rule-formals collision))
+             'and
+             (cons (dispatch-rule-name dr) (dispatch-rule-formals dr)))
+             
+      (mtx-dispatch-rules-set! mtx (cons dr (mtx-dispatch-rules mtx))))))
 
 (define (mtx-add-cte mtx macro-name macro-value)
   (mtx-cte-set mtx (cons (list macro-name macro-value) (mtx-cte mtx))))
@@ -1816,6 +1888,15 @@
 (define (mtx-search mtx macro-name)
   (let ((macro-value (assq macro-name (append (mtx-cte mtx) (mtx-global mtx)))))
     (and macro-value (cadr macro-value))))
+
+
+;;; proc-call must be of the form: '(<proc-name> <args>)
+(define (mtx-dr-search mtx proc-call)
+  (let ((dispatch-rules (filter 
+                          (lambda (dr) (dispatch-rule-match? dr proc-call)) 
+                          (mtx-dispatch-rules mtx))))
+    (and (not (null? dispatch-rules))
+         (most-precise-dispatch-rule dispatch-rules))))
 
 ;; Shadow macro by a variable
 (define (mtx-shadow mtx variable-names) 
@@ -1871,6 +1952,20 @@
                               macro-value))))
                       r)
 
+                     ((and (pair? expr) (eqv? (car expr) 'define-dispatch-rule))
+                      (if (pair? (cadr expr))
+                        (if (list? (cadr expr))
+                          (let ((dr-name (caadr expr))
+                                (dr-formals (cdadr expr))
+                                (dr-replacement (caddr expr)))
+                            (mtx-add-dispatch-rule! 
+                              mtx
+                              dr-name 
+                              dr-formals
+                              dr-replacement))
+                          (error "*** define-dispatch-rule: variadic dispatch-rules are not allowed."))
+                        (error "*** define-dispatch-rule: expected "))
+                      r)
 
                      (else
                        (cons (expand-expr expr mtx) r)))))
@@ -4010,6 +4105,8 @@
   (find (lambda (e) (and (pair? e) (eq? (car e) sym)))
         lst))
 
+(define (all predicate lst)
+  (not (find (lambda (x) (not (predicate x))) lst)))
 
 (define (extract-features parsed-file)
   (extract
