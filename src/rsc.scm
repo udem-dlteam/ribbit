@@ -4715,317 +4715,272 @@
 
 ;; Compiler entry points.
 
-(define (pipeline-compiler)
-
-  ;; This version of the compiler reads the source code on stdin and
-  ;; outputs the compacted RVM code on stdout.  The program source
-  ;; code must be prefixed by the runtime library's source code.
-  ;;
-  ;; A Scheme file can be combined with the library and compiled to
-  ;; RVM code with this command:
-  ;;
-  ;;   $ echo '(display "hello!\n")' > hello.scm
-  ;;   $ cat lib/max.scm hello.scm | gsi rsc.scm > code.rvm
-  ;;
-  ;; Alternatively, the rsc shell script can be used to automate
-  ;; the creation of a complete executable target program:
-  ;;
-  ;;   $ ./rsc -t py -l max hello.scm
-  ;;   $ python3 hello.scm.py
-  ;;   hello!
-
-  (display
-   (generate-code
-    "rvm"  ;; target
-    0      ;; verbosity
-    #f     ;; input-path
-    #f     ;; rvm-path
-    #f     ;; minify?
-    #f     ;; host-file
-    (list 
-      (list 92 encoding-original-92))
-    #f     ;; byte-stats
-    (compile-program
-     0    ;; verbosity
-     #f   ;; parsed-vm
-     (cons 'arity-check (cons 'rest-param (cons 'chars '())))   ;; features-enabled
-     #f   ;; features-disabled
-     (read-all)))))
-
-;; verbosity parsed-vm features-enabled features-disabled program)
 
 (define target "rvm")
-(cond-expand
-
-  ;; (ribbit  ;; Ribbit does not have access to the command line...
-  ;;
-  ;;  (pipeline-compiler))
-
-  (else
-
-   (define (fancy-compiler src-path
-                           output-path
-                           exe-output-path
-                           rvm-path
-                           generate-profile
-                           _target
-                           input-path
-                           lib-path
-                           minify?
-                           verbosity
-                           progress-status
-                           primitives
-                           features-enabled
-                           features-disabled
-                           encoding-name
-                           byte-stats
-                           call-stats?)
-
-     ;; This version of the compiler reads the program and runtime library
-     ;; source code from files and it supports various options.  It can
-     ;; merge the compacted RVM code with the implementation of the RVM
-     ;; for a specific target and minify the resulting target code.
-
-     (define (report-first-status msg)
-       (if progress-status
-         (begin (display msg) (display "...\n"))))
-
-     (define (report-done)
-       (if progress-status
-         (display "...Done.\n")))
-
-     (define (report-status msg)
-       (if progress-status
-         (begin 
-           (report-done)
-           (report-first-status msg))))
-
-     (report-first-status "Adding Ribs to the RVM")
-     (let* ((vm-source 
-              (if (equal? _target "rvm")
-                #f
-                (string-from-file
-                  (path-expand rvm-path
-                               (root-dir)))))
-            (host-file
-              (if (equal? _target "rvm")
-                #f
-                (parse-host-file vm-source)))
-
-            (features-enabled (cons (string->symbol (string-append "encoding/" encoding-name))
-                                    features-enabled)))
-
-       (set! target _target)
-
-       (report-status "Reading program source code")
-       (let ((program-read (read-program lib-path src-path)))
-         (report-status "Compiling program")
-         (let ((program-compiled (compile-program
-                                   verbosity
-                                   host-file
-                                   features-enabled
-                                   features-disabled
-                                   program-read)))
-           (if call-stats?
-             (pp (list-sort (lambda (stat1 stat2) (> (cadr stat1) (cadr stat2))) call-stats)))
-           (report-status "Generating target code")
-           (let* ((host-config (vector-ref program-compiled 2))
-
-                  (live-features (host-config-features host-config))
-                  (primitives (list-sort 
-                                (lambda (x y) (< (cadr x) (cadr y)))
-                                (host-config-primitives host-config))))
-
-             (let ((generated-code (generate-code
-                                     _target
-                                     verbosity
-                                     input-path
-                                     rvm-path
-                                     minify?
-                                     host-file
-                                     encoding-name
-                                     byte-stats
-                                     program-compiled)))
-               (report-status "Writing target code")
-               (write-target-code output-path generated-code)
-               (if exe-output-path
-                 (let ((status 
-                         (shell-cmd 
-                           (string-append 
-                             (path-directory rvm-path) 
-                             "mk-exe " 
-                             output-path 
-                             " " 
-                             exe-output-path))))
-                   (if (not (equal? status 0))
-                     (error "Error generating executable\n"))))
-               (report-done)))))))
-
-   (define (parse-cmd-line args)
-     (if (null? (cdr args))
-
-         (pipeline-compiler)
-
-         (let ((verbosity 0)
-               (target "rvm")
-               (generate-strip #f)
-               (base-strip #f)
-               (input-path #f)
-               (output-path #f)
-               (exe-output-path #f)
-               (lib-path '())
-               (src-path #f)
-               (minify? #f)
-               (primitives #f)
-               (features-enabled '())
-               (features-disabled '())
-               (rvm-path #f)
-               (progress-status #f)
-               (byte-stats #f)
-               (call-stats #f)
-               (encoding-name "original"))
-
-           (let loop ((args (cdr args)))
-             (if (pair? args)
-                 (let ((arg (car args))
-                       (rest (cdr args)))
-                   (cond ((and (pair? rest) (member arg '("-t" "--target")))
-                          (set! target (car rest))
-                          (loop (cdr rest)))
-                         ((and (pair? rest) (member arg '("-i" "--input")))
-                          (set! input-path (car rest))
-                          (loop (cdr rest)))
-                         ((and (pair? rest) (member arg '("-o" "--output")))
-                          (set! output-path (car rest))
-                          (loop (cdr rest)))
-                         ((and (pair? rest) (member arg '("-s" "--strip")))
-                          (set! base-strip (if (string=? (car rest) "-") 
-                                             (read-line (current-input-port) #f) 
-                                             (call-with-input-file 
-                                               (car rest)
-                                               (lambda (port)
-                                                 (read-line port #f)))))
-                          (loop (cdr rest)))
-                         ((and (pair? rest) (member arg '("-l" "--library")))
-                          (set! lib-path (cons (car rest) lib-path))
-                          (loop (cdr rest)))
-                         ((and (pair? rest) (member arg '("-m" "--minify")))
-                          (set! minify? #t)
-                          (loop rest))
-                         ((and (pair? rest) (member arg '("-p" "--primitives")))
-                          (set! primitives (read (open-input-string (car rest))))
-                          (loop (cdr rest)))
-                         ((and (pair? rest) (member arg '("-e" "--encoding")))
-                          (set! encoding-name (car rest))
-                          (loop (cdr rest)))
-                         ((and (pair? rest) (member arg '("-r" "--rvm")))
-                          (set! rvm-path (car rest))
-                          (loop (cdr rest)))
-                         ((and (pair? rest) (member arg '("-f+" "--enable-feature")))
-                          (set! features-enabled (cons (string->symbol (car rest)) features-enabled))
-                          (loop (cdr rest)))
-                         ((and (pair? rest) (member arg '("-f-" "--disable-feature")))
-                          (set! features-disabled (cons (string->symbol (car rest)) features-disabled))
-                          (loop (cdr rest)))
-
-                         ((and (pair? rest) (member arg '("-bs" "--byte-stats")))
-                          (set! byte-stats (string->number (car rest)))
-                          (loop (cdr rest)))
-
-                         ((member arg '("-gs" "--generate-strip"))
-                          (if (and (pair? rest) 
-                                   (>= (string-length (car rest)) 1)
-                                   (string=? (substring (car rest) 0 1) "-"))
-                            (begin
-                              (set! generate-strip #t)
-                              (loop rest))
-                            (begin 
-                              (set! generate-strip (car rest))
-                              (loop (cdr rest)))))
-
-                         ((member arg '("-x" "--exe" "--executable"))
-                          (if (and (pair? rest) 
-                                   (not (string=? (substring (car rest) 0 1) "-")))
-                            (begin 
-                              (set! exe-output-path (car rest))
-                              (loop (cdr rest)))
-                            (begin
-                              (set! exe-output-path #t)
-                              (loop rest))))
-
-                         ((member arg '("-cs" "--call-stats"))
-                          (set! call-stats #t)
-                          (loop rest))
-
-                         ((member arg '("-v" "--v"))
-                          (set! verbosity (+ verbosity 1))
-                          (loop rest))
-                         ((member arg '("-vv" "--vv"))
-                          (set! verbosity (+ verbosity 2))
-                          (loop rest))
-                         ((member arg '("-vvv" "--vvv"))
-                          (set! verbosity (+ verbosity 3))
-                          (loop rest))
-                         ((member arg '("-ps" "--progress-status"))
-                          (set! progress-status #t)
-                          (loop rest))
-                         ((member arg '("-q")) ;; silently ignore Chicken's -q option
-                          (loop rest))
-                         (else
-                          (if (and (>= (string-length arg) 2)
-                                   (string=? (substring arg 0 1) "-"))
-                              (begin
-                                (display "*** ignoring option ")
-                                (display arg)
-                                (newline)
-                                (loop rest))
-                              (begin
-                                (set! src-path arg)
-                                (loop rest))))))))
-
-           (if (not src-path)
-
-               (begin
-                 (display "*** a Scheme source file must be specified\n")
-                 (exit-program-abnormally))
-
-               (fancy-compiler
-                 src-path
-                 (or output-path
-                     (if (or (equal? src-path "-") (equal? target "rvm"))
-                       "-"
-                       (string-append
-                         src-path
-                         (string-append "." target))))
-                 (and exe-output-path
-                      (if (string? exe-output-path)
+(define (fancy-compiler src-path
+                        output-path
                         exe-output-path
-                        (string-append
-                          src-path
-                          (string-append "." target ".exe"))))
-                 (or rvm-path
-                     (path-expand
-                       (string-append
-                         "host/"
-                         (string-append
-                           target
-                           (string-append "/rvm." target)))
-                       (path-directory (car (cmd-line)))))
-                 generate-strip
-                 target
-                 input-path
-                 (if (null? lib-path) '("empty") lib-path)
-                 minify?
-                 verbosity
-                 progress-status
-                 primitives
-                 features-enabled
-                 features-disabled
-                 encoding-name
-                 byte-stats
-                 call-stats)))))
-   (parse-cmd-line (cmd-line))
+                        rvm-path
+                        generate-profile
+                        _target
+                        input-path
+                        lib-path
+                        minify?
+                        verbosity
+                        progress-status
+                        primitives
+                        features-enabled
+                        features-disabled
+                        encoding-name
+                        byte-stats
+                        call-stats?)
 
-   (exit-program-normally)))
+  ;; This version of the compiler reads the program and runtime library
+  ;; source code from files and it supports various options.  It can
+  ;; merge the compacted RVM code with the implementation of the RVM
+  ;; for a specific target and minify the resulting target code.
+
+  (define (report-first-status msg)
+    (if progress-status
+      (begin (display msg) (display "...\n"))))
+
+  (define (report-done)
+    (if progress-status
+      (display "...Done.\n")))
+
+  (define (report-status msg)
+    (if progress-status
+      (begin 
+        (report-done)
+        (report-first-status msg))))
+
+  (report-first-status "Adding Ribs to the RVM")
+  (let* ((vm-source 
+           (if (equal? _target "rvm")
+             #f
+             (string-from-file
+               (path-expand rvm-path
+                            (root-dir)))))
+         (host-file
+           (if (equal? _target "rvm")
+             #f
+             (parse-host-file vm-source)))
+
+         (features-enabled (cons (string->symbol (string-append "encoding/" encoding-name))
+                                 features-enabled)))
+
+    (set! target _target)
+
+    (report-status "Reading program source code")
+    (let ((program-read (read-program lib-path src-path)))
+      (report-status "Compiling program")
+      (let ((program-compiled (compile-program
+                                verbosity
+                                host-file
+                                features-enabled
+                                features-disabled
+                                program-read)))
+        (if call-stats?
+          (pp (list-sort (lambda (stat1 stat2) (> (cadr stat1) (cadr stat2))) call-stats)))
+        (report-status "Generating target code")
+        (let* ((host-config (vector-ref program-compiled 2))
+
+               (live-features (host-config-features host-config))
+               (primitives (list-sort 
+                             (lambda (x y) (< (cadr x) (cadr y)))
+                             (host-config-primitives host-config))))
+
+          (let ((generated-code (generate-code
+                                  _target
+                                  verbosity
+                                  input-path
+                                  rvm-path
+                                  minify?
+                                  host-file
+                                  encoding-name
+                                  byte-stats
+                                  program-compiled)))
+            (report-status "Writing target code")
+            (write-target-code output-path generated-code)
+            (if exe-output-path
+              (let ((status 
+                      (shell-cmd 
+                        (string-append 
+                          (path-directory rvm-path) 
+                          "mk-exe " 
+                          output-path 
+                          " " 
+                          exe-output-path))))
+                (if (not (equal? status 0))
+                  (error "Error generating executable\n"))))
+            (report-done)))))))
+
+(define (parse-cmd-line args)
+  (if (null? (cdr args))
+
+    (pipeline-compiler)
+
+    (let ((verbosity 0)
+          (target "rvm")
+          (generate-strip #f)
+          (base-strip #f)
+          (input-path #f)
+          (output-path #f)
+          (exe-output-path #f)
+          (lib-path '())
+          (src-path #f)
+          (minify? #f)
+          (primitives #f)
+          (features-enabled '())
+          (features-disabled '())
+          (rvm-path #f)
+          (progress-status #f)
+          (byte-stats #f)
+          (call-stats #f)
+          (encoding-name "original"))
+
+      (let loop ((args (cdr args)))
+        (if (pair? args)
+          (let ((arg (car args))
+                (rest (cdr args)))
+            (cond ((and (pair? rest) (member arg '("-t" "--target")))
+                   (set! target (car rest))
+                   (loop (cdr rest)))
+                  ((and (pair? rest) (member arg '("-i" "--input")))
+                   (set! input-path (car rest))
+                   (loop (cdr rest)))
+                  ((and (pair? rest) (member arg '("-o" "--output")))
+                   (set! output-path (car rest))
+                   (loop (cdr rest)))
+                  ((and (pair? rest) (member arg '("-s" "--strip")))
+                   (set! base-strip (if (string=? (car rest) "-") 
+                                      (read-line (current-input-port) #f) 
+                                      (call-with-input-file 
+                                        (car rest)
+                                        (lambda (port)
+                                          (read-line port #f)))))
+                   (loop (cdr rest)))
+                  ((and (pair? rest) (member arg '("-l" "--library")))
+                   (set! lib-path (cons (car rest) lib-path))
+                   (loop (cdr rest)))
+                  ((and (pair? rest) (member arg '("-m" "--minify")))
+                   (set! minify? #t)
+                   (loop rest))
+                  ((and (pair? rest) (member arg '("-p" "--primitives")))
+                   (set! primitives (read (open-input-string (car rest))))
+                   (loop (cdr rest)))
+                  ((and (pair? rest) (member arg '("-e" "--encoding")))
+                   (set! encoding-name (car rest))
+                   (loop (cdr rest)))
+                  ((and (pair? rest) (member arg '("-r" "--rvm")))
+                   (set! rvm-path (car rest))
+                   (loop (cdr rest)))
+                  ((and (pair? rest) (member arg '("-f+" "--enable-feature")))
+                   (set! features-enabled (cons (string->symbol (car rest)) features-enabled))
+                   (loop (cdr rest)))
+                  ((and (pair? rest) (member arg '("-f-" "--disable-feature")))
+                   (set! features-disabled (cons (string->symbol (car rest)) features-disabled))
+                   (loop (cdr rest)))
+
+                  ((and (pair? rest) (member arg '("-bs" "--byte-stats")))
+                   (set! byte-stats (string->number (car rest)))
+                   (loop (cdr rest)))
+
+                  ((member arg '("-gs" "--generate-strip"))
+                   (if (and (pair? rest) 
+                            (>= (string-length (car rest)) 1)
+                            (string=? (substring (car rest) 0 1) "-"))
+                     (begin
+                       (set! generate-strip #t)
+                       (loop rest))
+                     (begin 
+                       (set! generate-strip (car rest))
+                       (loop (cdr rest)))))
+
+                  ((member arg '("-x" "--exe" "--executable"))
+                   (if (and (pair? rest) 
+                            (not (string=? (substring (car rest) 0 1) "-")))
+                     (begin 
+                       (set! exe-output-path (car rest))
+                       (loop (cdr rest)))
+                     (begin
+                       (set! exe-output-path #t)
+                       (loop rest))))
+
+                  ((member arg '("-cs" "--call-stats"))
+                   (set! call-stats #t)
+                   (loop rest))
+
+                  ((member arg '("-v" "--v"))
+                   (set! verbosity (+ verbosity 1))
+                   (loop rest))
+                  ((member arg '("-vv" "--vv"))
+                   (set! verbosity (+ verbosity 2))
+                   (loop rest))
+                  ((member arg '("-vvv" "--vvv"))
+                   (set! verbosity (+ verbosity 3))
+                   (loop rest))
+                  ((member arg '("-ps" "--progress-status"))
+                   (set! progress-status #t)
+                   (loop rest))
+                  ((member arg '("-q")) ;; silently ignore Chicken's -q option
+                   (loop rest))
+                  (else
+                    (if (and (>= (string-length arg) 2)
+                             (string=? (substring arg 0 1) "-"))
+                      (begin
+                        (display "*** ignoring option ")
+                        (display arg)
+                        (newline)
+                        (loop rest))
+                      (begin
+                        (set! src-path arg)
+                        (loop rest))))))))
+
+      (if (not src-path)
+
+        (begin
+          (display "*** a Scheme source file must be specified\n")
+          (exit-program-abnormally))
+
+        (fancy-compiler
+          src-path
+          (or output-path
+              (if (or (equal? src-path "-") (equal? target "rvm"))
+                "-"
+                (string-append
+                  src-path
+                  (string-append "." target))))
+          (and exe-output-path
+               (if (string? exe-output-path)
+                 exe-output-path
+                 (string-append
+                   src-path
+                   (string-append "." target ".exe"))))
+          (or rvm-path
+              (path-expand
+                (string-append
+                  "host/"
+                  (string-append
+                    target
+                    (string-append "/rvm." target)))
+                (path-directory (car (cmd-line)))))
+          generate-strip
+          target
+          input-path
+          (if (null? lib-path) '("empty") lib-path)
+          minify?
+          verbosity
+          progress-status
+          primitives
+          features-enabled
+          features-disabled
+          encoding-name
+          byte-stats
+          call-stats)))))
+
+(parse-cmd-line (cmd-line))
+
+(exit-program-normally)
 
 ;;;----------------------------------------------------------------------------
