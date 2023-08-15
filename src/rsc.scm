@@ -4248,9 +4248,7 @@
   (let* ((port (open-input-file path))
          (first-line (read-line port #\newline))
          (port (if (and (not (eof-object? first-line)) (string-prefix? "#!" first-line))
-                 (begin 
-                   (pp "SHABANGED")
-                   port)
+                 port
                  (begin 
                    (close-input-port port)
                    (open-input-file path)))))
@@ -4656,7 +4654,6 @@
           ((number? expr)
            expr)
           ((symbol? expr)
-           (pp expr)
            (host-config-feature-live? host-config expr))
           (else
             (error "Cannot evaluate expression in replace" expr)))))
