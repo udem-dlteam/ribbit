@@ -1588,7 +1588,6 @@
                 `(define-primitive 
                    ,@rest
                    (@@body ,(parse-host-file (fold string-append "" code))))))
-             ;(append rest (list '@@body (parse-host-file (string->list* (fold string-append "" code)))))))
 
                  ((eqv? (car expr) 'define-feature) ;; parse arguments as a source file
                   (let* ((bindings (cddr expr))
@@ -1675,8 +1674,7 @@
                               mtx)))
                         #f))))
 
-                 ((and (pair? expr) 
-                       (eqv? (car expr) '##include-str))
+                 ((eqv? first '##include-str)
                   (expand-expr (read-str-resource (parse-resource (cadr expr))) mtx))
 
                  (else
