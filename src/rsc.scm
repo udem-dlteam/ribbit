@@ -1289,7 +1289,7 @@
          (expansion
            `(begin
               ,@(host-feature->expansion-feature host-features) ;; add host features
-              ,(expand-begin exprs (make-mtx '() '() '()))))
+              ,(expand-begin exprs (make-mtx '() '()))))
          (exports
            (exports->alist (cdr exprs-and-exports)))
          (live-globals-and-features
@@ -1680,10 +1680,11 @@
                  (else
                    (let ((macro (mtx-search mtx (car expr))))
                      (if macro
-                       (expand-expr
-                         (eval 
-                           `(,macro
-                              ,@(map expand-constant (cdr expr))))
+                       (expand-begin
+                         (list 
+                           (eval 
+                             `(,macro
+                                ,@(map expand-constant (cdr expr)))))
                          mtx)
                        (let ((dispatch-rule (mtx-dr-search mtx expr)))
                          (if dispatch-rule
@@ -1830,8 +1831,8 @@
            (> (dr-precision dr1) (dr-precision dr2)))
          dispatch-rules)))
 
-(define (make-mtx global-macro cte global-dispatch-rules)  ;; macro-contex object
-  (rib global-macro cte global-dispatch-rules))
+(define (make-mtx global-macro cte)  ;; macro-contex object
+  (rib global-macro cte 0))
 
 (define mtx-global      field0)
 (define mtx-global-set! field0-set!)
@@ -1843,7 +1844,7 @@
 (define mtx-cte-set! field1-set!)
 
 (define (mtx-cte-set mtx cte)
-  (make-mtx (mtx-global mtx) cte (mtx-dispatch-rules mtx)))
+  (make-mtx (mtx-global mtx) cte))
 
 (define mtx-dispatch-rules  field2)
 (define mtx-dispatch-rules-set! field2-set!)
@@ -1916,6 +1917,24 @@
                           (begin
                             (add-included-resource! resource)
                             (cons (expand-resource resource mtx) r)))))
+
+                     ((and (pair? expr)
+                           (eqv? (car expr) 'define-expander))
+                      (if (pair? (cadr expr))
+                        (mtx-add-global!
+                          mtx 
+                          (caadr expr)
+                          `(lambda (,@(cdadr expr))
+                             ,@(cddr expr)))
+                        (let ((macro-name (cadr expr))
+                              (macro-value (caddr expr)))
+                          (if (not (eq? (car macro-value) 'lambda))
+                            (error "*** define-macro: expected lambda expression" macro-value)
+                            (mtx-add-global!
+                              mtx
+                              macro-name 
+                              macro-value))))
+                      r)
 
                      ((and (pair? expr)
                            (eqv? (car expr) 'define-macro))
