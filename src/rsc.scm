@@ -1932,41 +1932,6 @@
                               (eval expander-body)))))
                       r)
 
-                     ;; ((and (pair? expr)
-                     ;;       (eqv? (car expr) 'define-macro))
-                     ;;  (if (pair? (cadr expr))
-                     ;;    (mtx-add-global! 
-                     ;;      mtx 
-                     ;;      (caadr expr) 
-                     ;;      `(lambda (,@(cdadr expr))
-                     ;;         ,@(cddr expr)))
-                     ;;    (let ((macro-name (cadr expr))
-                     ;;          (macro-value (caddr expr)))
-                     ;;      (if (not (eq? (car macro-value) 'lambda))
-                     ;;        (error "*** define-macro: expected lambda expression" macro-value)
-                     ;;        (mtx-add-global!
-                     ;;          mtx
-                     ;;          macro-name 
-                     ;;          macro-value))))
-                     ;;  r)
-
-                     ((and (pair? expr) (eqv? (car expr) 'define-dispatch-rule))
-                      (if (pair? (cadr expr))
-                        (if (list? (cadr expr))
-                          (let ((dr-name (caadr expr))
-                                (dr-formals (cdadr expr))
-                                (dr-replacement (caddr expr)))
-                            (if (not (eq? (car dr-replacement) 'lambda))
-                              (error "*** define-dispatch-rule: expected lambda expression" dr-replacement)
-                              (mtx-add-dispatch-rule! 
-                                mtx
-                                dr-name 
-                                dr-formals
-                                dr-replacement)))
-                          (error "*** define-dispatch-rule: variadic dispatch-rules are not allowed."))
-                        (error "*** define-dispatch-rule: expected "))
-                      r)
-
                      (else
                        (cons (expand-expr expr mtx) r)))))
 

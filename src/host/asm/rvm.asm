@@ -97,7 +97,7 @@ _start:
 
 %define WORD_SIZE       4
 %define RIB_SIZE_WORDS  4
-%define HEAP_SIZE_RIBS  10000000
+%define HEAP_SIZE_RIBS  1000000
 %define HEAP_SIZE (HEAP_SIZE_RIBS*RIB_SIZE_WORDS*WORD_SIZE)
 
 %define SYS_EXIT        1
@@ -918,16 +918,20 @@ primitive_jump:
 is_closure:
     
     ;DB_PRINT(999)
-	push eax
-	call alloc_rib		; stack_register <- [closure, stack_register, closure]
+	push eax ;; push proc 
+	call alloc_rib		; stack_register <- [proc, stack_register, proc]
 	mov  eax, stack
 	POP_STACK
-	mov  TEMP2, eax		; remember the continuation rib
-	mov  edx, FIELD0(eax)
+	; mov  TEMP2, eax		; remember the continuation rib (s2)
+	mov  edx, FIELD0(eax) ; edx = proc
 	;mov  edx, FIELD0(eax)
-	mov  FIELD1(eax), edx
-	mov  edx, FIELD0(edx)
-	mov  edx, FIELD0(edx)	; get nparams
+	mov  FIELD1(eax), edx ; move proc to field1 
+
+    ;; NOTE: move after setting proc
+	mov  TEMP2, eax		; remember the continuation rib (s2)
+
+	mov  edx, FIELD0(edx) ; code = field0(proc)
+	mov  edx, FIELD0(edx)	; nparams = field0(code)
 
     ; @@(feature arity-check
     mov  ebx, TEMP3
@@ -936,7 +940,7 @@ is_closure:
 
     shr  edx, 2 ;; remove tagging and rest param
     jc  with_rest ; @@(feature rest-param)@@
-    ; @@(feature arity-check (use exit)
+    ; @@(feature arity-check (use ##exit)
 no_rest:
     cmp  edx, ebx 
 	je   create_frame_loop_start ;; pass arity-check
@@ -955,10 +959,9 @@ error_arity_check:
 
 ; @@(feature rest-param (use arity-check)
 rest_loop_prepare:
-    push edx ;; save edx
-    push eax ;; save eax
-    lea  eax, [NIL]
-    mov  edx, ebx
+    push edx ;; save edx (nparams)
+    lea  eax, [NIL] ;; rest = NIL
+    mov  edx, ebx ;; edx = nargs
     jmp  rest_loop_start
 rest_frame_loop:
 	mov  TEMP3, eax		; remember the frame's head
@@ -969,14 +972,14 @@ rest_frame_loop:
 	mov  eax, stack
 	POP_STACK
 	mov  ebx, TEMP3
-	mov  FIELD1(eax), ebx
+	mov FIELD1(eax), ebx ;; field1(eax) = rest
 rest_loop_start:
 	dec  edx
 	jns  rest_frame_loop
 	push FIX(PAIR_TYPE)
     ;DB_PRINT(2)
     call alloc_rib ;; push result to stack
-    pop eax
+    mov eax, TEMP2 ;; NOTE: s2 is in TEMP2
     pop edx
     inc edx 
     jmp create_frame_loop_start
@@ -991,7 +994,7 @@ create_frame_loop:
 	mov  eax, stack
 	POP_STACK
 	mov  ebx, TEMP3
-	mov  FIELD1(eax), ebx
+	mov FIELD1(eax), ebx
 create_frame_loop_start:
 	dec  edx
 	jns  create_frame_loop

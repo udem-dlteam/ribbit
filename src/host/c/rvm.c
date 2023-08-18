@@ -3,7 +3,7 @@
  */
 
 // @@(feature debug
-//#define DEBUG_I_CALL
+#define DEBUG_I_CALL
 // )@@
 
 #ifdef DEBUG_I_CALL
@@ -163,7 +163,7 @@ size_t pos = 0;
 rib *heap_start;
 
 // GC
-#define MAX_NB_OBJS 100000 // 48000 is minimum for bootstrap
+#define MAX_NB_OBJS 1000000 // 48000 is minimum for bootstrap
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
 #define heap_mid (heap_bot + (SPACE_SZ))
@@ -720,15 +720,17 @@ void run() {
             pc = TAG(pc);
           } else {
 
-            num nparams = NUM(CAR(code)) >> 1;
 
             obj s2 = TAG_RIB(alloc_rib(NUM_0, proc, PAIR_TAG));
-            CAR(pc) = CAR(proc);
+            proc = CDR(s2);
+            CAR(pc) = CAR(proc); // save the proc from the mighty gc
 
 
+            num nparams_vari = NUM(CAR(code));
+            num nparams = nparams_vari >> 1;
             // @@(feature arity-check
-            num vari = NUM(CAR(code))&1;  
-            if ((!vari && nparams != nargs)||(vari && nparams > nargs)){
+            num vari = nparams_vari&1;
+            if (vari ? nparams > nargs : nparams != nargs) {
                 printf("*** Unexpected number of arguments nargs: %ld nparams: %ld vari: %ld\n", nargs, nparams, vari);
                 exit(1);
             }
@@ -738,7 +740,9 @@ void run() {
             if (vari){
                 obj rest = NIL;
                 for(int i = 0; i < nargs; ++i){
-                    rest = TAG_RIB(alloc_rib(pop(), rest, PAIR_TAG));
+                    rest = TAG_RIB(alloc_rib(pop(), rest, s2));
+                    s2 = TAG(rest);
+                    TAG(rest) = PAIR_TAG;
                 }
                 s2 = TAG_RIB(alloc_rib(rest, s2, PAIR_TAG));
             }
