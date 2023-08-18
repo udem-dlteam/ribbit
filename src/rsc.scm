@@ -1401,7 +1401,10 @@
 (define (expand-expr expr mtx)
 
   (cond ((symbol? expr)
-         expr)
+         (let ((expander (mtx-search mtx expr)))
+           (if expander
+             (apply expander (list expr (lambda (expr) (expand-begin (list expr) mtx))))
+             expr)))
 
         ((pair? expr)
          (let ((first (car expr)))
@@ -1679,18 +1682,10 @@
                   (expand-expr (read-str-resource (parse-resource (cadr expr))) mtx))
 
                  (else
-                   (let ((macro (mtx-search mtx (car expr))))
-                     (if macro
-                       (expand-begin
-                         (list 
-                           (eval 
-                             `(,macro
-                                ,@(map expand-constant (cdr expr)))))
-                         mtx)
-                       (let ((dispatch-rule (mtx-dr-search mtx expr)))
-                         (if dispatch-rule
-                           (expand-dispatched-call dispatch-rule (cdr expr) mtx)
-                           (expand-list expr mtx)))))))))
+                   (let ((expander (mtx-search mtx (car expr))))
+                     (if expander
+                       (apply expander (list expr (lambda (expr) (expand-begin (list expr) mtx))))
+                       (expand-list expr mtx)))))))
 
         (else
           (expand-constant expr))))
@@ -1925,35 +1920,35 @@
                         (mtx-add-global!
                           mtx 
                           (caadr expr)
-                          `(lambda (,@(cdadr expr))
-                             ,@(cddr expr)))
-                        (let ((macro-name (cadr expr))
-                              (macro-value (caddr expr)))
-                          (if (not (eq? (car macro-value) 'lambda))
-                            (error "*** define-macro: expected lambda expression" macro-value)
+                          (eval `(lambda (,@(cdadr expr))
+                                   ,@(cddr expr))))
+                        (let ((expander-name (cadr expr))
+                              (expander-body (caddr expr)))
+                          (if (not (eq? (car expander-body) 'lambda))
+                            (error "*** define-expander: expected lambda expression" expander-body)
                             (mtx-add-global!
                               mtx
-                              macro-name 
-                              macro-value))))
+                              expander-name 
+                              (eval expander-body)))))
                       r)
 
-                     ((and (pair? expr)
-                           (eqv? (car expr) 'define-macro))
-                      (if (pair? (cadr expr))
-                        (mtx-add-global! 
-                          mtx 
-                          (caadr expr) 
-                          `(lambda (,@(cdadr expr))
-                             ,@(cddr expr)))
-                        (let ((macro-name (cadr expr))
-                              (macro-value (caddr expr)))
-                          (if (not (eq? (car macro-value) 'lambda))
-                            (error "*** define-macro: expected lambda expression" macro-value)
-                            (mtx-add-global!
-                              mtx
-                              macro-name 
-                              macro-value))))
-                      r)
+                     ;; ((and (pair? expr)
+                     ;;       (eqv? (car expr) 'define-macro))
+                     ;;  (if (pair? (cadr expr))
+                     ;;    (mtx-add-global! 
+                     ;;      mtx 
+                     ;;      (caadr expr) 
+                     ;;      `(lambda (,@(cdadr expr))
+                     ;;         ,@(cddr expr)))
+                     ;;    (let ((macro-name (cadr expr))
+                     ;;          (macro-value (caddr expr)))
+                     ;;      (if (not (eq? (car macro-value) 'lambda))
+                     ;;        (error "*** define-macro: expected lambda expression" macro-value)
+                     ;;        (mtx-add-global!
+                     ;;          mtx
+                     ;;          macro-name 
+                     ;;          macro-value))))
+                     ;;  r)
 
                      ((and (pair? expr) (eqv? (car expr) 'define-dispatch-rule))
                       (if (pair? (cadr expr))

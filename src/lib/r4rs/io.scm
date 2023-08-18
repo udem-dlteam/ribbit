@@ -1,3 +1,4 @@
+(##include-once "ribbit:define-macro.scm")
 (##include-once "./bool.scm")
 (##include-once "./types.scm")
 (##include-once "./vector.scm")

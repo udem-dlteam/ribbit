@@ -30,7 +30,7 @@ tracing = False                                                         # DEBUG
 step_count = 0                                                          # DEBUG
 start_tracing = 0                                                       # DEBUG
 next_stamp = 0                                                          # DEBUG
-                                                                        # DEBUG
+# @@(feature debug 
 def show(obj):                                                          # DEBUG
  if not is_rib(obj): return str(obj)                                    # DEBUG
  type = obj[2]                                                          # DEBUG
@@ -105,6 +105,8 @@ def start_step():                                                       # DEBUG
  while s[2]==0: result += sep + show(s[0]); sep = " "; s=s[1]           # DEBUG
  result += ")"                                                          # DEBUG
  print(result)                                                          # DEBUG
+
+# )@@ 
 
 pos=-1
 def get_byte():

@@ -7,3 +7,4 @@ EXE="$2"
 
 echo "#!$EXEC_PATH" > "$EXE" 
 echo "$RVM_CONTENT" >> "$EXE"
+chmod +x "$EXE"
