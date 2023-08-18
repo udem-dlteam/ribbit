@@ -3478,17 +3478,25 @@
                    (list->string
                      (reverse (string->list str)))))
                symbols*)
-          ","))
-      (string->stream ";"))
+          ",")
+        encoding-size)
+      (string->stream ";" encoding-size))
     (quotient encoding-size 2)))
 
-(define (string->stream string)
-  (map (lambda (c)
-         (let ((n (char->integer c)))
-           (if (= n 33)
-             (- 92 35)
-             (- n 35))))
-       (string->list string)))
+(define (string->stream string encoding-size)
+  (cond 
+    ((eqv? encoding-size 256)
+     (map char->integer (string->list string)))
+    ((eqv? encoding-size 92)
+     (map 
+      (lambda (c)
+        (let ((n (char->integer c)))
+          (if (= n 33)
+            (- 92 35)
+            (- n 35))))
+      (string->list string)))
+    (else 
+      (error "Cannot transform string to stream, wrong encoding" encoding-size))))
 
 ;; supposes the 92 encoding scheme
 (define (stream->string stream)
@@ -3501,31 +3509,31 @@
 (define (encoding-optimal-order encoding)
   (define order
     '(
-      (jump int short)
-      (jump int long)
-      (jump sym short)
-      (jump sym long)
-      (call int short)
-      (call int long)
-      (call sym short)
-      (call sym long)
-      (set  int short)
-      (set  int long)
-      (set  sym short)
-      (set  sym long)
-      (get  int short)
-      (get  int long)
-      (get  sym short)
-      (get  sym long)
-      (const int short)
-      (const int long)
-      (const sym short)
-      (const sym long)
-      (const proc short)
-      (const proc long)
-      (skip int short)
-      (skip int long)
-      if))
+      (jump int short)  ; 0
+      (jump int long)   ; 1
+      (jump sym short)  ; 2
+      (jump sym long)   ; 3
+      (call int short)  ; 4
+      (call int long)   ; 5
+      (call sym short)  ; 6
+      (call sym long)   ; 7
+      (set  int short)  ; 8
+      (set  int long)   ; 9
+      (set  sym short)  ; 10
+      (set  sym long)   ; 11
+      (get  int short)  ; 12
+      (get  int long)   ; 13
+      (get  sym short)  ; 14
+      (get  sym long)   ; 15
+      (const int short) ; 16
+      (const int long)  ; 17
+      (const sym short) ; 18
+      (const sym long)  ; 19
+      (const proc short); 20
+      (const proc long) ; 21
+      (skip int short)  ; 22
+      (skip int long)   ; 23
+      if))              ; 24
 
   (map (lambda (value)
         (assoc value encoding))
