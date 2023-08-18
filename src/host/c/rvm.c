@@ -78,8 +78,8 @@ char *input =
 
 #else
 
-// @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
-char *input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"; // RVM code that prints HELLO!
+// @@(replace "41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121" (encode-as-bytes 92 "" "," "")
+char input[] = {41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121,0}; // RVM code that prints HELLO!
 // )@@
 
 #endif
@@ -368,6 +368,10 @@ num get_int(num n) {
 
 rib *list_tail(rib *lst, num i) {
   return (i == 0) ? lst : list_tail(RIB(lst->fields[1]), i - 1);
+}
+
+rib *inst_tail(rib *lst, num i){
+  return (i == 0) ? lst : inst_tail(RIB(lst->fields[2]), i - 1);
 }
 
 obj list_ref(rib *lst, num i) { return list_tail(lst, i)->fields[0]; }
@@ -885,6 +889,55 @@ void set_global(obj c) {
   symbol_table = CDR(symbol_table);
 }
 
+
+// @@(feature encoding/optimal
+void decode() {
+  int weights[] = {1,2,3}; // @@(replace "{1,2,3}" (list->host encoding/optimal/start "{" "," "}"))@@
+
+  obj n;
+  int d;
+  int op;
+  int i;
+
+  while (1) {
+    num x = get_code();
+    n = x;
+    op = -1;
+
+    while((d=weights[++op])<=n) n-=d;
+
+    if (op < 4) push2(NUM_0, NUM_0); // JUMP
+    if (op < 24) n = op%2> 0 ? get_int(n):n;  //TODO: tag
+
+    if (op < 20) {
+      i = (op / 4) - 1;
+      i = i < 0?0:i;
+      n = (op % 4) / 2 < 1 ? TAG_NUM(n) : TAG_RIB(symbol_ref(n));
+    }
+    else if (op < 22) {
+      n = TAG_RIB(alloc_rib(TAG_RIB(alloc_rib2(TAG_NUM(n), NUM_0, pop())), NIL, CLOSURE_TAG));
+      i = 3;
+      if (stack == NUM_0) break;
+    }
+    else if (op < 24){
+      push2(TAG_RIB(inst_tail(RIB(TOS), n)), NUM_0);
+      continue;
+    }
+    else if (op < 25){
+      n = pop();
+      i=4;
+    }
+
+    rib *c = alloc_rib(TAG_NUM(i), n, 0);
+    c->fields[2] = TOS;
+    TOS = TAG_RIB(c);
+  }
+
+  pc = TAG(CAR(n));
+}
+// )@@
+
+// @@(feature encoding/original
 void decode() {
   int weights[6] = {20, 30, 0, 10, 11, 4};
 
@@ -937,6 +990,7 @@ void decode() {
 
   pc = TAG(CAR(n));
 }
+// )@@
 
 void setup_stack() {
   push2(NUM_0, PAIR_TAG);
