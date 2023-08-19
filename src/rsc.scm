@@ -3581,7 +3581,7 @@
   ;; 1 = 128 codes reserved for compression (128-255)
   ;; 2 = 64  codes reserved for compression (192-255)
 
-  (define compression/lzss/2b/codes 44) 
+  (define compression/lzss/2b/codes 44) ;; must be even
   (define compression/lzss/2b/max-len 11)
 
 
@@ -3719,7 +3719,15 @@
             (error "Cannot find encoding (or number of byte not supported) :" encoding-name))))
 
 
+      (host-config-feature-add! 
+        host-config 
+        'encoding/encoding-size
+        encoding-size)
 
+      (host-config-feature-add! 
+        host-config 
+        'encoding/half-encoding-size
+        (quotient encoding-size 2))
 
       (p/enc-symtbl)
       (p/enc-prog)   

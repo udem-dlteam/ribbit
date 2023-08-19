@@ -409,10 +409,12 @@ num get_code(){
 //  return x < 0 ? 57 : x;
 //}
 
+#define HALF_ENCODING_SIZE (00) // @@(replace "00" encoding/half-encoding-size)@@
+
 num get_int(num n) {
   num x = get_code();
-  n *= 128;
-  return x < 128 ? n + x : get_int(n + x - 128);
+  n *= HALF_ENCODING_SIZE;
+  return x < HALF_ENCODING_SIZE ? n + x : get_int(n + x - HALF_ENCODING_SIZE);
 }
 
 rib *list_tail(rib *lst, num i) {
@@ -956,7 +958,10 @@ void decode() {
     while((d=weights[++op])<=n) n-=d;
 
     if (op < 4) push2(NUM_0, NUM_0); // JUMP
-    if (op < 24) n = op%2> 0 ? get_int(n):n;  //TODO: tag
+    if (op < 24) n = op%2> 0 ? get_int(n):n; 
+
+    //printf("n : %d, ", n); // @@(feature debug)@@
+    //fflush(stdout); // @@(feature debug)@@
 
     if (op < 20) {
       i = (op / 4) - 1;
@@ -976,6 +981,9 @@ void decode() {
       n = pop();
       i=4;
     }
+
+    //printf("i : %d\n", i); // @@(feature debug)@@
+    //fflush(stdout); // @@(feature debug)@@
 
     rib *c = alloc_rib(TAG_NUM(i), n, 0);
     c->fields[2] = TOS;
