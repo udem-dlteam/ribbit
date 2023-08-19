@@ -3027,10 +3027,28 @@
             (cons code tail))))
       tail))
 
+  (define (add-variables! host-config original-size)
+    (host-config-feature-add! 
+      host-config 
+      'compression/lzss/2b/original-size
+      original-size)
+    (host-config-feature-add! 
+      host-config 
+      'compression/lzss/2b/range-start
+      range-start)
+    (host-config-feature-add! 
+      host-config 
+      'compression/lzss/2b/max-encoding-size
+      max-encoding-size)
+    (host-config-feature-add! 
+      host-config 
+      'compression/lzss/2b/max-len
+      max-len))
+
   (let* ((encoded-stream 
            (LZSS
              stream 
-             (quotient (* range-len max-encoding-size) max-len)
+             (- (quotient (* range-len max-encoding-size) max-len) 1)
              max-len
              max-encoding-size 
              (lambda (x) (if (pair? x) 2 1))))
@@ -3044,11 +3062,12 @@
                 max-encoding-size)))
 
 
-    ;(step)
     ;(pp (map list dec encoded-stream return))
     ;(pp (length dec))
     ;(pp (length encoded-stream))
     ;(pp (filter (lambda (x) (not (equal? (car x) (cadr x)))) (map list dec encoded-stream)))
+
+    (add-variables! host-config (length stream))
 
     (if (equal? dec
                 encoded-stream)
