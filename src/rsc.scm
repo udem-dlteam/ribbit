@@ -1278,7 +1278,7 @@
 
 (define host-config #f)
 
-(define (compile-program verbosity parsed-vm features-enabled features-disabled program)
+(define (compile-program verbosity debug-info parsed-vm features-enabled features-disabled program)
   (let* ((exprs-and-exports
            (extract-exports program))
          (exprs
@@ -1332,7 +1332,7 @@
     ;    (map (lambda (pair)
     ;           (cons (car pair) (map display-c-rib (cdr pair)))) (table->list hash-table-c-ribs))))
 
-    (if (>= verbosity 3)
+    (if (or (>= verbosity 3) (memq 'expansion debug-info))
       (begin
         (display "*** Code expansion: \n")
         (pp expansion)))
@@ -1346,16 +1346,16 @@
             (map (lambda (pair)
                    (list (car pair) (length (cdr pair)))) (table->list hash-table-c-ribs))))))
 
-    (if (>= verbosity 2)
+    (if (or (>= verbosity 2) (memq 'rvm-code debug-info))
       (begin
         (display "*** RVM code:\n")
         (pp (vector-ref return 0))))
-    (if (>= verbosity 3)
+    (if (or (>= verbosity 3) (memq 'exports debug-info))
       (begin
         (display "*** exports:\n")
         (pp (vector-ref return 1))))
 
-    (if (>= verbosity 2)
+    (if (or (>= verbosity 2) (memq 'host-config debug-info))
       (begin
         (display "*** HOST CONFIG ***\n")
         (display "*** features :\n")
@@ -4644,7 +4644,7 @@
   (let ((file-content (call-with-input-file path (lambda (port) (read-line port #f)))))
        (if (eof-object? file-content) "" file-content)))
 
-(define (generate-code target verbosity input-path rvm-path exe-output-path output-path minify? host-file encoding-name byte-stats proc-exports-and-features) ;features-enabled features-disabled source-vm
+(define (generate-code target verbosity debug-info input-path rvm-path exe-output-path output-path minify? host-file encoding-name byte-stats proc-exports-and-features) ;features-enabled features-disabled source-vm
   (let* ((proc
            (vector-ref proc-exports-and-features 0))
          (exports
@@ -4665,7 +4665,7 @@
                              (if input-path
                                (string->list* (string-from-file input-path))
                                '()))))
-                     (if (>= verbosity 1)
+                     (if (or (>= verbosity 1) (memq 'rvm-len debug-info))
                        (begin
                          (display "*** RVM code length: ")
                          (display (length input))
@@ -4777,6 +4777,7 @@
                         lib-path
                         minify?
                         verbosity
+                        debug-info
                         _progress-status
                         primitives
                         features-enabled
@@ -4818,6 +4819,7 @@
              "Compiling program"
              (compile-program
                verbosity
+               debug-info
                host-file
                features-enabled
                features-disabled
@@ -4831,6 +4833,7 @@
         (generate-code
           _target
           verbosity
+          debug-info
           input-path
           rvm-path
           exe-output-path
@@ -4849,6 +4852,7 @@
     (pipeline-compiler)
 
     (let ((verbosity 0)
+          (debug-info '())
           (target "rvm")
           (generate-strip #f)
           (base-strip #f)
@@ -4912,6 +4916,10 @@
 
                   ((and (pair? rest) (member arg '("-bs" "--byte-stats")))
                    (set! byte-stats (string->number (car rest)))
+                   (loop (cdr rest)))
+
+                  ((and (pair? rest) (member arg '("-di" "--debug-info")))
+                   (set! debug-info (cons (string->symbol (car rest)) debug-info))
                    (loop (cdr rest)))
 
                   ((member arg '("-gs" "--generate-strip"))
@@ -4999,6 +5007,7 @@
           (if (null? lib-path) '("empty") lib-path)
           minify?
           verbosity
+          debug-info
           progress-status
           primitives
           features-enabled
