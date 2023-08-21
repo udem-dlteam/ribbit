@@ -3069,9 +3069,8 @@
 
     (add-variables! host-config (length stream))
 
-    (if (equal? dec
-                encoded-stream)
-      (display "... ensuring that decompression works ...")
+    (if (not (equal? dec
+                encoded-stream))
       (error "Decompression failed"))
     return))
 
@@ -4709,8 +4708,6 @@
      (else acc)))
    parsed-file
    "")
-
-   (pp 'finished)
 
   (letrec ((extract-func
             (lambda (prim acc rec)
