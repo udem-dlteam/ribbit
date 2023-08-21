@@ -303,6 +303,23 @@ init_heap_call:
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; @@(feature compression/lzss/2b
+%define ORIGINAL_SIZE 00     ;; @@(replace "00" compression/lzss/2b/original-size)@@
+%define RANGE_START 00       ;; @@(replace "00" compression/lzss/2b/range-start)@@
+%define MAX_ENCODING_SIZE 00 ;; @@(replace "00" compression/lzss/2b/max-encoding-size)@@
+%define MAX_LEN 00           ;; @@(replace "00" compression/lzss/2b/max-len)@@
+
+
+	sub esp, ORIGINAL_SIZE
+
+
+
+
+
+;; )@@
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 %macro get_byte 0
 	mov  al, [rvm_code_ptr]
 	inc  rvm_code_ptr
@@ -314,7 +331,6 @@ init_heap_call:
 %endmacro
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 build_symbol_table:
 	mov  rvm_code_ptr, rvm_code
 	movC eax, 0	 	; start accumulating at 0
