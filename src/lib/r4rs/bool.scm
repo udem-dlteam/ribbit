@@ -1,3 +1,5 @@
+(##include-once "./types.scm")
+
 ; Booleans && Equality (R4RS sections 6.1 and 6.2).
 
 (define (not obj) (##eqv? obj (or)))
