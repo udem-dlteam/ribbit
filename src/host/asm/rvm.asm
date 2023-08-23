@@ -670,7 +670,7 @@ init_globals:
 	lea  stack, [RIB_PROC]
 	call init_global	; set "rib"
 	mov  stack, FALSE
-	call init_global	; set "false"
+		call init_global	; set "false"
 	call init_global	; set "true"
 	call init_global	; set "nil"
 
@@ -679,13 +679,12 @@ init_globals:
 ;;; @@(feature encoding/optimal 
 ;; 
 main_loop:
+	movC stack, FIX(0)
 	movC eax, 0
 	get_byte ;; eax <- byte
 	DB_PRINTLN(eax)
-	cmp eax, 246
+	cmp eax, 255
 	jne next
-	int3
-
 next:
 	;; eax (byte)
 	;; ebx
@@ -710,6 +709,11 @@ end_setup_loop:
 	cmp  ebx, 24
 	js  is_get_int
 
+inst_if: 
+	POP_STACK_TO(eax)
+	movC ebx, FIX(4)
+	jmp  finalize_main_loop
+
 
 
 is_JUMP:
@@ -733,10 +737,6 @@ is_get_int_end:
 	js  inst_SHARE
 	;; is if instruction
 
-inst_if: 
-	POP_STACK_TO(eax)
-	movC ebx, 4
-	jmp  finalize_main_loop
 
 inst_LINK:
 	test ebx, 0b10
@@ -774,9 +774,8 @@ inst_LINK_finalize:
 
 
 inst_SHARE:
-	int3
-	jmp inst_SHARE_loop_start
 	mov edx, FIELD0(stack)
+	jmp inst_SHARE_loop_start
 inst_SHARE_loop:
 	mov edx, FIELD2(edx)
 
@@ -791,8 +790,8 @@ inst_SHARE_loop_end:
 
 inst_CONST_PROC:
 	push dword FIELD1(stack) ;; saving stack after push
-	push dword 0
-	POP_STACK_TO(esp)
+	push dword FIELD0(stack)
+	mov stack, FIELD1(stack)
 	lea eax, [FIX(eax)]
 	mov stack, FIX(0)
 	call alloc_rib ;; stack <- [eax (nb args), FIX(0), pop()]
@@ -803,7 +802,7 @@ inst_CONST_PROC:
 	movC ebx, FIX(3)
 	mov  eax, stack
 	pop stack ;; retreiving saved stack
-	cmp stack, FALSE
+	cmp stack, FIX(0)
 	je  end_main_loop
 
 finalize_main_loop:
@@ -816,7 +815,7 @@ finalize_main_loop:
 	mov FIELD2(ebx), eax
 	mov FIELD0(stack), ebx
 	
-	DB_PRINT_RIB stack, 4
+	DB_PRINT_RIB stack, 5
 	jmp main_loop
 
 weights: dd 0,0,0 ; @@(replace "0,0,0" (list->host encoding/optimal/start "" "," ""))@@
@@ -2643,6 +2642,18 @@ print_rib:
         mov  ebx, [esp+WORD_SIZE*7] ;; depth
         cmp  ebx, 0
         jz   print_rib_dot
+		;lea  edx, [FALSE]
+		;cmp  ecx, edx
+		;je   print_0
+
+		;lea  edx, [TRUE]
+		;cmp  ecx, edx
+		;je   print_0
+
+
+		;lea  edx, [NIL]
+		;cmp  ecx, edx
+		;je   print_0
         test ecx, 0x1
         jz   print_rib_aux
         ; print_int
@@ -2651,7 +2662,10 @@ print_rib:
         call print_int
         
         jmp  print_rib_done
-
+print_0:
+		push dword 99
+		call print_int
+		jmp print_rib_done
 print_rib_aux:
         sub ebx, 1
         mov eax, 0x5b ;; [
