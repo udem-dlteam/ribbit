@@ -13,9 +13,22 @@
 ;;; explains a 45 byte version!
 
 ;;; ######################################## Beginning of ELF header
+
 %macro DB_PRINT 1
     push %1
     call print_int
+%ifndef NEED_PRINT_INT
+%define NEED_PRINT_INT
+%endif
+%endmacro
+
+
+%macro DB_PRINTLN 1
+	DB_PRINT %1
+    push eax
+    mov eax, 0x0a ;; newline
+    call putchar
+    pop eax
 %ifndef NEED_PRINT_INT
 %define NEED_PRINT_INT
 %endif
@@ -185,8 +198,8 @@ _start:
 %define FIELD2(x) [x-RIB_TAG+WORD_SIZE*2]
 %define FIELD3(x) [x-RIB_TAG+WORD_SIZE*3]
 
-;;; the RVM encodes instructions with codes in the range 0 .. MAX_CODE
-%define MAX_CODE 91
+;;; the RVM encodes instructions with codes in the range 0 .. MAX_CODE-1
+%define MAX_CODE 00 ;; @@(replace "00" encoding/encoding-size)@@
 
 %define INSTR_JUMP_CALL  0
 %define INSTR_SET        1
@@ -310,7 +323,8 @@ init_heap_call:
 %define MAX_LEN 00           ;; @@(replace "00" compression/lzss/2b/max-len)@@
 
 
-	sub esp, ORIGINAL_SIZE
+	;sub esp, ORIGINAL_SIZE
+
 
 
 
@@ -321,6 +335,7 @@ init_heap_call:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %macro get_byte 0
+	movC eax, 0
 	mov  al, [rvm_code_ptr]
 	inc  rvm_code_ptr
 %ifdef DEBUG
@@ -371,26 +386,26 @@ build_symbol_table_loop3:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 get_code:
-	movC eax, 0
-	get_byte
-	sub  al, 35
-	jae  get_code_done
-	mov  al, 57
+ 	get_byte
+ 	sub  al, 35
+ 	jae  get_code_done
+ 	mov  al, 57
 get_code_done:
-	ret
+ 	ret
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 get_int_loop:
-	sub  eax, (MAX_CODE+1)/2
+	sub  eax, (MAX_CODE)/2
 get_int:
 	push edx
-	movC edx, (MAX_CODE+1)/2
+	movC edx, (MAX_CODE)/2
 	mul  edx
 	mov  edx, eax
-	call get_code
+	movC eax, 0
+	get_byte ;; eax <- byte
 	add  edx, eax
-	sub  al, (MAX_CODE+1)/2
+	sub  al, (MAX_CODE)/2
 	mov  eax, edx
 	pop  edx
 	jae  get_int_loop
@@ -587,6 +602,16 @@ print_gc_end:
 
 %endif
 
+
+%macro POP_STACK 0
+	mov  stack, FIELD1(stack)
+%endmacro
+
+%macro POP_STACK_TO 1
+	mov  %1, FIELD0(stack)
+	POP_STACK
+%endmacro
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 alloc_symbol:
@@ -650,7 +675,165 @@ init_globals:
 	call init_global	; set "nil"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ;;; @@(feature encoding/optimal 
+;; 
+main_loop:
+	movC eax, 0
+	get_byte ;; eax <- byte
+	DB_PRINTLN(eax)
+	cmp eax, 246
+	jne next
+	int3
+
+next:
+	;; eax (byte)
+	;; ebx
+	;; edx 
+
+	;op = ebx
+	movC ebx, 0
+setup_loop:
+	;push dword 
+	cmp  eax, [weights+ebx*WORD_SIZE]
+	js   end_setup_loop
+	sub  eax, [weights+ebx*WORD_SIZE]
+	inc  ebx
+	jmp  setup_loop
+end_setup_loop:
+
+	DB_PRINTLN(eax)
+	DB_PRINTLN(ebx)
+	;; dispatch
+	cmp  ebx, 4
+	js  is_JUMP
+	cmp  ebx, 24
+	js  is_get_int
+
+
+
+is_JUMP:
+	push eax
+	movC eax, FIX(0)
+	push FIX(0)
+	call alloc_rib
+	pop eax
+is_get_int:
+	test ebx, 1 ;; check if number is odd or even
+	jz  is_get_int_end 
+	call get_int ;; eax <- get_int(eax)
+is_get_int_end:
+
+	;; other dispatch
+	cmp  ebx, 20
+	js  inst_LINK
+	cmp  ebx, 22
+	js  inst_CONST_PROC
+	cmp  ebx, 24
+	js  inst_SHARE
+	;; is if instruction
+
+inst_if: 
+	POP_STACK_TO(eax)
+	movC ebx, 4
+	jmp  finalize_main_loop
+
+inst_LINK:
+	test ebx, 0b10
+	jnz symbol_ref
+%if FIX_TAG==1
+	lea eax, [FIX(eax)]
+%endif
+	jmp inst_LINK_tag
+
+symbol_ref:
+	mov edx, SYMBOL_TABLE
+	jmp symbol_ref_loop_start
+
+symbol_ref_loop:
+	mov edx, FIELD1(edx)
+symbol_ref_loop_start:
+	dec eax
+	jns symbol_ref_loop
+symbol_ref_loop_done:
+	mov eax, FIELD0(edx)
+
+%if FIX_TAG==0
+	inc eax
+%endif 
+	
+inst_LINK_tag:
+	shr ebx, 2 ;; op / 4
+	jz 	inst_LINK_finalize 
+	sub ebx, 1
+inst_LINK_finalize:
+%if FIX_TAG==1
+	lea ebx, [FIX(ebx)]
+%endif
+	jmp finalize_main_loop
+
+
+inst_SHARE:
+	int3
+	jmp inst_SHARE_loop_start
+	mov edx, FIELD0(stack)
+inst_SHARE_loop:
+	mov edx, FIELD2(edx)
+
+inst_SHARE_loop_start:
+	dec eax
+	jns inst_SHARE_loop
+inst_SHARE_loop_end:
+	mov eax, edx
+	push dword FIX(0)
+	call alloc_rib
+	jmp main_loop
+
+inst_CONST_PROC:
+	push dword FIELD1(stack) ;; saving stack after push
+	push dword 0
+	POP_STACK_TO(esp)
+	lea eax, [FIX(eax)]
+	mov stack, FIX(0)
+	call alloc_rib ;; stack <- [eax (nb args), FIX(0), pop()]
+	mov eax, stack 
+	lea stack, [NIL]
+	push dword FIX(PROCEDURE_TYPE)
+	call alloc_rib ;; stack <- [eax (previous rib), NIL, PROCEDURE_TYPE]
+	movC ebx, FIX(3)
+	mov  eax, stack
+	pop stack ;; retreiving saved stack
+	cmp stack, FALSE
+	je  end_main_loop
+
+finalize_main_loop:
+	xchg eax, ebx
+	xchg ebx, stack
+	push dword 0
+	call alloc_rib
+	xchg stack, ebx
+	mov eax, FIELD0(stack)
+	mov FIELD2(ebx), eax
+	mov FIELD0(stack), ebx
+	
+	DB_PRINT_RIB stack, 4
+	jmp main_loop
+
+weights: dd 0,0,0 ; @@(replace "0,0,0" (list->host encoding/optimal/start "" "," ""))@@
+
+end_main_loop:
+
+
+
+
+
+
+
+	
+
+
+
+
 ;decompress_optimal: dd 0,0,0 ; (replace "0,0,0" (list->host encoding/optimal/start "" "," ""))
 ;
 ;decomrpess:
@@ -749,7 +932,7 @@ decompress_append_instr:
 
 decompress_loop:
 	call get_code		; eax <- next code
-	cmp  al, MAX_CODE
+	cmp  al, (MAX_CODE-1)
 	je   decompress_if
 	mov  edx, eax		; side effect: sets dh to 0 and dl to al
 	sub  al, SHORT_JUMP+3
@@ -866,14 +1049,6 @@ run:
 
 %define NBARGS(n) mov bl, n
 
-%macro POP_STACK 0
-	mov  stack, FIELD1(stack)
-%endmacro
-
-%macro POP_STACK_TO 1
-	mov  %1, FIELD0(stack)
-	POP_STACK
-%endmacro
 
 
 %define RESULT   eax
@@ -2001,9 +2176,10 @@ prim_welcome:
 
 ;;; The compressed RVM code
 
-;; @@(replace "41,59,39,108,118,68,63,109,62,108,118,82,68,63,109,62,108,118,82,65,63,109,62,108,118,82,65,63,109,62,108,118,82,58,63,109,62,108,118,82,61,33,40,58,110,108,107,109,33,39,58,110,108,107,118,54,123" (encode-as-bytes 92 "" "," "")
+;; @@(replace "41,59,39,108,118,68,63,109,62,108,118,82,68,63,109,62,108,118,82,65,63,109,62,108,118,82,65,63,109,62,108,118,82,58,63,109,62,108,118,82,61,33,40,58,110,108,107,109,33,39,58,110,108,107,118,54,123" (encode-as-bytes 256 "" "," "")
 rvm_code:	db 41,59,39,108,118,68,63,109,62,108,118,82,68,63,109,62,108,118,82,65,63,109,62,108,118,82,65,63,109,62,108,118,82,58,63,109,62,108,118,82,61,33,40,58,110,108,107,109,33,39,58,110,108,107,118,54,123,0 ; RVM code that prints HELLO!
 ;; )@@
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; Miscellaneous debugging routines
