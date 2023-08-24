@@ -92,6 +92,7 @@ _start:
 ;%define DEBUG
 ;%define DEBUG_GC
 ;%define DEBUG_INSTR
+;%define DEBUG_PRIM
 
 
 %if 0
@@ -308,10 +309,10 @@ init_heap_call:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG
-	push rvm_code
-	call print_string
-	mov  al, 0x0a
-	call putchar
+	;push rvm_code
+	;call print_string
+	;mov  al, 0x0a
+	;call putchar
 %endif
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -338,11 +339,11 @@ init_heap_call:
 	movC eax, 0
 	mov  al, [rvm_code_ptr]
 	inc  rvm_code_ptr
-%ifdef DEBUG
-	push eax
-	call putchar
-	pop  eax
-%endif
+;%ifdef DEBUG
+;	push eax
+;	call putchar
+;	pop  eax
+;%endif
 %endmacro
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -821,7 +822,25 @@ finalize_main_loop:
 weights: dd 0,0,0 ; @@(replace "0,0,0" (list->host encoding/optimal/start "" "," ""))@@
 
 end_main_loop:
-	int3
+
+	push FIX(PAIR_TYPE)
+	push FIX(PAIR_TYPE)
+	call alloc_rib 
+	call alloc_rib
+	mov eax, FIELD0(stack)
+	mov dword FIELD0(stack), FIX(0)
+	mov ebx, FIELD1(stack)
+	mov dword FIELD1(stack), FALSE
+	mov FIELD2(stack), ebx
+
+	mov dword FIELD0(ebx), FIX(INSTR_HALT)
+	mov dword FIELD1(ebx), FIX(0)
+	mov dword FIELD2(ebx), FIX(PAIR_TYPE)
+
+	mov pc, eax
+	mov pc, FIELD0(pc)
+	mov pc, FIELD2(pc)
+	jmp run
 
 
 
@@ -1009,13 +1028,13 @@ decompress_create_proc:
 	mov  FIELD0(stack), eax
 	mov  eax, stack
 	push FIX(PROCEDURE_TYPE)
-	call alloc_rib		; stack_register <- [stack_register, stack_register, PROCEDURE_TYPE]
-	mov  eax, stack
-	mov  stack, FIELD1(stack)
-	mov  FIELD1(eax), FALSE
-	mov  ebx, stack
-	mov  stack, FIELD1(stack)
-	mov  FIELD1(ebx), FALSE
+	call alloc_rib		      ;; stack_register <- [stack_register, stack_register, PROCEDURE_TYPE]
+	mov  eax, stack           ;; save new allocation in eax
+	mov  stack, FIELD1(stack) ;; retreive stack register
+	mov  FIELD1(eax), FALSE   ;; [FALSE, stack, PROCEDURE_TYE]
+	mov  ebx, stack           ;; save stack in ebx
+	mov  stack, FIELD1(stack) ;; move stack
+	mov  FIELD1(ebx), FALSE   
 	cmp  stack, FALSE
 	jne  decompress_create_instr_const_proc
 
@@ -1026,7 +1045,6 @@ decompress_create_proc:
 init_stack_and_pc:
 
 ;;; Initializes stack and pc registers
-	int3
 	mov  stack, eax
 	mov  FIELD0(stack), FALSE
 	mov  FIELD2(stack), ebx
