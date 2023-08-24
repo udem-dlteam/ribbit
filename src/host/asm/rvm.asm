@@ -234,6 +234,95 @@ _start:
 %endif
 %endmacro
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
+start_decompression:
+
+;; @@(feature compression/lzss/2b
+
+
+%macro set_uncompressed 1
+	mov [ebp], %1
+	inc ebp
+%endmacro
+
+%define ORIGINAL_SIZE 00     ;; @@(replace "00" compression/lzss/2b/original-size)@@
+%define RANGE_START 00       ;; @@(replace "00" compression/lzss/2b/range-start)@@
+%define MAX_ENCODING_SIZE 00 ;; @@(replace "00" compression/lzss/2b/max-encoding-size)@@
+%define MAX_LEN 00           ;; @@(replace "00" compression/lzss/2b/max-len)@@
+%define COMPRESSED_SIZE 00   ;; @@(replace "00" compression/lzss/2b/compressed-size)@@
+
+decompress:
+	mov  rvm_code_ptr, rvm_code 
+
+	sub esp, ORIGINAL_SIZE
+	mov  edi, esp
+	mov  ebp, esp
+
+decompress_loop:
+	mov ebx, esi
+	sub ebx, rvm_code
+	cmp ebx, COMPRESSED_SIZE
+	jns decompress_end
+	
+	movC eax, 0
+	mov al, [rvm_code_ptr]
+	inc rvm_code_ptr
+	
+	cmp eax, RANGE_START
+	js  decompress_next
+
+	movC ebx, 0
+	mov bl, [rvm_code_ptr]
+	inc rvm_code_ptr
+
+	sub eax, RANGE_START
+	imul eax, MAX_ENCODING_SIZE
+	add eax, ebx
+
+	movC ecx, MAX_LEN
+	movC edx, 0 ;; clear divident
+	div ecx ;; eax = eax / ecx (offset); edx = eax % ecx(length)
+	add edx, 3
+
+decompress_copy_loop:
+	dec edx
+	js decompress_loop
+	mov ebx, edi
+	sub ebx, eax ;; remove offset
+	mov bl, [ebx]
+	mov [edi], bl
+	inc edi
+	jmp decompress_copy_loop
+
+decompress_next:
+	mov [edi], al
+	inc edi
+	jmp decompress_loop
+decompress_end:
+	mov rvm_code_ptr, ebp
+
+
+
+	
+
+	
+
+
+
+
+
+
+
+
+
+
+
+
+;; )@@
+
 
 ;;;;;;;;; GC SPECIFICS ;;;;;
 
@@ -243,6 +332,7 @@ _start:
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 
 alloc_heap:
 
@@ -317,24 +407,6 @@ init_heap_call:
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; @@(feature compression/lzss/2b
-%define ORIGINAL_SIZE 00     ;; @@(replace "00" compression/lzss/2b/original-size)@@
-%define RANGE_START 00       ;; @@(replace "00" compression/lzss/2b/range-start)@@
-%define MAX_ENCODING_SIZE 00 ;; @@(replace "00" compression/lzss/2b/max-encoding-size)@@
-%define MAX_LEN 00           ;; @@(replace "00" compression/lzss/2b/max-len)@@
-
-
-	;sub esp, ORIGINAL_SIZE
-
-
-
-
-
-
-;; )@@
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 %macro get_byte 0
 	movC eax, 0
 	mov  al, [rvm_code_ptr]
@@ -348,7 +420,7 @@ init_heap_call:
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 build_symbol_table:
-	mov  rvm_code_ptr, rvm_code
+	mov  rvm_code_ptr, rvm_code; @@(feature (not compression/lzss/2b))@@
 	movC eax, 0	 	; start accumulating at 0
 	call get_int
 	mov  edx, eax		; edx = number of anonymous symbols to create
@@ -2196,6 +2268,8 @@ prim_welcome:
 ;; @@(replace "41,59,39,108,118,68,63,109,62,108,118,82,68,63,109,62,108,118,82,65,63,109,62,108,118,82,65,63,109,62,108,118,82,58,63,109,62,108,118,82,61,33,40,58,110,108,107,109,33,39,58,110,108,107,118,54,123" (encode-as-bytes 256 "" "," "")
 rvm_code:	db 41,59,39,108,118,68,63,109,62,108,118,82,68,63,109,62,108,118,82,65,63,109,62,108,118,82,65,63,109,62,108,118,82,58,63,109,62,108,118,82,61,33,40,58,110,108,107,109,33,39,58,110,108,107,118,54,123,0 ; RVM code that prints HELLO!
 ;; )@@
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
