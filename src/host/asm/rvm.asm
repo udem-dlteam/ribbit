@@ -304,23 +304,6 @@ decompress_next:
 decompress_end:
 	mov rvm_code_ptr, ebp
 
-
-
-	
-
-	
-
-
-
-
-
-
-
-
-
-
-
-
 ;; )@@
 
 
@@ -1180,12 +1163,9 @@ print_jump_call_done:
 
 primitive_jump:
 
-    ; @@(feature arity-check
-    POP_STACK_TO(edx)
-    mov TEMP3, edx
-    ;shr edx, 1
-    ;push edx ;; push number of arguments
-    ;mov  TEMP3, edx 
+    ; @@(feature (and arity-check (not prim-no-arity))
+    POP_STACK_TO(ebx)
+    mov TEMP3, ebx
     ; )@@
 	mov  edx, FIELD0(eax)	; edx = field0 of procedure (int or rib)
 	shr  edx, 1
@@ -1197,6 +1177,10 @@ primitive_jump:
 
 is_closure:
     
+    ; @@(feature (and arity-check prim-no-arity)
+    POP_STACK_TO(ebx)
+    mov TEMP3, ebx
+    ; )@@
     ;DB_PRINT(999)
 	push eax ;; push proc 
 	call alloc_rib		; stack_register <- [proc, stack_register, proc]
