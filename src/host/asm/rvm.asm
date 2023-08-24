@@ -678,11 +678,11 @@ init_globals:
 
 ;;; @@(feature encoding/optimal 
 ;; 
-main_loop:
 	movC stack, FIX(0)
+main_loop:
 	movC eax, 0
 	get_byte ;; eax <- byte
-	DB_PRINTLN(eax)
+	;DB_PRINTLN(eax)
 	cmp eax, 255
 	jne next
 next:
@@ -701,8 +701,8 @@ setup_loop:
 	jmp  setup_loop
 end_setup_loop:
 
-	DB_PRINTLN(eax)
-	DB_PRINTLN(ebx)
+	;DB_PRINTLN(eax)
+	;DB_PRINTLN(ebx)
 	;; dispatch
 	cmp  ebx, 4
 	js  is_JUMP
@@ -815,13 +815,13 @@ finalize_main_loop:
 	mov FIELD2(ebx), eax
 	mov FIELD0(stack), ebx
 	
-	DB_PRINT_RIB stack, 5
+	;DB_PRINT_RIB stack, 5
 	jmp main_loop
 
 weights: dd 0,0,0 ; @@(replace "0,0,0" (list->host encoding/optimal/start "" "," ""))@@
 
 end_main_loop:
-
+	int3
 
 
 
@@ -1026,7 +1026,7 @@ decompress_create_proc:
 init_stack_and_pc:
 
 ;;; Initializes stack and pc registers
-
+	int3
 	mov  stack, eax
 	mov  FIELD0(stack), FALSE
 	mov  FIELD2(stack), ebx
@@ -2642,18 +2642,18 @@ print_rib:
         mov  ebx, [esp+WORD_SIZE*7] ;; depth
         cmp  ebx, 0
         jz   print_rib_dot
-		;lea  edx, [FALSE]
-		;cmp  ecx, edx
-		;je   print_0
+		lea  edx, [FALSE]
+		cmp  ecx, edx
+		je   print_97
 
-		;lea  edx, [TRUE]
-		;cmp  ecx, edx
-		;je   print_0
+		lea  edx, [TRUE]
+		cmp  ecx, edx
+		je   print_98
 
 
-		;lea  edx, [NIL]
-		;cmp  ecx, edx
-		;je   print_0
+		lea  edx, [NIL]
+		cmp  ecx, edx
+		je   print_99
         test ecx, 0x1
         jz   print_rib_aux
         ; print_int
@@ -2662,8 +2662,16 @@ print_rib:
         call print_int
         
         jmp  print_rib_done
-print_0:
+print_97:
+		push dword 97
+		jmp print_979899
+print_98:
+		push dword 98
+		jmp print_979899
+print_99:
 		push dword 99
+
+print_979899:
 		call print_int
 		jmp print_rib_done
 print_rib_aux:
