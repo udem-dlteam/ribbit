@@ -761,8 +761,8 @@ void run() {
       obj proc = get_opnd(CDR(pc));
       while (1) {
 #define code CAR(proc)
-          num nargs = NUM(pop()); // @@(feature arity-check)@@
           if (IS_NUM(code)) {
+            pop(); // @@(feature (not prim-no-arity))@@
             proc=prim(NUM(code));
 
             if (IS_RIB(proc)) continue;
@@ -774,8 +774,7 @@ void run() {
             }
             pc = TAG(pc);
           } else {
-
-
+            num nargs = NUM(pop()); // @@(feature arity-check))@@
             obj s2 = TAG_RIB(alloc_rib(NUM_0, proc, PAIR_TAG));
             proc = CDR(s2);
             CAR(pc) = CAR(proc); // save the proc from the mighty gc
