@@ -11,6 +11,7 @@
 (##include-once "./control.scm")
 (##include-once "./string.scm")
 (##include-once "./compiler.scm")
+(##include-once "./do.scm")
 
 ;;;----------------------------------------------------------------------------
 

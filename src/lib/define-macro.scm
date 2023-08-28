@@ -1,5 +1,8 @@
 (define-expander
   (define-macro expr expand-expr)
+  (if (or (not (pair? expr)) (eq? (car expr) 'set!))
+    (error "*** define-macro cannot be used as a variable or be assigned."))
+
   (if (pair? (cadr expr))  ;; (define-macro (foo x) ...)
     (let ((macro-name (caadr expr))
           (macro-body `(lambda (,@(cdadr expr))

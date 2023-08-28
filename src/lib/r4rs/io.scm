@@ -1,4 +1,4 @@
-(##include-once "ribbit:define-macro.scm")
+(##include-once "ribbit:expander-utils.scm")
 (##include-once "./bool.scm")
 (##include-once "./types.scm")
 (##include-once "./vector.scm")
@@ -220,7 +220,7 @@
 
 ;; ---------------------- EOF & TYPES ---------------------- ;;
 
-(define ##eof (##rib 0 0 5))
+(define ##eof (##rib 0 0 singleton-type))
 
 (define (eof-object? obj)
   (##eqv? obj ##eof))
