@@ -1109,7 +1109,7 @@
   (and (memq 'arity-check (ctx-live-features ctx))
        (not (and
               (memq 'prim-no-arity (ctx-live-features ctx))
-              (memq name (host-config-primitives ctx))))))
+              (memq name (host-config-primitives host-config))))))
 
 (define (is-call? ctx name cont)
   (let* ((arity-check (arity-check? ctx name))
@@ -3027,7 +3027,7 @@
             (cons code tail))))
       tail))
 
-  (define (add-variables! host-config original-size)
+  (define (add-variables! host-config original-size compressed-size)
     (host-config-feature-add! 
       host-config 
       'compression/lzss/2b/original-size
@@ -3043,7 +3043,11 @@
     (host-config-feature-add! 
       host-config 
       'compression/lzss/2b/max-len
-      max-len))
+      max-len)
+    (host-config-feature-add! 
+      host-config 
+      'compression/lzss/2b/compressed-size
+      compressed-size))
 
   (let* ((encoded-stream 
            (LZSS
@@ -3067,7 +3071,7 @@
     ;(pp (length encoded-stream))
     ;(pp (filter (lambda (x) (not (equal? (car x) (cadr x)))) (map list dec encoded-stream)))
 
-    (add-variables! host-config (length stream))
+    (add-variables! host-config (length stream) (length return))
 
     (if (not (equal? dec
                 encoded-stream))
