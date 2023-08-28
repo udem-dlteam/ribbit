@@ -966,7 +966,7 @@ void decode() {
     if (op < 20) {
       i = (op / 4) - 1;
       i = i < 0?0:i;
-      n = (op % 4) / 2 < 1 ? TAG_NUM(n) : TAG_RIB(symbol_ref(n));
+      n = !(op & 0b10)  ? TAG_NUM(n) : TAG_RIB(symbol_ref(n));
     }
     else if (op < 22) {
       n = TAG_RIB(alloc_rib(TAG_RIB(alloc_rib2(TAG_NUM(n), NUM_0, pop())), NIL, CLOSURE_TAG));
