@@ -4979,7 +4979,7 @@
           (progress-status #f)
           (byte-stats #f)
           (call-stats #f)
-          (encoding-name "original"))
+          (encoding-name "auto"))
 
       (let loop ((args (cdr args)))
         (if (pair? args)
