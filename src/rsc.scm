@@ -1309,7 +1309,7 @@
          (return (make-vector 3)))
 
     (set! host-config host-config-ctx)
-    
+
     (if (not (host-config-feature-live?  host-config 'prim-no-arity))
       (set! tail (add-nb-args ctx 1 tail)))
 
@@ -4220,6 +4220,24 @@
 (define (all predicate lst)
   (not (find (lambda (x) (not (predicate x))) lst)))
 
+(define (extract-feature-names parsed-file)
+  (define (extract-name name)
+    (if (pair? name)
+      (let ((first (car name)))
+        (case first
+          ((and or not) (apply append (map extract-name (cdr name)))) 
+          (else name)))
+      (list name)))
+
+  (let ((features (extract-features parsed-file)))
+    (fold
+      (lambda (prim acc)
+        (if (eqv? (car prim) 'feature)
+         (unique (append acc (extract-name (cadr prim))))
+         acc))
+      '()
+      features)))
+
 (define (extract-features parsed-file)
   (extract
     (lambda (prim acc rec)
@@ -4550,17 +4568,26 @@
    sep))
 
 (define (replace-eval expr encode host-config)
+
   (define (encode-as-string encoding-size)
     (stream->string (encode encoding-size)))
 
   (define (encode-as-bytes encoding-size prefix sep suffix)
     (list->host 
-      (if (eqv? encoding-size 92) ;;
-        (string->list* (stream->string (encode encoding-size)))
-        (encode encoding-size)) 
-      prefix 
-      sep 
-      suffix))
+      (cond 
+        ((eqv? encoding-size 92)
+         (string->list* (stream->string (encode encoding-size))))
+
+        ((equal? encoding-size "auto")
+         (let ((optimal? (host-config-feature-live? host-config 'encoding/optimal)))
+          (if optimal?
+           (encode 256) ;; if optimal is enabled, it supports 256 encoding
+           (string->list* (stream->string (encode 92)))))) ;; else, original encoding supports 92
+        (else 
+         (encode encoding-size)))
+     prefix 
+     sep 
+     suffix))
 
 
   (define functions
@@ -4568,7 +4595,6 @@
       (encode-as-bytes ,encode-as-bytes 5)
       (encode-as-string ,encode-as-string 2)
       (list->host ,list->host 5)))
-
 
 
   (let ((func (and (pair? expr) (assoc (car expr) functions)))
@@ -4589,7 +4615,7 @@
           ((symbol? expr)
            (host-config-feature-live? host-config expr))
           (else
-            (error "Cannot evaluate expression in replace" expr)))))
+           (error "Cannot evaluate expression in replace" expr)))))
 
 
 (define (generate-file parsed-file host-config encode)
@@ -4877,6 +4903,16 @@
                "Parsing host file"
                (parse-host-file vm-source))))
 
+         (encoding-name (if (equal? encoding-name "auto")
+                            (let* ((available-features (extract-feature-names host-file))
+                                   (encoding-order '((encoding/optimal "optimal") (encoding/original "original")))
+                                   (encoding-names (map car encoding-order)))
+                              (let loop ((encoding-order encoding-order))
+                                (if (or (and (pair? encoding-order) (not (pair? (cdr encoding-order))))
+                                        (memq (caar encoding-order) available-features))
+                                  (cadar encoding-order)
+                                  (loop (cdr encoding-order)))))
+                            encoding-name))
          (features-enabled 
            (cons 
              (string->symbol 
