@@ -356,7 +356,7 @@
 
 (define (char-whitespace? ch) (##< (##field0 ch) 33)) ;; #\backspace #\tab #\newline #\vtab #\page #\return
 
-(define char-lower-case? (char-in-range 96 123)) ;; #\a #\z
+(define (char-lower-case? ch) (char-in-range 96 123)) ;; #\a #\z
 
 (define char-upper-case? (char-in-range 64 91)) ;; #\A #\Z
 

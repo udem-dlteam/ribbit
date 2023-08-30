@@ -309,39 +309,10 @@ compiledrvmclean() {
     popd
 }
 
-runcompiledrvm() {
-    ext="$1"
-    exe="compiled_rvm$ext"
-    header "compiled_rvm"
-
-    benches=()
-    {
-    for test in $(echo "$tests")
-    do
-        filename="${test%.*}"
-        cp "$test" ../src/"$test"
-        pushd ../src
-        gsi ./rsc.scm --target c "$test"
-        cp "$filename.scm.c" ./host/c/
-        rm "$test"
-        rm "$filename.scm.c"
-        pushd ./host/c/
-        make "$filename.o$ext"
-        popd
-        popd
-
-        benches=(${benches[@]} "echo $test && ./$filename.o$ext")
-    done
-    } > /dev/null 2>&1
-
-    pushd ../src/host/c
-    hyperfine --min-runs 10 --max-runs 10 -i --export-csv "bench-$exe.csv" ${benches[@]}
-    cp "bench-$exe.csv" ./../../../bench/
-    popd
-}
-
 runrvm() {
     lang="$1"
+    runtime_flags="$2"
+    compile_flags="$3"
     exe="rvm$lang"
     
     if [[ "py" == "$lang" ]] ; then
@@ -361,19 +332,34 @@ runrvm() {
         filename="${test%.*}"
         cp "$test" ../src/"$test"
         pushd ../src
-        gsi ./rsc.scm -l min -m --target "$lang" "$test"
+        echo "------------------------------------------------------------------------"
+        echo "Running..."
+        
+        out_file="$filename.scm.$lang"
+
+        echo gsi ./rsc.scm -l r4rs -t "$lang" "$test" $runtime_flags -o $out_file
+        gsi ./rsc.scm -l r4rs -t "$lang" "$test" $runtime_flags -o $out_file
 
         if [[ "scm" == "$lang" ]]; then
             echo "Compiling"
-            gsc -exe -o "$filename.scm.scm" -prelude "(declare (standard-bindings) (block) (not safe))" "$filename.scm.scm"
+            in_file=$out_file
+            out_file="$filename.scm.exe"
+            gsc -exe -o $out_file -prelude "(declare (standard-bindings) (block) (not safe))" $compile_flags $in_file 
+        fi
+
+        if [[ "c" == "$lang" ]]; then
+            echo "Compiling"
+            in_file=$out_file
+            out_file="$filename.c.exe"
+            gcc -o "$filename.c.exe" $compile_flags $in_file
         fi
         
         popd
 
-        benches=(${benches[@]} "echo $test && "$runtime" ./$filename.scm.$lang")
+        benches=(${benches[@]} "echo $test && "$runtime" ./$out_file")
 
     done
-    } > /dev/null 2>&1
+    } # > /dev/null 2>&1
 
     pushd ../src
     hyperfine --min-runs 10 --max-runs 10 -i --export-csv "bench-$exe.csv" ${benches[@]}
@@ -388,26 +374,27 @@ fi
 
 echo "== Preparing Schemes =="
 rvm
-tinyscheme
-bitscm
-mitscm
-picobit
-minischeme
-siod
-chicken
+#tinyscheme
+#bitscm
+#mitscm
+#picobit
+#minischeme
+#siod
+#chicken
 echo "==       READY       =="
-run rvm
-run rvm3
-run minischeme
-run rvm
-run mitscm
-run tinyscheme
-run siod
-run csi
-runcompiledrvm
-runcompiledrvm 3
-runpico
-runbit
-runrvm js
+#run rvm
+#run rvm3
+#run minischeme
+#run rvm
+#run mitscm
+#run tinyscheme
+#run siod
+#run csi
+#runcompiledrvm
+#runcompiledrvm 3
+#runpico
+#runbit
+runrvm js "-f+ js/node" ""
+runrvm c  "" ""
 runrvm py
-runrvm scm
+#runrvm scm

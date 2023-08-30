@@ -1,0 +1,11 @@
+#!/bin/sh
+
+if [ "$LIB" = "" ]; then 
+    LIB="-f+ v-port -l r4rs -l r4rs/sys"
+fi
+
+if [ "$HOST" = "" ]; then 
+    HOST="js"
+fi
+
+./rsc -t "$HOST" $LIB $@ -o ./rsi."$HOST" -x rsi -f+ export-all ./lib/r4rs/rsi.scm

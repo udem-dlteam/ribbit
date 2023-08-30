@@ -20,6 +20,23 @@
         return f;
      }, "))
 
+
+  ((host py)
+
+   (define-primitive
+     (##apply f args)
+     "lambda: [exec(compile(\"\"\"
+_arg = pop()
+globals()['_f_'] = pop()
+num_args=0
+while _arg is not NIL:
+ push(_arg[0])
+ _arg=_arg[1]
+ num_args += 1
+push(num_args) # @@(feature arity-check)@@
+ \"\"\", __file__, 'exec')), _f_][1],"))
+
+
   ((host c)
    (define-primitive
      (##apply f args)
@@ -53,6 +70,15 @@
                   return f)
         ")))
 
+(define (##params proc)
+  (let ((nb-args-raw (##field0 (##field0 proc))))
+    (cons (odd? nb-args-raw) (##quotient nb-args-raw 2)))) ;; (cons variadic? nb-args)
+
+(define (##can-call? proc nb-args)
+  (let ((nb-params (##params proc)))
+    (or (##eqv? nb-args (cdr nb-params))
+        (and (car nb-params) (>= nb-args (cdr nb-params))))))
+
 ;; Control features (R4RS section 6.9).
 
 (define (apply f args) (##apply f args))
@@ -60,12 +86,13 @@
 (define-signature
   apply
   ((f 
-     guard: (let* ((nb-args-raw (##field0 (##field0 f)))
-                   (variadic? (odd? nb-args-raw))
-                   (nb-args (##quotient nb-args-raw 2)))
-              (or variadic? (##eqv? nb-args (length args))))
-     expected: (string-append "A PROCEDURE with a number of params equal to the number of args (called with " 
-                              (number->string (length args)) " and taking only " (number->string nb-args) ")"))
+     guard: (##can-call? f (length args))
+     expected: (let ((params (##params f)))
+                 (string-append "PROCEDURE called with " 
+                                (number->string (length args)) " and taking " 
+                                (if (##field0 params) "at least " "")
+                                (number->string (##field1 params))
+                                ". A PROCEDURE with a number of params equal to the number of args" )))
 
    (args 
      guard: (list? args)
@@ -86,24 +113,21 @@
 (define (map proc . lsts)
   (if (pair? (##field0 lsts))
     (cons (apply proc (##map car lsts))
-          (apply map (append (list proc) (##map cdr lsts))))
+          (apply ##ntc-map (append (list proc) (##map cdr lsts))))
     '()))
 
 (define (for-each proc . lsts)
   (if (pair? (##field0 lsts))
       (begin
         (apply proc (##map car lsts))
-        (apply for-each (append (list proc) (##map cdr lsts))))
+        (apply ##ntc-for-each (append (list proc) (##map cdr lsts))))
       #f))
 
 
 (define-signatures
   (map for-each)
   ((proc 
-     guard: (let* ((nb-args-raw (##field0 (##field0 proc)))
-                   (variadic? (odd? nb-args-raw))
-                   (nb-args (##quotient nb-args-raw 2)))
-              (or variadic? (##eqv? nb-args (length lsts))))
+     guard: (##can-call? proc (length lsts))
      expected: "A PROCEDURE that takes a number of args equal to the number of LISTs")
 
    (lsts 
@@ -118,7 +142,9 @@
      expected: "LISTs with the same length")))
 
 
+
 ;; First-class continuations.
+
 
 (define (call/cc receiver)
   (let ((c (##field1 (##field1 (##close #f))))) ;; get call/cc continuation rib
@@ -131,13 +157,40 @@
 (define-signature 
   call/cc
   ((receiver 
-     guard: (let* ((nb-args-raw (##field0 (##field0 receiver)))
-                   (variadic? (odd? nb-args-raw))
-                   (nb-args (##quotient nb-args-raw 2)))
-              (or variadic? (##eqv? nb-args 1)))
+     guard: (##can-call? receiver 1)
      expected: "A PROCEDURE that takes a one argument (a PROCEDURE)")))
 
 (define call-with-current-continuation call/cc)
+
+
+(define-macro 
+  (make-generator . expr)
+  `(let ((cont-yield #f)
+         (cont-continue #f))
+
+     (define-macro 
+       (yield x)
+       `(call/cc 
+          (lambda (##continue)
+            (set! cont-continue ##continue)
+            (cont-yield ,x))))
+
+     (lambda (v)
+       (call/cc
+         (lambda (##yield)
+           (set! cont-yield ##yield)
+           (if cont-continue
+             (cont-continue v)
+             (let ((result (begin ,@expr)))
+               (cont-yield result))))))))
+
+
+(define (gen-send generator value)
+  (generator value))
+
+(define (gen-next generator)
+  (gen-send generator '()))
+
 
 
 ;; ---------------------- UTILS NOT IN R4RS ---------------------- ;;

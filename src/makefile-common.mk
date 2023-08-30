@@ -146,7 +146,7 @@ check-repl:
 	     echo "    >>> [test features: `echo "$$test_feature" | sed -e 's/,/ /g'`]"; \
 	  fi; \
 	  $$RSC_COMPILER -t $$host $$options -f+ quiet `echo "$$test_feature" | sed -e 's/,/ /g'` -o test.$$host $$repl; \
-	  for prog in `ls ../../$$TEST_DIR/*.scm tests/*.scm | grep -E "$$TEST_FILTER"`; do \
+	  for prog in `ls ../../$$TEST_DIR/$$TEST_FILTER.scm tests/$$TEST_FILTER.scm`; do \
 	    echo "     testing in repl: $$prog"; \
 	    if [ "$$INTERPRETER" != "" ]; then \
 	      echo "(load \"$$prog\")" | $$INTERPRETER test.$$host | head -n -2 > test.$$host.out; \
@@ -182,7 +182,7 @@ check:
 	  RSC_TEST_FEATURES=","; \
 	fi; \
 	TEST_FILTER='${TEST_FILTER}'; \
-	for prog in `ls ../../$$TEST_DIR/*.scm tests/*.scm | grep -E "$$TEST_FILTER"`; do \
+	for prog in `ls ../../$$TEST_DIR/$$TEST_FILTER.scm tests/$$TEST_FILTER.scm`; do \
 	  setup=`sed -n -e '/;;;setup:/p' $$prog | sed -e 's/^;;;setup://'`; \
 	  cleanup=`sed -n -e '/;;;cleanup:/p' $$prog | sed -e 's/^;;;cleanup://'`; \
 	  options=`sed -n -e '/;;;options:/p' $$prog | sed -e 's/^;;;options://'`; \

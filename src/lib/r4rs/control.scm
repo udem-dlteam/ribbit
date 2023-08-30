@@ -20,6 +20,20 @@
         return f;
      }, "))
 
+  ((host py)
+   (define-primitive
+     (##apply f args)
+     "lambda: [exec(compile(\"\"\"
+_arg = pop()
+globals()['_f_'] = pop()
+num_args=0
+while _arg is not NIL:
+ push(_arg[0])
+ _arg=_arg[1]
+ num_args += 1
+push(num_args) # @@(feature arity-check)@@
+ \"\"\", __file__, 'exec')), _f_][1],"))
+
   ((host c)
    (define-primitive
      (##apply f args)

@@ -1,0 +1,23 @@
+#!/bin/sh
+
+if [ "$LIB" = "" ]; then 
+    LIB="r4rs"
+fi
+
+if [ "$HOST" = "" ]; then 
+    HOST="js"
+fi
+
+gsi -:r4rs ./rsc.scm -t "$HOST" -l "$LIB" "$@" -x ./repl -o ./repl."$HOST" ./lib/r4rs/repl.scm
+
+case "$HOST" in 
+    js)
+        node ./repl.js
+        ;;
+    py)
+        python3 ./repl.py
+        ;;
+    *)
+        echo "Unknown host: $HOST"
+        ;;
+esac

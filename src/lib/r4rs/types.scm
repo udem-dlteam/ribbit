@@ -1,15 +1,17 @@
+(##include-once "./expander-utils.scm")
 (##include-once "./bool.scm")
 
-(define pair-type      0)
-(define procedure-type 1)
-(define symbol-type    2)
-(define string-type    3)
-(define vector-type    4)
-(define singleton-type 5)
-(define char-type      6)
 
-(define input-port-type 8)
-(define output-port-type 9)
+(define-const pair-type      0)
+(define-const procedure-type 1)
+(define-const symbol-type    2)
+(define-const string-type    3)
+(define-const vector-type    4)
+(define-const singleton-type 5)
+(define-const char-type      6)
+
+(define-const input-port-type 8)
+(define-const output-port-type 9)
 
 (define (instance? type) (lambda (o) (and (##rib? o) (##eqv? (##field2 o) type))))
 

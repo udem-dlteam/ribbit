@@ -1,0 +1,10 @@
+#!/bin/sh 
+
+
+EXEC_PATH="$(which node)"
+RVM_CONTENT="$(cat "$1")"
+EXE="$2"
+
+echo "#!$EXEC_PATH" > "$EXE" 
+echo "$RVM_CONTENT" >> "$EXE"
+chmod +x "$EXE"

@@ -200,6 +200,16 @@
              i
              (loop (+ 1 i)))))))
 
+(define (string-replace str sub-str replacement)
+  (let ((str-len (string-length str))
+        (sub-str-len (string-length sub-str)))
+    (let loop ((i 0) (final ""))
+      (if (<= i (- str-len sub-str-len))
+        (if (string-at? str sub-str i sub-str-len)
+          (loop (+ i sub-str-len) (string-append final replacement))
+          (loop (+ 1 i)))
+        final))))
+
 (define (string-concatenate list-str (sep ""))
   (if (null? list-str)
     ""

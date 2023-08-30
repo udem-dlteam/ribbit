@@ -13,9 +13,22 @@
 ;;; explains a 45 byte version!
 
 ;;; ######################################## Beginning of ELF header
+
 %macro DB_PRINT 1
     push %1
     call print_int
+%ifndef NEED_PRINT_INT
+%define NEED_PRINT_INT
+%endif
+%endmacro
+
+
+%macro DB_PRINTLN 1
+	DB_PRINT %1
+    push eax
+    mov eax, 0x0a ;; newline
+    call putchar
+    pop eax
 %ifndef NEED_PRINT_INT
 %define NEED_PRINT_INT
 %endif
@@ -79,6 +92,7 @@ _start:
 ;%define DEBUG
 ;%define DEBUG_GC
 ;%define DEBUG_INSTR
+;%define DEBUG_PRIM
 
 
 %if 0
@@ -97,7 +111,7 @@ _start:
 
 %define WORD_SIZE       4
 %define RIB_SIZE_WORDS  4
-%define HEAP_SIZE_RIBS  10000000
+%define HEAP_SIZE_RIBS  1000000
 %define HEAP_SIZE (HEAP_SIZE_RIBS*RIB_SIZE_WORDS*WORD_SIZE)
 
 %define SYS_EXIT        1
@@ -185,8 +199,8 @@ _start:
 %define FIELD2(x) [x-RIB_TAG+WORD_SIZE*2]
 %define FIELD3(x) [x-RIB_TAG+WORD_SIZE*3]
 
-;;; the RVM encodes instructions with codes in the range 0 .. MAX_CODE
-%define MAX_CODE 91
+;;; the RVM encodes instructions with codes in the range 0 .. MAX_CODE-1
+%define MAX_CODE 00 ;; @@(replace "00" encoding/encoding-size)@@
 
 %define INSTR_JUMP_CALL  0
 %define INSTR_SET        1
@@ -220,6 +234,78 @@ _start:
 %endif
 %endmacro
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
+start_decompression:
+
+;; @@(feature compression/lzss/2b
+
+
+%macro set_uncompressed 1
+	mov [ebp], %1
+	inc ebp
+%endmacro
+
+%define ORIGINAL_SIZE 00     ;; @@(replace "00" compression/lzss/2b/original-size)@@
+%define RANGE_START 00       ;; @@(replace "00" compression/lzss/2b/range-start)@@
+%define MAX_ENCODING_SIZE 00 ;; @@(replace "00" compression/lzss/2b/max-encoding-size)@@
+%define MAX_LEN 00           ;; @@(replace "00" compression/lzss/2b/max-len)@@
+%define COMPRESSED_SIZE 00   ;; @@(replace "00" compression/lzss/2b/compressed-size)@@
+
+decompress:
+	mov  rvm_code_ptr, rvm_code 
+
+	sub esp, ORIGINAL_SIZE
+	mov  edi, esp
+	mov  ebp, esp
+
+decompress_loop:
+	mov ebx, esi
+	sub ebx, rvm_code
+	cmp ebx, COMPRESSED_SIZE
+	jns decompress_end
+	
+	movC eax, 0
+	mov al, [rvm_code_ptr]
+	inc rvm_code_ptr
+	
+	cmp eax, RANGE_START
+	js  decompress_next
+
+	movC ebx, 0
+	mov bl, [rvm_code_ptr]
+	inc rvm_code_ptr
+
+	sub eax, RANGE_START
+	imul eax, MAX_ENCODING_SIZE
+	add eax, ebx
+
+	movC ecx, MAX_LEN
+	movC edx, 0 ;; clear divident
+	div ecx ;; eax = eax / ecx (offset); edx = eax % ecx(length)
+	add edx, 3
+
+decompress_copy_loop:
+	dec edx
+	js decompress_loop
+	mov ebx, edi
+	sub ebx, eax ;; remove offset
+	mov bl, [ebx]
+	mov [edi], bl
+	inc edi
+	jmp decompress_copy_loop
+
+decompress_next:
+	mov [edi], al
+	inc edi
+	jmp decompress_loop
+decompress_end:
+	mov rvm_code_ptr, ebp
+
+;; )@@
+
 
 ;;;;;;;;; GC SPECIFICS ;;;;;
 
@@ -229,6 +315,7 @@ _start:
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 
 alloc_heap:
 
@@ -295,28 +382,28 @@ init_heap_call:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG
-	push rvm_code
-	call print_string
-	mov  al, 0x0a
-	call putchar
+	;push rvm_code
+	;call print_string
+	;mov  al, 0x0a
+	;call putchar
 %endif
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %macro get_byte 0
+	movC eax, 0
 	mov  al, [rvm_code_ptr]
 	inc  rvm_code_ptr
-%ifdef DEBUG
-	push eax
-	call putchar
-	pop  eax
-%endif
+;%ifdef DEBUG
+;	push eax
+;	call putchar
+;	pop  eax
+;%endif
 %endmacro
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 build_symbol_table:
-	mov  rvm_code_ptr, rvm_code
+	mov  rvm_code_ptr, rvm_code; @@(feature (not compression/lzss/2b))@@
 	movC eax, 0	 	; start accumulating at 0
 	call get_int
 	mov  edx, eax		; edx = number of anonymous symbols to create
@@ -355,26 +442,26 @@ build_symbol_table_loop3:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 get_code:
-	movC eax, 0
-	get_byte
-	sub  al, 35
-	jae  get_code_done
-	mov  al, 57
+ 	get_byte
+ 	sub  al, 35
+ 	jae  get_code_done
+ 	mov  al, 57
 get_code_done:
-	ret
+ 	ret
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 get_int_loop:
-	sub  eax, (MAX_CODE+1)/2
+	sub  eax, (MAX_CODE)/2
 get_int:
 	push edx
-	movC edx, (MAX_CODE+1)/2
+	movC edx, (MAX_CODE)/2
 	mul  edx
 	mov  edx, eax
-	call get_code
+	movC eax, 0
+	get_byte ;; eax <- byte
 	add  edx, eax
-	sub  al, (MAX_CODE+1)/2
+	sub  al, (MAX_CODE)/2
 	mov  eax, edx
 	pop  edx
 	jae  get_int_loop
@@ -571,6 +658,16 @@ print_gc_end:
 
 %endif
 
+
+%macro POP_STACK 0
+	mov  stack, FIELD1(stack)
+%endmacro
+
+%macro POP_STACK_TO 1
+	mov  %1, FIELD0(stack)
+	POP_STACK
+%endmacro
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 alloc_symbol:
@@ -629,41 +726,209 @@ init_globals:
 	lea  stack, [RIB_PROC]
 	call init_global	; set "rib"
 	mov  stack, FALSE
-	call init_global	; set "false"
+		call init_global	; set "false"
 	call init_global	; set "true"
 	call init_global	; set "nil"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; @@(feature encoding/optimal 
-decompress_optimal: dd 0,0,0 ; @@(replace "0,0,0" (list->host encoding/optimal/start "" "," ""))@@
 
-decomrpess:
-    movC stack, FALSE	; stack <- #f
-    jmp  decompress_loop
+;;; @@(feature encoding/optimal 
+;; 
+	movC stack, FIX(0)
+main_loop:
+	movC eax, 0
+	get_byte ;; eax <- byte
+	;DB_PRINTLN(eax)
+	cmp eax, 255
+	jne next
+next:
+	;; eax (byte)
+	;; ebx
+	;; edx 
 
-decompress_loop:
-    call get_code
-    movC edx, 0 
-    
-deompress_loop_aux:
-    
-    add edx, 1
-    mov ebx, [decompress_optimal+edx]
-    cmp eax, ebx
-    jle decompress_dispatch
-    sub eax, ebx
-    jmp decompress_loop_aux
+	;op = ebx
+	movC ebx, 0
+setup_loop:
+	;push dword 
+	cmp  eax, [weights+ebx*WORD_SIZE]
+	js   end_setup_loop
+	sub  eax, [weights+ebx*WORD_SIZE]
+	inc  ebx
+	jmp  setup_loop
+end_setup_loop:
 
-decompress_dispatch:
-    int3
-    
-    
+	;DB_PRINTLN(eax)
+	;DB_PRINTLN(ebx)
+	;; dispatch
+	cmp  ebx, 4
+	js  is_JUMP
+	cmp  ebx, 24
+	js  is_get_int
+
+inst_if: 
+	POP_STACK_TO(eax)
+	movC ebx, FIX(4)
+	jmp  finalize_main_loop
+
+
+
+is_JUMP:
+	push eax
+	movC eax, FIX(0)
+	push FIX(0)
+	call alloc_rib
+	pop eax
+is_get_int:
+	test ebx, 1 ;; check if number is odd or even
+	jz  is_get_int_end 
+	call get_int ;; eax <- get_int(eax)
+is_get_int_end:
+
+	;; other dispatch
+	cmp  ebx, 20
+	js  inst_LINK
+	cmp  ebx, 22
+	js  inst_CONST_PROC
+	cmp  ebx, 24
+	js  inst_SHARE
+	;; is if instruction
+
+
+inst_LINK:
+	test ebx, 0b10
+	jnz symbol_ref
+%if FIX_TAG==1
+	lea eax, [FIX(eax)]
+%endif
+	jmp inst_LINK_tag
+
+symbol_ref:
+	mov edx, SYMBOL_TABLE
+	jmp symbol_ref_loop_start
+
+symbol_ref_loop:
+	mov edx, FIELD1(edx)
+symbol_ref_loop_start:
+	dec eax
+	jns symbol_ref_loop
+symbol_ref_loop_done:
+	mov eax, FIELD0(edx)
+
+%if FIX_TAG==0
+	inc eax
+%endif 
+	
+inst_LINK_tag:
+	shr ebx, 2 ;; op / 4
+	jz 	inst_LINK_finalize 
+	sub ebx, 1
+inst_LINK_finalize:
+%if FIX_TAG==1
+	lea ebx, [FIX(ebx)]
+%endif
+	jmp finalize_main_loop
+
+
+inst_SHARE:
+	mov edx, FIELD0(stack)
+	jmp inst_SHARE_loop_start
+inst_SHARE_loop:
+	mov edx, FIELD2(edx)
+
+inst_SHARE_loop_start:
+	dec eax
+	jns inst_SHARE_loop
+inst_SHARE_loop_end:
+	mov eax, edx
+	push dword FIX(0)
+	call alloc_rib
+	jmp main_loop
+
+inst_CONST_PROC:
+	push dword FIELD1(stack) ;; saving stack after push
+	push dword FIELD0(stack)
+	mov stack, FIELD1(stack)
+	lea eax, [FIX(eax)]
+	mov stack, FIX(0)
+	call alloc_rib ;; stack <- [eax (nb args), FIX(0), pop()]
+	mov eax, stack 
+	lea stack, [NIL]
+	push dword FIX(PROCEDURE_TYPE)
+	call alloc_rib ;; stack <- [eax (previous rib), NIL, PROCEDURE_TYPE]
+	movC ebx, FIX(3)
+	mov  eax, stack
+	pop stack ;; retreiving saved stack
+	cmp stack, FIX(0)
+	je  end_main_loop
+
+finalize_main_loop:
+	xchg eax, ebx
+	xchg ebx, stack
+	push dword 0
+	call alloc_rib
+	xchg stack, ebx
+	mov eax, FIELD0(stack)
+	mov FIELD2(ebx), eax
+	mov FIELD0(stack), ebx
+	
+	;DB_PRINT_RIB stack, 5
+	jmp main_loop
+
+weights: dd 0,0,0 ; @@(replace "0,0,0" (list->host encoding/optimal/start "" "," ""))@@
+
+end_main_loop:
+
+	push FIX(PAIR_TYPE)
+	push FIX(PAIR_TYPE)
+	call alloc_rib 
+	call alloc_rib
+	mov eax, FIELD0(stack)
+	mov dword FIELD0(stack), FIX(0)
+	mov ebx, FIELD1(stack)
+	mov dword FIELD1(stack), FALSE
+	mov FIELD2(stack), ebx
+
+	mov dword FIELD0(ebx), FIX(INSTR_HALT)
+	mov dword FIELD1(ebx), FIX(0)
+	mov dword FIELD2(ebx), FIX(PAIR_TYPE)
+
+	mov pc, eax
+	mov pc, FIELD0(pc)
+	mov pc, FIELD2(pc)
+	jmp run
 
 
 
 
 
-;; )@@
+
+	
+
+
+
+
+;decompress_optimal: dd 0,0,0 ; (replace "0,0,0" (list->host encoding/optimal/start "" "," ""))
+;
+;decomrpess:
+;    movC stack, FALSE	; stack <- #f
+;    jmp  decompress_loop
+;
+;decompress_loop:
+;    call get_code
+;    movC edx, 0 
+;    
+;deompress_loop_aux:
+;    
+;    add edx, 1
+;    mov ebx, [decompress_optimal+edx]
+;    cmp eax, ebx
+;    jle decompress_dispatch
+;    sub eax, ebx
+;    jmp decompress_loop_aux
+;
+;decompress_dispatch:
+;    int3
+;;; )@@
 
 
 
@@ -740,7 +1005,7 @@ decompress_append_instr:
 
 decompress_loop:
 	call get_code		; eax <- next code
-	cmp  al, MAX_CODE
+	cmp  al, (MAX_CODE-1)
 	je   decompress_if
 	mov  edx, eax		; side effect: sets dh to 0 and dl to al
 	sub  al, SHORT_JUMP+3
@@ -818,13 +1083,13 @@ decompress_create_proc:
 	mov  FIELD0(stack), eax
 	mov  eax, stack
 	push FIX(PROCEDURE_TYPE)
-	call alloc_rib		; stack_register <- [stack_register, stack_register, PROCEDURE_TYPE]
-	mov  eax, stack
-	mov  stack, FIELD1(stack)
-	mov  FIELD1(eax), FALSE
-	mov  ebx, stack
-	mov  stack, FIELD1(stack)
-	mov  FIELD1(ebx), FALSE
+	call alloc_rib		      ;; stack_register <- [stack_register, stack_register, PROCEDURE_TYPE]
+	mov  eax, stack           ;; save new allocation in eax
+	mov  stack, FIELD1(stack) ;; retreive stack register
+	mov  FIELD1(eax), FALSE   ;; [FALSE, stack, PROCEDURE_TYE]
+	mov  ebx, stack           ;; save stack in ebx
+	mov  stack, FIELD1(stack) ;; move stack
+	mov  FIELD1(ebx), FALSE   
 	cmp  stack, FALSE
 	jne  decompress_create_instr_const_proc
 
@@ -835,7 +1100,6 @@ decompress_create_proc:
 init_stack_and_pc:
 
 ;;; Initializes stack and pc registers
-
 	mov  stack, eax
 	mov  FIELD0(stack), FALSE
 	mov  FIELD2(stack), ebx
@@ -857,14 +1121,6 @@ run:
 
 %define NBARGS(n) mov bl, n
 
-%macro POP_STACK 0
-	mov  stack, FIELD1(stack)
-%endmacro
-
-%macro POP_STACK_TO 1
-	mov  %1, FIELD0(stack)
-	POP_STACK
-%endmacro
 
 
 %define RESULT   eax
@@ -907,12 +1163,9 @@ print_jump_call_done:
 
 primitive_jump:
 
-    ; @@(feature arity-check
-    POP_STACK_TO(edx)
-    mov TEMP3, edx
-    ;shr edx, 1
-    ;push edx ;; push number of arguments
-    ;mov  TEMP3, edx 
+    ; @@(feature (and arity-check (not prim-no-arity))
+    POP_STACK_TO(ebx)
+    mov TEMP3, ebx
     ; )@@
 	mov  edx, FIELD0(eax)	; edx = field0 of procedure (int or rib)
 	shr  edx, 1
@@ -924,17 +1177,25 @@ primitive_jump:
 
 is_closure:
     
+    ; @@(feature (and arity-check prim-no-arity)
+    POP_STACK_TO(ebx)
+    mov TEMP3, ebx
+    ; )@@
     ;DB_PRINT(999)
-	push eax
-	call alloc_rib		; stack_register <- [closure, stack_register, closure]
+	push eax ;; push proc 
+	call alloc_rib		; stack_register <- [proc, stack_register, proc]
 	mov  eax, stack
 	POP_STACK
-	mov  TEMP2, eax		; remember the continuation rib
-	mov  edx, FIELD0(eax)
+	; mov  TEMP2, eax		; remember the continuation rib (s2)
+	mov  edx, FIELD0(eax) ; edx = proc
 	;mov  edx, FIELD0(eax)
-	mov  FIELD1(eax), edx
-	mov  edx, FIELD0(edx)
-	mov  edx, FIELD0(edx)	; get nparams
+	mov  FIELD1(eax), edx ; move proc to field1 
+
+    ;; NOTE: move after setting proc
+	mov  TEMP2, eax		; remember the continuation rib (s2)
+
+	mov  edx, FIELD0(edx) ; code = field0(proc)
+	mov  edx, FIELD0(edx)	; nparams = field0(code)
 
     ; @@(feature arity-check
     mov  ebx, TEMP3
@@ -943,7 +1204,7 @@ is_closure:
 
     shr  edx, 2 ;; remove tagging and rest param
     jc  with_rest ; @@(feature rest-param)@@
-    ; @@(feature arity-check (use exit)
+    ; @@(feature arity-check (use ##exit)
 no_rest:
     cmp  edx, ebx 
 	je   create_frame_loop_start ;; pass arity-check
@@ -962,10 +1223,9 @@ error_arity_check:
 
 ; @@(feature rest-param (use arity-check)
 rest_loop_prepare:
-    push edx ;; save edx
-    push eax ;; save eax
-    lea  eax, [NIL]
-    mov  edx, ebx
+    push edx ;; save edx (nparams)
+    lea  eax, [NIL] ;; rest = NIL
+    mov  edx, ebx ;; edx = nargs
     jmp  rest_loop_start
 rest_frame_loop:
 	mov  TEMP3, eax		; remember the frame's head
@@ -976,14 +1236,14 @@ rest_frame_loop:
 	mov  eax, stack
 	POP_STACK
 	mov  ebx, TEMP3
-	mov  FIELD1(eax), ebx
+	mov FIELD1(eax), ebx ;; field1(eax) = rest
 rest_loop_start:
 	dec  edx
 	jns  rest_frame_loop
 	push FIX(PAIR_TYPE)
     ;DB_PRINT(2)
     call alloc_rib ;; push result to stack
-    pop eax
+    mov eax, TEMP2 ;; NOTE: s2 is in TEMP2
     pop edx
     inc edx 
     jmp create_frame_loop_start
@@ -998,7 +1258,7 @@ create_frame_loop:
 	mov  eax, stack
 	POP_STACK
 	mov  ebx, TEMP3
-	mov  FIELD1(eax), ebx
+	mov FIELD1(eax), ebx
 create_frame_loop_start:
 	dec  edx
 	jns  create_frame_loop
@@ -1264,14 +1524,14 @@ prim_dispatch_table:
 	dd   prim_getchar     ;; @@(primitive (##getchar))@@
 	dd   prim_putchar     ;; @@(primitive (##putchar c))@@
 	dd   prim_exit        ;; @@(primitive (##exit n))@@  
-	dd   prim_stdin       ;; @@(primitive (##stdin))@@  
-	dd   prim_stdout      ;; @@(primitive (##stdout))@@  
+	dd   prim_stdin_fd       ;; @@(primitive (##stdin-fd))@@  
+	dd   prim_stdout_fd      ;; @@(primitive (##stdout-fd))@@  
     dd   prim_get_fd_input_file ;; @@(primitive (##get-fd-input-file filename))@@
     dd   prim_get_fd_output_file ;; @@(primitive (##get-fd-output-file filename))@@
-    dd   prim_read_char ;; @@(primitive (##read-char fd))@@
-    dd   prim_write_char ;; @@(primitive (##write-char c fd))@@
-    dd   prim_close_port ;; @@(primitive (##close-input-port fd))@@
-    dd   prim_close_port ;; @@(primitive (##close-output-port fd))@@
+    dd   prim_read_char_fd ;; @@(primitive (##read-char-fd fd))@@
+    dd   prim_write_char_fd ;; @@(primitive (##write-char-fd c fd))@@
+    dd   prim_close_fd ;; @@(primitive (##close-input-fd fd))@@
+    dd   prim_close_fd ;; @@(primitive (##close-output-fd fd))@@
     dd   prim_apply      ;; @@(primitive (##apply function args))@@
     dd   prim_welcome    ;; @@(primitive (welcome-msg))@@
 
@@ -1810,15 +2070,15 @@ prim_exit:
 ;; )@@
 
 
-;; @@(feature ##stdin
-prim_stdin:
+;; @@(feature ##stdin-fd
+prim_stdin_fd:
     NBARGS(0)
     mov dword LAST_ARG, FIX(0x0)
     ret
 ;; )@@
 
-;; @@(feature ##stdout
-prim_stdout:
+;; @@(feature ##stdout-fd
+prim_stdout_fd:
     NBARGS(0)
     mov dword LAST_ARG, FIX(0x1)
     ret
@@ -1869,8 +2129,8 @@ prim_get_fd_output_file:
     jmp common_input_output_file
 ;; )@@
 
-;; @@(feature ##read-char (use raw_int_to_scheme_int)
-prim_read_char:
+;; @@(feature ##read-char-fd (use raw_int_to_scheme_int)
+prim_read_char_fd:
 
 	push ecx
 
@@ -1887,16 +2147,16 @@ prim_read_char:
 	test eax, eax
 	pop  LAST_ARG		; get buffer (0 if no byte read)
 	pop  ecx
-	jne  prim_read_char_done
+	jne  prim_read_char_fd_done
     lea  LAST_ARG, [NIL]
     ret
-prim_read_char_done:
+prim_read_char_fd_done:
 	jmp  raw_int_to_scheme_int
 ;; )@@
 
 
-;; @@(feature ##write-char (use raw_int_to_scheme_int)
-prim_write_char:
+;; @@(feature ##write-char-fd (use raw_int_to_scheme_int)
+prim_write_char_fd:
 
 	push PREV_ARG
 	push ecx
@@ -1917,8 +2177,8 @@ prim_write_char:
 ;; )@@ 
 
 
-;; @@(feature (or ##close-input-port ##close-output-port)
-prim_close_port:
+;; @@(feature (or ##close-input-fd ##close-output-fd)
+prim_close_fd:
     shr  LAST_ARG, 1
     mov  ebx, SYS_CLOSE
     xchg eax, ebx
@@ -1992,6 +2252,8 @@ prim_welcome:
 ;; @@(replace "41,59,39,108,118,68,63,109,62,108,118,82,68,63,109,62,108,118,82,65,63,109,62,108,118,82,65,63,109,62,108,118,82,58,63,109,62,108,118,82,61,33,40,58,110,108,107,109,33,39,58,110,108,107,118,54,123" (encode-as-bytes 256 "" "," "")
 rvm_code:	db 41,59,39,108,118,68,63,109,62,108,118,82,68,63,109,62,108,118,82,65,63,109,62,108,118,82,65,63,109,62,108,118,82,58,63,109,62,108,118,82,61,33,40,58,110,108,107,109,33,39,58,110,108,107,118,54,123,0 ; RVM code that prints HELLO!
 ;; )@@
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -2456,6 +2718,18 @@ print_rib:
         mov  ebx, [esp+WORD_SIZE*7] ;; depth
         cmp  ebx, 0
         jz   print_rib_dot
+		lea  edx, [FALSE]
+		cmp  ecx, edx
+		je   print_97
+
+		lea  edx, [TRUE]
+		cmp  ecx, edx
+		je   print_98
+
+
+		lea  edx, [NIL]
+		cmp  ecx, edx
+		je   print_99
         test ecx, 0x1
         jz   print_rib_aux
         ; print_int
@@ -2464,7 +2738,18 @@ print_rib:
         call print_int
         
         jmp  print_rib_done
+print_97:
+		push dword 97
+		jmp print_979899
+print_98:
+		push dword 98
+		jmp print_979899
+print_99:
+		push dword 99
 
+print_979899:
+		call print_int
+		jmp print_rib_done
 print_rib_aux:
         sub ebx, 1
         mov eax, 0x5b ;; [

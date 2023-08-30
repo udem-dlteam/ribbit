@@ -18,7 +18,21 @@
   @...@  --- |____________________|
  (-----)
 ( >___< )
-^^ ~~~ ^^`), true),")))
+^^ ~~~ ^^`), true),"))
+
+  ((host py)
+   (define-primitive
+     (welcome-msg)
+     "lambda: push(print(''' 
+              ____________________
+             |                    |
+             | Welcome to Ribbit! |
+             |                    |
+    λ        | - Rib the Frog     |
+  @...@  --- |____________________|
+ (-----)
+( >___< )
+^^ ~~~ ^^''')),")))
 
 ;; Compiler from Ribbit Scheme to RVM code.
 

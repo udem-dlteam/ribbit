@@ -4,7 +4,6 @@
 input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"; 
 // )@@
 
-
 // @@(location decl)@@
 
 // @@(feature (or debug debug-trace)
@@ -20,9 +19,7 @@ lengthAttr = "length";
 isNode = process?.versions?.node != null;
 if (isNode) { // @@(feature (and js/node js/web))@@
 
-
-
-// @@(feature js/node
+// @@(feature (or js/node (not js/web))
 // Implement putchar/getchar to the terminal 
 
 fs = require("fs"); // @@(feature (or js/node/fs ##getchar ##putchar))@@
@@ -57,7 +54,7 @@ show_stack = () => {  //debug
     let s = stack;  //debug
     let r = [];  //debug
     while (!s[2]) { r[r[lengthAttr]]=s[0]; s=s[1]; }  //debug
-    console.log(require("util").inspect(r, {showHidden: false, depth: 2}).replace(/\n/g, "").replace(/  /g, " "));  //debug
+    console.log(require("util").inspect(r, {showHidden: false, depth: 2}).replace(/\\n/g, "").replace(/  /g, " "));  //debug
 }  //debug
 // )@@
 // )@@
@@ -464,7 +461,10 @@ host_call = () =>{
 
 
 
-is_rib = (x) => x[lengthAttr];
+is_rib = (x) => {
+    if (x === undefined) console.log(stack);
+    return x[lengthAttr];
+}
 
 get_opnd = (o) => is_rib(o) ? o : list_tail(stack,o);
 get_cont = () => { let s = stack; while (!s[2]) s = s[1]; return s; };

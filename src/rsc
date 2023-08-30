@@ -21,12 +21,12 @@
 #   $ python3 h.scm.py
 #   hello!
 
-ROOTDIR="`dirname $0`"
+ROOTDIR="$(dirname "$0")"
 
 TARGET="rvm"
 INPUT=""
 OUTPUT=""
-LIBRARY=""
+LIBRARIES=""
 MINIFY=""
 VERBOSITY=""
 COMPILER=""
@@ -35,186 +35,37 @@ LASTSOURCE=""
 
 usage()
 {
-  echo "usage: $0 [-t target] [-c compiler] [-o output] [-l lib] [-m] [file.scm ...]"
-  echo "where"
-  echo "  target defaults to rvm and is otherwise one of js, py, sh, c, ..."
-  echo "  compiler defaults to \$RSC_COMPILER which defaults to"
-  echo "    \"\$RSC_SCHEME_INTERPRETER $ROOTDIR/rsc.scm\" where"
-  echo "    \$RSC_SCHEME_INTERPRETER defaults to \"gsi\" (the Gambit interpreter)"
-  echo "  output defaults to last file.scm suffixed with .target"
-  echo "  lib defaults to max-tc (library with type checking)"
-  echo "  if there is no file.scm or it is -, the source code is read from stdin"
-  echo "examples:"
-  echo "  $0 -t js prog.scm   # generates prog.scm.js using Gambit interpreter"
-  echo "  RSC_SCHEME_INTERPRETER=guile $0 -t js prog.scm # same using Guile"
-  echo "  $0 -t js -l max rsc.scm    # generates rsc.scm.js"
-  echo "  $0 -t py -l max -c \"node rsc.scm.js\" rsc.scm  # generates rsc.scm.py using nodejs running rsc.scm.js"
-  echo "  RSC_COMPILER=\"node rsc.scm.js\" $0 -t py -l max rsc.scm # same with environment variable"
+    echo "usage: $0 [-t target] [-c compiler] [-o output] [-l lib] [-m] [file.scm ...]"
+    echo "where"
+    echo "  target defaults to rvm and is otherwise one of js, py, sh, c, ..."
+    echo "  compiler defaults to \$RSC_COMPILER which defaults to"
+    echo "    \"\$RSC_SCHEME_INTERPRETER $ROOTDIR/rsc.scm\" where"
+    echo "    \$RSC_SCHEME_INTERPRETER defaults to \"gsi -:r4rs\" (the Gambit interpreter in mode r4rs)"
+    echo "  output defaults to last file.scm suffixed with .target"
+    echo "  lib defaults to r4rs-tc (r4rs standard library with type checking)"
+    echo "  if there is no file.scm or it is -, the source code is read from stdin"
+    echo "examples:"
+    echo "  $0 -t js prog.scm   # generates prog.scm.js using Gambit interpreter"
+    echo "  RSC_SCHEME_INTERPRETER=guile $0 -t js prog.scm # same using Guile"
+    echo "  $0 -t js -l max rsc.scm    # generates rsc.scm.js"
+    echo "  $0 -t py -l max -c \"node rsc.scm.js\" rsc.scm  # generates rsc.scm.py using nodejs running rsc.scm.js"
+    echo "  RSC_COMPILER=\"node rsc.scm.js\" $0 -t py -l max rsc.scm # same with environment variable"
 }
 
-while [ "$#" != "0" ]; do
-  case "$1" in
-    -t|--target) # target
-      shift
-      TARGET="$1"
-      ;;
-    -i|--input) # input
-      shift
-      INPUT="$1"
-      ;;
-    -o|--output) # output
-      shift
-      OUTPUT="$1"
-      ;;
-    -l|--library) # library
-      shift
-      LIBRARY="$1" # "$LIBRARY${LIBRARY:+:}$1"
-      ;;
-    -m|--minify) # minify
-      MINIFY="minify"
-      ;;
-    -v|--v) # verbosity
-      VERBOSITY="v$VERBOSITY"
-      ;;
-    -vv|--vv) # verbosity
-      VERBOSITY="vv$VERBOSITY"
-      ;;
-    -vvv|--vvv) # verbosity
-      VERBOSITY="vvv$VERBOSITY"
-      ;;
-    -c|--compiler) # compiler
-      shift
-      COMPILER="$1"
-      ;;
-    -h|--help) # compiler
-      usage
-      exit 1
-      ;;
-    -) # stdin
-      LASTSOURCE="-"
-      SOURCES="-"
-      ;;
-    -*) # other options
-      echo "*** unknown option: $1"
-      exit 1
-      ;;
-    *)
-      LASTSOURCE="$1"
-      SOURCES="$SOURCES $LASTSOURCE"
-      if [ ! -e "$LASTSOURCE" ]; then
-        echo "*** file does not exist: $LASTSOURCE"
-        exit 1
-      fi
-      ;;
-  esac
-  shift
-done
-
-if [ "$LASTSOURCE" = "" ]; then
-  LASTSOURCE="-"
-  SOURCES="-"
-fi
-
-if [ "$LASTSOURCE" = "-" ]; then
-  OUTPUTBASE="./rsc-output"
-else
-  OUTPUTBASE="`dirname $LASTSOURCE`/`basename $LASTSOURCE .scm`"
-fi
-
-RVM="$OUTPUTBASE.rvm"
 
 if [ "$RSC_SCHEME_INTERPRETER" = "" ]; then
-  RSC_SCHEME_INTERPRETER="gsi"
+    RSC_SCHEME_INTERPRETER="gsi -:r4rs"
 fi
 
 if [ "$COMPILER" = "" ]; then
-  if [ "$RSC_COMPILER" = "" ]; then
-    COMPILER="$RSC_SCHEME_INTERPRETER $ROOTDIR/rsc.scm"
-  else
-    COMPILER="$RSC_COMPILER"
-  fi
-fi
-
-if [ "$LIBRARY" = "" ]; then
-  LIBRARY="$ROOTDIR/lib/max-tc.scm"
-else
-  LIBRARY="$ROOTDIR/lib/$LIBRARY.scm"
-fi
-
-if [ "$OUTPUT" = "" ]; then
-  if [ "$LASTSOURCE" = "-" ]; then
-    OUTPUTFILE="./rsc-output.$TARGET"
-  else
-    OUTPUTFILE="$LASTSOURCE.$TARGET"
-  fi
-else
-  OUTPUTFILE="$OUTPUT"
-fi
-
-
-if cat "$LIBRARY" $SOURCES | sed -e 's/^#!/;;#!/g' | $COMPILER > "$RVM.temp" ; then
-
-  if [ "$INPUT" = "" ]; then
-    mv "$RVM.temp" "$RVM"
-  else
-    if [ ! -e "$INPUT" ]; then
-      echo "*** file does not exist: $INPUT"
-      exit 1
-    fi
-    cat "$INPUT" "$RVM.temp" > "$RVM"
-    rm "$RVM.temp"
-  fi
-
-  if [ "$TARGET" = "rvm" ]; then
-
-    if [ "$RVM" != "$OUTPUTFILE" ]; then
-      mv "$RVM" "$OUTPUTFILE"
-    fi
-
-  else
-
-    SAMPLE_ARRAY="41 59 39 117 63 62 118 68 63 62 118 82 68 63 62 118 82 65 63 62 118 82 65 63 62 118 82 58 63 62 118 82 61 33 40 58 108 107 109 33 39 58 108 107 118 54 121"
-    SAMPLE_ARITY_CHECK=");'lvD?m>lvRD?m>lvRA?m>lvRA?m>lvR:?m>lvR=!(:nlkm!':nlkv6{"
-    SAMPLE_DEFAULT=");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"
-
-    if grep "$SAMPLE_ARRAY" "$ROOTDIR/host/$TARGET/rvm.$TARGET" > "$OUTPUTFILE.temp" ; then
-
-      set 0 `od -v -A n -t u1 "$RVM"`
-      shift
-      sed -e "s/$SAMPLE_ARRAY/$*/g" "$ROOTDIR/host/$TARGET/rvm.$TARGET" > "$OUTPUTFILE.temp"
-
+    if [ "$RSC_COMPILER" = "" ]; then
+        COMPILER="$RSC_SCHEME_INTERPRETER $ROOTDIR/rsc.scm"
     else
-
-      if grep "$SAMPLE_ARITY_CHECK" "$ROOTDIR/host/$TARGET/rvm.$TARGET" > "$OUTPUTFILE.temp" ; then
-        SAMPLE=$SAMPLE_ARITY_CHECK;
-      else
-        SAMPLE=$SAMPLE_DEFAULT;
-      fi
-
-      "$RSC_SCHEME_INTERPRETER" -e "(define B\"$SAMPLE\")(define D\"$ROOTDIR/host/$TARGET/rvm.$TARGET\")(define(A b c)(let((o(string-length b))(h(string-length c)))(let q((j 0)(d 0)(k(list)))(if(<(+ d h)o)(let x((i 0))(if(< i h)(if(char=?(string-ref b(+ d i))(string-ref c i))(x(+ i 1))(q j(+ d 1)k))(q(+ d h)(+ d h)(cons(substring b j d)k))))(reverse(cons(substring b j o)k))))))(define(z m c)(if(pair? m)(let((n(reverse m))(c(string->list c)))(let f((a(cdr n))(t(string->list(car n))))(if(pair? a)(f(cdr a)(append(string->list(car a))(append c t)))(list->string t))))(string)))(define C'((9 116)(10 110)(13 114)(34 34)(92 92)))(define(v b)(let f((a(reverse(string->list b)))(e(list)))(if(pair? a)(f(cdr a)(let*((g(char->integer(car a)))(s(assoc g C)))(if s(cons 92(cons(cadr s)e))(cons g e))))(list->string(map integer->char e)))))(define(r u)(let f((e(list)))(let((g(read-char u)))(if(char? g)(f(cons g e))(list->string(reverse e))))))(define(w y)(call-with-input-file y r))(define p(r(current-input-port)))(define l(A(w D)B))(display(if(null?(cdr l))(string-append(car l)p)(z l(v p))))" < "$RVM" > "$OUTPUTFILE.temp"
-
+        COMPILER="$RSC_COMPILER"
     fi
+fi
 
-    if [ "$MINIFY" = "" ]; then
-      mv "$OUTPUTFILE.temp" "$OUTPUTFILE"
-    else
-      cat "$OUTPUTFILE.temp" | "$ROOTDIR/host/$TARGET/minify" > "$OUTPUTFILE"
-      rm "$OUTPUTFILE.temp"
-    fi
-    rm "$RVM"
-
-  fi
-
-  if [ "$OUTPUT" = "" -a "$LASTSOURCE" = "-" ]; then
-    cat "$OUTPUTFILE"
-    rm "$OUTPUTFILE"
-  fi
-
-else
-
-  echo "*** compilation error:"
-  cat "$RVM.temp" # print errors
-  rm "$RVM.temp"
-  exit 1
-
+if ! $COMPILER "$@"; then
+    echo "*** compilation error"
+    exit 1
 fi

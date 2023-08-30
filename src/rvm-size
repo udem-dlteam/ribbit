@@ -1,4 +1,13 @@
-if ! gsi ./rsc.scm -t asm -l r4rs $@ -o repl-size.asm ./tests/r4rs/repl/repl.scm; then
+#!/bin/sh
+
+if [ "$1" = "full" ]; then
+    lib='r4rs/full-r4rs'
+    shift
+else 
+    lib='r4rs'
+fi
+
+if ! gsi ./rsc.scm -t asm -l "$lib" $@ -o repl-size.asm ./lib/r4rs/repl.scm; then
     echo "Error: Could not compile repl.scm"
     exit 1
 fi
@@ -12,26 +21,26 @@ case $1 in
     "-h") ls -lh ./repl-size.exe | awk '{print $5}' ;;
     *) ls -l ./repl-size.exe | awk '{print $5}' ;;
 esac
-echo -n "$(ls -l ./repl-size.exe | awk '{print $5}') " >> rvm-sizes.log
+echo "$(ls -l ./repl-size.exe | awk '{print $5}') " >> rvm-sizes.log
 
 rm ./repl-size.exe 
 rm ./repl-size.asm
 
-if ! gsi ./rsc.scm -t asm -e skip -l r4rs $@ -o repl-size.asm ./tests/r4rs/repl/repl.scm ; then
-    echo "Error: Could not compile repl.scm"
-    exit 1
-fi
-if ! nasm repl-size.asm -o repl-size.exe; then 
-    echo "Error: Could not assemble repl.asm"
-    exit 1
-fi
-
-case $1 in
-    "-h") ls -lh ./repl-size.exe | awk '{print $5}' ;;
-    *) ls -l ./repl-size.exe | awk '{print $5}' ;;
-esac
-
-ls -l ./repl-size.exe | awk '{print $5}' >> rvm-sizes.log
-
-rm ./repl-size.exe 
-rm ./repl-size.asm
+#if ! gsi ./rsc.scm -t asm -e skip -l r4rs $@ -o repl-size.asm ./lib/r4rs/repl.scm ; then
+#    echo "Error: Could not compile repl.scm"
+#    exit 1
+#fi
+#if ! nasm repl-size.asm -o repl-size.exe; then 
+#    echo "Error: Could not assemble repl.asm"
+#    exit 1
+#fi
+#
+#case $1 in
+#    "-h") ls -lh ./repl-size.exe | awk '{print $5}' ;;
+#    *) ls -l ./repl-size.exe | awk '{print $5}' ;;
+#esac
+#
+#ls -l ./repl-size.exe | awk '{print $5}' >> rvm-sizes.log
+#
+#rm ./repl-size.exe 
+#rm ./repl-size.asm

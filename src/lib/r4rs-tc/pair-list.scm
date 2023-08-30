@@ -102,14 +102,14 @@
 
 
 (define (list-ref lst i)
-  (##field0 (list-tail lst i)))
+  (##field0 (##ntc-list-tail lst i)))
 
 (define (list-set! lst i x)
   (##field0-set! (list-tail lst i) x))
 
 (define (list-tail lst i)
   (if (##< 0 i)
-      (list-tail (##field1 lst) (##- i 1))
+      (##ntc-list-tail (##field1 lst) (##- i 1))
       lst))
 
 (define-signatures

@@ -2,7 +2,6 @@
 (##include-once "./types.scm")
 (##include-once "./pair-list.scm")
 (##include-once "./io.scm")
-(##include-once "./error.scm")
 (##include-once "./control.scm")
 
 (cond-expand
@@ -18,7 +17,37 @@
   @...@  --- |____________________|
  (-----)
 ( >___< )
-^^ ~~~ ^^`), true),")))
+^^ ~~~ ^^`), true),"))
+
+  ((host py)
+   (define-primitive
+     (welcome-msg)
+     "lambda: push(print(''' 
+              ____________________
+             |                    |
+             | Welcome to Ribbit! |
+             |                    |
+    λ        | - Rib the Frog     |
+  @...@  --- |____________________|
+ (-----)
+( >___< )
+^^ ~~~ ^^''')),"))
+
+  ((host c)
+   (define-primitive
+     (welcome-msg)
+     "printf(\"\\
+              ____________________\\n\\
+             |                    |\\n\\
+             | Welcome to Ribbit! |\\n\\
+             |                    |\\n\\
+    λ        | - Rib the Frog     |\\n\\
+  @...@  --- |____________________|\\n\\
+ (-----)\\n\\
+( >___< )\\n\\
+^^ ~~~ ^^\\n\");
+   push2(NIL, PAIR_TAG);
+   break;")))
 
 ;; Compiler from Ribbit Scheme to RVM code.
 
@@ -79,7 +108,9 @@
                         (cadr expr)
                         (##rib if-op
                              (comp cte (caddr expr) cont)
-                             (comp cte (cadddr expr) cont))))
+                             (if (null? (cdddr expr))
+                               cont
+                               (comp cte (cadddr expr) cont)))))
 
                  ((##eqv? first 'lambda)
                   (let* ((params (cadr expr))
@@ -329,9 +360,11 @@
       (let ((cont (##field1 var-cont)))
         (let ((v (lookup var cte 0)))
           ;; should be unecessary because there shouldn't be any primitive called this way
+          ;; (display v)
+          ;; (newline)
           ;; (if-feature 
           ;;   prim-no-arity
-          ;;   (if (##rib? (##field0 (##field0 var))) 
+          ;;   (if (##rib? (##field0 (##field0 var)))
           ;;     (add-nb-args
           ;;       nb-args
           ;;       (gen-call (if (integer? v) (##+ 1 v) v) cont))
@@ -361,7 +394,8 @@
 (define (eval expr)
   ((make-procedure (##rib 0 0 (comp '() expr tail)) '())))
 
-(define (##repl-inner)
+
+(define (repl)
   (if-feature 
     (not quiet)
     (if-feature 
@@ -370,20 +404,13 @@
       (display "> ")))
   (let ((expr (read)))
     (if (eof-object? expr)
-      (newline)
+      (begin 
+        (newline)
+        (##exit 0))
       (begin
         (write (eval expr))
         (newline)
-        (##repl-inner)))))
-
-(define (repl)
-  (if-feature 
-    (and (not hide-frog) (not quiet))
-    (begin 
-      (welcome-msg)
-      (newline)))
-  (##repl-inner)
-  (##exit 0))
+        (repl)))))
 
 
 ;; ---------------------- LOAD ---------------------- ;;

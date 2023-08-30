@@ -1,0 +1,4 @@
+#!/bin/sh 
+
+nasm "$1" -o "$2"
+chmod +x "$2"

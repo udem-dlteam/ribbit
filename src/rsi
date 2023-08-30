@@ -1,0 +1,8 @@
+#!/bin/sh
+
+
+if [ "$RIBBIT_INTERPRETER" = "" ]; then 
+    RIBBIT_INTERPRETER="node ./rsi.js"
+fi
+
+$RIBBIT_INTERPRETER "$@"

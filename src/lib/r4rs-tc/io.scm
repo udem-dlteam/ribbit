@@ -33,10 +33,12 @@
      (##read-char fd)
      (use js/node/fs)
      "prim1(fd => {
-     let buf=Buffer.alloc(1); 
-     let ch=fs.readSync(fd, buf) === 0 ? NIL : buf[0]; 
-     return ch;
-     }),")
+       if (!fd && pos < input.length) return get_byte();
+       else {
+         let buf=Buffer.alloc(1); 
+         let ch=fs.readSync(fd, buf) === 0 ? NIL : buf[0]; 
+         return ch;
+       }}),")
 
    (define-primitive
      (##write-char ch fd)
@@ -47,6 +49,47 @@
      (##close-input-port fd)
      (use js/node/fs)
      "prim1(fd => fs.closeSync(fd)),")
+
+   (define-feature 
+     ##close-output-port
+     (use ##close-input-port)))
+
+  ((host py)
+
+   (define-primitive
+     (##stdin)
+     (use py/io) 
+     "lambda: push(sys.stdin),")
+
+   (define-primitive
+     (##stdout)
+     (use py/io) 
+     "lambda: push(sys.stdout),")
+
+   (define-primitive 
+     (##get-fd-input-file filename)
+     (use py/io scm2str)
+     "prim1(lambda filename: open(file, mode='r') if os.path.exists(file:=scm2str(filename)) else FALSE),")
+
+   (define-primitive
+     (##get-fd-output-file filename)
+     (use py/io scm2str)
+     "prim1(lambda filename: open(scm2str(filename), mode='w')),")
+
+   (define-primitive
+     (##read-char fd)
+     (use py/io)
+     "prim1(lambda fd: ord(ch) if (ch:=fd.read(1)) else NIL),")
+
+   (define-primitive
+     (##write-char ch fd)
+     (use py/io)
+     "prim2(lambda fd, ch: [fd.write(chr(ch)), fd.flush()][0]),")
+
+   (define-primitive
+     (##close-input-port fd)
+     (use py/io)
+     "prim1(lambda fd: fd.close()),")
 
    (define-feature 
      ##close-output-port
@@ -182,8 +225,7 @@
 
 (define ##eof (##rib 0 0 5))
 
-(define (eof-object? obj)
-  (##eqv? obj ##eof))
+(define-type eof-object (eof-object? (lambda (obj) (##eqv? obj ##eof)))) 
 
 (define stdin-port
   (##rib (##stdin) (##rib 0 '() #t) input-port-type)) ;; stdin
@@ -197,6 +239,14 @@
 (define (open-input-file filename)
   ;; (file_descriptor, (cursor, last_char, is_open), input_file_type)
   (##rib (##get-fd-input-file filename) (##rib 0 '() #t) input-port-type))
+
+(define-signature
+  open-input-file
+  ((filename 
+     guard: (and (string? filename) (file-exists? filename))
+     expected: "STRING representing an existing file")))
+
+
 
 (define (close-input-port port)
   (if (##field2 (##field1 port))
@@ -397,10 +447,31 @@
 (define (write-char ch (port (current-output-port)))
   (##write-char (##field0 ch) (##field0 port)))
 
+(define-signature 
+  write-char 
+  ((ch
+     guard: (char? ch)
+     expected: "CHARACTER")
+   (port 
+     default: (current-output-port)
+     guard: (output-port? port)
+     expected: "OUTPUT-PORT")))
+
+
+
 (define (newline (port (current-output-port)))
   (##write-char 10 (##field0 port)))  ;; #\newline
 
-(define (write o (port (current-output-port)))
+(define-signature 
+  newline 
+  ((port 
+     default: (current-output-port)
+     guard: (output-port? port)
+     expected: "OUTPUT-PORT")))
+
+
+
+(define (write o port)
   (let ((port-val (##field0 port)))
     (cond ((string? o)
            (##write-char 34 port-val)     ;; #\"
@@ -429,7 +500,7 @@
           (else
             (display o port)))))
 
-(define (display o (port (current-output-port)))
+(define (display o port)
   (let ((port-val (##field0 port)))
     (cond ((not o)
            (##write-char 35 port-val)     ;; #\#

@@ -1,23 +1,36 @@
+# @@(location import)@@
+
 # @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
 input=");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" # RVM code that prints HELLO!
 # )@@
 
+import numpy as np # @@(feature py/numpy)@@
+import os # @@(feature py/io)@@
+
+# @@(feature (or py/io ##getchar ##putchar)
 import sys
-
 stdo=sys.stdout
+# )@@
 
+
+# @@(feature ##putchar
 putchar=lambda c:[stdo.write(chr(c)),stdo.flush(),c][2]
+# )@@
 
+# @@(feature ##getchar
 def getchar():
  c=sys.stdin.read(1)
  push(ord(c) if len(c) else -1)
+# )@@
 
-debug = False                                                           # DEBUG
+
+debug = True   # @@(feature debug)@@
+debug = False  # @@(feature (not debug))@@
 tracing = False                                                         # DEBUG
 step_count = 0                                                          # DEBUG
 start_tracing = 0                                                       # DEBUG
 next_stamp = 0                                                          # DEBUG
-                                                                        # DEBUG
+# @@(feature debug 
 def show(obj):                                                          # DEBUG
  if not is_rib(obj): return str(obj)                                    # DEBUG
  type = obj[2]                                                          # DEBUG
@@ -93,6 +106,8 @@ def start_step():                                                       # DEBUG
  result += ")"                                                          # DEBUG
  print(result)                                                          # DEBUG
 
+# )@@ 
+
 pos=-1
 def get_byte():
  global pos
@@ -105,8 +120,11 @@ FALSE=[0,0,5]
 TRUE=[0,0,5]
 NIL=[0,0,5]
 
-to_bool=lambda x:TRUE if x else FALSE
-is_rib=lambda x:type(x) is list
+def bool2scm(x):
+    return TRUE if x else FALSE
+
+def is_rib(x):
+    return isinstance(x, list)
 
 stack=0
 
@@ -120,12 +138,38 @@ def pop():
  stack=stack[1]
  return x
 
-prim1=lambda f:lambda:push(f(pop()))
-prim2=lambda f:lambda:push(f(pop(),pop()))
-prim3=lambda f:lambda:push(f(pop(),pop(),pop()))
 
-def arg2():x = pop();pop();push(x)
-def close():push([pop()[0],stack,1])
+# @@(feature scm2list
+def scm2list(l):
+ return [l[0]] + scm2list(l[1]) if l is not NIL else []
+# )@@
+
+# @@(feature list_str2scm (use str2scm)
+def list_str2scm(l):
+ return [str2scm(l[0]),list_str2scm(l[1:]),0] if len(l) else NIL
+# )@@
+
+# @@(feature scm2str
+def scm2str(s):
+ def chars2str(c):
+  return (chr(c[0]) + chars2str(c[1])) if c is not NIL else "" 
+ return chars2str(s[0])
+# )@@
+
+# @@(feature str2scm
+def str2scm(s):
+ def chars2scm(c):
+  return [ord(c[0]),str2scm(c[1:]),0] if len(c) else NIL
+ return [chars2scm(s),len(s),3]
+# )@@
+
+def prim1(f):
+    return lambda: push(f(pop()))
+def prim2(f):
+    return lambda: push(f(pop(),pop()))
+def prim3(f):
+    return lambda: push(f(pop(),pop(),pop()))
+
 def f0s(y,x):x[0]=y;return y
 def f1s(y,x):x[1]=y;return y
 def f2s(y,x):x[2]=y;return y
@@ -133,27 +177,27 @@ def f2s(y,x):x[2]=y;return y
 
 primitives = [
  # @@(primitives (gen body)
- prim3(lambda z,y,x:[x,y,z]),                                            # @@(primitive (rib a b c))@@
- prim1(lambda x:x),                                                      # @@(primitive (id x))@@
- pop,                                                                    # @@(primitive (arg1 x y))@@
- arg2,                                                                   # @@(primitive (arg2 x y))@@
- close,                                                                  # @@(primitive (close rib))@@
- prim1(lambda x:to_bool(is_rib(x))),                                     # @@(primitive (rib? rib))@@
- prim1(lambda x:x[0]),                                                   # @@(primitive (field0 rib))@@
- prim1(lambda x:x[1]),                                                   # @@(primitive (field1 rib))@@
- prim1(lambda x:x[2]),                                                   # @@(primitive (field2 rib))@@
- prim2(f0s),                                                             # @@(primitive (field0-set! rib x))@@
- prim2(f1s),                                                             # @@(primitive (field1-set! rib x))@@
- prim2(f2s),                                                             # @@(primitive (field2-set! rib x))@@
- prim2(lambda y,x:to_bool(x is y if is_rib(x) or is_rib(y) else x==y)),  # @@(primitive (eqv? x y))@@
- prim2(lambda y,x:to_bool(x<y)),                                         # @@(primitive (< a b))@@
- prim2(lambda y,x:x+y),                                                  # @@(primitive (+ a b))@@
- prim2(lambda y,x:x-y),                                                  # @@(primitive (- a b))@@
- prim2(lambda y,x:x*y),                                                  # @@(primitive (* a b))@@
- prim2(lambda y,x:int(x/y)),                                             # @@(primitive (quotient a b))@@
- getchar,                                                                # @@(primitive (getchar))@@
- prim1(putchar),                                                         # @@(primitive (putchar c))@@
- prim1(exit),                                                            # @@(primitive (exit a))@@
+ prim3(lambda z,y,x:[x,y,z]),                                            # @@(primitive (##rib a b c))@@
+ prim1(lambda x:x),                                                      # @@(primitive (##id x))@@
+ lambda:(pop(),None)[1],                                                 # @@(primitive (##arg1 x y))@@
+ lambda:push([pop(),pop()][0]),                                          # @@(primitive (##arg2 x y))@@
+ lambda:push([pop()[0],stack,1]),                                        # @@(primitive (##close rib))@@
+ prim1(lambda x:bool2scm(is_rib(x))),                                    # @@(primitive (##rib? rib))@@
+ prim1(lambda x:x[0]),                                                   # @@(primitive (##field0 rib))@@
+ prim1(lambda x:x[1]),                                                   # @@(primitive (##field1 rib))@@
+ prim1(lambda x:x[2]),                                                   # @@(primitive (##field2 rib))@@
+ prim2(f0s),                                                             # @@(primitive (##field0-set! rib x))@@
+ prim2(f1s),                                                             # @@(primitive (##field1-set! rib x))@@
+ prim2(f2s),                                                             # @@(primitive (##field2-set! rib x))@@
+ prim2(lambda y,x:bool2scm(x is y if is_rib(x) or is_rib(y) else x==y)), # @@(primitive (##eqv? x y))@@
+ prim2(lambda y,x:bool2scm(x<y)),                                        # @@(primitive (##< a b))@@
+ prim2(lambda y,x:x+y),                                                  # @@(primitive (##+ a b))@@
+ prim2(lambda y,x:x-y),                                                  # @@(primitive (##- a b))@@
+ prim2(lambda y,x:x*y),                                                  # @@(primitive (##* a b))@@
+ prim2(lambda y,x:int(x/y)),                                             # @@(primitive (##quotient a b))@@
+ getchar,                                                                # @@(primitive (##getchar))@@
+ prim1(putchar),                                                         # @@(primitive (##putchar c))@@
+ prim1(exit),                                                            # @@(primitive (##exit a))@@
  # )@@
 ]
 
@@ -240,62 +284,67 @@ while 1:
  if i<1: # jump/call
   if tracing: print(("call " if is_rib(pc[2]) else "jump ") + show(o)) # DEBUG
   o=get_opnd(o)[0]
-  # @@(feature arity-check
-  nargs=pop();
-  # )@@
-  c=o[0]
-  if is_rib(c):
-   c2=[0,o,0]
-   s2=c2
-   nparams=c[0]>>1
-   # @@(feature arity-check 
-   if nparams > nargs if c[0]&1 else nparams != nargs:
-    print("*** Unexpected number of arguments nargs:", nargs, "nparams", nparams, "variadics:", c[0]&1);
-    exit(1)
-   # )@@
-   # @@(feature rest-param (use arity-check)
-   nargs-=nparams
-   if c[0]&1: 
-    rest=NIL
-    while nargs:
-     rest=[pop(), rest, 0]
-     nargs-=1
-     
-    s2=[rest,s2,0]
-   # )@@
+  while 1:
+   c=o[0]
+   if is_rib(c):
+    nargs=pop(); # @@(feature arity-check)@@
+    c2=[0,o,0]
+    s2=c2
+    nparams=c[0]>>1
+    # @@(feature arity-check 
+    if nparams > nargs if c[0]&1 else nparams != nargs:
+     print("*** Unexpected number of arguments nargs:", nargs, "nparams", nparams, "variadics:", c[0]&1);
+     exit(1)
+    # )@@
+    # @@(feature rest-param (use arity-check)
+    nargs-=nparams
+    if c[0]&1: 
+     rest=NIL
+     while nargs:
+      rest=[pop(), rest, 0]
+      nargs-=1
+      
+     s2=[rest,s2,0]
+    # )@@
 
-   while nparams:s2=[pop(),s2,0];nparams-=1
-   if is_rib(pc[2]): # call
-    c2[0]=stack
-    c2[2]=pc[2]
-   else: # jump
-    k=get_cont()
-    c2[0]=k[0]
-    c2[2]=k[2]
-   stack=s2
-  else:
-   primitives[c]()
-   if is_rib(pc[2]): # call
-    c=pc
-   else: # jump
-    c=get_cont()
-    stack[1]=c[0]
-  pc=c[2]
+    while nparams:
+     s2=[pop(),s2,0]
+     nparams-=1
+
+    if pc[2]: # call
+     c2[0]=stack
+     c2[2]=pc[2]
+    else: # jump
+     k=get_cont()
+     c2[0]=k[0]
+     c2[2]=k[2]
+    stack=s2
+   else:
+    pop(); # @@(feature (and arity-check (not prim-no-arity)))@@
+    o=primitives[c]()
+    if is_rib(o): continue
+    if pc[2]: # call
+     c=pc
+    else: # jump
+     c=get_cont()
+     stack[1]=c[0]
+   pc=c
+   break
  elif i<2: # set
   if tracing: print("set " + show(o)) # DEBUG
   get_opnd(o)[0]=stack[0]; stack = stack[1]
-  pc=pc[2]
  elif i<3: # get
   if tracing: print("get " + show(o)) # DEBUG
   push(get_opnd(o)[0])
-  pc=pc[2]
  elif i<4: # const
   if tracing: print("const " + show(o)) # DEBUG
   push(o)
-  pc=pc[2]
  elif i<5: # if
   if tracing: print("if") # DEBUG
-  pc=pc[2 if pop()is FALSE else 1]
+  if pop() is not FALSE:
+   pc=pc[1]
+   continue
  else: # halt
   if tracing: print("halt") # DEBUG
   break
+ pc = pc[2]

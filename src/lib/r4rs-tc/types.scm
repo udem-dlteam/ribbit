@@ -1,16 +1,63 @@
 (##include-once "./bool.scm")
 
-(define pair-type      0)
-(define procedure-type 1)
-(define symbol-type    2)
-(define string-type    3)
-(define vector-type    4)
-(define singleton-type 5)
-(define char-type      6)
+;; (define pair-type      0)
+;; (define procedure-type 1)
+;; (define symbol-type    2)
+;; (define string-type    3)
+;; (define vector-type    4)
+;; (define singleton-type 5)
+;; (define char-type      6)
 
-(define input-port-type 8)
-(define output-port-type 9)
+;; (define input-port-type 8)
+;; (define output-port-type 9)
 
+;; (define pair? (instance? pair-type))
+;; (define symbol? (instance? symbol-type))
+;; (define string? (instance? string-type))
+;; (define vector? (instance? vector-type))
+;; (define procedure? (instance? procedure-type))
+;; (define char? (instance? char-type))
+;; (define (boolean? o1) (or (##eqv? o1 #t) (##eqv? o1 #f)))
+;; (define input-port? (instance? input-port-type))
+;; (define output-port? (instance? output-port-type))
+
+(define data-types '())
+
+(define op-types
+  '((0 jump/call)
+    (1 set)
+    (2 get)
+    (3 const)
+    (4 if)))
+
+
+(define ##type-id 0)
+
+(define (instance? type) (lambda (o) (and (##rib? o) (##eqv? (##field2 o) type))))
+
+(define-macro 
+  (define-type name . args)
+  (let* ((type-name (string->symbol (string-append (symbol->string name) "-type")))
+         (pred-name (string->symbol (string-append (symbol->string name) "?")))
+         (pred (cond ((assq pred-name args) => cadr) (else `(instance? ,type-name)))))
+    `(begin 
+       (define ,type-name ##type-id)
+       (set! ##type-id (##+ 1 ##type-id))
+       (set! data-types (##rib (##rib ,type-name (##rib ',name '() pair-type) pair-type) data-types pair-type))
+       (define ,pred-name ,pred))))
+
+(define-type pair)
+(define-type procedure)
+(define-type symbol)
+(define-type string)
+(define-type vector)
+(define-type singleton)
+(define-type char)
+(define-type foreign)
+(define-type input-port)
+(define-type output-port)
+  
+(define (boolean? o) (lambda (o) (or (##eqv? o1 #t) (##eqv? o1 #f))))
 
 (define (type-of o)
   (cond 
@@ -28,20 +75,6 @@
     (else 'unknown)))
 
 
-(define (instance? type) (lambda (o) (and (##rib? o) (##eqv? (##field2 o) type))))
-
-(define pair? (instance? pair-type))
-(define symbol? (instance? symbol-type))
-(define string? (instance? string-type))
-(define vector? (instance? vector-type))
-(define procedure? (instance? procedure-type))
-(define char? (instance? char-type))
-(define (boolean? o1) (or (##eqv? o1 #t) (##eqv? o1 #f)))
-
-(define input-port? (instance? input-port-type))
-(define output-port? (instance? output-port-type))
-  
-
 (define (eqv? o1 o2)
   (if (and (char? o1) (char? o2)) 
     (##eqv? (##field0 o1) (##field0 o2))
@@ -53,7 +86,7 @@
 (define (null? obj) (##eqv? obj '()))
 
 (define (integer? obj) (not (##rib? obj)))
-(define number? integer?)
+(define (number? obj) (not (##rib? obj)))
 (define rational? integer?)
 (define real? rational?)
 (define complex? real?)

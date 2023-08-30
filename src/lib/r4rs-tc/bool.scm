@@ -1,6 +1,7 @@
 ; Booleans && Equality (R4RS sections 6.1 and 6.2).
 
 (define (not obj) (eqv? obj #f))
+(define (notnot obj) (not (not obj)))
 
 ;; ---------------------- EQUALITY ---------------------- ;;
 
