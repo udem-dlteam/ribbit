@@ -978,6 +978,7 @@
 
                  ((eqv? first 'define-primitive)
                   (let* ((name (caadr expr)))
+                    (pp (list 'define-primitive name (host-config-feature-live? host-config name)))
                     (if (host-config-feature-live? host-config name)
                       (let ((index (host-config-add-primitive! host-config name expr)))
                         (if (memq name forced-first-primitives)
@@ -1098,9 +1099,10 @@
 (define (arity-check? ctx name)
   (and (memq 'arity-check (ctx-live-features ctx))
        (not (and
-              (memq 'prim-no-arity (ctx-live-features ctx))
-              (memq name (host-config-primitives host-config))))))
+             (memq 'prim-no-arity (ctx-live-features ctx))
+             (memq name (host-config-primitives host-config))))))
 
+#;
 (define (is-call? ctx name cont)
   (let* ((arity-check (arity-check? ctx name))
          (call-rib 
@@ -1119,6 +1121,17 @@
            (not (rib? (c-rib-opnd cont)))) ;; push a number
       call-rib-ok?)))
 
+(define (is-call? ctx name cont)
+;;  (let ((xxx
+  (and (rib? cont)
+       (if (arity-check? ctx name)
+           (and (eqv? (c-rib-oper cont) const-op)
+                (rib? (c-rib-next cont))
+                (eqv? (c-rib-oper (c-rib-next cont)) jump/call-op)
+                (eqv? (c-rib-opnd (c-rib-next cont)) name))
+           (and (eqv? (c-rib-oper cont) jump/call-op)
+                (eqv? (c-rib-opnd cont) name)))))
+;;) (pp (list xxx (arity-check? ctx name)(eqv? (c-rib-oper cont) jump/call-op) (eqv? (c-rib-opnd cont) name)cont)) xxx))
 
 (define (gen-noop ctx cont)
   (if (is-call? ctx '##arg1 cont)
@@ -1253,7 +1266,7 @@
 (define (host-feature->expansion-feature host-features)
   (map (lambda (x)
          (cond 
-           ((eqv? (car x) 'primitive)
+          ((eqv? (car x) 'primitive)
             `(define-primitive ,@(cdr x)))
            ((eqv? (car x) 'feature)
             `(define-feature ,@(cdr x)))
@@ -2386,7 +2399,7 @@
                       tail)))
           ((char? o)
            (if (and (host-config-features host-config) 
-                    (memq 'arity-check (host-config-features host-config)))
+                    (memq 'chars (host-config-features host-config)))
              (c-rib const-op
                     (char->integer o)
                     (c-rib const-op
@@ -2399,7 +2412,9 @@
                                     (c-rib jump/call-op
                                            '##rib
                                            tail)))))
-             (error "Feature 'chars' must be activated to use them" o)))
+             (c-rib const-op
+                    (char->integer o)
+                    tail)))
           ((pair? o)
            (build-constant (car o)
                            (build-constant (cdr o)
@@ -2491,7 +2506,6 @@
   (define (add-init-code proc)
     (let* ((code (c-rib-oper proc))
            (new-code (add-init-primitives (add-init-constants (c-rib-next code)))))
-             
       (c-rib (c-rib
                (c-rib-oper code)
                (c-rib-opnd code)

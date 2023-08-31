@@ -1,13 +1,13 @@
 // @@(location import)@@
 
 // @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
-input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"; 
+input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y";
 // )@@
 
 // @@(location decl)@@
 
 // @@(feature (or debug debug-trace)
-debug = true; 
+debug = true;
 // )@@
 // @@(feature (and (not debug) (not debug-trace))
 debug = false;
@@ -20,35 +20,35 @@ isNode = process?.versions?.node != null;
 if (isNode) { // @@(feature (and js/node js/web))@@
 
 // @@(feature (or js/node (not js/web))
-// Implement putchar/getchar to the terminal 
+// Implement putchar/getchar to the terminal
 
 fs = require("fs"); // @@(feature (or js/node/fs ##getchar ##putchar))@@
 
-putchar = (c) => { 
-    let buffer = Buffer.alloc(1); 
-    buffer[0] = c; 
-    fs.writeSync(1, buffer, 0, 1); 
-    return c; 
-}; 
+putchar = (c) => {
+    let buffer = Buffer.alloc(1);
+    buffer[0] = c;
+    fs.writeSync(1, buffer, 0, 1);
+    return c;
+};
 
-getchar_sync = () => { 
-    let buffer = Buffer.alloc(1); 
-    if (fs.readSync(0, buffer, 0, 1)) 
-        return buffer[0]; 
-    return -1; 
-}; 
+getchar_sync = () => {
+    let buffer = Buffer.alloc(1);
+    if (fs.readSync(0, buffer, 0, 1))
+        return buffer[0];
+    return -1;
+};
 
-getchar = () => { 
-    push(pos<input[lengthAttr] ? get_byte() : getchar_sync()); 
-    return true; // indicate that no further waiting is necessary 
-}; 
+getchar = () => {
+    push(pos<input[lengthAttr] ? get_byte() : getchar_sync());
+    return true; // indicate that no further waiting is necessary
+};
 
 sym2str = (s) => chars2str(s[1][0]);  //debug
 chars2str = (s) => (s===NIL) ? "" : (String.fromCharCode(s[0])+chars2str(s[1]));  //debug
 
 // @@(feature (or debug debug-trace error-msg) (use sym2str chars2str)
-show_opnd = (o) => is_rib(o) && o[2] === 2 ? ("sym " + sym2str(o)) : 
-    is_rib(o) && o[2] === 1 ? ("proc " + (!is_rib(o[0]) ? sym2str(symbol_ref(o[0])) : "")) 
+show_opnd = (o) => is_rib(o) && o[2] === 2 ? ("sym " + sym2str(o)) :
+    is_rib(o) && o[2] === 1 ? ("proc " + (!is_rib(o[0]) ? sym2str(symbol_ref_debug(o[0])) : ""))
     : ("int " + o);  //debug
 show_stack = () => {  //debug
     let s = stack;  //debug
@@ -101,7 +101,7 @@ getchar = () => pos<input[lengthAttr] && push(get_byte());
 
 // @@(feature (or error-msg debug) (use scm2str)
 halt = () => {
-  const error_code = pop(); 
+  const error_code = pop();
 	const error_msg = new Error(error_code !== undefined && is_rib(error_code) && error_code[2] === 3 ? scm2str(error_code) : `Exit with code: ${error_code}`);
 	throw error_msg;
 }
@@ -128,8 +128,8 @@ while(pos<input[lengthAttr]){
             continue;
         }
         l=get_int(0)
-        while(l--){ 
-            inp+=inp[inp[lengthAttr]-p] 
+        while(l--){
+            inp+=inp[inp[lengthAttr]-p]
         }
     }
     else{
@@ -162,6 +162,9 @@ while (1) {
 symtbl = [[0,[accum,n,3],2],symtbl,0];
 
 symbol_ref = (n) => list_tail(symtbl,n)[0]
+// @@(feature (or debug debug-trace error-msg) (use sym2str chars2str)
+symbol_ref_debug = (n) => list_tail(symtbl_debug,n)[0]
+// )@@
 list_tail = (x,i) => i ? list_tail(x[1],i-1) : x;
 inst_tail = (x,i) => i ? inst_tail(x[2],i-1) : x;
 
@@ -190,7 +193,7 @@ while (1) {
     if (5<op){
         //console.log("SKIP ", n)
         //show_stack()
-        stack = [inst_tail(stack[0], n), stack, 0]; 
+        stack = [inst_tail(stack[0], n), stack, 0];
         continue;
     } // skip instruction
     if (4<op) {
@@ -214,7 +217,7 @@ while(1){
     x = get_code();
     n=x
     op=-1;
-    
+
     while((d=[0,1,2][++op])<=n) n-=d // @@(replace "[0,1,2]" (list->host encoding/optimal/start "[" "," "]"))@@
 
     if (op<4) stack = [0,stack,0];
@@ -231,7 +234,7 @@ while(1){
         if(!stack) break;
     }
     else if(op<24){ // skip
-        stack = [inst_tail(stack[0], n), stack, 0]; 
+        stack = [inst_tail(stack[0], n), stack, 0];
         continue;
     }
     else if(op<25){ // if
@@ -272,6 +275,10 @@ while (1) {
 }
 // )@@
 
+// @@(feature (or debug debug-trace error-msg) (use sym2str chars2str)
+symtbl_debug = symtbl
+// )@@
+
 set_global = (x) => { symtbl[0][0] = x; symtbl = symtbl[1]; };
 
 set_global([0,symtbl,1]); // primitive 0
@@ -292,7 +299,7 @@ push = (x) => ((stack = [x,stack,0]), true);
 // @@(feature error-msg
 push = (x) => {
     if (x === undefined) {
-        console.log(stack); 
+        console.log(stack);
         throw "undefined pushed to stack";
     }
     stack = [x,stack,0];
@@ -333,14 +340,14 @@ function2scm = (f) => {
   let rib = [[0, 0, 1], [NIL, 0, 3], 2]
   if (host_call == -1 || id == -1){
     console.log("ERROR : you must define host-call as a primitive to convert a function to a rib")
-    return 
+    return
   }
 
   let code = [3, foreign(f),  // push(foreign(f))
               [2, 1, // inverse arguments
                [0, host_call,  // call host_call primitive
                 [0, arg2, // discard argument on stack
-                 [0, id, 0]]]]] // return 
+                 [0, id, 0]]]]] // return
   let i = f.length // number of args
   while(i--){
     code = [3, 0,  // push 0
@@ -438,7 +445,7 @@ scm2symbol = (r) => {
 // @@(feature scm2host (use scm2str scm2list scm2bool scm2bool scm2function scm2symbol)
 scm2host = (r) => {
   if (typeof r === "number")
-    return r 
+    return r
   let tag = r[2]
   return [scm2list, scm2function, scm2symbol, scm2str, scm2list, scm2bool][tag](r);
 }
@@ -455,7 +462,7 @@ host_call = () =>{
   args = pop()
   f = pop()[1]
   return push(host2scm(f(...scm2list(args))))
-} 
+}
 // )@@
 
 
@@ -531,7 +538,7 @@ run = () => {
                 }
                 // )@@
 
-                let nparams = c[0] >> 1; 
+                let nparams = c[0] >> 1;
                 // @@(feature arity-check
                 if (c[0] & 1 ? nparams > nargs : nparams != nargs){
                     console.log("*** Unexpected number of arguments nargs:", nargs, " nparams:", nparams, "variadics:", c[0]&1);
@@ -543,7 +550,7 @@ run = () => {
                 nargs-=nparams;
                 if (c[0]&1) {
                     let rest=NIL;
-                    while(nargs--) 
+                    while(nargs--)
                         rest=[pop(), rest, 0];
                     s2=[rest,s2,0]
                 }
