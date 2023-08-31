@@ -741,7 +741,11 @@
 
 (define (host-config-is-primitive? host-config name)
   (or (memq name forced-first-primitives)
-      (assq name (host-config-primitives host-config))))
+      ;; FIXME this code assumes that primitives are features
+      (host-config-feature-live? host-config name)
+      #;(assoc name (host-config-primitives host-config))
+      
+      ))
 
 
 (define (host-ctx-get-primitive-index host-ctx prim)
@@ -1076,8 +1080,7 @@
                                                      ctx 
                                                      (length args)
                                                      (gen-call 
-                                                       (if (and (number? v)
-                                                                (not (arity-check? ctx first)))
+                                                       (if (number? v)
                                                          (+ v 1)
                                                          v)
                                                        cont))))))
