@@ -674,10 +674,11 @@
 
 ;; ====== Host language context ======
 
-;; these primitives are "forced first" meaning that they must exist before any other code is executed. This is because the 
-;;   compiler uses them when generating constants. It's a hack.
+;; these primitives are "forced first" meaning that they must exist before any
+;;     other code is executed. This is because the compiler uses them when
+;;     generating code. It's a hack.
 
-(define forced-first-primitives (list '##rib '##-)) 
+(define forced-first-primitives (list '##rib '##- '##arg1))
 
 (define (make-host-config live-features primitives feature-locations)
   (rib live-features (cons '(##rib 0) primitives) feature-locations))
@@ -737,6 +738,10 @@
   (if (host-config-feature-live? host-config feature)
     (error "Feature already defined" feature)
     (host-config-features-set! host-config (cons (if (eqv? value #t) feature (cons feature value)) (host-config-features host-config)))))
+
+(define (host-config-is-primitive? host-config name)
+  (or (memq name forced-first-primitives)
+      (assoc name (host-config-primitives host-config))))
 
 
 (define (host-ctx-get-primitive-index host-ctx prim)
@@ -1100,7 +1105,7 @@
   (and (memq 'arity-check (ctx-live-features ctx))
        (not (and
              (memq 'prim-no-arity (ctx-live-features ctx))
-             (memq name (host-config-primitives host-config))))))
+             (host-config-is-primitive? host-config name)))))
 
 #;
 (define (is-call? ctx name cont)
