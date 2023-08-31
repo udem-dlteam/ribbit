@@ -2717,7 +2717,7 @@
     (define (recalculate)
       (for-each
         (lambda (encoding)
-          (if (and (pair? encoding) (table-ref (table-ref stats (car encoding)) (cadr encoding) #f)) ;; FIXME: this check is needed because the instruction might be missing
+          (if (and (pair? encoding) (table-ref stats (car encoding) #f) (table-ref (table-ref stats (car encoding)) (cadr encoding) #f)) ;; FIXME: this check is needed because the instruction might be missing
             (table-set! 
               running-sums 
               encoding 
@@ -3628,7 +3628,6 @@
 
       (if (and compression/2b? (eqv? max-encoding-size 256))
         (p/comp-2b))
-
 
       stream)))
 

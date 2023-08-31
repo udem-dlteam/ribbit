@@ -101,7 +101,7 @@ getchar = () => pos<input[lengthAttr] && push(get_byte());
 
 // @@(feature (or error-msg debug) (use scm2str)
 halt = () => {
-    const error_code = pop(); 
+  const error_code = pop(); 
 	const error_msg = new Error(error_code !== undefined && is_rib(error_code) && error_code[2] === 3 ? scm2str(error_code) : `Exit with code: ${error_code}`);
 	throw error_msg;
 }
