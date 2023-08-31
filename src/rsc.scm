@@ -741,7 +741,7 @@
 
 (define (host-config-is-primitive? host-config name)
   (or (memq name forced-first-primitives)
-      (assoc name (host-config-primitives host-config))))
+      (assq name (host-config-primitives host-config))))
 
 
 (define (host-ctx-get-primitive-index host-ctx prim)
@@ -983,7 +983,7 @@
 
                  ((eqv? first 'define-primitive)
                   (let* ((name (caadr expr)))
-                    (pp (list 'define-primitive name (host-config-feature-live? host-config name)))
+                    #;(pp (list 'define-primitive name (host-config-feature-live? host-config name)))
                     (if (host-config-feature-live? host-config name)
                       (let ((index (host-config-add-primitive! host-config name expr)))
                         (if (memq name forced-first-primitives)
@@ -1072,7 +1072,7 @@
                                     args
                                     (lambda (ctx)
                                       (let ((v (lookup first (ctx-cte ctx) 0)))
-                                        (add-nb-args (arity-check? ctx first)
+                                        (add-nb-args (not (arity-check? ctx first)
                                                      ctx 
                                                      (length args)
                                                      (gen-call 
@@ -1102,6 +1102,10 @@
   (c-rib set-op v (gen-noop ctx cont)))
 
 (define (arity-check? ctx name)
+  #;(pp (list name (and (memq 'arity-check (ctx-live-features ctx))
+       (not (and
+             (memq 'prim-no-arity (ctx-live-features ctx))
+             (host-config-is-primitive? host-config name))))))
   (and (memq 'arity-check (ctx-live-features ctx))
        (not (and
              (memq 'prim-no-arity (ctx-live-features ctx))
@@ -1164,12 +1168,14 @@
                   body
                   cont)))
 
+
 (define (add-nb-args prim? ctx nb-args tail)
-  (if (and (memq 'arity-check (ctx-live-features ctx))
-           (not (and prim? (memq 'prim-no-arity (ctx-live-features ctx)))))
-    (c-rib const-op
-         nb-args
-         tail)
+  (if (memq 'arity-check (ctx-live-features ctx))
+    (if (and prim? (memq 'prim-no-arity (ctx-live-features ctx)))
+      tail
+      (c-rib const-op
+        nb-args
+        tail))
     tail))
 
 (define (gen-unbind ctx cont)
