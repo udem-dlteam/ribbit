@@ -1072,12 +1072,12 @@
                                     args
                                     (lambda (ctx)
                                       (let ((v (lookup first (ctx-cte ctx) 0)))
-                                        (add-nb-args (not (arity-check? ctx first)
+                                        (add-nb-args (not (arity-check? ctx first))
                                                      ctx 
                                                      (length args)
                                                      (gen-call 
                                                        (if (and (number? v)
-                                                                (arity-check? ctx first))
+                                                                (not (arity-check? ctx first)))
                                                          (+ v 1)
                                                          v)
                                                        cont))))))
