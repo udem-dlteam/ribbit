@@ -21,6 +21,7 @@
     (##quotient 1 x)    ;; 1/x
     (##fold quotient x y)))
 
+
 (define (quotient x y) (##quotient x y))
 
 (define (exact? obj) #t)

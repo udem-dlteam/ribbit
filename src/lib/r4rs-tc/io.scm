@@ -709,6 +709,13 @@
   (newline)
   (##exit 1))
 
+(define (type-error origin type-expected arg)
+  (let ((port (current-output-port)))
+    (write-chars (##field0 "In ") '() port)
+    (write-chars (##field0 origin) '() port)
+    (write-chars (##field0 ":") '() port)
+    (##exit 1)))
+
 (define (crash)
   (error "(._.')"))
 

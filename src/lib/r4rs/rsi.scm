@@ -4,7 +4,6 @@
 
 (define args (cmd-line))
 
-(pp "hello")
 (define src-path #f)
 (define go-in-repl #f)
 (define eval-expr #f)

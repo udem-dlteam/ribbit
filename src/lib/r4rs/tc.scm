@@ -8,7 +8,11 @@
       (begin
         (##ntc-display (##field0 msgs))
         (loop (##field1 msgs)))
-      )))
+      (if-feature
+        (not die)
+        (begin 
+          (newline)
+          (repl))))))
 
 (define ##dont-type-check-typechecking #f)
 
@@ -140,7 +144,7 @@
 (define-signature 
   number->string 
   ((x
-     guard: (number? x)
+     guard: (integer? x)
      expected: "NUMBER")
    (radix 
      default: 10
@@ -178,11 +182,16 @@
      guard: (if (null? lst) #t (pair? lst))
      expected: "LIST")))
 
+(define (shallow-list? l)
+  (if (null? l)
+    #t
+    (pair? l)))
+
 (define-signature 
   append
   ((lst 
      rest-param:
-     guard: (if (null? lst) #t (all pair? (##field1 (##ntc-reverse lst))))
+     guard: (or (null? lst) (all shallow-list? (##field1 (##ntc-reverse lst))))
      expected: "All LISTs except the last arg")))
 
 (define-signature
@@ -214,74 +223,74 @@
   (+ *)
   ((args
      rest-param:
-     guard: (all number? args)
+     guard: (all integer? args)
      expected: "NUMBERs")))
 
 (define-signatures
   (- /)
   ((x
-     guard: (number? x)
+     guard: (integer? x)
      expected: "NUMBER")
    (y
      rest-param:
-     guard: (all number? y)
+     guard: (all integer? y)
      expected: "NUMBERs")))
 
 (define-signature 
   quotient 
   ((x
-     guard: (number? x)
+     guard: (integer? x)
      expected: "NUMBER")
    (y
-     guard: (number? y)
+     guard: (integer? y)
      expected: "NUMBER")))
 
 (define-signatures
   (= < > <= >=)
   ((x
-     guard: (number? x)
+     guard: (integer? x)
      expected: "NUMBER")
    (rest
      rest-param:
-     guard: (all number? rest)
+     guard: (all integer? rest)
      expected: "NUMBERs")))
 
 (define-signatures
   (zero? positive? negative? even? odd? exact? inexact?)
   ((x
-     guard: (number? x)
+     guard: (integer? x)
      expected: "NUMBER")))
 
 (define-signatures
   (max min)
   ((x
-     guard: (number? x)
+     guard: (integer? x)
      expected: "NUMBER")
    (rest
      rest-param:
-     guard: (all number? rest)
+     guard: (all integer? rest)
      expected: "NUMBERs")))
 
 (define-signature
   abs
   ((x
-     guard: (number? x)
+     guard: (integer? x)
      expected: "NUMBER")))
 
 (define-signatures
   (remainder modulo)
   ((x
-     guard: (number? x)
+     guard: (integer? x)
      expected: "NUMBER")
    (y
-     guard: (number? y)
+     guard: (integer? y)
      expected: "NUMBER")))
 
 (define-signatures
   (lcm gcd)
   ((args
      rest-param:
-     guard: (all number? args)
+     guard: (all integer? args)
      expected: "NUMBERs")))
 
 ;; ########## Vectors (R4RS section 6.8) ########## ;; 
@@ -485,8 +494,8 @@
 
 (define-signature
   apply
-  ((f 
-     guard: (and (procedure? proc) (##can-call? f (length args)))
+  ((f
+     guard: (and (procedure? f) (##can-call? f (length args)))
      expected: (let ((params (##params f)))
                  (##ntc-string-append "PROCEDURE called with " 
                                 (##ntc-number->string (##ntc-length args)) " and taking " 
@@ -506,7 +515,7 @@
 
    (lsts 
      rest-param:
-     guard: (or (null? lsts) (all pair? lsts))
+     guard: (or (all null? lsts) (all pair? lsts))
      expected: "LISTs with the same length")))
 
 
