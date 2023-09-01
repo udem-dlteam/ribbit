@@ -2413,7 +2413,10 @@
                       tail)))
           ((char? o)
            (if (and (host-config-features host-config) 
-                    (memq 'chars (host-config-features host-config)))
+                    (memq 'no-chars (host-config-features host-config)))
+             (c-rib const-op
+                    (char->integer o)
+                    tail)
              (c-rib const-op
                     (char->integer o)
                     (c-rib const-op
@@ -2425,10 +2428,7 @@
                                     3
                                     (c-rib jump/call-op
                                            '##rib
-                                           tail)))))
-             (c-rib const-op
-                    (char->integer o)
-                    tail)))
+                                           tail)))))))
           ((pair? o)
            (build-constant (car o)
                            (build-constant (cdr o)
