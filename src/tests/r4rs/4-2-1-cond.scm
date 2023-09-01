@@ -7,7 +7,12 @@
                (else 'equal)))
 (newline)
 
+(display (cond ((assv 'b '((a 1) (b 2))) => cadr)
+               (else #f)))
+(newline)
+
 ;;;options: -l r4rs
 ;;;expected:
 ;;;greater
 ;;;equal
+;;;2

@@ -161,10 +161,10 @@ push(num_args) # @@(feature arity-check)@@
     (##scan-until-false func (##field0 lst) (func base (##field0 lst)) (##field1 lst))
     state))
 
-(define (all pred lst (state #t))
-  (if (and (pair? lst) state)
-    (all pred (cdr lst) (pred (car lst)))
-    state))
+(define (all pred lst)
+  (if (pair? lst)
+    (and (pred (##field0 lst)) (all pred (##field1 lst)))
+    #t))
 
 (define (partial f . args)
   (lambda other-args (apply f (append args other-args))))

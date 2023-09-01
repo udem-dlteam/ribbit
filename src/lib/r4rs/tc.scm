@@ -6,11 +6,11 @@
   (let loop ((msgs msgs))
     (if (pair? msgs)
       (begin
-        (set! assq (lambda (x y) #f))
         (##ntc-display (##field0 msgs))
         (loop (##field1 msgs)))
-      (##exit 1))))
+        (##exit 1))))
 
+(define ##dont-type-check-typechecking #f)
 
 (define (##tc-append lst1 lst2)
   (if (pair? lst1)
@@ -26,7 +26,7 @@
 (define (##can-call? proc nb-args)
   (let ((nb-params (##params proc)))
     (or (##eqv? nb-args (##field1 nb-params))
-        (and (##field0 nb-params) (>= nb-args (##field1 nb-params))))))
+        (and (##field0 nb-params) (##ntc->= nb-args (##field1 nb-params))))))
 
 ;; ntc means "no type check"
 (define-macro
@@ -58,37 +58,33 @@
          ;; ,(if (not (eq? proc 'assq))
          ;;     `(display ',proc)
          ;;     '())
-         ,@(let loop ((guards '()) (i 1) (rest args-info))
-             (if (pair? rest)
-               (let* ((arg-info (car rest))
-                      (arg-name (car arg-info))
-                      (guard (let ((maybe (memq 'guard: arg-info)))
-                               (and maybe (cadr maybe))))
-                      (expected (let ((maybe (memq 'expected: arg-info)))
-                                  (and maybe (cadr maybe)))))
-                 (if guard 
-                   (if (not expected)
-                     (error "You must define the 'expected' field when defining a guard")
-                     (loop 
-                       (cons `(if (##eqv? ,guard #f)  ;; not
-                                (##tc-error "In procedure " ',proc ": (ARGUMENT " ,i ") " ,expected " expected."))
-                             guards)
-                       (+ i 1)
-                       (cdr rest)))
-                   (loop guards (+ i 1) (cdr rest))))
-               (reverse guards)))
-         ;; (let ((tc-proc ,proc))
-         ;;   (set! ,proc ,ntc-proc)
-         ;;
-           ;; (let ((result 
+         (if (not ##dont-type-check-typechecking)
+           (begin 
+             (set! ##dont-type-check-typechecking #t)
+             (cond
+               ,@(let loop ((guards '()) (i 1) (rest args-info))
+                   (if (pair? rest)
+                     (let* ((arg-info (car rest))
+                            (arg-name (car arg-info))
+                            (guard (let ((maybe (memq 'guard: arg-info)))
+                                     (and maybe (cadr maybe))))
+                            (expected (let ((maybe (memq 'expected: arg-info)))
+                                        (and maybe (cadr maybe)))))
+                       (if guard 
+                         (if (not expected)
+                           (error "You must define the 'expected' field when defining a guard")
+                           (loop 
+                             (cons `((##eqv? ,guard #f) (##tc-error "In procedure " ',proc ": (ARGUMENT " ,i ") " ,expected " expected."))
+                                   guards)
+                             (+ i 1)
+                             (cdr rest)))
+                         (loop guards (+ i 1) (cdr rest))))
+                     (reverse guards))))
+             (set! ##dont-type-check-typechecking #f))
            ,(if variadic? 
-                            (let ((reverse-args (reverse args-info)))
-                              `(##apply ,ntc-proc (##tc-append (##tc-list ,@(reverse (map car (cdr reverse-args)))) ,(caar reverse-args))))
-                            `(,ntc-proc ,@(map car args-info)))
-           ;; ))
-             ;; (set! ,proc tc-proc)
-             ;; result))
-    ))))
+              (let ((reverse-args (reverse args-info)))
+                `(##apply ,ntc-proc (##tc-append (##tc-list ,@(reverse (map car (cdr reverse-args)))) ,(caar reverse-args))))
+              `(,ntc-proc ,@(map car args-info))))))))
 
 
 (define-macro
@@ -180,37 +176,37 @@
 (define-signatures
   (length reverse)
   ((lst 
-     guard: (list? lst)
+     guard: (if (null? lst) #t (pair? lst))
      expected: "LIST")))
 
 (define-signature 
   append
   ((lst 
      rest-param:
-     guard: (or (null? lst) (all list? (##field1 (##ntc-reverse lst))))
+     guard: (if (null? lst) #t (all pair? (##field1 (##ntc-reverse lst))))
      expected: "All LISTs except the last arg")))
 
-(define-signatures
-  (list-ref list-tail)
+(define-signature
+  list-ref
   ((lst 
      guard: (list? lst)
      expected: "LIST")
    (i
-     guard: (and (integer? i) (< -1 i (##ntc-length lst)))
+     guard: (and (integer? i) (##ntc-< -1 i (##ntc-length lst)))
      expected: (##ntc-string-append "INTEGER between 0 and " (##ntc-number->string (##ntc-length lst))))))
 
 (define-signatures
   (member memv memq)
   ((x)
    (lst 
-     guard: (list? lst)
+     guard: (if (null? lst) #t (pair? lst))
      expected: "LIST")))
 
 (define-signatures
   (assoc assq assv)
   ((x)
    (lst 
-     guard: (and (list? lst) (all pair? lst))
+     guard: (if (null? lst) #t (and (pair? lst) (pair? (##field0 lst))))
      expected: "LIST of PAIRs")))
 
 ;; ########## Numbers (R4RS section 6.5) ########## ;;
@@ -303,8 +299,8 @@
      guard: (vector? vect)
      expected: "VECTOR")
    (i
-     guard: (and (integer? i) (< -1 i (##ntc-vector-length vect)))
-     expected: (##ntc-string-append "INTEGER between 0 and " (##ntc-number->string (##ntc-vector-length vect))))))
+     guard: (and (integer? i) (##ntc-< -1 i (##field1 vect)))
+     expected: (##ntc-string-append "INTEGER between 0 and " (##ntc-number->string (##field1 vect))))))
 
 (define-signature
   vector-set!
@@ -312,8 +308,8 @@
      guard: (vector? vect)
      expected: "VECTOR")
    (i
-     guard: (and (integer? i) (< -1 i (##ntc-vector-length vect)))
-     expected: (##ntc-string-append "INTEGER between 0 and " (##ntc-number->string (##ntc-vector-length vect))))
+     guard: (and (integer? i) (##ntc-< -1 i (##field1 vect)))
+     expected: (##ntc-string-append "INTEGER between 0 and " (##ntc-number->string (##field1 vect))))
    (x)))
 
 (define-signature
@@ -353,7 +349,7 @@
      guard: (string? str)
      expected: "STRING")
    (i
-     guard: (< -1 i (##field1 str))
+     guard: (##ntc-< -1 i (##field1 str))
      expected: (##ntc-string-append "A NUMBER between 0 and " (##ntc-number->string (##field1 str))))))
 
 (define-signature
@@ -362,7 +358,7 @@
      guard: (string? str)
      expected: "STRING")
    (i
-     guard: (and (integer? i) (< -1 i (##field1 str)))
+     guard: (and (integer? i) (##ntc-< -1 i (##field1 str)))
      expected: (##ntc-string-append "INTEGER between 0 and " (##ntc-number->string (##field1 str))))
    (ch
      guard: (char? ch)
@@ -400,10 +396,10 @@
      guard: (string? str)
      expected: "STRING")
    (start 
-     guard: (and (integer? start) (<= 0 start end))
+     guard: (and (integer? start) (##ntc-<= 0 start end))
      expected: (##ntc-string-append "INTEGER between 0 and the end value (" (##ntc-number->string end) ")"))
    (end 
-     guard: (and (integer? end) (<= end (##field1 str)))
+     guard: (and (integer? end) (##ntc-<= end (##field1 str)))
      expected: (##ntc-string-append "INTEGER between the start value (" 
                               (##ntc-number->string start) ") and " 
                               (##ntc-number->string  (##field1 str))))))
@@ -511,13 +507,7 @@
 
    (lsts 
      rest-param:
-     guard: (or (null? lsts) 
-                (and (all list? lsts) 
-                     (##scan-until-false 
-                      (lambda (lst1 lst2) (##eqv? (##ntc-length lst1) (##ntc-length lst2)))
-                      (##field0 lsts)
-                      #t
-                      (##field1 lsts))))
+     guard: (or (null? lsts) (all pair? lsts))
      expected: "LISTs with the same length")))
 
 
