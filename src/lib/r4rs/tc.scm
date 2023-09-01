@@ -8,7 +8,7 @@
       (begin
         (##ntc-display (##field0 msgs))
         (loop (##field1 msgs)))
-        (##exit 1))))
+      )))
 
 (define ##dont-type-check-typechecking #f)
 
@@ -74,17 +74,16 @@
                          (if (not expected)
                            (error "You must define the 'expected' field when defining a guard")
                            (loop 
-                             (cons `((##eqv? ,guard #f) (##tc-error "In procedure " ',proc ": (ARGUMENT " ,i ") " ,expected " expected."))
-                                   guards)
+                             `(((##eqv? ,guard #f) (##tc-error ,(string-append "In procedure " (symbol->string proc) ": (ARGUMENT " (number->string i) ") ") ,expected " expected.")) . ,guards)
                              (+ i 1)
                              (cdr rest)))
                          (loop guards (+ i 1) (cdr rest))))
                      (reverse guards))))
-             (set! ##dont-type-check-typechecking #f))
+             (set! ##dont-type-check-typechecking #f)))
            ,(if variadic? 
               (let ((reverse-args (reverse args-info)))
                 `(##apply ,ntc-proc (##tc-append (##tc-list ,@(reverse (map car (cdr reverse-args)))) ,(caar reverse-args))))
-              `(,ntc-proc ,@(map car args-info))))))))
+              `(,ntc-proc ,@(map car args-info)))))))
 
 
 (define-macro
