@@ -177,9 +177,11 @@
   ((host js)
    (define-primitive
      (##cons car cdr)
-     "prim2((cdr, car) => [car,cdr,0]),")))
+     "prim2((cdr, car) => [car,cdr,0]),"))
+  (else 
+    (define (##cons car cdr) (##rib car cdr pair-type))))
 
-(define (cons car cdr) (##rib car cdr pair-type))
+(define (cons car cdr) (##cons car cdr))
 (define (car x) (##field0 x))
 (define (cdr x) (##field1 x))
 (define (set-car! x car) (##field0-set! x car))
@@ -313,6 +315,7 @@
 (define (vector-set! vect i x) (list-set! (##field0 vect) i x))
 
 (define (make-vector k) (list->vector (make-list k 0 '())))
+(define (make-vector-fill k fill) (list->vector (make-list k fill '())))
 
 (define (vector . args) (list->vector args))
 
@@ -353,7 +356,7 @@
 
 (define (char-whitespace? ch) (##< (##field0 ch) 33)) ;; #\backspace #\tab #\newline #\vtab #\page #\return
 
-(define char-lower-case? (char-in-range 96 123)) ;; #\a #\z
+(define (char-lower-case? ch) (char-in-range 96 123)) ;; #\a #\z
 
 (define char-upper-case? (char-in-range 64 91)) ;; #\A #\Z
 
@@ -1132,7 +1135,7 @@
            (##write-char 35 port-val)  ;; #\#
            (##write-char 40 port-val)  ;; #\(
            (if (##< 0 (##field1 o))
-             (let ((l (vector->list o)))   ;; vector->list
+             (let ((l (##field0 o)))   ;; vector->list
                (display (##field0 l) port)
                (print-list (##field1 l) display port)))
            (##write-char 41 port-val)) ;; #\)

@@ -1,79 +1,31 @@
+(##include-once "./expander-utils.scm")
 (##include-once "./bool.scm")
 
-;; (define pair-type      0)
-;; (define procedure-type 1)
-;; (define symbol-type    2)
-;; (define string-type    3)
-;; (define vector-type    4)
-;; (define singleton-type 5)
-;; (define char-type      6)
 
-;; (define input-port-type 8)
-;; (define output-port-type 9)
+(define-const pair-type      0)
+(define-const procedure-type 1)
+(define-const symbol-type    2)
+(define-const string-type    3)
+(define-const vector-type    4)
+(define-const singleton-type 5)
+(define-const char-type      6)
 
-;; (define pair? (instance? pair-type))
-;; (define symbol? (instance? symbol-type))
-;; (define string? (instance? string-type))
-;; (define vector? (instance? vector-type))
-;; (define procedure? (instance? procedure-type))
-;; (define char? (instance? char-type))
-;; (define (boolean? o1) (or (##eqv? o1 #t) (##eqv? o1 #f)))
-;; (define input-port? (instance? input-port-type))
-;; (define output-port? (instance? output-port-type))
-
-(define data-types '())
-
-(define op-types
-  '((0 jump/call)
-    (1 set)
-    (2 get)
-    (3 const)
-    (4 if)))
-
-
-(define ##type-id 0)
+(define-const input-port-type 8)
+(define-const output-port-type 9)
 
 (define (instance? type) (lambda (o) (and (##rib? o) (##eqv? (##field2 o) type))))
 
-(define-macro 
-  (define-type name . args)
-  (let* ((type-name (string->symbol (string-append (symbol->string name) "-type")))
-         (pred-name (string->symbol (string-append (symbol->string name) "?")))
-         (pred (cond ((assq pred-name args) => cadr) (else `(instance? ,type-name)))))
-    `(begin 
-       (define ,type-name ##type-id)
-       (set! ##type-id (##+ 1 ##type-id))
-       (set! data-types (##rib (##rib ,type-name (##rib ',name '() pair-type) pair-type) data-types pair-type))
-       (define ,pred-name ,pred))))
+(define pair? (instance? pair-type))
+(define symbol? (instance? symbol-type))
+(define string? (instance? string-type))
+(define vector? (instance? vector-type))
+(define procedure? (instance? procedure-type))
+(define char? (instance? char-type))
+(define (boolean? o1) (or (##eqv? o1 #t) (##eqv? o1 #f)))
 
-(define-type pair)
-(define-type procedure)
-(define-type symbol)
-(define-type string)
-(define-type vector)
-(define-type singleton)
-(define-type char)
-(define-type foreign)
-(define-type input-port)
-(define-type output-port)
+(define input-port? (instance? input-port-type))
+(define output-port? (instance? output-port-type))
   
-(define (boolean? o) (lambda (o) (or (##eqv? o1 #t) (##eqv? o1 #f))))
-
-(define (type-of o)
-  (cond 
-    ((number? o) 'number)
-    ((list? o) 'list)
-    ((pair? o) 'pair)
-    ((procedure? o) 'procedure)
-    ((symbol? o) 'symbol)
-    ((string? o) 'string)
-    ((vector? o) 'vector)
-    ((char? o) 'char)
-    ((boolean? o) 'boolean)
-    ((input-port? o) 'input-port)
-    ((output-port? o) 'output-port)
-    (else 'unknown)))
-
 
 (define (eqv? o1 o2)
   (if (and (char? o1) (char? o2)) 
@@ -86,7 +38,7 @@
 (define (null? obj) (##eqv? obj '()))
 
 (define (integer? obj) (not (##rib? obj)))
-(define (number? obj) (not (##rib? obj)))
+(define number? integer?)
 (define rational? integer?)
 (define real? rational?)
 (define complex? real?)
@@ -107,33 +59,23 @@
   (list?-aux obj obj))
 
 
+(define (length lst)
+  (if (pair? lst)
+      (##+ 1 (length (##field1 lst)))
+      0))
+
 ;; ---------------------- CONVERSIONS ---------------------- ;;
 
-;;; Warning: You need to include v-io.scm for this procedure to work
-(define (object->string o)
-  (let ((str-port (open-output-string)))
-    (write o str-port)
-    (get-output-string str-port)))
+(if-feature 
+  v-port
+  (define (object->string o)
+    (let ((str-port (open-output-string)))
+      (write o str-port)
+      (get-output-string str-port)))
+  (begin))
 
 (define (char->integer x) (##field0 x))
-
-(define-signature
-  char->integer 
-  ((x
-     guard: (char? x)
-     expected: "CHARACTER")))
-
-
-
 (define (integer->char n) (##rib n 0 char-type))
-
-(define-signature
-  integer->char 
-  ((n
-     guard: (integer? n)
-     expected: "INTEGER")))
-
-
 
 (define (##list->string lst) (##rib lst (length lst) string-type))
 (define (##string->list x) (##field0 x))
@@ -144,17 +86,14 @@
     '()))
 
 (define (list->string lst) (##list->string (##map char->integer lst)))
+(define (string->list s) (##map integer->char (##string->list s)))
+
 (define (list->vector lst) (##rib lst (length lst) vector-type))
+(define (vector->list x) (##field0 x))
 
-(define-signatures
-  (list->string list->vector)
-  ((lst 
-     guard: (list? lst)
-     expected: "LIST")))
+(define (symbol->string x) (##field1 x))
 
-
-
-(define (string->list str) (##map integer->char (##string->list str)))
+(define symtbl (##field1 ##rib)) ;; get symbol table
 
 (define (string->symbol str)
 
@@ -171,34 +110,6 @@
   (string->symbol-aux str symtbl))
 
 (define (string->uninterned-symbol str) (##rib #f (string-append str) symbol-type))
-
-(define symtbl (##field1 ##rib)) ;; get symbol table
-
-(define-signatures
-  (string->list string->symbol)
-  ((str 
-     guard: (string? str)
-     expected: "STRING")))
-
-
-(define (vector->list x) (##field0 x))
-
-(define-signature
-  vector->list 
-  ((x
-     guard: (vector? x)
-     expected: "VECTOR")))
- 
-
-
-(define (symbol->string x) (##field1 x))
-
-(define-signature
-  symbol->string 
-  ((x
-     guard: (symbol? x)
-     expected: "SYMBOL")))
-
 
 
 (define (number->string x (radix 10))
@@ -217,18 +128,6 @@
       chars 
       (length chars)
       string-type)))
-
-
-(define-signature 
-  number->string 
-  ((x
-     guard: (number? x)
-     expected: "NUMBER")
-   (radix 
-     default: 10
-     guard: (memv radix '(2 8 10 16))
-     expected: "Either 2, 8, 10, or 16")))
-
 
 
 (define (string->number str (radix 10))
@@ -269,14 +168,3 @@
         (let ((n (string->number-aux (##field1 lst))))
           (and n (##- 0 n)))
         (string->number-aux lst))))) ;; cdr
-
-
-(define-signature 
-  string->number 
-  ((str
-     guard: (string? str)
-     expected: "STRING")
-   (radix 
-     default: 10
-     guard: (memv radix '(2 8 10 16))
-     expected: "Either 2, 8, 10, or 16")))

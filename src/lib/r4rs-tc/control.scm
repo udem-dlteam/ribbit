@@ -20,9 +20,7 @@
         return f;
      }, "))
 
-
   ((host py)
-
    (define-primitive
      (##apply f args)
      "lambda: [exec(compile(\"\"\"
@@ -35,7 +33,6 @@ while _arg is not NIL:
  num_args += 1
 push(num_args) # @@(feature arity-check)@@
  \"\"\", __file__, 'exec')), _f_][1],"))
-
 
   ((host c)
    (define-primitive
@@ -70,35 +67,10 @@ push(num_args) # @@(feature arity-check)@@
                   return f)
         ")))
 
-(define (##params proc)
-  (let ((nb-args-raw (##field0 (##field0 proc))))
-    (cons (odd? nb-args-raw) (##quotient nb-args-raw 2)))) ;; (cons variadic? nb-args)
-
-(define (##can-call? proc nb-args)
-  (let ((nb-params (##params proc)))
-    (or (##eqv? nb-args (cdr nb-params))
-        (and (car nb-params) (>= nb-args (cdr nb-params))))))
-
 ;; Control features (R4RS section 6.9).
 
+;; (define (apply f arg1 . args) (##apply f (append (list arg1) args))))
 (define (apply f args) (##apply f args))
-
-(define-signature
-  apply
-  ((f 
-     guard: (##can-call? f (length args))
-     expected: (let ((params (##params f)))
-                 (string-append "PROCEDURE called with " 
-                                (number->string (length args)) " and taking " 
-                                (if (##field0 params) "at least " "")
-                                (number->string (##field1 params))
-                                ". A PROCEDURE with a number of params equal to the number of args" )))
-
-   (args 
-     guard: (list? args)
-     expected: "LIST")))
-
-
 
 (define (make-procedure code env) (##rib code env procedure-type))
 (define (procedure-code x) (##field0 x))
@@ -113,38 +85,19 @@ push(num_args) # @@(feature arity-check)@@
 (define (map proc . lsts)
   (if (pair? (##field0 lsts))
     (cons (apply proc (##map car lsts))
-          (apply ##ntc-map (append (list proc) (##map cdr lsts))))
+          (apply map (append (list proc) (##map cdr lsts))))
     '()))
+
 
 (define (for-each proc . lsts)
   (if (pair? (##field0 lsts))
       (begin
         (apply proc (##map car lsts))
-        (apply ##ntc-for-each (append (list proc) (##map cdr lsts))))
+        (apply for-each (append (list proc) (##map cdr lsts))))
       #f))
 
 
-(define-signatures
-  (map for-each)
-  ((proc 
-     guard: (##can-call? proc (length lsts))
-     expected: "A PROCEDURE that takes a number of args equal to the number of LISTs")
-
-   (lsts 
-     rest-param:
-     guard: (or (null? lsts) 
-                (and (all list? lsts) 
-                     (##scan-until-false 
-                      (lambda (lst1 lst2) (##eqv? (length lst1) (length lst2)))
-                      (car lsts)
-                      #t
-                      (cdr lsts))))
-     expected: "LISTs with the same length")))
-
-
-
 ;; First-class continuations.
-
 
 (define (call/cc receiver)
   (let ((c (##field1 (##field1 (##close #f))))) ;; get call/cc continuation rib
@@ -154,43 +107,7 @@ push(num_args) # @@(feature arity-check)@@
                   (##field2-set! c2 (##field2 c)) ;; set "pc" field
                   r))))) ;; return to continuation
 
-(define-signature 
-  call/cc
-  ((receiver 
-     guard: (##can-call? receiver 1)
-     expected: "A PROCEDURE that takes a one argument (a PROCEDURE)")))
-
 (define call-with-current-continuation call/cc)
-
-
-(define-macro 
-  (make-generator . expr)
-  `(let ((cont-yield #f)
-         (cont-continue #f))
-
-     (define-macro 
-       (yield x)
-       `(call/cc 
-          (lambda (##continue)
-            (set! cont-continue ##continue)
-            (cont-yield ,x))))
-
-     (lambda (v)
-       (call/cc
-         (lambda (##yield)
-           (set! cont-yield ##yield)
-           (if cont-continue
-             (cont-continue v)
-             (let ((result (begin ,@expr)))
-               (cont-yield result))))))))
-
-
-(define (gen-send generator value)
-  (generator value))
-
-(define (gen-next generator)
-  (gen-send generator '()))
-
 
 
 ;; ---------------------- UTILS NOT IN R4RS ---------------------- ;;
@@ -244,10 +161,10 @@ push(num_args) # @@(feature arity-check)@@
     (##scan-until-false func (##field0 lst) (func base (##field0 lst)) (##field1 lst))
     state))
 
-(define (all pred lst (state #t))
-  (if (and (pair? lst) state)
-    (all pred (##field1 lst) (pred (##field0 lst)))
-    state))
+(define (all pred lst)
+  (if (pair? lst)
+    (and (pred (##field0 lst)) (all pred (##field1 lst)))
+    #t))
 
 (define (partial f . args)
   (lambda other-args (apply f (append args other-args))))

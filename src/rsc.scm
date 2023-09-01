@@ -1675,7 +1675,7 @@
                   (let ((key (cadr expr)))
                     (let ((clauses (cddr expr)))
                       (if (pair? clauses)
-                        (pp-return expand-expr 
+                        (expand-expr 
                           `(let ((##case-tmp ,key))
                              (cond 
                                ,@(map 
