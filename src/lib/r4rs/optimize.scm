@@ -9,9 +9,14 @@
          `(##eqv? ,@args)
          `(equal? ,@args))))
 
+(define-expander-case
+  (eq? args)
+  ((2) `(##eqv? ,@args)))
+
 ;; ########## Numbers (R4RS section 6.5) ########## ;;
 
-(define-expander-case (- args)
+(define-expander-case 
+  (- args)
   ((1) (if (number? (car args)) 
          (- (car args)) 
          `(##- 0 ,(car args))))
@@ -106,6 +111,38 @@
 
 ;; ########## Pairs and lists (R4RS section 6.3) ########## ;;
 
+(define-expander-case
+  (cons args)
+  ((2) `(##rib ,(car args) ,(cadr args) 0)))
+
+(define-expander-case
+  (car args)
+  ((1) `(##field0 ,(car args))))
+
+(define-expander-case
+  (cdr args)
+  ((1) `(##field1 ,(car args))))
+
+(define-expander-case
+  (caar args)
+  ((1) `(##field0 (##field0 ,(car args)))))
+
+(define-expander-case
+  (cadr args)
+  ((1) `(##field0 (##field1 ,(car args)))))
+
+(define-expander-case
+  (cddr args)
+  ((1) `(##field1 (##field1 ,(car args)))))
+
+
+(define-expander-case
+  (set-car! args)
+  ((2) `(##field0-set! ,@args)))
+
+(define-expander-case
+  (set-cdr! args)
+  ((2) `(##field1-set! ,@args)))
 
 ;; ########## Numbers (R4RS section 6.5) ########## ;;
 

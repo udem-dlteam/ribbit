@@ -48,9 +48,10 @@
      (use js/node/fs)
      "prim1(fd => fs.closeSync(fd)),")
 
-   (define-feature 
-     ##close-output-fd
-     (use ##close-input-fd)))
+   ;; (define-feature 
+   ;;   ##close-output-fd
+   ;;   (use ##close-input-fd))
+   )
 
   ((host py)
 

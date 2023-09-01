@@ -743,8 +743,7 @@
   (or (memq name forced-first-primitives)
       ;; FIXME this code assumes that primitives are features
       (host-config-feature-live? host-config name)
-      #;(assoc name (host-config-primitives host-config))
-      
+      ;;(assoc name (host-config-primitives host-config))
       ))
 
 
@@ -987,7 +986,7 @@
 
                  ((eqv? first 'define-primitive)
                   (let* ((name (caadr expr)))
-                    #;(pp (list 'define-primitive name (host-config-feature-live? host-config name)))
+                    ;; (pp (list 'define-primitive name (host-config-feature-live? host-config name)))
                     (if (host-config-feature-live? host-config name)
                       (let ((index (host-config-add-primitive! host-config name expr)))
                         (if (memq name forced-first-primitives)
@@ -1076,7 +1075,7 @@
                                     args
                                     (lambda (ctx)
                                       (let ((v (lookup first (ctx-cte ctx) 0)))
-                                        (add-nb-args (not (arity-check? ctx first))
+                                        (add-nb-args (host-config-is-primitive? host-config first)
                                                      ctx 
                                                      (length args)
                                                      (gen-call 
@@ -1105,33 +1104,28 @@
   (c-rib set-op v (gen-noop ctx cont)))
 
 (define (arity-check? ctx name)
-  #;(pp (list name (and (memq 'arity-check (ctx-live-features ctx))
-       (not (and
-             (memq 'prim-no-arity (ctx-live-features ctx))
-             (host-config-is-primitive? host-config name))))))
   (and (memq 'arity-check (ctx-live-features ctx))
        (not (and
              (memq 'prim-no-arity (ctx-live-features ctx))
              (host-config-is-primitive? host-config name)))))
 
-#;
-(define (is-call? ctx name cont)
-  (let* ((arity-check (arity-check? ctx name))
-         (call-rib 
-           (if arity-check
-             (and (rib? cont) (c-rib-next cont))
-             (and (rib? cont) cont)))
-         (call-rib-ok?
-           (and call-rib
-                (eqv? (c-rib-oper call-rib) jump/call-op) ;; call?
-                (eqv? (c-rib-opnd call-rib) name)
-                (rib? (c-rib-next call-rib)))))
-    (if arity-check
-      (and call-rib-ok?
-           (rib? cont)
-           (eqv? (c-rib-oper cont) const-op)
-           (not (rib? (c-rib-opnd cont)))) ;; push a number
-      call-rib-ok?)))
+;; (define (is-call? ctx name cont)
+;;   (let* ((arity-check (arity-check? ctx name))
+;;          (call-rib 
+;;            (if arity-check
+;;              (and (rib? cont) (c-rib-next cont))
+;;              (and (rib? cont) cont)))
+;;          (call-rib-ok?
+;;            (and call-rib
+;;                 (eqv? (c-rib-oper call-rib) jump/call-op) ;; call?
+;;                 (eqv? (c-rib-opnd call-rib) name)
+;;                 (rib? (c-rib-next call-rib)))))
+;;     (if arity-check
+;;       (and call-rib-ok?
+;;            (rib? cont)
+;;            (eqv? (c-rib-oper cont) const-op)
+;;            (not (rib? (c-rib-opnd cont)))) ;; push a number
+;;       call-rib-ok?)))
 
 (define (is-call? ctx name cont)
 ;;  (let ((xxx
@@ -1171,14 +1165,12 @@
                   body
                   cont)))
 
-
 (define (add-nb-args prim? ctx nb-args tail)
-  (if (memq 'arity-check (ctx-live-features ctx))
-    (if (and prim? (memq 'prim-no-arity (ctx-live-features ctx)))
-      tail
-      (c-rib const-op
-        nb-args
-        tail))
+  (if (and (memq 'arity-check (ctx-live-features ctx))
+           (not (and prim? (memq 'prim-no-arity (ctx-live-features ctx)))))
+    (c-rib const-op
+         nb-args
+         tail)
     tail))
 
 (define (gen-unbind ctx cont)
@@ -1660,37 +1652,41 @@
                  ((eqv? first 'cond)
                   (expand-expr
                     (if (pair? (cdr expr))
-                      (if (eqv? 'else (car (cadr expr)))
-                        (cons 'begin (cdr (cadr expr)))
-                        (cons 'if
-                              (cons (car (cadr expr))
-                                    (cons (cons 'begin
-                                                (cdr (cadr expr)))
-                                          (cons (cons 'cond
-                                                      (cddr expr))
-                                                '())))))
-                      #f)
+                      (let* ((clause (cadr expr))
+                             (condition (car clause))
+                             (body (cdr clause)))
+                        (if (eqv? 'else condition)
+                          (cons 'begin body)
+                          (cond 
+                            ((null? body) `(or ,condition (cond . ,(cddr expr))))
+                            ((eq? '=> (car body))
+                             `(let ((_ ,condition))
+                                (if _
+                                  (,(cadr body) _)
+                                  (cond . ,(cddr expr)))))
+                            (else
+                              `(if ,condition 
+                                 (begin . ,body)
+                                 (cond . ,(cddr expr)))))))
+                        #f)
                     mtx))
 
-                 ((eqv? first 'case)
+                 ((eqv? first 'case) ;; FIXME: transform into a (let (...) (cond ...)) that evaluate key one time
                   (let ((key (cadr expr)))
                     (let ((clauses (cddr expr)))
                       (if (pair? clauses)
-                        (let ((clause (car clauses)))
-                          (if (eqv? (car clause) 'else)
-                            (expand-expr 
-                              (cons 'begin (cdr clause))
-                              mtx)
-                            (expand-expr
-                              (cons 'if
-                                    (cons (list '##case-memv key (list 'quote (car clause)))
-                                          (cons (cons 'begin
-                                                      (cdr clause))
-                                                (cons (cons 'case
-                                                            (cons key
-                                                                  (cdr clauses)))
-                                                      '()))))
-                              mtx)))
+                        (pp-return expand-expr 
+                          `(let ((##case-tmp ,key))
+                             (cond 
+                               ,@(map 
+                                   (lambda (clause)
+                                     (if (eqv? (car clause) 'else)
+                                       clause
+                                       `((memv ##case-tmp ',(car clause))
+                                         ;(or ,@(map (lambda (val) `(eqv? ##case-tmp ',val)) (car clause)))
+                                         ,@(cdr clause))))
+                                   clauses)))
+                          mtx)
                         #f))))
 
                  ((eqv? first '##include-str)

@@ -66,11 +66,13 @@
 
 ;; ---------------------- CONVERSIONS ---------------------- ;;
 
-;;; Warning: You need to include v-io.scm for this procedure to work
-(define (object->string o)
-  (let ((str-port (open-output-string)))
-    (write o str-port)
-    (get-output-string str-port)))
+(if-feature 
+  v-port
+  (define (object->string o)
+    (let ((str-port (open-output-string)))
+      (write o str-port)
+      (get-output-string str-port)))
+  (begin))
 
 (define (char->integer x) (##field0 x))
 (define (integer->char n) (##rib n 0 char-type))
@@ -91,6 +93,8 @@
 
 (define (symbol->string x) (##field1 x))
 
+(define symtbl (##field1 ##rib)) ;; get symbol table
+
 (define (string->symbol str)
 
   (define (string->symbol-aux str syms)
@@ -107,7 +111,6 @@
 
 (define (string->uninterned-symbol str) (##rib #f (string-append str) symbol-type))
 
-(define symtbl (##field1 ##rib)) ;; get symbol table
 
 (define (number->string x (radix 10))
   (define (number->string-aux x tail)
