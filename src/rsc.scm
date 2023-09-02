@@ -2886,7 +2886,6 @@
                (decoded-first (quotient combined size-base))
                (decoded-second (+ 3 (modulo combined size-base))))
 
-          ;(step)
           (decode
             (cddr stream)
             (cons
@@ -3508,6 +3507,13 @@
 
     (define (p/comp-2b)
       (pp '**********)
+
+
+      (set! compression-range-size compression-range-size-min)
+      (set! encoding (optimal-encoding))
+      (p/enc-symtbl)
+      (p/enc-prog)
+      (p/merge-prog-sym)
       (let loop1 ((crs compression-range-size-min) (best-compression '(99999999999 99999999999)))
         (if (<= crs compression-range-size-max)
             (let loop2 ((sb size-base-min) (best-compression best-compression))
@@ -3515,7 +3521,7 @@
                   (begin
                     (set! compression-range-size crs)
                     (set! size-base sb)
-                    (p/enc-prog)
+
                     (let* ((compression
                             (encode-lzss-2b
                              stream
@@ -3535,7 +3541,14 @@
                                    (pp (list 'encode-lzss-2b 'stream compression-range-size size-base byte-base 'host-config '=> ribn-size compressed-ribn-size))
                                    compression)
                                  best-compression))))
-                  (loop1 (+ crs 2) best-compression)))
+                  (begin 
+                    (let ((new-crs(+ crs 2) ))
+                      (set! compression-range-size new-crs)
+                      (set! encoding (optimal-encoding))
+                      (p/enc-symtbl)
+                      (p/enc-prog)
+                      (p/merge-prog-sym)
+                      (loop1 new-crs best-compression)))))
             (let ()
 
               ;;TODO: fixme!
@@ -3582,7 +3595,7 @@
                        (map car encoding-skip-92)
                        stats
                        (ribn-base)))))))
-        (encoding-optimal-add-variables encoding host-config)
+        ;(encoding-optimal-add-variables encoding host-config)
         encoding))
 
     
