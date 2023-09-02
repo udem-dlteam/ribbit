@@ -55,7 +55,7 @@ show_stack = () => {  //debug
     let r = [];  //debug
     while (!s[2]) { r[r[lengthAttr]]=s[0]; s=s[1]; }  //debug
     console.log(require("util").inspect(r, {showHidden: false, depth: 2}).replace(/\\n/g, "").replace(/  /g, " "));  //debug
-}  //debug
+};  //debug
 // )@@
 // )@@
 
@@ -104,7 +104,7 @@ halt = () => {
   const error_code = pop();
 	const error_msg = new Error(error_code !== undefined && is_rib(error_code) && error_code[2] === 3 ? scm2str(error_code) : `Exit with code: ${error_code}`);
 	throw error_msg;
-}
+};
 // )@@
 
 // build the symbol table
@@ -116,28 +116,28 @@ get_int = (n) => { let x = get_code(); n *= 46; return x<46 ? n+x : get_int(n+x-
 
 
 // @@(feature compression/lzss
-inp=""
-i=0
+inp="";
+i=0;
 while(pos<input[lengthAttr]){
     c=get_code();
-    v=String.fromCharCode(c==57?33:c+35)
+    v=String.fromCharCode(c==57?33:c+35);
     if(c==60){ // @@(replace "60" compression/lzss/tag)@@
-        p=get_int(0)
+        p=get_int(0);
         if(p==0) {
-            inp+=v
+            inp+=v;
             continue;
         }
-        l=get_int(0)
+        l=get_int(0);
         while(l--){
-            inp+=inp[inp[lengthAttr]-p]
+            inp+=inp[inp[lengthAttr]-p];
         }
     }
     else{
-        inp+=v
+        inp+=v;
     }
 }
 input=inp;
-pos=0
+pos=0;
 // )@@
 
 
@@ -161,9 +161,9 @@ while (1) {
 
 symtbl = [[0,[accum,n,3],2],symtbl,0];
 
-symbol_ref = (n) => list_tail(symtbl,n)[0]
+symbol_ref = (n) => list_tail(symtbl,n)[0];
 // @@(feature (or debug debug-trace error-msg) (use sym2str chars2str)
-symbol_ref_debug = (n) => list_tail(symtbl_debug,n)[0]
+symbol_ref_debug = (n) => list_tail(symtbl_debug,n)[0];
 // )@@
 list_tail = (x,i) => i ? list_tail(x[1],i-1) : x;
 inst_tail = (x,i) => i ? inst_tail(x[2],i-1) : x;
@@ -215,22 +215,22 @@ if (false) { // @@(feature pipeline-compiler)@@
 stack=0;
 while(1){
     x = get_code();
-    n=x
+    n=x;
     op=-1;
 
-    while((d=[0,1,2][++op])<=n) n-=d // @@(replace "[0,1,2]" (list->host encoding/optimal/start "[" "," "]"))@@
+    while((d=[0,1,2][++op])<=n) n-=d; // @@(replace "[0,1,2]" (list->host encoding/optimal/start "[" "," "]"))@@
 
     if (op<4) stack = [0,stack,0];
-    if (op<24) n=op%2>0?get_int(n):n
+    if (op<24) n=op%2>0?get_int(n):n;
 
     if(op<20){ // jump call set get const
         i=op/4-1;
-        i=i<0?0:i>>0
-        n=op%4/2<1?n:symbol_ref(n)
+        i=i<0?0:i>>0;
+        n=op%4/2<1?n:symbol_ref(n);
     }
     else if(op<22){ // const-proc
         n = [[n,0,pop()],0,1];
-        i=3
+        i=3;
         if(!stack) break;
     }
     else if(op<24){ // skip
@@ -238,8 +238,8 @@ while(1){
         continue;
     }
     else if(op<25){ // if
-        n=pop()
-        i=4
+        n=pop();
+        i=4;
     }
     stack[0]=[i,n,stack[0]];
 }
@@ -276,7 +276,7 @@ while (1) {
 // )@@
 
 // @@(feature (or debug debug-trace error-msg) (use sym2str chars2str)
-symtbl_debug = symtbl
+symtbl_debug = symtbl;
 // )@@
 
 set_global = (x) => { symtbl[0][0] = x; symtbl = symtbl[1]; };
@@ -304,94 +304,94 @@ push = (x) => {
     }
     stack = [x,stack,0];
     return true;
-}
+};
 // )@@
 
 // @@(feature debug
-log_return = (s) => {console.log(s); return s;}
+log_return = (s) => {console.log(s); return s;};
 // )@@
 // @@(feature bool2scm
 bool2scm = (x) => x ? TRUE : FALSE;
 // )@@
 // @@(feature str2scm
 str2scm = (s) => {
-    let l = s.length
-    let i = l
-    let a = NIL
+    let l = s.length;
+    let i = l;
+    let a = NIL;
     while (i) a=[s.charCodeAt(--i),a,0];
-    return [a,l,3]
-}
+    return [a,l,3];
+};
 // )@@
 
 // @@(feature find_sym (use scm2list)
 find_sym = (name, symtbl) => {
-  lst = scm2list(symtbl)
+  lst = scm2list(symtbl);
   console.log(lst);
-  return list_tail(symtbl, lst.indexOf(name))[0]
+  return list_tail(symtbl, lst.indexOf(name))[0];
 
-}
+};
 // )@@
 
 // @@(feature function2scm (use foreign call find_sym)
 function2scm = (f) => {
-  let host_call = find_sym('host-call', symtbl)
-  let id = find_sym('id', symtbl)
-  let arg2 = find_sym('arg2', symtbl)
-  let rib = [[0, 0, 1], [NIL, 0, 3], 2]
+  let host_call = find_sym('host-call', symtbl);
+  let id = find_sym('id', symtbl);
+  let arg2 = find_sym('arg2', symtbl);
+  let rib = [[0, 0, 1], [NIL, 0, 3], 2];
   if (host_call == -1 || id == -1){
-    console.log("ERROR : you must define host-call as a primitive to convert a function to a rib")
-    return
+    console.log("ERROR : you must define host-call as a primitive to convert a function to a rib");
+    return;
   }
 
   let code = [3, foreign(f),  // push(foreign(f))
               [2, 1, // inverse arguments
                [0, host_call,  // call host_call primitive
                 [0, arg2, // discard argument on stack
-                 [0, id, 0]]]]] // return
-  let i = f.length // number of args
+                 [0, id, 0]]]]]; // return
+  let i = f.length; // number of args
   while(i--){
     code = [3, 0,  // push 0
              [0, rib, // call rib
-              code]]
+              code]];
   }
   code = [f.length, 0,     // number of params
-          [3, NIL, code]] // push nil
+          [3, NIL, code]]; // push nil
 
-  let env = 0 // no environnement
-  return [code, env, 1] // return the procedure
-}
+  let env = 0; // no environnement
+  return [code, env, 1]; // return the procedure
+};
 // )@@
 
 // @@(feature host2scm (use list2scm str2scm bool2scm function2scm)
 host2scm = (v) => {
-  return ({"number":(x)=>x,"boolean":bool2scm,"string":str2scm,"object":list2scm, 'function':function2scm, 'undefined':()=>NIL}[typeof v](v))
-}
+  return ({"number":(x)=>x,"boolean":bool2scm,"string":str2scm,"object":list2scm, 'function':function2scm, 'undefined':()=>NIL}[typeof v](v));
+};
 // )@@
 
 // @@(feature list2scm (use host2scm)
-list2scm = (l,i=0) => (i<l.length?[host2scm(l[i]),list2scm(l,i+1),0]:NIL)
+list2scm = (l,i=0) => (i<l.length?[host2scm(l[i]),list2scm(l,i+1),0]:NIL);
 // )@@
 
 // @@(feature scm2str
 scm2str = (r) => {
-    let f = (c) => (c===NIL?"":String.fromCharCode(c[0])+f(c[1]))
-    return f(r[0])
-}
+    let f = (c) => (c===NIL?"":String.fromCharCode(c[0])+f(c[1]));
+    return f(r[0]);
+};
 // )@@
 
 // @@(feature scm2bool
 scm2bool = (r) => {
   if (r === NIL){
-    return []
+    return [];
   }
   if (r === FALSE){
-    return false
+    return false;
   }
   if (r === TRUE){
-    return true
+    return true;
   }
   console.error("Cannot convert ", r, " to bool");
-}
+};
 // )@@
 
 // @@(feature scm2list (use scm2host)
@@ -400,69 +400,69 @@ scm2list = (r) => {
   let lst = [];
   let f = (c) => {
     if (c !== NIL){
-      lst.push(scm2host(c[0]))
-      f(c[1])
+      lst.push(scm2host(c[0]));
+      f(c[1]);
     }
-  }
-  f(elems)
-  return lst
-}
+  };
+  f(elems);
+  return lst;
+};
 // )@@
 
 // @@(feature scm2function (use scm2host host2scm)
-func_stack = []
+func_stack = [];
 scm2function = (r) => {
   let func = (...args) => {
-    func_stack.push(pc)
-    push(r)
+    func_stack.push(pc);
+    push(r);
     for(a in args){
-      push(host2scm(a))
+      push(host2scm(a));
     }
-    pc = [0,args.length,[5, 0, 0]] // call function and then halt
-    run()
-    pc = func_stack.pop()
-    return_value = pop()
-    return scm2host(return_value)
-  }
-  return func
-}
+    pc = [0,args.length,[5, 0, 0]]; // call function and then halt
+    run();
+    pc = func_stack.pop();
+    return_value = pop();
+    return scm2host(return_value);
+  };
+  return func;
+};
 // )@@
 
 // @@(feature debug-callback
 debug_callback = (callback) => {
-  console.log(callback())
+  console.log(callback());
   return true;
-}
+};
 // )@@
 
 // @@(feature scm2symbol (use scm2str)
 scm2symbol = (r) => {
-  return scm2str(r[1])
-}
+  return scm2str(r[1]);
+};
 // )@@
 
 
 // @@(feature scm2host (use scm2str scm2list scm2bool scm2bool scm2function scm2symbol)
 scm2host = (r) => {
   if (typeof r === "number")
-    return r
-  let tag = r[2]
+    return r;
+  let tag = r[2];
   return [scm2list, scm2function, scm2symbol, scm2str, scm2list, scm2bool][tag](r);
-}
+};
  // )@@
 
 
 // @@(feature foreign
-foreign = r => [0, r, 7] // 7 is to tag a foreign object
+foreign = r => [0, r, 7]; // 7 is to tag a foreign object
 // )@@
 
 // @@(feature host_call (use scm2list)
 // f is a foreign object representing a function
 host_call = () =>{
-  args = pop()
-  f = pop()[1]
-  return push(host2scm(f(...scm2list(args))))
-}
+  args = pop();
+  f = pop()[1];
+  return push(host2scm(f(...scm2list(args))));
+};
 // )@@
 
 
@@ -471,7 +471,7 @@ host_call = () =>{
 is_rib = (x) => {
     if (x === undefined) console.log(stack);
     return x[lengthAttr];
-}
+};
 
 get_opnd = (o) => is_rib(o) ? o : list_tail(stack,o);
 get_cont = () => { let s = stack; while (!s[2]) s = s[1]; return s; };
@@ -552,7 +552,7 @@ run = () => {
                     let rest=NIL;
                     while(nargs--)
                         rest=[pop(), rest, 0];
-                    s2=[rest,s2,0]
+                    s2=[rest,s2,0];
                 }
                 // )@@
                 while (nparams--) s2 = [pop(),s2,0];
@@ -570,10 +570,10 @@ run = () => {
                 stack = s2;
             } else {
                 // @@(feature (and arity-check (not prim-no-arity))
-                pop()
+                pop();
                 // )@@
 
-                o=primitives[c]()
+                o=primitives[c]();
                 if (!o) return;
                 if (is_rib(o)) continue;
                 if (pc[2]===0) {
