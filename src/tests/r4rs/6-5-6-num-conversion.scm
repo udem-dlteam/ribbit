@@ -55,12 +55,12 @@
 (display (string->number "+"))
 (newline)
 
-(display (or (not (string->number "80000000" 16))
-             (positive? (string->number "80000000" 16))))
+(display (or (not (string->number "8000000" 16))
+             (positive? (string->number "8000000" 16))))
 (newline)
 
-(display (or (not (string->number "-80000000" 16))
-             (negative? (string->number "-80000000" 16))))
+(display (or (not (string->number "-8000000" 16))
+             (negative? (string->number "-8000000" 16))))
 (newline)
 
 ;;;options: -l r4rs

@@ -22,7 +22,7 @@
    (define-primitive 
      (##get-fd-input-file filename)
      (use js/node/fs scm2str)
-     "prim1(filename => {try{return fs.openSync(scm2str(filename), 'r')}catch{return FALSE}}),")
+     "prim1(filename => {try{return fs.openSync(scm2str(filename), 'r')}catch (e){ throw e; return FALSE}}),")
 
    (define-primitive
      (##get-fd-output-file filename)
