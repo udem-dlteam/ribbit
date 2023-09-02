@@ -1147,7 +1147,7 @@ string_arity_error db "Arity check error",0x0a,0
 arity_check_exit:
 	movC ebx, 1	; ebx = 1 = STDOUT
 	movC edx, 18		; edx = 1 = number of bytes to write
-	movC ecx, string_arity_error
+	mov ecx, string_arity_error
 	movC eax, SYS_WRITE
 	CALL_KERNEL
 	mov LAST_ARG, 0x10 ;; 1 (error)
@@ -2172,7 +2172,7 @@ prim_write_char_fd:
 	shr  PREV_ARG, 1
 	push PREV_ARG
     shr  LAST_ARG, 1
-	movC ebx, LAST_ARG	; ebx = 1 = STDOUT
+	mov  ebx, LAST_ARG	; ebx = 1 = STDOUT
 	movC edx, 1		; edx = 1 = number of bytes to write
 	mov  ecx, esp		; from the stack
 	movC eax, SYS_WRITE
