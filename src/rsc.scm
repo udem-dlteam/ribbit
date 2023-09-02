@@ -2873,17 +2873,18 @@
 ;
 ;  (decode stream '()))
 
-(define (decode-lzss-2b stream range-len max-len max-encoding-size )
-  (define range-start (- max-encoding-size range-len))
+(define (decode-lzss-2b stream compression-range-size size-base byte-base )
+
+  (define ribn-base (- byte-base compression-range-size))
 
   (define (decode stream tail)
     (if (pair? stream)
-      (if (>= (car stream) range-start)
-        (let* ((first-bit (car stream))
-               (second-bit (cadr stream))
-               (combined (+ (* (- first-bit range-start) max-encoding-size) second-bit))
-               (decoded-first (quotient combined max-len))
-               (decoded-second (+ 3 (modulo combined max-len))))
+      (if (>= (car stream) ribn-base)
+        (let* ((first-code (car stream))
+               (second-code (cadr stream))
+               (combined (+ (* (- first-code ribn-base) byte-base) second-code))
+               (decoded-first (quotient combined size-base))
+               (decoded-second (+ 3 (modulo combined size-base))))
 
           ;(step)
           (decode
@@ -2901,10 +2902,13 @@
       
       tail))
 
+  (pp (list 'decode-lzss-2b 'stream compression-range-size size-base byte-base ))
+
   (decode stream '()))
 
-(define (encode-lzss-2b stream range-len max-len max-encoding-size host-config)
-  (define range-start (- max-encoding-size range-len))
+(define (encode-lzss-2b stream compression-range-size size-base byte-base host-config)
+
+  (define ribn-base (- byte-base compression-range-size))
 
   (define (encode stream tail)
     (if (pair? stream)
@@ -2912,13 +2916,13 @@
         (if (pair? code)
           (let* ((offset (car code))
                  (len (cadr code))
-                 (n   (+ (- len 3) (* offset max-len)))
-                 (first (quotient n max-encoding-size))
-                 (second  (modulo n max-encoding-size)))
+                 (n   (+ (- len 3) (* offset size-base)))
+                 (first (quotient n byte-base))
+                 (second  (modulo n byte-base)))
             (encode
               (cdr stream)
               (cons
-                (+ range-start first)
+                (+ ribn-base first)
                 (cons 
                   second
                   tail))))
@@ -2927,56 +2931,33 @@
             (cons code tail))))
       tail))
 
-  (define (add-variables! host-config original-size compressed-size)
-    (host-config-feature-add! 
-      host-config 
-      'compression/lzss/2b/original-size
-      original-size)
-    (host-config-feature-add! 
-      host-config 
-      'compression/lzss/2b/range-start
-      range-start)
-    (host-config-feature-add! 
-      host-config 
-      'compression/lzss/2b/max-encoding-size
-      max-encoding-size)
-    (host-config-feature-add! 
-      host-config 
-      'compression/lzss/2b/max-len
-      max-len)
-    (host-config-feature-add! 
-      host-config 
-      'compression/lzss/2b/compressed-size
-      compressed-size))
-
   (let* ((encoded-stream 
            (LZSS
              stream 
-             (- (quotient (* range-len max-encoding-size) max-len) 1)
-             max-len
-             max-encoding-size 
+             (- (quotient (* compression-range-size byte-base) size-base) 1)
+             size-base
+             byte-base 
              (lambda (x) (if (pair? x) 2 1))))
          (return (encode
                    encoded-stream
                    '()))
+         (_ (pp (list 'encode-lzss-2b 'stream compression-range-size size-base byte-base 'host-config '=> (length stream) (length return))))
          (dec (decode-lzss-2b 
                 return 
-                range-len
-                max-len
-                max-encoding-size)))
-
+                compression-range-size
+                size-base
+                byte-base)))
 
     ;(pp (map list dec encoded-stream return))
     ;(pp (length dec))
     ;(pp (length encoded-stream))
     ;(pp (filter (lambda (x) (not (equal? (car x) (cadr x)))) (map list dec encoded-stream)))
 
-    (add-variables! host-config (length stream) (length return))
-
     (if (not (equal? dec
                 encoded-stream))
       (error "Decompression failed"))
-    return))
+
+    (list (length stream) (length return) return)))
 
   
 
@@ -3478,15 +3459,19 @@
       result)))
 
 
-(define (encode proc exports host-config byte-stats encoding-name encoding-size)
-  (define max-encoding-size encoding-size)
+(define (encode proc exports host-config byte-stats encoding-name byte-base)
 
   ;; 1 = 128 codes reserved for compression (128-255)
   ;; 2 = 64  codes reserved for compression (192-255)
 
-  (define compression/lzss/2b/codes 44) ;; must be even
-  (define compression/lzss/2b/max-len 11)
+  (define compression-range-size 0)
+  (define compression-range-size-min 32) ;; must be even
+  (define compression-range-size-max 128)
+  (define size-base 0)
+  (define size-base-min 10)
+  (define size-base-max 20)
 
+  (define (ribn-base) (- byte-base compression-range-size))
 
   ;; state
   (let ((encoding      #f) ;; chosen encoding
@@ -3506,38 +3491,80 @@
           symtbl 
           encoding 
           (encoding-inst-get encoding '(skip int long))
-          encoding-size)))
+          (ribn-base))))
 
     (define (p/enc-symtbl)
       (let* ((symtbl-and-symbols* (encode-symtbl proc exports host-config (encoding-inst-size encoding '(call sym short))))
              (symbol* (cdr symtbl-and-symbols*)))
         (set! symtbl   (car symtbl-and-symbols*))
-        (set! stream-symtbl (symtbl->stream symtbl symbol* max-encoding-size))))
+        (set! stream-symtbl (symtbl->stream symtbl symbol* byte-base))))
 
     (define (p/comp-tag)
       (set! stream
         (encode-lzss-with-tag
           stream
-          encoding-size
+          (ribn-base)
           host-config)))
 
     (define (p/comp-2b)
-      (set! stream
-        (encode-lzss-2b
-          stream
-          compression/lzss/2b/codes
-          compression/lzss/2b/max-len
-          max-encoding-size
-          host-config)))
+      (pp '**********)
+      (let loop1 ((crs compression-range-size-min) (best-compression '(99999999999 99999999999)))
+        (if (<= crs compression-range-size-max)
+            (let loop2 ((sb size-base-min) (best-compression best-compression))
+              (if (<= sb size-base-max)
+                  (begin
+                    (set! compression-range-size crs)
+                    (set! size-base sb)
+                    (p/enc-prog)
+                    (let* ((compression
+                            (encode-lzss-2b
+                             stream
+                             compression-range-size
+                             size-base
+                             byte-base
+                             host-config))
+                           (ribn-size
+                            (car compression))
+                           (compressed-ribn-size
+                            (cadr compression))
+                           (stream
+                            (caddr compression)))
+                      (loop2 (+ sb 1)
+                             (if (< compressed-ribn-size (cadr best-compression))
+                                 (begin
+                                   (pp (list 'encode-lzss-2b 'stream compression-range-size size-base byte-base 'host-config '=> ribn-size compressed-ribn-size))
+                                   compression)
+                                 best-compression))))
+                  (loop1 (+ crs 2) best-compression)))
+            (let ()
 
-        ;(encode-lzss-on-two-bytes
-        ;  stream
-        ;  compression/2b/bits
-        ;  4
-        ;  10
-        ;  encoding-size
-        ;  host-config)))
+              ;;TODO: fixme!
 
+              (define (add-variables! host-config ribn-size compressed-ribn-size)
+                (host-config-feature-add! 
+                 host-config 
+                 'compression/lzss/2b/byte-base
+                 byte-base)
+                (host-config-feature-add! 
+                 host-config 
+                 'compression/lzss/2b/size-base
+                 size-base)
+                (host-config-feature-add! 
+                 host-config 
+                 'compression/lzss/2b/ribn-base
+                 ribn-base)
+                (host-config-feature-add! 
+                 host-config 
+                 'compression/lzss/2b/ribn-size
+                 ribn-size)
+                (host-config-feature-add! 
+                 host-config 
+                 'compression/lzss/2b/compressed-ribn-size
+                 compressed-ribn-size))
+
+              (add-variables! host-config (cadr best-compression) (car best-compression))
+
+              (set! stream (caddr best-stream))))))
 
     (define (p/merge-prog-sym)
       (set! stream (append stream-symtbl stream)))
@@ -3545,7 +3572,7 @@
 
     (define (optimal-encoding)
       (let* ((symtbl-and-symbols* (encode-symtbl proc exports host-config 20)) ;; we assume 20 shorts, will be re-evaluated
-             (raw-stream (encode-program proc (car symtbl-and-symbols*) 'raw #t encoding-size)) 
+             (raw-stream (encode-program proc (car symtbl-and-symbols*) 'raw #t (ribn-base))) 
              (stats (get-stat-from-raw (make-table) raw-stream))
              (encoding 
                (calculate-start
@@ -3554,7 +3581,7 @@
                      (get-maximal-encoding 
                        (map car encoding-skip-92)
                        stats
-                       encoding-size))))))
+                       (ribn-base)))))))
         (encoding-optimal-add-variables encoding host-config)
         encoding))
 
@@ -3581,12 +3608,12 @@
       ;; Dispatch logic
       (p/enc-const) ;; always encode constants
 
-
+#|
       (if compression/2b?
         (begin
-          (if (< (- encoding-size compression/lzss/2b/codes) 0)
+          (if (< (- encoding-size compression-range-size) 0)
             (error "Too many codes reserved for 2b-compression"))
-          (set! encoding-size (- encoding-size compression/lzss/2b/codes))))
+          (set! encoding-size (- encoding-size compression-range-size))))
 
 
           ;(if (not (eqv? encoding-size 256))
@@ -3604,15 +3631,15 @@
           (if (not (eqv? encoding-size 256))
             (error "Hyperbyte only works with 256 bytes encoding"))
           (set! encoding-size 16)))
-
+|#
       ;; Choose encoding
       (set! encoding
         (cond
           ((and (string=? "original" encoding-name)
-                (eqv? encoding-size 92))
+                (eqv? (ribn-base) 92))
            encoding-original-92)
           ((and (string=? "skip" encoding-name)
-                (eqv? encoding-size 92))
+                (eqv? (ribn-base) 92))
            encoding-skip-92)
           ((string=? "test" encoding-name)
            #f)
@@ -3624,13 +3651,13 @@
 
       (host-config-feature-add! 
         host-config 
-        'encoding/encoding-size
-        encoding-size)
+        'encoding/ribn-base
+        (ribn-base))
 
       (host-config-feature-add! 
         host-config 
-        'encoding/half-encoding-size
-        (quotient encoding-size 2))
+        'encoding/half-ribn-base
+        (quotient (ribn-base) 2))
 
       (p/enc-symtbl)
       (p/enc-prog)   
@@ -3640,7 +3667,7 @@
         (set! stream (encode-hyperbyte stream)))
 
       ;; compression on 92 applies only on the program (not symtbl)
-      (if (and compression/2b? (eqv? max-encoding-size 92))
+      (if (and compression/2b? (eqv? byte-base 92))
         (p/comp-2b))
 
       ;; merge symtbl and prog
@@ -3650,7 +3677,7 @@
       (if compression/tag?
         (p/comp-tag))
 
-      (if (and compression/2b? (eqv? max-encoding-size 256))
+      (if (and compression/2b? (eqv? byte-base 256))
         (p/comp-2b))
 
       stream)))
@@ -3693,7 +3720,7 @@
 ;                      "Compression with 1-bit backpointers : "
 ;                      (number->string (length lzss-comp))
 ;                      "\n"
-;                      "Compression on " (number->string entropy-on-2-bits) " codes (max-len " (number->string len) ", max-offset " (number->string max-offset) ") : "
+;                      "Compression on " (number->string entropy-on-2-bits) " codes (size-base " (number->string len) ", max-offset " (number->string max-offset) ") : "
 ;                      (number->string total-length)
 ;                      "\n\n"
 ;                      )))
@@ -4735,30 +4762,31 @@
          (host-config
            (vector-ref proc-exports-and-features 2))
 
-         (encode (lambda (bits)
-                   (let ((input 
-                           (append 
-                             (encode
-                               proc
-                               exports
-                               host-config
-                               byte-stats
-                               encoding-name
-                               bits)
-                             (if input-path
-                               (string->list* (string-from-file input-path))
-                               '()))))
-                     (if (or (>= verbosity 1) (memq 'rvm-len debug-info))
-                       (begin
-                         (display "*** RVM code length: ")
-                         (display (length input))
-                         (display " bytes\n")))
-                     input))))
+         (encode*
+          (lambda (byte-base)
+            (let ((input 
+                   (append 
+                    (encode
+                     proc
+                     exports
+                     host-config
+                     byte-stats
+                     encoding-name
+                     byte-base)
+                    (if input-path
+                        (string->list* (string-from-file input-path))
+                        '()))))
+              (if (or (>= verbosity 1) (memq 'rvm-len debug-info))
+                  (begin
+                    (display "*** RVM code length: ")
+                    (display (length input))
+                    (display " bytes\n")))
+              input))))
 
     (let* ((target-code-before-minification
             (if (equal? target "rvm")
-                (encode 92)   ;; NOTE: 92 is the number of code in the encoding.
-                (generate-file host-file host-config encode)))
+                (encode* 92)   ;; NOTE: 92 is the number of code in the encoding.
+                (generate-file host-file host-config encode*)))
            (target-code
             (if (or (not minify?) (equal? target "rvm"))
                 target-code-before-minification

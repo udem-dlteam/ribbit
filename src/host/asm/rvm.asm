@@ -252,41 +252,41 @@ start_decompression:
 	inc ebp
 %endmacro
 
-%define ORIGINAL_SIZE 00     ;; @@(replace "00" compression/lzss/2b/original-size)@@
-%define RANGE_START 00       ;; @@(replace "00" compression/lzss/2b/range-start)@@
-%define MAX_ENCODING_SIZE 00 ;; @@(replace "00" compression/lzss/2b/max-encoding-size)@@
-%define MAX_LEN 00           ;; @@(replace "00" compression/lzss/2b/max-len)@@
-%define COMPRESSED_SIZE 00   ;; @@(replace "00" compression/lzss/2b/compressed-size)@@
+%define BYTE_BASE 00            ;; @@(replace "00" compression/lzss/2b/byte-base)@@
+%define SIZE_BASE 00            ;; @@(replace "00" compression/lzss/2b/size-base)@@
+%define RIBN_BASE 00            ;; @@(replace "00" compression/lzss/2b/ribn-base)@@
+%define RIBN_SIZE 00            ;; @@(replace "00" compression/lzss/2b/ribn-size)@@
+%define COMPRESSED_RIBN_SIZE 00 ;; @@(replace "00" compression/lzss/2b/compressed-ribn-size)@@
 
 decompress:
 	mov  rvm_code_ptr, rvm_code 
 
-	sub esp, ORIGINAL_SIZE
+	sub  esp, RIBN_SIZE
 	mov  edi, esp
 	mov  ebp, esp
 
 decompress_loop:
 	mov ebx, esi
 	sub ebx, rvm_code
-	cmp ebx, COMPRESSED_SIZE
+	cmp ebx, COMPRESSED_RIBN_SIZE
 	jns decompress_end
 	
 	movC eax, 0
 	mov al, [rvm_code_ptr]
 	inc rvm_code_ptr
 	
-	cmp eax, RANGE_START
+	cmp eax, RIBN_BASE
 	js  decompress_next
 
 	movC ebx, 0
 	mov bl, [rvm_code_ptr]
 	inc rvm_code_ptr
 
-	sub eax, RANGE_START
-	imul eax, MAX_ENCODING_SIZE
+	sub eax, RIBN_BASE
+	imul eax, BYTE_BASE
 	add eax, ebx
 
-	movC ecx, MAX_LEN
+	movC ecx, SIZE_BASE
 	movC edx, 0 ;; clear divident
 	div ecx ;; eax = eax / ecx (offset); edx = eax % ecx(length)
 	add edx, 3
