@@ -16,8 +16,10 @@ debug = false;
 
 
 lengthAttr = "length";
+// @@(feature (and js/node js/web)
 isNode = process?.versions?.node != null;
-if (isNode) { // @@(feature (and js/node js/web))@@
+if (isNode) { 
+// )@@
 
 // @@(feature (or js/node (not js/web))
 // Implement putchar/getchar to the terminal
@@ -115,13 +117,13 @@ get_code = () => { let x = get_byte()-35; return x<0 ? 57 : x; };
 get_int = (n) => { let x = get_code(); n *= 46; return x<46 ? n+x : get_int(n+x-46); };
 
 
-// @@(feature compression/lzss
+// @@(feature compression/lzss/tag
 inp="";
 i=0;
 while(pos<input[lengthAttr]){
     c=get_code();
     v=String.fromCharCode(c==57?33:c+35);
-    if(c==60){ // @@(replace "60" compression/lzss/tag)@@
+    if(c==60){ // @@(replace "60" compression/lzss/tag-as-code)@@
         p=get_int(0);
         if(p==0) {
             inp+=v;
@@ -611,5 +613,10 @@ run = () => {
 };
 
 // @@(location start)@@
-if (isNode) run();
+
+
+if (isNode)  // @@(feature (and js/node js/web))@@
+  run(); // @@(feature (not js/web))@@
+
+
 // @@(location end)@@
