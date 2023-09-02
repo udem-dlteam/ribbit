@@ -14,6 +14,8 @@
 
 ;;; ######################################## Beginning of ELF header
 
+
+;; @@(feature debug 
 %macro DB_PRINT 1
     push %1
     call print_int
@@ -47,6 +49,8 @@
 %define NEED_PRINT_RIB
 %endif
 %endmacro
+
+;; )@@
 
 	BITS 32
 
@@ -1138,10 +1142,16 @@ string_call	db "call --",0
 
 ; @@(feature arity-check
 string_arity_error db "Arity check error",0x0a,0
-string_test_rest db "Test rest params",0x0a,0
-%ifndef NEED_PRINT_STRING
-%define NEED_PRINT_STRING
-%endif
+;; this code assumes that the program will exit after
+
+arity_check_exit:
+	movC ebx, 1	; ebx = 1 = STDOUT
+	movC edx, 18		; edx = 1 = number of bytes to write
+	movC ecx, string_arity_error
+	movC eax, SYS_WRITE
+	CALL_KERNEL
+	mov LAST_ARG, 0x10 ;; 1 (error)
+    call prim_exit
 ; )@@
 
 run_instr_jump_call:
@@ -1216,8 +1226,7 @@ with_rest:
     ; )@@
 error_arity_check:
     push string_arity_error
-    call print_string
-    call prim_exit
+    call arity_check_exit
     ; )@@
 	jmp  create_frame_loop_start
 
