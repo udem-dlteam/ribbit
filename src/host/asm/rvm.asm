@@ -204,7 +204,7 @@ _start:
 %define FIELD3(x) [x-RIB_TAG+WORD_SIZE*3]
 
 ;;; the RVM encodes instructions with codes in the range 0 .. MAX_CODE-1
-%define MAX_CODE 00 ;; @@(replace "00" encoding/encoding-size)@@
+%define MAX_CODE 00 ;; @@(replace "00" encoding/ribn-base)@@
 
 %define INSTR_JUMP_CALL  0
 %define INSTR_SET        1

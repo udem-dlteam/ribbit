@@ -2901,7 +2901,7 @@
       
       tail))
 
-  (pp (list 'decode-lzss-2b 'stream compression-range-size size-base byte-base ))
+  ;(pp (list 'decode-lzss-2b 'stream compression-range-size size-base byte-base ))
 
   (decode stream '()))
 
@@ -2940,7 +2940,7 @@
          (return (encode
                    encoded-stream
                    '()))
-         (_ (pp (list 'encode-lzss-2b 'stream compression-range-size size-base byte-base 'host-config '=> (length stream) (length return))))
+         ;(_ (pp (list 'encode-lzss-2b 'stream compression-range-size size-base byte-base 'host-config '=> (length stream) (length return))))
          (dec (decode-lzss-2b 
                 return 
                 compression-range-size
@@ -3464,11 +3464,11 @@
   ;; 2 = 64  codes reserved for compression (192-255)
 
   (define compression-range-size 0)
-  (define compression-range-size-min 32) ;; must be even
-  (define compression-range-size-max 128)
+  (define compression-range-size-min 70) ;; must be even
+  (define compression-range-size-max 70)
   (define size-base 0)
   (define size-base-min 10)
-  (define size-base-max 20)
+  (define size-base-max 10)
 
   (define (ribn-base) (- byte-base compression-range-size))
 
@@ -3506,9 +3506,6 @@
           host-config)))
 
     (define (p/comp-2b)
-      (pp '**********)
-
-
       (set! compression-range-size compression-range-size-min)
       (set! encoding (optimal-encoding))
       (p/enc-symtbl)
@@ -3538,8 +3535,8 @@
                       (loop2 (+ sb 1)
                              (if (< compressed-ribn-size (cadr best-compression))
                                  (begin
-                                   (pp (list 'encode-lzss-2b 'stream compression-range-size size-base byte-base 'host-config '=> ribn-size compressed-ribn-size))
-                                   compression)
+                                   ;(pp (list 'encode-lzss-2b 'stream compression-range-size size-base byte-base 'host-config '=> ribn-size compressed-ribn-size))
+                                   (append compression (list sb crs encoding)))
                                  best-compression))))
                   (begin 
                     (let ((new-crs(+ crs 2) ))
@@ -3553,6 +3550,7 @@
 
               ;;TODO: fixme!
 
+
               (define (add-variables! host-config ribn-size compressed-ribn-size)
                 (host-config-feature-add! 
                  host-config 
@@ -3565,7 +3563,7 @@
                 (host-config-feature-add! 
                  host-config 
                  'compression/lzss/2b/ribn-base
-                 ribn-base)
+                 (ribn-base))
                 (host-config-feature-add! 
                  host-config 
                  'compression/lzss/2b/ribn-size
@@ -3575,9 +3573,13 @@
                  'compression/lzss/2b/compressed-ribn-size
                  compressed-ribn-size))
 
-              (add-variables! host-config (cadr best-compression) (car best-compression))
+              (set! size-base (cadddr best-compression))
+              (set! compression-range-size (car (cddddr best-compression)))
+              (set! encoding (cadr (cddddr best-compression)))
 
-              (set! stream (caddr best-stream))))))
+              (add-variables! host-config (car best-compression) (cadr best-compression))
+
+              (set! stream (caddr best-compression))))))
 
     (define (p/merge-prog-sym)
       (set! stream (append stream-symtbl stream)))
@@ -3662,15 +3664,6 @@
             (error "Cannot find encoding (or number of byte not supported) :" encoding-name))))
 
 
-      (host-config-feature-add! 
-        host-config 
-        'encoding/ribn-base
-        (ribn-base))
-
-      (host-config-feature-add! 
-        host-config 
-        'encoding/half-ribn-base
-        (quotient (ribn-base) 2))
 
       (p/enc-symtbl)
       (p/enc-prog)   
@@ -3692,6 +3685,20 @@
 
       (if (and compression/2b? (eqv? byte-base 256))
         (p/comp-2b))
+
+      
+      (host-config-feature-add! 
+        host-config 
+        'encoding/ribn-base
+        (ribn-base))
+
+      (host-config-feature-add! 
+        host-config 
+        'encoding/half-ribn-base
+        (quotient (ribn-base) 2))
+
+      (if (string=? "optimal" encoding-name)
+        (encoding-optimal-add-variables encoding host-config))
 
       stream)))
 
@@ -4636,7 +4643,10 @@
           ((number? expr)
            expr)
           ((symbol? expr)
-           (host-config-feature-live? host-config expr))
+           (let ((feature-value (host-config-feature-live? host-config expr)))
+             (if feature-value
+               feature-value
+               (error "Error while generating rvm, feature with empty value : " expr))))
           (else
            (error "Cannot evaluate expression in replace" expr)))))
 
