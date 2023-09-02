@@ -3467,8 +3467,8 @@
   (define compression-range-size-min 70) ;; must be even
   (define compression-range-size-max 70)
   (define size-base 0)
-  (define size-base-min 10)
-  (define size-base-max 10)
+  (define size-base-min 7)
+  (define size-base-max 13)
 
   (define (ribn-base) (- byte-base compression-range-size))
 
