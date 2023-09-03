@@ -3368,7 +3368,7 @@
       ",")
     ";"))
 
-(define (symtbl->stream symtbl symbols* encoding-size)
+(define (symtbl->stream symtbl symbols* ribn-base byte-base)
   (encode-n
     (- (table-length symtbl)
        (length symbols*))
@@ -3381,9 +3381,9 @@
                      (reverse (string->list str)))))
                symbols*)
           ",")
-        encoding-size)
-      (string->stream ";" encoding-size))
-    (quotient encoding-size 2)))
+        byte-base)
+      (string->stream ";" byte-base))
+    (quotient ribn-base 2)))
 
 (define (string->stream string encoding-size)
   (cond 
@@ -3496,7 +3496,7 @@
       (let* ((symtbl-and-symbols* (encode-symtbl proc exports host-config (encoding-inst-size encoding '(call sym short))))
              (symbol* (cdr symtbl-and-symbols*)))
         (set! symtbl   (car symtbl-and-symbols*))
-        (set! stream-symtbl (symtbl->stream symtbl symbol* byte-base))))
+        (set! stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base))))
 
     (define (p/comp-tag)
       (set! stream
