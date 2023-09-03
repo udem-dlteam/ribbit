@@ -244,7 +244,7 @@
   (not v-port)
   (begin
     (define stdin-port
-      (##rib (##stdin-fd) (##rib 0 '() #t) input-port-type)) ;; stdin
+      (##rib (##stdin-fd) '() input-port-type)) ;; stdin
 
     (define stdout-port
       (##rib (##stdout-fd) #t output-port-type))  ;; stdout
@@ -253,22 +253,22 @@
 
     (define (open-input-file filename)
       ;; (file_descriptor, (cursor, last_char, is_open), input_file_type)
-      (##rib (##get-fd-input-file filename) (##rib 0 '() #t) input-port-type))
+      (##rib (##get-fd-input-file filename) '() input-port-type))
 
     (define (close-input-port port)
-      (if (##field2 (##field1 port))
+      (if (##field1 port)
         (begin 
-          (##field2-set! (##field1 port) #f)
+          (##field1-set! port #f)
           (##close-input-fd (##field0 port)))))
 
     (define (##get-last-char port)
-      (##field1 (##field1 port)))
+      (##field1 port))
 
     (define (##set-last-char port ch)
-      (##field1-set! (##field1 port) ch))
+      (##field1-set! port ch))
 
     (define (input-port-close? port)
-      (not (##field2 (##field1 port))))
+      (not (##field1 port)))
 
     (define (read-char (port (current-input-port))) 
       (if (input-port-close? port) (crash))
