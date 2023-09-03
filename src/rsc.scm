@@ -661,6 +661,11 @@
     (last-item (cdr lst))
     lst))
 
+(define (improper-list? lst)
+  (if (pair? lst)
+    (improper-list? (cdr lst))
+    (not (null? lst))))
+
 (define (improper-length lst)
   (if (pair? lst)
     (+ 1 (improper-length (cdr lst)))
@@ -2178,6 +2183,11 @@
 
                    ((eqv? first 'lambda)
                     (let ((params (cadr expr)))
+                      (if (improper-list? params)
+                        (begin
+                          (live-env-add-feature! env 'rest-param) ;; detect rest-params
+                          (live-env-add-feature! env 'arity-check)))
+
                       (if (symbol? params) ;; this is the case in lambdas with rest params
                         (begin
                           (live-env-add-feature! env 'rest-param) ;; detect rest-params
