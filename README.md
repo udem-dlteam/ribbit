@@ -1,4 +1,6 @@
-# Ribbit
+## ⚠️ The Ribbit version that can compile the R4RS compliant repl in 7KB is available on the `dev` for now. It will be merged with `main` shortly. ⚠️ 
+
+# Ribbit 
 
 A small, portable and extensible Scheme implementation that supports closures, tail calls, first-class continuations, a REPL and AOT and incremental compilers. All that for a run time footprint around 4 KB!
 
