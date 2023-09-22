@@ -1,14 +1,14 @@
 import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 
-class rvm
+class test
 {
 
-  public rvm(String input, boolean debugging)
+  public test(String input, boolean debugging)
   {
     //System.out.println("input = "+input);
-    //this.input = input;
-    this.input = "R:fi,adbmal,enifed,*,,,,,,,,,-,<,,,,,,,,,,,,,,,,,,,,;92]292AZ4AYJZA^94~Z(^YMAVvCvR3y]A7#ZL^z]L9#i&:BiS)ai&kkz!S):kw)k]))_(Z)aC_F^~E^{!@)^8@Z-lbC`^)`~>_F_~E_|]$9.`^Wka_CaF`+Z$dCb?ai$F`^~E_|]D#`kn5^~i$#`kn5^~i$#`kn5^~i$#`kn5^~SL^~>w*K^~>kT^~S^z];#ZDa_l{].#a_k#k_k~>iS)_{!9+b+:PfCdbw*k~ECaF`^|!H+P:h-w1k+Pf~>iS)fd?aaa^}(!P(i&^z]%(YP`^{]'(Z%b`^|!:(Z'ca_wD|!+#b`n8Hf?i&?bxOaxO`9$?ea_`~YN_C`+ci$+cQ?JdwS'?CDcxNFDa+c?CDbxN~>FDbwS&~ECa_~>wS'^+ci$+cH^+cHZ'Q?JgwS(xOxOYPZ%`xOwS%~EJbDa~ECa_~>wS(^+ci%+cH^+cHQi$?JdwS#^~EJbDa~ECa_~>wS#^8HfJdD`F_`FD`~>wS%^89cCa_~>xN^#Z.exJ#d~YEbZ#i&:PiS)JeZ)??fi$i$akYF_nD`~>wC^+:BgZ<ecBfUdboDa_~>wD^+Z;dWlbDbUa_~H>wB_8Hf?i&?bxOaxO`9$?ea_`~YN_C`+ci$+cQ?JdwS'?CDcxNFDa+c?CDbxN~>FDbwS&~ECa_~>wS'^+ci$+cH^+cHZ'Q?JgwS(xOxOYPZ%`xOwS%~EJbDa~ECa_~>wS(^+ci%+cH^+cHQi$?JdwS#^~EJbDa~ECa_~>wS#^8HfJdD`F_`FD`~>wS%^89cCa_~>xN^#Z.exJ#d~YEbZ#i&:PiS)JeZ)??fi$i$akYF_nD`~>wC^+:BgZ<ecBfUdboDa_~>wD^+Z;dWlbDbUa_~H^~^>wS*^#cDan~>xP^F_~E_#bWk``m~YN_|!?0_AG^{]40uy!6)i$6aC_AG^6aC_AG^AGvS#~H>vS#_6aC_AG^6aC_AG^AGvS#~H^~^>vE^6aC_AGvS5AGvS#~>u^6aC_AG^~Z6`F^~E^{]3)i$)i$93C^AYJF^~E^AGvC~E^z]&9&Z?^8?vS7vF~Z@^8JZB^AGvF~ZG^6i$Z+^~Z/^9&ZF^~YN^0vLAZ3C^AYJF^AGvK~E^8?vLvK~YE^8?vS;vF~>i%^8?vS-vF~Z6^z!J9&^0vEAMi%Z+^AGvE~Z/^z]:9:8K~>u^)^~Nk^Iy!K8KAI)^9:~>vR0^~N_vC)iS$~Z(^Z*y!I8I?`^8I?a^8I?au~>vS5^I~>vS#^9K_~>vE^)i&~Z(^Iz!G(YG^AI)i&~HHNvD`(YG^AI)i&~HH^~^>vL_(YG^AI)i&~H^~^>vK^Z*y]1(Z1^YM)i&AI~>vL^YKy!M9>`)^~^^ZC^YO?YG^AI8OYIi&AI~>vE^(?i&YMxPAI~>vJ^9EYM)i%AI~>vS;^)i$AI~>vS-^Z*AI~>vF^91AI~>vK^)^~Nk^YKy]*)^!S,^Iy]7)^!S,iS+)^~>iS$^!S,^z!297^97ZI~>iS+^)^~>iS$^iS,y!S,iS+]('iS$^z]##l`^{]@Rl]Bi=]E#oYF_^z]GRo]+i=!O#nYF_^z]/Rn]0)_)i$)i$90OOvR%`YAbuC_~NvR/^~N_vR$F^~E^{]890k^)i$~YE^z]C)i$88_k~^Z8^98C^~>vPF^)i$~YE^Z+^z],)^9,_`~Nak?b^Z-OYAu``vR%Z=u^{]?8OZ,i&^8O?Z,i&O`kvP~Nk^zAZHki#!S-Ki#]5)^!S-?iS-^ZM^95Ka_)^~YL`K^T_~E_{]>95iS-^z]Fi4]M#m_i$z!NRm]9)_99?aF_C^~E^{]K99i&^z!F)k9-YFC_l~E^z!E'i&^z]<8>K^z!>-K^z!34K^z!-8=K^z!,i4!/i=!(#k`^{!.Rk!L)i$)i$)i$)i$8LTaT_~YLKaK_~YLLaL_~S`)i$~>pL_~S_)^~^>`^{]6'i$^z!;9J)i$'bL^~S^zz!S+Omk!S$Olk!):lkl!*:lkm!1:lkn]J:lko!<:lkp!=:lkq!4:lkr!5:lks]H:lku!':lkv/!7:lkv0]-:lkv1!8:lkv2!A:lkv3]=:lkv4]I:lkv5!0:lkv6y";
+    this.input = input;
+    //this.input = "R:fi,adbmal,enifed,*,,,,,,,,,-,<,,,,,,,,,,,,,,,,,,,,;92]292AZ4AYJZA^94~Z(^YMAVvCvR3y]A7#ZL^z]L9#i&:BiS)ai&kkz!S):kw)k]))_(Z)aC_F^~E^{!@)^8@Z-lbC`^)`~>_F_~E_|]$9.`^Wka_CaF`+Z$dCb?ai$F`^~E_|]D#`kn5^~i$#`kn5^~i$#`kn5^~i$#`kn5^~SL^~>w*K^~>kT^~S^z];#ZDa_l{].#a_k#k_k~>iS)_{!9+b+:PfCdbw*k~ECaF`^|!H+P:h-w1k+Pf~>iS)fd?aaa^}(!P(i&^z]%(YP`^{]'(Z%b`^|!:(Z'ca_wD|!+#b`n8Hf?i&?bxOaxO`9$?ea_`~YN_C`+ci$+cQ?JdwS'?CDcxNFDa+c?CDbxN~>FDbwS&~ECa_~>wS'^+ci$+cH^+cHZ'Q?JgwS(xOxOYPZ%`xOwS%~EJbDa~ECa_~>wS(^+ci%+cH^+cHQi$?JdwS#^~EJbDa~ECa_~>wS#^8HfJdD`F_`FD`~>wS%^89cCa_~>xN^#Z.exJ#d~YEbZ#i&:PiS)JeZ)??fi$i$akYF_nD`~>wC^+:BgZ<ecBfUdboDa_~>wD^+Z;dWlbDbUa_~H>wB_8Hf?i&?bxOaxO`9$?ea_`~YN_C`+ci$+cQ?JdwS'?CDcxNFDa+c?CDbxN~>FDbwS&~ECa_~>wS'^+ci$+cH^+cHZ'Q?JgwS(xOxOYPZ%`xOwS%~EJbDa~ECa_~>wS(^+ci%+cH^+cHQi$?JdwS#^~EJbDa~ECa_~>wS#^8HfJdD`F_`FD`~>wS%^89cCa_~>xN^#Z.exJ#d~YEbZ#i&:PiS)JeZ)??fi$i$akYF_nD`~>wC^+:BgZ<ecBfUdboDa_~>wD^+Z;dWlbDbUa_~H^~^>wS*^#cDan~>xP^F_~E_#bWk``m~YN_|!?0_AG^{]40uy!6)i$6aC_AG^6aC_AG^AGvS#~H>vS#_6aC_AG^6aC_AG^AGvS#~H^~^>vE^6aC_AGvS5AGvS#~>u^6aC_AG^~Z6`F^~E^{]3)i$)i$93C^AYJF^~E^AGvC~E^z]&9&Z?^8?vS7vF~Z@^8JZB^AGvF~ZG^6i$Z+^~Z/^9&ZF^~YN^0vLAZ3C^AYJF^AGvK~E^8?vLvK~YE^8?vS;vF~>i%^8?vS-vF~Z6^z!J9&^0vEAMi%Z+^AGvE~Z/^z]:9:8K~>u^)^~Nk^Iy!K8KAI)^9:~>vR0^~N_vC)iS$~Z(^Z*y!I8I?`^8I?a^8I?au~>vS5^I~>vS#^9K_~>vE^)i&~Z(^Iz!G(YG^AI)i&~HHNvD`(YG^AI)i&~HH^~^>vL_(YG^AI)i&~H^~^>vK^Z*y]1(Z1^YM)i&AI~>vL^YKy!M9>`)^~^^ZC^YO?YG^AI8OYIi&AI~>vE^(?i&YMxPAI~>vJ^9EYM)i%AI~>vS;^)i$AI~>vS-^Z*AI~>vF^91AI~>vK^)^~Nk^YKy]*)^!S,^Iy]7)^!S,iS+)^~>iS$^!S,^z!297^97ZI~>iS+^)^~>iS$^iS,y!S,iS+]('iS$^z]##l`^{]@Rl]Bi=]E#oYF_^z]GRo]+i=!O#nYF_^z]/Rn]0)_)i$)i$90OOvR%`YAbuC_~NvR/^~N_vR$F^~E^{]890k^)i$~YE^z]C)i$88_k~^Z8^98C^~>vPF^)i$~YE^Z+^z],)^9,_`~Nak?b^Z-OYAu``vR%Z=u^{]?8OZ,i&^8O?Z,i&O`kvP~Nk^zAZHki#!S-Ki#]5)^!S-?iS-^ZM^95Ka_)^~YL`K^T_~E_{]>95iS-^z]Fi4]M#m_i$z!NRm]9)_99?aF_C^~E^{]K99i&^z!F)k9-YFC_l~E^z!E'i&^z]<8>K^z!>-K^z!34K^z!-8=K^z!,i4!/i=!(#k`^{!.Rk!L)i$)i$)i$)i$8LTaT_~YLKaK_~YLLaL_~S`)i$~>pL_~S_)^~^>`^{]6'i$^z!;9J)i$'bL^~S^zz!S+Omk!S$Olk!):lkl!*:lkm!1:lkn]J:lko!<:lkp!=:lkq!4:lkr!5:lks]H:lku!':lkv/!7:lkv0]-:lkv1!8:lkv2!A:lkv3]=:lkv4]I:lkv5!0:lkv6y";
     this.debug = debugging;
     //System.exit(0);
   }
@@ -243,21 +243,21 @@ class rvm
 
   public static void main(String[] args)
     {
-      rvm ribbit;
+      test ribbit;
       if(args.length == 0)
       {
-         ribbit = new rvm(");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y", false);
+         ribbit = new test("R:fi,adbmal,enifed,*,,,,,,,,,-,<,,,,,,,,,,,,,,,,,,,,;92]292AZ4AYJZA^94~Z(^YMAVvCvR3y]A7#ZL^z]L9#i&:BiS)ai&kkz!S):kw)k]))_(Z)aC_F^~E^{!@)^8@Z-lbC`^)`~>_F_~E_|]$9.`^Wka_CaF`+Z$dCb?ai$F`^~E_|]D#`kn5^~i$#`kn5^~i$#`kn5^~i$#`kn5^~SL^~>w*K^~>kT^~S^z];#ZDa_l{].#a_k#k_k~>iS)_{!9+b+:PfCdbw*k~ECaF`^|!H+P:h-w1k+Pf~>iS)fd?aaa^}(!P(i&^z]%(YP`^{]'(Z%b`^|!:(Z'ca_wD|!+#b`n8Hf?i&?bxOaxO`9$?ea_`~YN_C`+ci$+cQ?JdwS'?CDcxNFDa+c?CDbxN~>FDbwS&~ECa_~>wS'^+ci$+cH^+cHZ'Q?JgwS(xOxOYPZ%`xOwS%~EJbDa~ECa_~>wS(^+ci%+cH^+cHQi$?JdwS#^~EJbDa~ECa_~>wS#^8HfJdD`F_`FD`~>wS%^89cCa_~>xN^#Z.exJ#d~YEbZ#i&:PiS)JeZ)??fi$i$akYF_nD`~>wC^+:BgZ<ecBfUdboDa_~>wD^+Z;dWlbDbUa_~H>wB_8Hf?i&?bxOaxO`9$?ea_`~YN_C`+ci$+cQ?JdwS'?CDcxNFDa+c?CDbxN~>FDbwS&~ECa_~>wS'^+ci$+cH^+cHZ'Q?JgwS(xOxOYPZ%`xOwS%~EJbDa~ECa_~>wS(^+ci%+cH^+cHQi$?JdwS#^~EJbDa~ECa_~>wS#^8HfJdD`F_`FD`~>wS%^89cCa_~>xN^#Z.exJ#d~YEbZ#i&:PiS)JeZ)??fi$i$akYF_nD`~>wC^+:BgZ<ecBfUdboDa_~>wD^+Z;dWlbDbUa_~H^~^>wS*^#cDan~>xP^F_~E_#bWk``m~YN_|!?0_AG^{]40uy!6)i$6aC_AG^6aC_AG^AGvS#~H>vS#_6aC_AG^6aC_AG^AGvS#~H^~^>vE^6aC_AGvS5AGvS#~>u^6aC_AG^~Z6`F^~E^{]3)i$)i$93C^AYJF^~E^AGvC~E^z]&9&Z?^8?vS7vF~Z@^8JZB^AGvF~ZG^6i$Z+^~Z/^9&ZF^~YN^0vLAZ3C^AYJF^AGvK~E^8?vLvK~YE^8?vS;vF~>i%^8?vS-vF~Z6^z!J9&^0vEAMi%Z+^AGvE~Z/^z]:9:8K~>u^)^~Nk^Iy!K8KAI)^9:~>vR0^~N_vC)iS$~Z(^Z*y!I8I?`^8I?a^8I?au~>vS5^I~>vS#^9K_~>vE^)i&~Z(^Iz!G(YG^AI)i&~HHNvD`(YG^AI)i&~HH^~^>vL_(YG^AI)i&~H^~^>vK^Z*y]1(Z1^YM)i&AI~>vL^YKy!M9>`)^~^^ZC^YO?YG^AI8OYIi&AI~>vE^(?i&YMxPAI~>vJ^9EYM)i%AI~>vS;^)i$AI~>vS-^Z*AI~>vF^91AI~>vK^)^~Nk^YKy]*)^!S,^Iy]7)^!S,iS+)^~>iS$^!S,^z!297^97ZI~>iS+^)^~>iS$^iS,y!S,iS+]('iS$^z]##l`^{]@Rl]Bi=]E#oYF_^z]GRo]+i=!O#nYF_^z]/Rn]0)_)i$)i$90OOvR%`YAbuC_~NvR/^~N_vR$F^~E^{]890k^)i$~YE^z]C)i$88_k~^Z8^98C^~>vPF^)i$~YE^Z+^z],)^9,_`~Nak?b^Z-OYAu``vR%Z=u^{]?8OZ,i&^8O?Z,i&O`kvP~Nk^zAZHki#!S-Ki#]5)^!S-?iS-^ZM^95Ka_)^~YL`K^T_~E_{]>95iS-^z]Fi4]M#m_i$z!NRm]9)_99?aF_C^~E^{]K99i&^z!F)k9-YFC_l~E^z!E'i&^z]<8>K^z!>-K^z!34K^z!-8=K^z!,i4!/i=!(#k`^{!.Rk!L)i$)i$)i$)i$8LTaT_~YLKaK_~YLLaL_~S`)i$~>pL_~S_)^~^>`^{]6'i$^z!;9J)i$'bL^~S^zz!S+Omk!S$Olk!):lkl!*:lkm!1:lkn]J:lko!<:lkp!=:lkq!4:lkr!5:lks]H:lku!':lkv/!7:lkv0]-:lkv1!8:lkv2!A:lkv3]=:lkv4]I:lkv5!0:lkv6y", false);
       }
       else if(args.length == 2)
       {
         String in = args[0];
         boolean dbg = args[1].toLowerCase().equals("true") || args[1].equals("1");
-        ribbit = new rvm(in,dbg);
+        ribbit = new test(in,dbg);
       }
       else
       {
         boolean dbg = args[0].toLowerCase().equals("true") || args[0].equals("1");
-        ribbit = new rvm(");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y", dbg);
+        ribbit = new test("R:fi,adbmal,enifed,*,,,,,,,,,-,<,,,,,,,,,,,,,,,,,,,,;92]292AZ4AYJZA^94~Z(^YMAVvCvR3y]A7#ZL^z]L9#i&:BiS)ai&kkz!S):kw)k]))_(Z)aC_F^~E^{!@)^8@Z-lbC`^)`~>_F_~E_|]$9.`^Wka_CaF`+Z$dCb?ai$F`^~E_|]D#`kn5^~i$#`kn5^~i$#`kn5^~i$#`kn5^~SL^~>w*K^~>kT^~S^z];#ZDa_l{].#a_k#k_k~>iS)_{!9+b+:PfCdbw*k~ECaF`^|!H+P:h-w1k+Pf~>iS)fd?aaa^}(!P(i&^z]%(YP`^{]'(Z%b`^|!:(Z'ca_wD|!+#b`n8Hf?i&?bxOaxO`9$?ea_`~YN_C`+ci$+cQ?JdwS'?CDcxNFDa+c?CDbxN~>FDbwS&~ECa_~>wS'^+ci$+cH^+cHZ'Q?JgwS(xOxOYPZ%`xOwS%~EJbDa~ECa_~>wS(^+ci%+cH^+cHQi$?JdwS#^~EJbDa~ECa_~>wS#^8HfJdD`F_`FD`~>wS%^89cCa_~>xN^#Z.exJ#d~YEbZ#i&:PiS)JeZ)??fi$i$akYF_nD`~>wC^+:BgZ<ecBfUdboDa_~>wD^+Z;dWlbDbUa_~H>wB_8Hf?i&?bxOaxO`9$?ea_`~YN_C`+ci$+cQ?JdwS'?CDcxNFDa+c?CDbxN~>FDbwS&~ECa_~>wS'^+ci$+cH^+cHZ'Q?JgwS(xOxOYPZ%`xOwS%~EJbDa~ECa_~>wS(^+ci%+cH^+cHQi$?JdwS#^~EJbDa~ECa_~>wS#^8HfJdD`F_`FD`~>wS%^89cCa_~>xN^#Z.exJ#d~YEbZ#i&:PiS)JeZ)??fi$i$akYF_nD`~>wC^+:BgZ<ecBfUdboDa_~>wD^+Z;dWlbDbUa_~H^~^>wS*^#cDan~>xP^F_~E_#bWk``m~YN_|!?0_AG^{]40uy!6)i$6aC_AG^6aC_AG^AGvS#~H>vS#_6aC_AG^6aC_AG^AGvS#~H^~^>vE^6aC_AGvS5AGvS#~>u^6aC_AG^~Z6`F^~E^{]3)i$)i$93C^AYJF^~E^AGvC~E^z]&9&Z?^8?vS7vF~Z@^8JZB^AGvF~ZG^6i$Z+^~Z/^9&ZF^~YN^0vLAZ3C^AYJF^AGvK~E^8?vLvK~YE^8?vS;vF~>i%^8?vS-vF~Z6^z!J9&^0vEAMi%Z+^AGvE~Z/^z]:9:8K~>u^)^~Nk^Iy!K8KAI)^9:~>vR0^~N_vC)iS$~Z(^Z*y!I8I?`^8I?a^8I?au~>vS5^I~>vS#^9K_~>vE^)i&~Z(^Iz!G(YG^AI)i&~HHNvD`(YG^AI)i&~HH^~^>vL_(YG^AI)i&~H^~^>vK^Z*y]1(Z1^YM)i&AI~>vL^YKy!M9>`)^~^^ZC^YO?YG^AI8OYIi&AI~>vE^(?i&YMxPAI~>vJ^9EYM)i%AI~>vS;^)i$AI~>vS-^Z*AI~>vF^91AI~>vK^)^~Nk^YKy]*)^!S,^Iy]7)^!S,iS+)^~>iS$^!S,^z!297^97ZI~>iS+^)^~>iS$^iS,y!S,iS+]('iS$^z]##l`^{]@Rl]Bi=]E#oYF_^z]GRo]+i=!O#nYF_^z]/Rn]0)_)i$)i$90OOvR%`YAbuC_~NvR/^~N_vR$F^~E^{]890k^)i$~YE^z]C)i$88_k~^Z8^98C^~>vPF^)i$~YE^Z+^z],)^9,_`~Nak?b^Z-OYAu``vR%Z=u^{]?8OZ,i&^8O?Z,i&O`kvP~Nk^zAZHki#!S-Ki#]5)^!S-?iS-^ZM^95Ka_)^~YL`K^T_~E_{]>95iS-^z]Fi4]M#m_i$z!NRm]9)_99?aF_C^~E^{]K99i&^z!F)k9-YFC_l~E^z!E'i&^z]<8>K^z!>-K^z!34K^z!-8=K^z!,i4!/i=!(#k`^{!.Rk!L)i$)i$)i$)i$8LTaT_~YLKaK_~YLLaL_~S`)i$~>pL_~S_)^~^>`^{]6'i$^z!;9J)i$'bL^~S^zz!S+Omk!S$Olk!):lkl!*:lkm!1:lkn]J:lko!<:lkp!=:lkq!4:lkr!5:lks]H:lku!':lkv/!7:lkv0]-:lkv1!8:lkv2!A:lkv3]=:lkv4]I:lkv5!0:lkv6y", dbg);
       }
       ribbit.buildAndDecode();
     }
@@ -267,14 +267,14 @@ class rvm
 	System.out.print(c);
     }
 
-    private int getchar()
+    private char getchar()
     {
-      int c;
+      char c;
       try {
-        c= System.in.read();
+        c= (char) System.in.read();
       } catch (IOException ioException)
       {
-        c= -1;
+        c= (char) -1;
       }
       return c;
     }
@@ -340,7 +340,11 @@ class rvm
 
   private Field pop(){
     Field x =  stack.getField0();
-    stack = (Rib) stack.getField1().getField();
+    if (stack.getField1().getField().equals(0)){
+      stack = EMPTY;
+    }else{
+      stack = (Rib) stack.getField1().getField();
+    }
     return x;
   }
 
@@ -459,7 +463,13 @@ class rvm
       {
         if(op==jump_call_code)
         {
-          push(new IntField(0));
+          if (stack.equals(EMPTY)){
+            stack = new Rib(new IntField(0),new IntField(0),new IntField(0));
+          }else{
+            RibField stack_tmp = new RibField((new Rib(stack.getField0(), stack.getField1(), stack.getField2())));
+            stack = new Rib(new IntField(0),stack_tmp,new IntField(0));
+          }
+          //push(new IntField(0));
           op++;
         }
 
@@ -505,7 +515,7 @@ class rvm
         if(op>4)
         {
           fieldN = new RibField(new Rib(
-                  new RibField(new Rib(fieldN, new IntField(0), pop())),
+                  new RibField(new Rib(new IntField(n), new IntField(0), pop())),
                   new IntField(0),
                   procedure_tag));
           if (stack.equals(EMPTY))
@@ -540,7 +550,6 @@ class rvm
       Field o = pc.getField1();
       int i = (int) pc.getField0().getField();
       counter++;
-      //System.out.println("valeur de counter = "+counter);
       if (i < 1){
         if (debug){
           System.out.println("--- call "+(isRib(pc.getField2().getField()) ? isRib(pc.getField2().getField())  : "--- jump" + showOpnd(0)));
@@ -567,20 +576,6 @@ class rvm
           }
           stack = s2;
         }else{
-            //////////////////////////////// MODIFICATIONS PARTIE 3 //////////////////////////////////////////
-          if ((int)c.getField() == 4){ //Dans le cas ou on fait appel a Close
-            //TODO analyse des variables libres
-            Rib listVarLibre = EMPTY;
-
-            //pointé depuis c2
-            //c2 doit pointer sur la liste des variables libres
-            c2 = new Rib(new RibField(stack),new RibField(listVarLibre),pc.getField2());
-
-            //l'environnement du nouveau close doit pointer sur la list des variables libres (et non plus sur la stack)
-            Field x = ((Rib)pop().getField()).getField0();
-            push(new RibField(new Rib(x, new RibField(listVarLibre), procedure_tag)));
-
-          }
           primitives((int)c.getField());
           if (isRib(pc.getField2().getField())){
             c = new RibField(pc);
@@ -655,8 +650,8 @@ class rvm
         push(y);
         break;
       case 4 : //close
-        //x = ((Rib)pop().getField()).getField0();
-        //push(new RibField(new Rib(x, new RibField(stack), procedure_tag)));
+        x = ((Rib)pop().getField()).getField0();
+        push(new RibField(new Rib(x, new RibField(stack), procedure_tag)));
         break;
       case 5 : //rib?
         x = pop();
@@ -723,7 +718,7 @@ class rvm
         push(new IntField((int) x.getField() / (int) y.getField()));
         break;
       case 18 : //getchar
-        push(new IntField(getchar()));
+        push(new IntField((int) getchar()));
         break;
       case 19 : //putchar
         x = pop();
