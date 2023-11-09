@@ -1003,10 +1003,25 @@
                   (let* ((feature-expr (cadr expr)))
                     (begin
                       (if (eval-feature feature-expr (host-config-features host-config))
-                        (let ((locations (filter (lambda (x) (not (eqv? (car x) 'use))) (cddr expr))))
-                          (for-each (lambda (location)
-                                      (host-config-add-location! host-config (car location) expr))
-                                    locations)))
+                        (let ((locations
+                                (filter
+                                  (lambda (x)
+                                    (and
+                                      (not (eqv? (car x) 'use))
+                                      (not (eqv? (car x) '@@head))
+                                      (not (eqv? (car x) '@@body))))
+                                  (cddr expr))))
+
+                          (for-each 
+                            (lambda (location)
+                              (for-each 
+                                (lambda (loc)
+                                  (host-config-add-location! 
+                                    host-config 
+                                    (car location) 
+                                    loc))
+                                (cadr location)))
+                            locations)))
                       (gen-noop ctx cont))))
 
                  ((eqv? first 'if-feature)
@@ -1611,7 +1626,7 @@
                          (rest (filter (lambda (x) (not (eqv? (car x) 'use))) bindings)))
                     `(define-feature
                        ,(cadr expr)
-                       ,use-statement
+                       ,@(if use-statement (list use-statement) '())
                        ,@(map 
                            (lambda (x)
                              `(,(car x) ,(parse-host-file (fold string-append "" (cdr x)))))
@@ -4744,9 +4759,9 @@
          (let* ((name (cadr prim))
                 (feature-pair (assoc name locations))
                 (matched-features (if feature-pair (cdr feature-pair) '())))
-          (string-append
-           acc
-           (extract extract-func matched-features ""))))
+           (string-append
+             acc
+             (extract extract-func matched-features ""))))
 
         ((replace)
          (let* ((pattern     (cadr prim))
