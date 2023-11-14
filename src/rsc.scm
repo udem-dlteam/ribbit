@@ -59,7 +59,7 @@
    (define (del-file path)
      (delete-file path)))
 
-  (ribbit 
+  (ribbit
     (begin))
 
   (else
@@ -89,7 +89,7 @@
                     (string-append
                      tmpin
                      (string-append " > " tmpout)))))
-       (let ((out                
+       (let ((out
               (call-with-input-file
                   tmpout
                 (lambda (port) (read-line port #f)))))
@@ -110,7 +110,7 @@
 
 (cond-expand
 
-  (ribbit 
+  (ribbit
     (begin))
 
   (chicken
@@ -313,7 +313,7 @@
    (define (path-expand path dir)
      (if (or (= (string-length dir) 0) (string-prefix? dir path))
          path
-         (if (eqv? (string-ref dir (- (string-length dir) 1)) #\/) 
+         (if (eqv? (string-ref dir (- (string-length dir) 1)) #\/)
              (string-append dir path)
              (string-append dir (string-append "/" path)))))))
 
@@ -330,7 +330,7 @@
 
  (gambit (begin))
 
- ;; (ribbit 
+ ;; (ribbit
  ;;   (begin))
 
  (else
@@ -417,8 +417,8 @@
      (list-sort! compare (append list '())))))
 
 ;; Can be redefined by ribbit to make this function somewhat fast. It would only be (rib lst len string-type)
-(cond-expand 
-  (ribbit 
+(cond-expand
+  (ribbit
     (define (list->string* lst len)
       (rib lst len string-type)))
 
@@ -432,12 +432,12 @@
               (loop (cdr lst) (+ i 1)))
             str))))))
 
-(cond-expand 
-  (ribbit 
+(cond-expand
+  (ribbit
     (define (string->list* str)
       (field0 str)))
 
-  (else 
+  (else
     (define (string->list* str)
       (map char->integer (string->list str)))))
 
@@ -508,12 +508,12 @@
 
   (ribbit (begin))
 
-  (else 
+  (else
 
     (define (string-split str pattern)
       (let ((pattern? (if (char? pattern) (lambda (c) (char=? c pattern)) pattern))
             (final '("")))
-        (for-each 
+        (for-each
           (lambda (c)
             (if (pattern? c)
               (set! final (cons "" final))
@@ -567,8 +567,8 @@
 
 (define predefined '(##rib false true nil)) ;; predefined symbols
 
-(define default-primitives 
-  (map 
+(define default-primitives
+  (map
     (lambda (p) `(primitive ,p (@@head "") (@@body (str ""))))
     '((##rib x y z)
       (##id x)
@@ -719,7 +719,7 @@
       (begin
         (set-cdr! (cdr prim-ref) (cons code '())) ;; hack to set code
         0)
-      (if prim-ref 
+      (if prim-ref
         (cadr prim-ref)
         (begin
           (host-config-primitives-set! host-config (cons (list prim (length primitives) code) primitives))
@@ -844,7 +844,7 @@
 
 
 (define (hash-combine a b)
-  (modulo 
+  (modulo
     (* fnv1a-prime-32bits
        (+ a b))
     max-fixnum))
@@ -867,7 +867,7 @@
           (not hash2)
           (eqv? hash1 hash2))
 
-      (or 
+      (or
         (eqv? op1 op2) ;;test operand
         (and (c-rib? op1) (c-rib? op2) (c-rib-eq? op1 op2)))
 
@@ -881,7 +881,7 @@
 (define table-hash-size 512)
 
 
-(define (hash-c-rib field0 field1 field2) 
+(define (hash-c-rib field0 field1 field2)
 
   ;; This is a really simple hashing function. I tested it on the 50-repl test and I got good results
   ;;   having at most 6 elements hashed to the same value with a 512 hash table size. Most hashes had one
@@ -936,17 +936,17 @@
 
   (modulo (hash-combine
             (hash-combine
-              (opnd->hash field1) 
+              (opnd->hash field1)
               (op->hash field0))
-            (next->hash field2)) 
+            (next->hash field2))
           table-hash-size))
 ;; helper function to display the hash table
-(define (display-c-rib c-rib) 
+(define (display-c-rib c-rib)
 
   (define (display-obj obj)
     (if (rib? obj)
-      (string-append 
-        "%" 
+      (string-append
+        "%"
         (number->string (c-rib-hash obj))
         "%")
       (object->string obj)))
@@ -1022,14 +1022,14 @@
                                       (not (eqv? (car x) 'str))))
                                   (cddr expr))))
 
-                          (for-each 
+                          (for-each
                             (lambda (location)
-                              
-                              (for-each 
+
+                              (for-each
                                 (lambda (loc)
-                                  (host-config-add-location! 
-                                    host-config 
-                                    (car location) 
+                                  (host-config-add-location!
+                                    host-config
+                                    (car location)
                                     loc))
                                 (cadr location)))
                             locations)))
@@ -1056,7 +1056,7 @@
                            (if variadic
                              (improper-length params)
                              (length params)))
-                         (params 
+                         (params
                            (if variadic
                              (improper-list->list params '())
                              params)))
@@ -1079,7 +1079,7 @@
                                #t
                                ctx
                                1
-                               (gen-call (use-symbol ctx '##close) 
+                               (gen-call (use-symbol ctx '##close)
                                          cont))))))
 
                  ((eqv? first 'begin)
@@ -1099,7 +1099,7 @@
                      (if (symbol? first)
                        (begin
                          (let ((call-sym (assoc first call-stats)))
-                           (if call-sym 
+                           (if call-sym
                              (set-car! (cdr call-sym) (+ 1 (cadr call-sym)))
                              (set! call-stats (cons (list first 1) call-stats))))
                          (comp-call ctx
@@ -1107,9 +1107,9 @@
                                     (lambda (ctx)
                                       (let ((v (lookup first (ctx-cte ctx) 0)))
                                         (add-nb-args (host-config-is-primitive? host-config first)
-                                                     ctx 
+                                                     ctx
                                                      (length args)
-                                                     (gen-call 
+                                                     (gen-call
                                                        (if (number? v)
                                                          (+ v 1)
                                                          v)
@@ -1142,7 +1142,7 @@
 
 ;; (define (is-call? ctx name cont)
 ;;   (let* ((arity-check (arity-check? ctx name))
-;;          (call-rib 
+;;          (call-rib
 ;;            (if arity-check
 ;;              (and (rib? cont) (c-rib-next cont))
 ;;              (and (rib? cont) cont)))
@@ -1302,14 +1302,14 @@
 
 (define (host-feature->expansion-feature host-features)
   (map (lambda (x)
-         (cond 
+         (cond
           ((eqv? (car x) 'primitive)
             `(define-primitive ,@(cdr x)))
            ((eqv? (car x) 'feature)
             (let* ((features   (cadr x))
                    (maybe-use  (caddr x))
-                   (use/rest  
-                     (if (eq? (car maybe-use) 'use) 
+                   (use/rest
+                     (if (eq? (car maybe-use) 'use)
                        (cons (list maybe-use) (cdddr x))
                        (cons '() (cddr x))))
                    (use  (car use/rest))
@@ -1329,7 +1329,7 @@
          (exprs
            (if (pair? exprs) exprs '(#f)))
          (host-features (extract-features (or parsed-vm default-primitives)))
-         
+
          (expansion
            `(begin
               ,@(host-feature->expansion-feature host-features) ;; add host features
@@ -1353,14 +1353,14 @@
          (return (make-vector 3)))
 
     (set! host-config host-config-ctx)
-    
+
     (set! tail (add-nb-args #t ctx 1 tail))
 
-    (vector-set! 
+    (vector-set!
       return
-      0 
+      0
       (c-make-procedure
-        (c-rib 2 ;; 0 parameters 
+        (c-rib 2 ;; 0 parameters
                0
                (comp ctx
                      expansion
@@ -1369,9 +1369,9 @@
     (vector-set! return 1 exports)
     (vector-set! return 2 host-config)
 
-    ;(pp 
-    ;  (list-sort 
-    ;    (lambda (x y) (< (car x) (car y))) 
+    ;(pp
+    ;  (list-sort
+    ;    (lambda (x y) (< (car x) (car y)))
     ;    (map (lambda (pair)
     ;           (cons (car pair) (map display-c-rib (cdr pair)))) (table->list hash-table-c-ribs))))
 
@@ -1381,11 +1381,11 @@
         (pp expansion)))
 
     (if (>= verbosity 3)
-      (begin 
+      (begin
         (display "*** hash-consing table: \n")
-        (pp 
-          (list-sort 
-            (lambda (x y) (< (car x) (car y))) 
+        (pp
+          (list-sort
+            (lambda (x y) (< (car x) (car y)))
             (map (lambda (pair)
                    (list (car pair) (length (cdr pair)))) (table->list hash-table-c-ribs))))))
 
@@ -1427,7 +1427,7 @@
 ;;   (ribbit
 ;;    (define (current-directory) (path-directory (car (cmd-line)))))
 ;;
-;;   (else 
+;;   (else
 ;;     (begin)))
 
 ;; For includes
@@ -1452,12 +1452,12 @@
         ((pair? expr)
          (let ((first (car expr)))
 
-           (cond  
+           (cond
              ((eqv? first '##RIBBIT-VERSION)
               (expand-constant ##RIBBIT-VERSION))
 
-             ((mtx-search mtx first) => 
-              (lambda (expander) 
+             ((mtx-search mtx first) =>
+              (lambda (expander)
                 (apply expander (list expr (lambda (expr) (expand-begin (list expr) mtx))))))
 
              ((eqv? first 'quote)
@@ -1469,7 +1469,7 @@
              ((eqv? first 'set!)
               (let* ((var (cadr expr))
                      (expander (mtx-search mtx var)))
-                (if expander 
+                (if expander
                   (apply expander (list expr (lambda (expr) (expand-begin (list expr) mtx))))
                   (list 'set! var (expand-expr (caddr expr) mtx)))))
 
@@ -1483,7 +1483,7 @@
                                       '())))))
 
              ((eqv? first 'lambda)
-              (let* ((params (cadr expr)) 
+              (let* ((params (cadr expr))
                      (opt-params '())
                      (required-params '())
                      (variadic (or (symbol? params) (not (eq? (last-item params) '()))))
@@ -1492,8 +1492,8 @@
                 (let loop ((i 0) (params params))
                   (if (< i nb-params)
                     (let ((param (car params)))
-                      (cond 
-                        ((and (symbol? param) (null? opt-params)) 
+                      (cond
+                        ((and (symbol? param) (null? opt-params))
                          (set! required-params (append required-params (list param)))
                          (loop (+ 1 i) (cdr params)))
 
@@ -1506,7 +1506,7 @@
                   (cons 'lambda
                         (cons params
                               (cons (expand-body (cddr expr) (mtx-shadow mtx (if (pair? params) (improper-list->list params '()) (list params)))) '())))
-                  ;; Add the check for the optional params 
+                  ;; Add the check for the optional params
                   (let ((vararg-name (if variadic (last-item params) '##vararg))
                         (opt-params-body '()))
                     (if (pair? required-params)
@@ -1515,17 +1515,17 @@
 
                     (for-each
                       (lambda (opt-param)
-                        (set! opt-params-body 
-                          (append opt-params-body 
-                                  (expand-opt-param 
-                                    (car opt-param) 
-                                    (cadr opt-param) 
+                        (set! opt-params-body
+                          (append opt-params-body
+                                  (expand-opt-param
+                                    (car opt-param)
+                                    (cadr opt-param)
                                     vararg-name
                                     mtx))))
                       opt-params)
 
                     (expand-expr
-                      `(lambda 
+                      `(lambda
                          ,required-params
                          (let* ,opt-params-body
                            ,@(cddr expr)))
@@ -1560,11 +1560,11 @@
                                                        mtx)
                                                      '())))
                                        bindings)
-                                  (cons (expand-body (cddr expr) 
+                                  (cons (expand-body (cddr expr)
                                                      (mtx-shadow mtx
                                                                  (map car bindings)))
                                         '())))
-                      (expand-body (cddr expr) 
+                      (expand-body (cddr expr)
                                    mtx))))))
 
              ((eqv? first 'let*)
@@ -1614,7 +1614,7 @@
                                       '())))
                     (cons 'set!
                           (cons pattern
-                                (cons (expand-expr 
+                                (cons (expand-expr
                                         (caddr expr)
                                         mtx)
                                       '())))))))
@@ -1622,11 +1622,11 @@
              ((eqv? first 'if-feature)
               (cons 'if-feature
                     (cons (cadr expr)
-                          (cons (expand-expr 
+                          (cons (expand-expr
                                   (caddr expr)
                                   mtx)
                                 (cons (if (pair? (cdddr expr))
-                                        (expand-expr 
+                                        (expand-expr
                                           (cadddr expr)
                                           mtx)
                                         #f)
@@ -1636,8 +1636,8 @@
              ((eqv? (car expr) 'define-primitive) ;; parse arguments as source file
               (let ((code (filter string? (cdr expr)))
                     (rest (filter (lambda (x) (not (string? x))) (cdr expr))))
-                (parse-host-file 
-                  (fold string-append "" code) 
+                (parse-host-file
+                  (fold string-append "" code)
                   (append '(define-primitive) rest))))
 
              ((eqv? (car expr) 'define-feature) ;; parse arguments as a source file
@@ -1647,7 +1647,7 @@
                 `(define-feature
                    ,(cadr expr)
                    ,@(if use-statement (list use-statement) '())
-                   ,@(map 
+                   ,@(map
                        (lambda (x)
                          `(,(car x) ,(parse-host-file (fold string-append "" (cdr x)) '())))
                        rest))))
@@ -1697,7 +1697,7 @@
                          (body (cdr clause)))
                     (if (eqv? 'else condition)
                       (cons 'begin body)
-                      (cond 
+                      (cond
                         ((null? body) `(or ,condition (cond . ,(cddr expr))))
                         ((eq? '=> (car body))
                          `(let ((_ ,condition))
@@ -1705,7 +1705,7 @@
                               (,(cadr body) _)
                               (cond . ,(cddr expr)))))
                         (else
-                          `(if ,condition 
+                          `(if ,condition
                              (begin . ,body)
                              (cond . ,(cddr expr)))))))
                   #f)
@@ -1715,10 +1715,10 @@
               (let ((key (cadr expr)))
                 (let ((clauses (cddr expr)))
                   (if (pair? clauses)
-                    (expand-expr 
+                    (expand-expr
                       `(let ((##case-tmp ,key))
-                         (cond 
-                           ,@(map 
+                         (cond
+                           ,@(map
                                (lambda (clause)
                                  (if (eqv? (car clause) 'else)
                                    clause
@@ -1748,7 +1748,7 @@
 
 (define (expand-quasiquote rest)
   (let parse ((x rest) (depth 1))
-    (cond 
+    (cond
       ((not (pair? x))
        (if (vector? x)
          (list '##qq-list->vector (parse (vector->list x) depth))
@@ -1795,12 +1795,12 @@
                (if (pair? pattern)
                  (loop (cdr exprs)
                        defs
-                       (mtx-add-cte 
-                         mtx 
+                       (mtx-add-cte
+                         mtx
                          (caadr expr)
                          (eval `(lambda (,@(cdadr expr))
                                   ,@(cddr expr)))))
-                         
+
                  (loop (cdr exprs)
                        defs
                        (let ((expander-name (cadr expr))
@@ -1810,7 +1810,7 @@
 
                          (mtx-add-cte
                            mtx
-                           expander-name 
+                           expander-name
                            (eval expander-body)))))))
             (else
               (expand-body-done defs exprs mtx))))
@@ -1834,11 +1834,11 @@
         (expand-constant 0)))) ;; unspecified value
 
 (define (report-error err-type . args)
-  (error (string-append "Error: " 
-                        err-type 
-                        " in " 
-                        (resource-file current-resource) 
-                        ". " 
+  (error (string-append "Error: "
+                        err-type
+                        " in "
+                        (resource-file current-resource)
+                        ". "
                         (string-concatenate (map object->string args) " "))))
 
 
@@ -1867,17 +1867,17 @@
 
 (define (mtx-add-cte mtx macro-name macro-value)
   (mtx-cte-set mtx (cons (list macro-name macro-value) (mtx-cte mtx))))
-    
+
 (define (mtx-search mtx macro-name)
   (let ((macro-value (assq macro-name (append (mtx-cte mtx) (mtx-global mtx)))))
     (and macro-value (cadr macro-value))))
 
 
 ;; Shadow macro by a variable
-(define (mtx-shadow mtx variable-names) 
-  (mtx-cte-set 
+(define (mtx-shadow mtx variable-names)
+  (mtx-cte-set
     mtx
-    (append 
+    (append
       (map (lambda (variable-name)
              (list variable-name #f))
            variable-names)
@@ -1888,14 +1888,14 @@
   (if (pair? exprs)
       (let* ((expr (car exprs))
              (r '())
-             (expanded-expr 
+             (expanded-expr
                (cond ((and (pair? expr) (eqv? (car expr) 'begin))
                       (expand-begin* (cdr expr) r mtx))
 
                      ((and (pair? expr) (eqv? (car expr) 'cond-expand))
                       (expand-cond-expand-clauses (cdr expr) r mtx))
 
-                     ((and (pair? expr) 
+                     ((and (pair? expr)
                            (eqv? (car expr) '##include))
                       (cons (expand-resource (parse-resource (cadr expr)) mtx) r))
 
@@ -1913,7 +1913,7 @@
                            (eqv? (car expr) 'define-expander))
                       (if (pair? (cadr expr))
                         (mtx-add-global!
-                          mtx 
+                          mtx
                           (caadr expr)
                           (eval `(lambda (,@(cdadr expr))
                                    ,@(cddr expr))))
@@ -1923,7 +1923,7 @@
                             (error "*** define-expander: expected lambda expression" expander-body)
                             (mtx-add-global!
                               mtx
-                              expander-name 
+                              expander-name
                               (eval expander-body)))))
                       r)
 
@@ -1971,7 +1971,7 @@
                       (set! ,vararg-name (##field1 ,vararg-name))
                       value)))))
   ;; (list
-  ;;   (list param-name 
+  ;;   (list param-name
   ;;         (list 'if (list '##eqv? vararg-name '())
   ;;               (expand-expr param-default)
   ;;               (list 'let (list (list 'value (list '##field0 vararg-name)))
@@ -1986,7 +1986,7 @@
 
 ;; Resource reading and parsing.
 
-(define resource-str-reader-table 
+(define resource-str-reader-table
   `((ribbit
       ,(lambda (resource-path)
          (let ((resource-path (path-normalize (path-expand resource-path (path-expand "lib" (ribbit-root-dir))))))
@@ -1994,7 +1994,7 @@
              (error "The path needs to point to an existing file. Error while trying to include library at" resource-path)
              (string-from-file resource-path)))))
 
-    (file ,(lambda (resource-path) 
+    (file ,(lambda (resource-path)
              (if (not (file-exists? resource-path))
                (error "The path needs to point to an existing file. Error while trying to include library at" resource-path)
                (string-from-file resource-path))))))
@@ -2020,7 +2020,7 @@
 (define (read-str-resource resource)
   (let ((resource-path (resource-file resource))
         (reader (assq (resource-type resource) resource-str-reader-table)))
-    (if reader 
+    (if reader
       ((cadr reader) resource-path)
       (error "No resource reader found for resource-type:" (resource-type resource)))))
 
@@ -2038,7 +2038,7 @@
 
 (define (liveness-analysis expr features-enabled features-disabled exports)
   (let* ((live-env (liveness-analysis-aux expr features-enabled features-disabled '()))
-         (live-env-result 
+         (live-env-result
            (if (live-env-live? live-env 'symtbl)
              (liveness-analysis-aux expr features-enabled features-disabled exports)
              live-env)))
@@ -2103,8 +2103,8 @@
 
   (if (live-env-live? live-env var)
     live-env
-    (live-env-set-globals! 
-      live-env 
+    (live-env-set-globals!
+      live-env
       (let ((g (cons var '())))
         (cons g (live-env-globals live-env))))))
 
@@ -2144,12 +2144,12 @@
     (live-env-add-live! env '##id)
     (live-env-add-live! env '##-)
 
-    (and exports 
+    (and exports
          (for-each
-           (lambda (x) (live-env-add-live! env (car x))) 
+           (lambda (x) (live-env-add-live! env (car x)))
            exports))
 
-    (for-each 
+    (for-each
       (lambda (x) (live-env-add-feature! env x))
       features-enabled)
 
@@ -2157,7 +2157,7 @@
       (live-env-reset-defs env)
       (live-env-set-clean! env)
       (liveness expr env (not exports))
-      (if (live-env-clean? env) 
+      (if (live-env-clean? env)
         env
         (loop)))))
 
@@ -2199,7 +2199,7 @@
                             (let ((g (or export-all (live-env-live? env var)))) ;; variable live?
                               (if g
                                 (begin
-                                  (set-cdr! g (cons val (cdr g))) 
+                                  (set-cdr! g (cons val (cdr g)))
                                   (liveness val cte #f))
                                 #f)))))))
 
@@ -2241,7 +2241,7 @@
                     (let ((name (caadr expr))
                           (use  (assoc 'use (cddr expr))))
                       (if (or (live-env-live-feature? env name) (live-env-live? env name))
-                        (begin 
+                        (begin
                           (live-env-add-feature! env name)
                           (and use (for-each (lambda (x) (live-env-add-feature! env x)) use)))
                         #f)))
@@ -2271,14 +2271,14 @@
 
 ;; RVM code encoding.
 
-;; New encoding, for each instruction. Each instruction is taken separately 'int' et 'sym' and 'const' : 
+;; New encoding, for each instruction. Each instruction is taken separately 'int' et 'sym' and 'const' :
 ;;    - Number of short encodings
 ;;    - Number of long encodings
 ;; New instruction 'skip'.
 ;;
 ;; + lonely instruction (if)
 
-;; Old encoding : 
+;; Old encoding :
 ;;    - Assumes 3 long encoding for each pair of intruction. Each pair of instruction has a priority
 ;;         either 'int' or 'sym'. Depending on the priority, the short encoding will be for the 'int'
 ;;         or 'sym' variant. The 'const' and 'if' is special.
@@ -2290,7 +2290,7 @@
   (define counter 0)
 
   (map
-    (lambda (lst) 
+    (lambda (lst)
       (let* ((sym (car lst))
              (size (cadr lst))
              (return-val (list sym size counter)))
@@ -2300,8 +2300,8 @@
 
 
 (define encoding-original-92
-  (calculate-start 
-    '( 
+  (calculate-start
+    '(
       ;; jump
       ((jump sym short) 20)
       ((jump int long)  1)
@@ -2345,8 +2345,8 @@
 
 
 (define encoding-skip-92
-  (calculate-start 
-    '( 
+  (calculate-start
+    '(
       ;; jump
       ((jump sym short) 20)
       ((jump int long)  1)
@@ -2453,7 +2453,7 @@
                       o
                       tail)))
           ((char? o)
-           (if (and (host-config-features host-config) 
+           (if (and (host-config-features host-config)
                     (memq 'no-chars (host-config-features host-config)))
              (c-rib const-op
                     (char->integer o)
@@ -2524,7 +2524,7 @@
                       0
                       (c-rib const-op
                              procedure-type
-                             (add-nb-args 
+                             (add-nb-args
                                #t
                                3
                                (c-rib jump/call-op
@@ -2534,7 +2534,7 @@
                                              tail))))))))
 
     ;; skip rib primitive that is predefined
-    (let loop ((lst (filter (lambda (x) (not (eqv? x '##rib))) forced-first-primitives)) 
+    (let loop ((lst (filter (lambda (x) (not (eqv? x '##rib))) forced-first-primitives))
                (tail tail))
       (if (pair? lst)
           (loop (cdr lst)
@@ -2590,7 +2590,7 @@
                    v))))))
 
   (traverse-code
-    (c-rib-oper proc) 
+    (c-rib-oper proc)
     (lambda (code traverse)
       (let ((op (c-rib-oper code))
             (o  (c-rib-opnd code)))
@@ -2612,7 +2612,7 @@
   (let ((traverse (lambda (code) (traverse-code code func))))
     (if (rib? code)
       (begin
-        (func code traverse) 
+        (func code traverse)
         (traverse-code (c-rib-next code) func)))))
 
 (define (encode-symtbl proc exports host-config call-sym-short-size)
@@ -2657,7 +2657,7 @@
             ((eqv? op get-op)
              (scan-opnd o 1)) ;; 1 = get
             ((eqv? op const-op)
-             (if (or 
+             (if (or
                    (symbol? o)
                    (c-procedure? o)
                    (and (number? o) (>= o 0)))
@@ -2730,7 +2730,7 @@
 
     (define (get-running-sum lst)
       (reverse
-        (fold 
+        (fold
           (lambda (x acc)
             (cons (+ x (car acc)) acc))
           (list 0)
@@ -2752,18 +2752,18 @@
                  (byte-count-current (get-byte-count instruction index current-encoding-table encoding-size))
                  (gain               (* (- byte-count-current byte-count-optimal) (table-ref value-table index 0)))
                  (new-index          (+ index 1)))
-            (loop 
+            (loop
               new-index
               (cons gain lst)))
           (reverse lst))))
 
     (define (calculate-gain-long value-table instruction max offset current-encoding-table encoding-size)
       (let ((current-table-value (sum-byte-count value-table (reverse instruction) current-encoding-table encoding-size)))
-        (let loop ((index (+ offset 1)) 
-                   (old-gain current-table-value) 
+        (let loop ((index (+ offset 1))
+                   (old-gain current-table-value)
                    (lst '()))
           (if (< index (- max offset))
-            (let* ((optimal-table       
+            (let* ((optimal-table
                      (let ((optimal (table-copy current-encoding-table)))
                        (table-ref optimal (append instruction '(long)))
                        (table-set! optimal (append instruction '(long)) index)
@@ -2772,7 +2772,7 @@
                    (gain               (- old-gain optimal-table-value))
                    (new-old-gain       optimal-table-value)
                    (new-index          (+ index 1)))
-              (loop 
+              (loop
                 new-index
                 new-old-gain
                 (cons gain lst)))
@@ -2787,15 +2787,15 @@
       (for-each
         (lambda (encoding)
           (if (and (pair? encoding) (table-ref stats (car encoding) #f) (table-ref (table-ref stats (car encoding)) (cadr encoding) #f)) ;; FIXME: this check is needed because the instruction might be missing
-            (table-set! 
-              running-sums 
-              encoding 
+            (table-set!
+              running-sums
+              encoding
               (normalize
                 (get-running-sum
                   ((if (memq 'short encoding)
                      calculate-gain-short
-                     calculate-gain-long) 
-                   (table-ref 
+                     calculate-gain-long)
+                   (table-ref
                      (table-ref stats (car encoding))
                      (cadr encoding) #f)
                    (list (car encoding)
@@ -2812,7 +2812,7 @@
             (winner-value 0)
             (winner-index 0))
 
-        (for-each 
+        (for-each
           (lambda (sum)
             (let ((instruction (car sum)))
               (let loop ((index 0) (lst (cdr sum)))
@@ -2830,12 +2830,12 @@
         (list winner-inst winner-index winner-value)))
 
 
-    ;; starting, set size 1 for long encodings 
-    (for-each 
+    ;; starting, set size 1 for long encodings
+    (for-each
       (lambda (encoding)
-        (table-set! 
-          solution 
-          encoding 
+        (table-set!
+          solution
+          encoding
           (if (and (pair? encoding) (memq 'short encoding))
             0
             (begin (set! encoding-size-counter (- encoding-size-counter 1)) 1))))
@@ -2872,14 +2872,14 @@
       1
       (ceiling (log (+ x 1) (quotient encoding-size 2)))))
 
-  (define cost 
+  (define cost
     (lambda (x)
       (if (pair? x)
-        (+ 
+        (+
           (bit-in-num (car x))
           (bit-in-num (cadr x))
           1)
-        (if tag 
+        (if tag
           1
           2))))
   cost)
@@ -2912,8 +2912,8 @@
 ;          (cdr stream)
 ;          (cons (car stream) tail)))
 ;
-;        
-;      
+;
+;
 ;      tail))
 ;
 ;  (decode stream '()))
@@ -2942,8 +2942,8 @@
           (cdr stream)
           (cons (car stream) tail)))
 
-        
-      
+
+
       tail))
 
   ;(pp (list 'decode-lzss-2b 'stream compression-range-size size-base byte-base ))
@@ -2967,7 +2967,7 @@
               (cdr stream)
               (cons
                 (+ ribn-base first)
-                (cons 
+                (cons
                   second
                   tail))))
           (encode
@@ -2975,19 +2975,19 @@
             (cons code tail))))
       tail))
 
-  (let* ((encoded-stream 
+  (let* ((encoded-stream
            (LZSS
-             stream 
+             stream
              (- (quotient (* compression-range-size byte-base) size-base) 1)
              size-base
-             byte-base 
+             byte-base
              (lambda (x) (if (pair? x) 2 1))))
          (return (encode
                    encoded-stream
                    '()))
          ;(_ (pp (list 'encode-lzss-2b 'stream compression-range-size size-base byte-base 'host-config '=> (length stream) (length return))))
-         (dec (decode-lzss-2b 
-                return 
+         (dec (decode-lzss-2b
+                return
                 compression-range-size
                 size-base
                 byte-base)))
@@ -3003,7 +3003,7 @@
 
     (list (length stream) (length return) return)))
 
-  
+
 
 
 
@@ -3016,7 +3016,7 @@
 ;  (define (encode encoded-stream tail)
 ;    (if (pair? encoded-stream)
 ;      (let ((code (car encoded-stream)))
-;        (encode 
+;        (encode
 ;          (cdr encoded-stream)
 ;          (cond
 ;            ((pair? code)
@@ -3035,25 +3035,25 @@
 ;                 .
 ;                 ,tail)))
 ;            (else
-;              (cons 
-;                code 
+;              (cons
+;                code
 ;                tail)))))
 ;      tail))
 ;
 ;  (if (not (eqv? (+ bit-header length-header offset-header) 16))
 ;    (error "Bit header, length header and offset header must add up to 16"))
 ;
-;  (let* ((encoded-stream 
-;           (LZSS 
-;             stream 
+;  (let* ((encoded-stream
+;           (LZSS
+;             stream
 ;             (- (arithmetic-shift 1 offset-header) 1)
 ;             (- (arithmetic-shift 1 length-header) 1)
-;             encoding-size 
+;             encoding-size
 ;             (lambda (x) (if (pair? x) 2 1))))
 ;         (return (encode
 ;                   encoded-stream
 ;                   '()))
-;         (dec (decompress-lzss-2b 
+;         (dec (decompress-lzss-2b
 ;                return
 ;                bit-header
 ;                length-header
@@ -3076,16 +3076,16 @@
   (define encoding-size/2 (quotient encoding-size 2))
 
   (define (encode stream tail tag replacement)
-    (cond 
+    (cond
       ((not (pair? stream))
        tail)
       ((pair? (car stream))
        (let ((elem (car stream)))
-         (encode 
-           (cdr stream) 
-           (cons 
+         (encode
+           (cdr stream)
+           (cons
              tag
-             (encode-n 
+             (encode-n
                (car elem)
                (encode-n
                  (cadr elem)
@@ -3130,8 +3130,8 @@
 
   (define (add-variables! host-config tag)
     (let ((tag-as-string (stream->string (list tag))))
-      (host-config-feature-add! 
-        host-config 
+      (host-config-feature-add!
+        host-config
         'compression/lzss/tag-as-code
         tag)
       (host-config-feature-add!
@@ -3145,12 +3145,12 @@
 
 
   (let* ((tag (find-tag stream))
-         (encoded-stream 
-           (LZSS 
-             stream 
-             9999999999999999 
+         (encoded-stream
+           (LZSS
+             stream
              9999999999999999
-             encoding-size 
+             9999999999999999
+             encoding-size
              (lzss-variable-cost encoding-size tag))))
 
   (add-variables! host-config tag)
@@ -3166,44 +3166,44 @@
 
 
 
-                    
+
 
 ;; Inspired from the section 2.6.4 of https://ir.canterbury.ac.nz/bitstream/handle/10092/8411/bell_thesis.pdf?sequence=1&isAllowed=y
-;; 
+;;
 ;;   cost-func : function that calculates cost of encoding a value. A value can be a backward pointer
 ;;        or the integer value. This function must return an integer that represent the number of bytes
 ;;        encoded by its parameter
-;; 
+;;
 
 (define (LZSS stream N F encoding-size cost-func)
   (define already-encoded-size N)
   (define look-ahead-buffer-size F)
 
   (define (find-matches stream match already-encoded-size look-ahead-buffer-size)
-    (let loop ((stream stream) 
+    (let loop ((stream stream)
                (index 0)
                (matched
                  (list
                    (car match))) ;; '((index length (first-char-didnt-match | pair to match) ))
-               (matching 
-                 '())) 
+               (matching
+                 '()))
 
       (if (and (pair? stream)
                (< index (+ look-ahead-buffer-size already-encoded-size)))
-        (let ((matched-matching 
+        (let ((matched-matching
                 (let loop2 ((matched matched) (matching '()) (iter matching))
                   (if (pair? iter)
                     (let* ((curr (car iter))
                            (index (car curr))
                            (length (cadr curr))
                            (rest (caddr curr)))
-                      (if (and 
+                      (if (and
                             (pair? rest) ;; The last char of rest cannot match
                             (< length look-ahead-buffer-size)
                             (eqv? (car stream) (car rest)))
                         (loop2
                           matched
-                          (cons 
+                          (cons
                             (list
                               index
                               (+ 1 length)
@@ -3225,7 +3225,7 @@
             (cdr stream)
             (+ 1 index)
             (car matched-matching)
-            (append 
+            (append
               (if (and (eqv? (car stream) (car match))
                        ;(pair? (cdr match))
                        (< index already-encoded-size))
@@ -3246,43 +3246,43 @@
         (- gain cost)))
 
     (define (get-longest-match matchings)
-      (let ((sorted 
+      (let ((sorted
               (list-sort
                 (lambda (x y)
                   (if (= (gain x) (gain y))
                     (not (pair? x))
                     (> (gain x) (gain y))))
-                  
+
                 matchings)))
         (car sorted)))
 
 
-    (let loop ((stream stream) 
+    (let loop ((stream stream)
                (look-ahead-buffer stream)
                (offset 0)
                (output '()))
       (if (pair? look-ahead-buffer)
-        (let* ((longest-match 
+        (let* ((longest-match
                  (get-longest-match
                    (find-matches
                      stream
                      look-ahead-buffer
-                     offset 
+                     offset
                      look-ahead-buffer-size)))
                ;(_ (pp longest-match))
                (match-length (if (pair? longest-match) (cadr longest-match) 1))
-               (new-offset-temp (+ offset match-length)) 
+               (new-offset-temp (+ offset match-length))
                (new-offset (min new-offset-temp already-encoded-size))
                (offset-overflow (- new-offset-temp new-offset))
-               (new-stream 
+               (new-stream
                  (list-tail stream offset-overflow))
-               (new-look-ahead-buffer 
+               (new-look-ahead-buffer
                  (list-tail look-ahead-buffer match-length)))
           (loop
             new-stream
             new-look-ahead-buffer
             new-offset
-            (cons 
+            (cons
               longest-match
               output)))
         output)))
@@ -3316,13 +3316,13 @@
            (long-size   (table-ref encoding-table long-key)))
       (if (< arg short-size)
         1
-        (+ 2 (floor 
-               (log 
+        (+ 2 (floor
+               (log
                  (max 1 (- arg (* (quotient encoding-size 2) (- long-size 1))))
                  (quotient encoding-size 2))))))))
 
 (define (sum-byte-count table keys encoding-table encoding-size)
-  (fold 
+  (fold
     (lambda (pair acc)
       (let ((value (cdr pair)))
         (if (table? value)
@@ -3349,8 +3349,8 @@
                             (sum-byte-count value level (encoding-list->encoding-table encoding-table) (encoding-size encoding-table))
                             (* value (get-byte-count (reverse (cdr level)) key (encoding-list->encoding-table encoding-table) (encoding-size encoding-table)))))
                (spacing (make-string (* 2 (length level)) #\space)))
-          (display 
-            (string-append 
+          (display
+            (string-append
               spacing
               (if (number? key)
                 (number->string key)
@@ -3369,9 +3369,9 @@
             )
           (newline)
           (if (table? value)
-            (display-stats-aux 
-              value 
-              level 
+            (display-stats-aux
+              value
+              level
               max-level
               encoding-table))))
 
@@ -3386,10 +3386,10 @@
     (let ((f0 (field0 stream))
           (f1 (field1 stream))
           (f2 (field2 stream)))
-      (add-stat 
-        stats 
+      (add-stat
+        stats
         (if (symbol? f0)
-          (list f0) 
+          (list f0)
           f0)
         f1)
 
@@ -3398,7 +3398,7 @@
 
 (define (symtbl->string symtbl symbols* encoding-size)
   (string-append
-    (stream->string 
+    (stream->string
     (encode-n
       (- (table-length symtbl)
          (length symbols*))
@@ -3417,7 +3417,7 @@
   (encode-n
     (- (table-length symtbl)
        (length symbols*))
-    (append 
+    (append
       (string->stream
         (string-concatenate
           (map (lambda (s)
@@ -3431,18 +3431,18 @@
     (quotient ribn-base 2)))
 
 (define (string->stream string encoding-size)
-  (cond 
+  (cond
     ((eqv? encoding-size 256)
      (map char->integer (string->list string)))
     ((eqv? encoding-size 92)
-     (map 
+     (map
       (lambda (c)
         (let ((n (char->integer c)))
           (if (= n 33)
             (- 92 35)
             (- n 35))))
       (string->list string)))
-    (else 
+    (else
       (error "Cannot transform string to stream, wrong encoding" encoding-size))))
 
 ;; supposes the 92 encoding scheme
@@ -3486,12 +3486,12 @@
         (assoc value encoding))
        order))
 
-  
+
 (define (encoding-optimal-add-variables encoding host-config)
   (host-config-feature-add! host-config 'encoding/optimal/sizes (map caddr encoding))
   (host-config-feature-add! host-config 'encoding/optimal/start (map cadr encoding)))
 
-      
+
 
 (define (encode-hyperbyte stream)
   (let loop ((stream stream) (result '()))
@@ -3528,12 +3528,12 @@
       (set! proc (encode-constants proc host-config)))
 
     (define (p/enc-prog)
-      (set! 
-        stream 
-        (encode-program 
-          proc 
-          symtbl 
-          encoding 
+      (set!
+        stream
+        (encode-program
+          proc
+          symtbl
+          encoding
           (encoding-inst-get encoding '(skip int long))
           (ribn-base))))
 
@@ -3583,7 +3583,7 @@
                                    ;(pp (list 'encode-lzss-2b 'stream compression-range-size size-base byte-base 'host-config '=> ribn-size compressed-ribn-size))
                                    (append compression (list sb crs encoding)))
                                  best-compression))))
-                  (begin 
+                  (begin
                     (let ((new-crs(+ crs 2) ))
                       (set! compression-range-size new-crs)
                       (set! encoding (optimal-encoding))
@@ -3597,24 +3597,24 @@
 
 
               (define (add-variables! host-config ribn-size compressed-ribn-size)
-                (host-config-feature-add! 
-                 host-config 
+                (host-config-feature-add!
+                 host-config
                  'compression/lzss/2b/byte-base
                  byte-base)
-                (host-config-feature-add! 
-                 host-config 
+                (host-config-feature-add!
+                 host-config
                  'compression/lzss/2b/size-base
                  size-base)
-                (host-config-feature-add! 
-                 host-config 
+                (host-config-feature-add!
+                 host-config
                  'compression/lzss/2b/ribn-base
                  (ribn-base))
-                (host-config-feature-add! 
-                 host-config 
+                (host-config-feature-add!
+                 host-config
                  'compression/lzss/2b/ribn-size
                  ribn-size)
-                (host-config-feature-add! 
-                 host-config 
+                (host-config-feature-add!
+                 host-config
                  'compression/lzss/2b/compressed-ribn-size
                  compressed-ribn-size))
 
@@ -3632,22 +3632,22 @@
 
     (define (optimal-encoding)
       (let* ((symtbl-and-symbols* (encode-symtbl proc exports host-config 20)) ;; we assume 20 shorts, will be re-evaluated
-             (raw-stream (encode-program proc (car symtbl-and-symbols*) 'raw #t (ribn-base))) 
+             (raw-stream (encode-program proc (car symtbl-and-symbols*) 'raw #t (ribn-base)))
              (stats (get-stat-from-raw (make-table) raw-stream))
-             (encoding 
+             (encoding
                (calculate-start
                  (encoding-optimal-order
                    (encoding-table->encoding-list
-                     (get-maximal-encoding 
+                     (get-maximal-encoding
                        (map car encoding-skip-92)
                        stats
                        (ribn-base)))))))
         ;(encoding-optimal-add-variables encoding host-config)
         encoding))
 
-    
 
-    ;; dispatch 
+
+    ;; dispatch
 
     (define (live? . syms)
       (let loop ((syms syms))
@@ -3657,7 +3657,7 @@
             #t
             (loop (cdr syms))))))
 
-    (let* 
+    (let*
       ;; options
       ((compression/2b? (live? 'compression/lzss/2b))
        (compression/tag? (live? 'compression/lzss/tag 'compression/lzss 'compression))
@@ -3678,7 +3678,7 @@
 
           ;(if (not (eqv? encoding-size 256))
           ;  (error "2b compression only works with 256 bytes encoding"))
-          ;(cond 
+          ;(cond
           ;  ((eqv? compression/2b/bits 1)
           ;   (set! encoding-size 192))
           ;  ((eqv? compression/2b/bits 2)
@@ -3711,7 +3711,7 @@
 
 
       (p/enc-symtbl)
-      (p/enc-prog)   
+      (p/enc-prog)
 
       ;; Apply hyperbyte
       (if hyperbyte?
@@ -3731,14 +3731,14 @@
       (if (and compression/2b? (eqv? byte-base 256))
         (p/comp-2b))
 
-      
-      (host-config-feature-add! 
-        host-config 
+
+      (host-config-feature-add!
+        host-config
         'encoding/ribn-base
         (ribn-base))
 
-      (host-config-feature-add! 
-        host-config 
+      (host-config-feature-add!
+        host-config
         'encoding/half-ribn-base
         (quotient (ribn-base) 2))
 
@@ -3765,19 +3765,19 @@
 ;                       (len (car lst-len))
 ;                       (entropy-on-2-bits (* rest-bits 92))
 ;                       (max-offset (floor (/ entropy-on-2-bits (- len 2))))
-;                       (lzss-comp 
-;                         (LZSS 
-;                           stream 
+;                       (lzss-comp
+;                         (LZSS
+;                           stream
 ;                           max-offset
 ;                           len ;; hard-coded
-;                           encoding-size 
+;                           encoding-size
 ;                           (lambda (x) (if (pair? x) 2 1))))
 ;                       (total-length (fold (lambda (x acc) (+ acc (if (pair? x) 2 1))) 0 lzss-comp)))
 ;
-;                  (display 
-;                    (string-append 
+;                  (display
+;                    (string-append
 ;                      "Codes : "
-;                      (number->string (car lst)) 
+;                      (number->string (car lst))
 ;                      "\n"
 ;                      "Program size (without compression) : "
 ;                      (number->string (length stream))
@@ -3800,19 +3800,19 @@
 
 
 
-  
+
 
 ;(define (encode proc exports host-config byte-stats encoding-name encoding-size)
 ;  (let* ((prog (encode-constants proc host-config))
 ;
 ;         (hyperbyte? (host-config-feature-live? host-config 'encoding/hyperbyte))
-;         (encoding-size 
-;           (if hyperbyte? 
+;         (encoding-size
+;           (if hyperbyte?
 ;             (if (not (eqv? encoding-size 256))
 ;               (error "Hyperbyte encoding only supports 256 byte encoding")
 ;               16)
 ;             encoding-size))
-;         
+;
 ;
 ;         (encoding (cond
 ;                      ((and (string=? "original" encoding-name)
@@ -3824,13 +3824,13 @@
 ;
 ;                      ((string=? "optimal" encoding-name)
 ;                       (let* ((symtbl-and-symbols* (encode-symtbl prog exports host-config 20)) ;; we assume 20 shorts, will be re-evaluated
-;                              (raw-stream (encode-program prog (car symtbl-and-symbols*) 'raw #t encoding-size)) 
+;                              (raw-stream (encode-program prog (car symtbl-and-symbols*) 'raw #t encoding-size))
 ;                              (stats (get-stat-from-raw (make-table) raw-stream))
-;                              (encoding 
+;                              (encoding
 ;                                (calculate-start
 ;                                  (encoding-optimal-order
 ;                                    (encoding-table->encoding-list
-;                                      (get-maximal-encoding 
+;                                      (get-maximal-encoding
 ;                                        (map car encoding-skip-92)
 ;                                        stats
 ;                                        encoding-size))))))
@@ -3846,21 +3846,21 @@
 ;         (stream (encode-program prog symtbl encoding (encoding-inst-get encoding '(skip int long)) encoding-size))
 ;
 ;         (symtbl-stream (symtbl->stream symtbl symbols* (if hyperbyte? 256 encoding-size)))
-;         (stream 
+;         (stream
 ;           (if hyperbyte?
 ;             stream
 ;             (append symtbl-stream stream)))
 ;
 ;         (compression? (host-config-feature-live? host-config 'compression/lzss))
 ;         (stream (if compression?
-;                   (encode-lzss 
+;                   (encode-lzss
 ;                     stream
 ;                     encoding-size
 ;                     host-config)
 ;                   stream)))
 ;
 ;    (if hyperbyte?
-;      (append 
+;      (append
 ;        (if compression?
 ;          (encode-lzss
 ;            symtbl-stream
@@ -3885,7 +3885,7 @@
 
 (define (encode-program proc syms encoding skip-optimization? encoding-size)
 
-  (define skip-optimization (if (eqv? encoding 'raw) 
+  (define skip-optimization (if (eqv? encoding 'raw)
                               #t
                               skip-optimization?))
 
@@ -3921,7 +3921,7 @@
   (define (sublist-eq? left right result)
     (if (and (pair? left)
              (pair?  right)
-             (eqv? (c-rib-oper (car left)) 
+             (eqv? (c-rib-oper (car left))
                    (c-rib-oper (car right)))
              (eqv? (c-rib-opnd (car left))
                    (c-rib-opnd (car right))))
@@ -3945,7 +3945,7 @@
         (if (< arg short-size)
           (cons (+ short-start arg)
                 stream)
-          (cond 
+          (cond
             ;; 1 and 2 are there because the 3rd branch is untested yet
             ((eqv? long-size 1)
              (encode-long1 long-start arg stream))
@@ -3971,7 +3971,7 @@
       (cons code tail)))
 
   (define (enc code encoding limit stream)
-    (cond 
+    (cond
       ((not (rib? code)) (error "Rib expected, got :" code))
       ((and limit (<= limit 0)) stream)
       (else
@@ -4000,22 +4000,22 @@
                         'sym)
                        ((and (c-procedure? arg) (eqv? 'const op-sym))
                         'proc)
-                       (else 
+                       (else
                          (error (string-append "can't encode " (symbol->string op-sym))
                                 code)))))
-          (cond 
+          (cond
             ((and (eq? op-sym 'const) ;; special case for encoding procedures
                   (eq? arg-sym 'proc))
              (enc next-op encoding (and limit (- limit 1)) (enc-proc arg encoding #f stream)))
             ((not (eq? 'special op-sym)) ;; "normal" encoding
-             (let ((encoded-inst 
-                     (enc-inst 
+             (let ((encoded-inst
+                     (enc-inst
                        (if (eq? arg-sym 'sym)
                          (encode-sym arg)
                          arg)
-                       op-sym 
-                       arg-sym 
-                       encoding 
+                       op-sym
+                       arg-sym
+                       encoding
                        stream)))
                (if (eq? 'jump op-sym)
                  encoded-inst
@@ -4035,15 +4035,15 @@
                       (tail     (if (eqv? encoding 'raw)
                                   (rib 'if 0 stream)
                                   (cons (encoding-inst-start encoding 'if) stream))))
-                 (enc 
-                   (c-rib-next code) 
-                   encoding 
+                 (enc
+                   (c-rib-next code)
+                   encoding
                    (and limit (- limit 1))
-                   (if (pair? sublist) 
-                     (enc-inst next-different-length 
-                               'skip 
-                               'int 
-                               encoding 
+                   (if (pair? sublist)
+                     (enc-inst next-different-length
+                               'skip
+                               'int
+                               encoding
                                (enc (c-rib-opnd code)
                                     encoding
                                     opnd-different-length
@@ -4060,7 +4060,7 @@
                          encoding
                          #f
                          (cons (encoding-inst-start encoding 'if) stream)))))
-            (else 
+            (else
               (error "Cannot encode instruction" code)))))))
 
   (enc-proc proc encoding #f '()))
@@ -4083,18 +4083,18 @@
   ;    ;(pp size-92)
 
   ;    ; #;(let ((lst '(256 128 92 85 64 51 42 36 32 28 26 24 22 21 20 19 18 17 16 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1)))
-  ;    ; (for-each 
+  ;    ; (for-each
   ;    ;   (lambda (v)
   ;    ;     (let* ((solution
-  ;    ;              (get-maximal-encoding 
+  ;    ;              (get-maximal-encoding
   ;    ;                (map car encoding-skip-92)
   ;    ;                stats
   ;    ;                v))
-  ;    ;            (optimal-encoding-size 
+  ;    ;            (optimal-encoding-size
   ;    ;              (sum-byte-count stats '() solution v))
   ;    ;            (multiplicator (quotient 256 v)))
 
-  ;    ;       (write 
+  ;    ;       (write
   ;    ;         (string-append
   ;    ;           "Optimal "
   ;    ;           (number->string v)
@@ -4103,20 +4103,20 @@
   ;    ;       (newline)
   ;    ;       (pp (table->list solution))))
   ;    ;   lst))
-  ;    (define best-encoding-16 (calculate-start 
-  ;                               (encoding-table->encoding-list 
-  ;                                 (get-maximal-encoding 
+  ;    (define best-encoding-16 (calculate-start
+  ;                               (encoding-table->encoding-list
+  ;                                 (get-maximal-encoding
   ;                                   (map car encoding-skip-92)
   ;                                   stats
   ;                                   256))))
 
   ;    (let* ((sizee 16)
   ;           (encoded-proc
-  ;             (enc-proc 
-  ;               proc 
+  ;             (enc-proc
+  ;               proc
   ;               #;encoding-skip-92
   ;               best-encoding-16
-  ;               #f 
+  ;               #f
   ;               '()))
 
   ;           ;     #;(test
@@ -4126,7 +4126,7 @@
   ;           ;       9999999999999999999999999999;(* sizee sizee)
   ;           ;       9999999999999999999999999
   ;           ;       ;(* sizee sizee)
-  ;           ;       ;sizee 
+  ;           ;       ;sizee
   ;           ;       sizee))
   ;           )
 
@@ -4135,10 +4135,10 @@
   ;          1
   ;          (ceiling (log (+ x 1) (quotient sizee 2)))))
 
-  ;      (define cost 
+  ;      (define cost
   ;        (lambda (x acc)
   ;          (if (pair? x)
-  ;            (+ 
+  ;            (+
   ;              (bit-in-num (car x))
   ;              ;2
 
@@ -4149,12 +4149,12 @@
   ;            (+ 1 acc)
   ;            )))
 
-  ;      (define costc 
+  ;      (define costc
   ;        (lambda (x acc) (pp (list acc (cost x 0) x)) (cost x acc)))
 
   ;      (define (decode stream tail)
-  ;        (if (pair? stream) 
-  ;          (if (pair? (car stream)) 
+  ;        (if (pair? stream)
+  ;          (if (pair? (car stream))
   ;            (let ((elem (car stream)))
   ;              (decode
   ;                (if (> (cadr elem) 1)
@@ -4193,7 +4193,7 @@
   ;      (pp
   ;        (length test))
   ;      (pp
-  ;        (fold 
+  ;        (fold
   ;          cost
   ;          0
   ;          test))
@@ -4202,7 +4202,7 @@
   ;      ; (fold costc 0 test))
 
   ;      encoded-proc)))
-  
+
 
 
 
@@ -4257,15 +4257,15 @@
          (first-line (read-line port #\newline))
          (port (if (and (not (eof-object? first-line)) (string-prefix? "#!" first-line))
                  port
-                 (begin 
+                 (begin
                    (close-input-port port)
                    (open-input-file path)))))
     (read-all port)))
 
 (define (read-library lib-path)
-  (list (list 
+  (list (list
       '##include-once
-      (string-append 
+      (string-append
         "ribbit:"
         (if (equal? (rsc-path-extension lib-path) "")
           (string-append lib-path ".scm")
@@ -4300,7 +4300,7 @@
     (if (pair? name)
       (let ((first (car name)))
         (case first
-          ((and or not) (apply append (map extract-name (cdr name)))) 
+          ((and or not) (apply append (map extract-name (cdr name))))
           (else name)))
       (list name)))
 
@@ -4343,7 +4343,7 @@
 ;;     (if (or (not (pair? cur)) (eqv? (car cur) 10)) ;; new line
 ;;       (begin
 ;;         ;(pp (list->string* last-new-line (+ 1 len)) )
-;;         (cons (and (pair? cur) (cdr cur)) 
+;;         (cons (and (pair? cur) (cdr cur))
 ;;               (if (not (pair? cur))
 ;;                 len
 ;;                 (+ 1 len))))
@@ -4397,19 +4397,19 @@
     #t))
 
 ;; detects a macro on a given line
-;; There are 3 types of macros : 
+;; There are 3 types of macros :
 ;;   - start-outer    : @@( ...
 ;;   - end-outer      :   ... )@@
 ;;   - start-end-outer: @@( ... )@@
-;;   - inner          : @.. ... ..@ or @.. ... 
+;;   - inner          : @.. ... ..@ or @.. ...
 ;(define macro-prefix '("@@(" "@.." "..@" ")@@"))
 
 (define (detect-macro line)
   (let ((len (string-length line)))
-    (let loop ((cur (string->list line)) 
-               (i 0) 
-               (start #f) 
-               (end #f) 
+    (let loop ((cur (string->list line))
+               (i 0)
+               (start #f)
+               (end #f)
                (macro-type 'none))
       (if (<= (- len i) 2)
         (let ((start (or start 0))
@@ -4445,7 +4445,7 @@
                 (+ i 3)
                 (if match-start (+ i 3) start)
                 (if match-end i end)
-                (cond 
+                (cond
                   (match-start-outer 'start-outer)
                   (match-end-outer   (if start 'start-end-outer 'end-outer))
                   ((or match-start-inner match-end-inner) 'inner))))))))))
@@ -4465,18 +4465,18 @@
              (macro (detect-macro cur-line))
              (macro-type  (car macro))
              (macro-value (cadr macro))
-             (next-section 
-               (if (equal? cur-section "") 
+             (next-section
+               (if (equal? cur-section "")
                  cur-line
                  (string-append cur-section "\n" cur-line)))
              )
-        (case macro-type 
+        (case macro-type
           ((none)
            (loop (cdr lines) parsed-file next-section))
 
           ((end-outer)
            (let ((body (reverse `(,@(to-str next-section) . ,parsed-file))))
-             (cons (cdr lines) 
+             (cons (cdr lines)
                    body)))
 
           ((inner)
@@ -4485,7 +4485,7 @@
              (loop (cdr lines)
                    `(,@macro-sexp ,@(to-str cur-section) . ,parsed-file)
                    "")))
-          
+
           ((start-outer start-end-outer)
            (let* ((macro-value (string-append "(" macro-value ")"))
                   (macro-sexp (read (open-input-string macro-value)))
@@ -4497,12 +4497,12 @@
              (loop lines-after-body
                    `(,full-macro ,@(to-str cur-section) . ,parsed-file)
                    "")))
-          (else 
+          (else
            (error "Unknown macro type" macro-type))))
       (reverse `((str ,cur-section) . ,parsed-file)))))
-                
 
-                 
+
+
 
 
 ;;
@@ -4521,7 +4521,7 @@
 ;;              (parsed-file
 ;;                (cond
 ;;                  ((eqv? macro-type 'end) ;; include last line
-;;                   (cons `(str ,(list->string* start-line (+ cur-len start-len))) parsed-file)) 
+;;                   (cons `(str ,(list->string* start-line (+ cur-len start-len))) parsed-file))
 ;;                  ((eqv? start-len 0)
 ;;                   parsed-file)
 ;;                  ((or (eqv? macro-type 'start)
@@ -4589,16 +4589,16 @@
          (not (not (memv #t (map (lambda (x) (eval-feature x true-values)) (cdr expr))))))
         (else
          (not (not (get-feature-value true-values expr))))))
-    
+
 (define (filter-pair predicate lst)
   (let loop ((lst lst) (lst-true '()) (lst-false '()))
     (if (pair? lst)
       (if (predicate (car lst))
-        (loop 
+        (loop
           (cdr lst)
           (cons (car lst) lst-true)
           lst-false)
-        (loop 
+        (loop
           (cdr lst)
           lst-true
           (cons (car lst) lst-false)))
@@ -4607,10 +4607,10 @@
 (define (used-features features live-symbols features-enabled features-disabled)
   (let* ((primitives (filter (lambda (x) (eq? (car x) 'primitive)) features))
          (live-primitives
-           (filter (lambda (prim) 
+           (filter (lambda (prim)
                      (let ((name (caadr prim)))
                        (or (memq name live-symbols)
-                           (memq name features-enabled)))) 
+                           (memq name features-enabled))))
                    primitives))
          (live-features-symbols (append (cons '##rib '()) ;; always add rib
                                         (filter (lambda (x) (not (memq x features-disabled)))
@@ -4620,7 +4620,7 @@
                (features features))
       (let* ((current-features-pair
                (filter-pair
-                 (lambda (feature) 
+                 (lambda (feature)
                    (case (car feature)
                      ((primitive)
                       (memq (caadr feature) used-features))
@@ -4630,15 +4630,15 @@
                  features))
              (current-features (car current-features-pair))
              (not-processed (cdr current-features-pair))
-             (current-uses 
-               (fold 
-                 (lambda (curr-feature acc) 
+             (current-uses
+               (fold
+                 (lambda (curr-feature acc)
                    (let ((use (soft-assoc 'use curr-feature)))
-                     (if use 
-                       (append 
-                         acc 
-                         (filter 
-                           (lambda (x) (not (memq x features-disabled))) 
+                     (if use
+                       (append
+                         acc
+                         (filter
+                           (lambda (x) (not (memq x features-disabled)))
                            (cdr use)))
                        acc)))
                  '()
@@ -4651,7 +4651,7 @@
 
 (define (find-primitive prim-name features)
   (if (pair? features)
-    (if (and (eq? (car (car features)) 'primitive) 
+    (if (and (eq? (car (car features)) 'primitive)
              (eq? prim-name (caadr (car features))))
       (car features)
       (find-primitive prim-name (cdr features)))
@@ -4678,8 +4678,8 @@
     (stream->string (encode encoding-size)))
 
   (define (encode-as-bytes encoding-size prefix sep suffix)
-    (list->host 
-      (cond 
+    (list->host
+      (cond
         ((eqv? encoding-size 92)
          (string->list* (stream->string (encode encoding-size))))
 
@@ -4688,10 +4688,10 @@
           (if optimal?
            (encode 256) ;; if optimal is enabled, it supports 256 encoding
            (string->list* (stream->string (encode 92)))))) ;; else, original encoding supports 92
-        (else 
+        (else
          (encode encoding-size)))
-     prefix 
-     sep 
+     prefix
+     sep
      suffix))
 
 
@@ -4705,7 +4705,7 @@
   (let ((func (and (pair? expr) (assoc (car expr) functions)))
         (replace-eval (lambda (expr) (replace-eval expr encode host-config))))
 
-    (cond ((and 
+    (cond ((and
              func
              (eqv? (length expr) (caddr func)))
            (apply (cadr func) (map replace-eval (cdr expr))))
@@ -4731,14 +4731,14 @@
 
   (define live-features (host-config-features host-config))
 
-  (define primitives (list-sort 
+  (define primitives (list-sort
                        (lambda (x y) (< (cadr x) (cadr y)))
                        (host-config-primitives host-config)))
 
   (define locations (host-config-locations host-config))
 
   ;; cache result of select replace evaluations
-  (define cached-functions 
+  (define cached-functions
     '(encode encode-as-bytes encode-as-string))
 
   (define cache (make-table))
@@ -4756,7 +4756,7 @@
 
         ((replace)
          (let ((expr (caddr prim)))
-           (if (and (pair? expr) 
+           (if (and (pair? expr)
                     (memq (car expr) cached-functions)
                     (not (table-ref cache expr #f)))
              (table-set! cache expr (replace-eval expr encode host-config)))))
@@ -4791,7 +4791,7 @@
                               (if (pair? gen)
                                 (string-append
                                   (cond ((string? (car gen)) (car gen))
-                                        ((eq? (car gen) 'index) 
+                                        ((eq? (car gen) 'index)
                                          (if (pair? index) (number->string (car index)) (number->string index)))
                                         ((eq? (car gen) 'body) body)
                                         ((eq? (car gen) 'head) head))
@@ -4820,11 +4820,11 @@
                       (pattern     (if (symbol? pattern)
                                      (symbol->string pattern)
                                      pattern))
-                      (replacement-text 
-                        (or 
-                          (table-ref cache (caddr prim) #f) 
+                      (replacement-text
+                        (or
+                          (table-ref cache (caddr prim) #f)
                           (replace-eval (caddr prim) encode host-config)))
-                      (replacement-text 
+                      (replacement-text
                         (cond ((symbol? replacement-text)
                                (symbol->string replacement-text))
                               ((number? replacement-text)
@@ -4864,8 +4864,8 @@
 
          (encode*
           (lambda (byte-base)
-            (let ((input 
-                   (append 
+            (let ((input
+                   (append
                     (encode
                      proc
                      exports
@@ -4932,13 +4932,13 @@
           (display target-code port))))
 
   (if exe-output-path
-    (let ((status 
-            (shell-cmd 
-              (string-append 
-                (path-directory rvm-path) 
-                "mk-exe " 
-                output-path 
-                " " 
+    (let ((status
+            (shell-cmd
+              (string-append
+                (path-directory rvm-path)
+                "mk-exe "
+                output-path
+                " "
                 exe-output-path))))
       (if (not (equal? status 0))
         (error "Error generating executable\n")))))
@@ -4950,7 +4950,7 @@
 (define progress-status #f)
 
 (define (report-first-status msg cont)
-  (if progress-status 
+  (if progress-status
     (begin (display msg) (display "...\n")))
   cont)
 
@@ -4959,8 +4959,8 @@
     (display "...Done.\n")))
 
 (define (report-status msg cont)
-  (if progress-status 
-    (begin 
+  (if progress-status
+    (begin
       (report-done)
       (report-first-status msg #f)))
   cont)
@@ -5001,7 +5001,7 @@
   (set! target _target) ;; hack to propagate the target to the expension phase
   (set! progress-status _progress-status)
 
-  (let* ((vm-source 
+  (let* ((vm-source
            (if (equal? _target "rvm")
              #f
              (string-from-file
@@ -5024,18 +5024,18 @@
                                   (cadar encoding-order)
                                   (loop (cdr encoding-order)))))
                             encoding-name))
-         (features-enabled 
-           (cons 
-             (string->symbol 
+         (features-enabled
+           (cons
+             (string->symbol
                (string-append "encoding/" encoding-name))
              features-enabled))
 
-         (program-read 
-           (report-status 
-             "Reading program source code" 
+         (program-read
+           (report-status
+             "Reading program source code"
              (read-program lib-path src-path)))
 
-         (program-compiled 
+         (program-compiled
            (report-status
              "Compiling program"
              (compile-program
@@ -5106,9 +5106,9 @@
                    (set! output-path (car rest))
                    (loop (cdr rest)))
                   ((and (pair? rest) (member arg '("-s" "--strip")))
-                   (set! base-strip (if (string=? (car rest) "-") 
-                                      (read-line (current-input-port) #f) 
-                                      (call-with-input-file 
+                   (set! base-strip (if (string=? (car rest) "-")
+                                      (read-line (current-input-port) #f)
+                                      (call-with-input-file
                                         (car rest)
                                         (lambda (port)
                                           (read-line port #f)))))
@@ -5144,20 +5144,20 @@
                    (loop (cdr rest)))
 
                   ((member arg '("-gs" "--generate-strip"))
-                   (if (and (pair? rest) 
+                   (if (and (pair? rest)
                             (>= (string-length (car rest)) 1)
                             (string=? (substring (car rest) 0 1) "-"))
                      (begin
                        (set! generate-strip #t)
                        (loop rest))
-                     (begin 
+                     (begin
                        (set! generate-strip (car rest))
                        (loop (cdr rest)))))
 
                   ((member arg '("-x" "--exe" "--executable"))
-                   (if (and (pair? rest) 
+                   (if (and (pair? rest)
                             (not (string=? (substring (car rest) 0 1) "-")))
-                     (begin 
+                     (begin
                        (set! exe-output-path (car rest))
                        (loop (cdr rest)))
                      (begin
