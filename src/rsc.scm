@@ -495,6 +495,15 @@
               (list->string result))))
         ""))))
 
+(define (string-find-char str char)
+  (let ((len (string-length str)))
+    (let loop ((i 0) (str (string->list str)))
+      (if (< i len)
+        (if (char=? (car str) char)
+          i
+          (loop (+ i 1) (cdr str)))
+        #f))))
+
 (cond-expand
 
   (ribbit (begin))
@@ -516,6 +525,8 @@
       (let ((r (apply foo x)))
         (pp r)
         r))))
+
+
 
 (define (display-return foo . x)
   (let ((r (apply foo x)))
@@ -716,7 +727,7 @@
 
 (define (host-config-add-location! host-config location feature)
   (let ((location-ref (assoc location (host-config-locations host-config))))
-    (if (or (eqv? location '@@body) (eqv? location '@@head))
+    (if (eqv? location '@@inline)
       #f
       (if location-ref
         (set-cdr! location-ref (cons feature (cdr location-ref)))
@@ -1008,12 +1019,12 @@
                                   (lambda (x)
                                     (and
                                       (not (eqv? (car x) 'use))
-                                      (not (eqv? (car x) '@@head))
-                                      (not (eqv? (car x) '@@body))))
+                                      (not (eqv? (car x) 'str))))
                                   (cddr expr))))
 
                           (for-each 
                             (lambda (location)
+                              
                               (for-each 
                                 (lambda (loc)
                                   (host-config-add-location! 
@@ -1295,7 +1306,15 @@
           ((eqv? (car x) 'primitive)
             `(define-primitive ,@(cdr x)))
            ((eqv? (car x) 'feature)
-            `(define-feature ,@(cdr x)))
+            (let* ((features   (cadr x))
+                   (maybe-use  (caddr x))
+                   (use/rest  
+                     (if (eq? (car maybe-use) 'use) 
+                       (cons (list maybe-use) (cdddr x))
+                       (cons '() (cddr x))))
+                   (use  (car use/rest))
+                   (rest (cdr use/rest)))
+              `(define-feature ,features ,@use (@@inline ,@rest))))
            (else
              (error "Cannot handle host feature " x))))
        host-features))
@@ -1310,6 +1329,7 @@
          (exprs
            (if (pair? exprs) exprs '(#f)))
          (host-features (extract-features (or parsed-vm default-primitives)))
+         
          (expansion
            `(begin
               ,@(host-feature->expansion-feature host-features) ;; add host features
@@ -1616,107 +1636,107 @@
              ((eqv? (car expr) 'define-primitive) ;; parse arguments as source file
               (let ((code (filter string? (cdr expr)))
                     (rest (filter (lambda (x) (not (string? x))) (cdr expr))))
-                `(define-primitive 
-                   ,@rest
-                   (@@body ,(parse-host-file (fold string-append "" code))))))
+                (parse-host-file 
+                  (fold string-append "" code) 
+                  (append '(define-primitive) rest))))
 
-                 ((eqv? (car expr) 'define-feature) ;; parse arguments as a source file
-                  (let* ((bindings (cddr expr))
-                         (use-statement (soft-assoc 'use bindings))
-                         (rest (filter (lambda (x) (not (eqv? (car x) 'use))) bindings)))
-                    `(define-feature
-                       ,(cadr expr)
-                       ,@(if use-statement (list use-statement) '())
-                       ,@(map 
-                           (lambda (x)
-                             `(,(car x) ,(parse-host-file (fold string-append "" (cdr x)))))
-                           rest))))
-                      
-                 ((eqv? first 'and)
-                  (expand-expr
-                    (if (pair? (cdr expr))
-                      (if (pair? (cddr expr))
-                        (cons 'if
-                              (cons (cadr expr)
-                                    (cons (cons 'and
-                                                (cddr expr))
-                                          (cons #f
-                                                '()))))
-                        (cadr expr))
-                      #t)
-                    mtx))
+             ((eqv? (car expr) 'define-feature) ;; parse arguments as a source file
+              (let* ((bindings (cddr expr))
+                     (use-statement (soft-assoc 'use bindings))
+                     (rest (filter (lambda (x) (not (eqv? (car x) 'use))) bindings)))
+                `(define-feature
+                   ,(cadr expr)
+                   ,@(if use-statement (list use-statement) '())
+                   ,@(map 
+                       (lambda (x)
+                         `(,(car x) ,(parse-host-file (fold string-append "" (cdr x)) '())))
+                       rest))))
 
-                 ((eqv? first 'or)
-                  (expand-expr
-                    (if (pair? (cdr expr))
-                      (if (pair? (cddr expr))
+             ((eqv? first 'and)
+              (expand-expr
+                (if (pair? (cdr expr))
+                  (if (pair? (cddr expr))
+                    (cons 'if
+                          (cons (cadr expr)
+                                (cons (cons 'and
+                                            (cddr expr))
+                                      (cons #f
+                                            '()))))
+                    (cadr expr))
+                  #t)
+                mtx))
+
+             ((eqv? first 'or)
+              (expand-expr
+                (if (pair? (cdr expr))
+                  (if (pair? (cddr expr))
+                    (cons
+                      'let
+                      (cons
+                        (cons (cons '_
+                                    (cons (cadr expr)
+                                          '()))
+                              '())
                         (cons
-                          'let
-                          (cons
-                            (cons (cons '_
-                                        (cons (cadr expr)
-                                              '()))
-                                  '())
-                            (cons
-                              (cons 'if
-                                    (cons '_
-                                          (cons '_
-                                                (cons (cons 'or
-                                                            (cddr expr))
-                                                      '()))))
-                              '())))
-                        (cadr expr))
-                      #f)
-                    mtx))
+                          (cons 'if
+                                (cons '_
+                                      (cons '_
+                                            (cons (cons 'or
+                                                        (cddr expr))
+                                                  '()))))
+                          '())))
+                    (cadr expr))
+                  #f)
+                mtx))
 
-                 ((eqv? first 'cond)
-                  (expand-expr
-                    (if (pair? (cdr expr))
-                      (let* ((clause (cadr expr))
-                             (condition (car clause))
-                             (body (cdr clause)))
-                        (if (eqv? 'else condition)
-                          (cons 'begin body)
-                          (cond 
-                            ((null? body) `(or ,condition (cond . ,(cddr expr))))
-                            ((eq? '=> (car body))
-                             `(let ((_ ,condition))
-                                (if _
-                                  (,(cadr body) _)
-                                  (cond . ,(cddr expr)))))
-                            (else
-                              `(if ,condition 
-                                 (begin . ,body)
-                                 (cond . ,(cddr expr)))))))
-                        #f)
-                    mtx))
+             ((eqv? first 'cond)
+              (expand-expr
+                (if (pair? (cdr expr))
+                  (let* ((clause (cadr expr))
+                         (condition (car clause))
+                         (body (cdr clause)))
+                    (if (eqv? 'else condition)
+                      (cons 'begin body)
+                      (cond 
+                        ((null? body) `(or ,condition (cond . ,(cddr expr))))
+                        ((eq? '=> (car body))
+                         `(let ((_ ,condition))
+                            (if _
+                              (,(cadr body) _)
+                              (cond . ,(cddr expr)))))
+                        (else
+                          `(if ,condition 
+                             (begin . ,body)
+                             (cond . ,(cddr expr)))))))
+                  #f)
+                mtx))
 
-                 ((eqv? first 'case) ;; FIXME: transform into a (let (...) (cond ...)) that evaluate key one time
-                  (let ((key (cadr expr)))
-                    (let ((clauses (cddr expr)))
-                      (if (pair? clauses)
-                        (expand-expr 
-                          `(let ((##case-tmp ,key))
-                             (cond 
-                               ,@(map 
-                                   (lambda (clause)
-                                     (if (eqv? (car clause) 'else)
-                                       clause
-                                       `((memv ##case-tmp ',(car clause))
-                                         ;(or ,@(map (lambda (val) `(eqv? ##case-tmp ',val)) (car clause)))
-                                         ,@(cdr clause))))
-                                   clauses)))
-                          mtx)
-                        #f))))
+             ((eqv? first 'case) ;; FIXME: transform into a (let (...) (cond ...)) that evaluate key one time
+              (let ((key (cadr expr)))
+                (let ((clauses (cddr expr)))
+                  (if (pair? clauses)
+                    (expand-expr 
+                      `(let ((##case-tmp ,key))
+                         (cond 
+                           ,@(map 
+                               (lambda (clause)
+                                 (if (eqv? (car clause) 'else)
+                                   clause
+                                   `((memv ##case-tmp ',(car clause))
+                                     ;(or ,@(map (lambda (val) `(eqv? ##case-tmp ',val)) (car clause)))
+                                     ,@(cdr clause))))
+                               clauses)))
+                      mtx)
+                    #f))))
 
-                 ((eqv? first '##include-str)
-                  (expand-expr (read-str-resource (parse-resource (cadr expr))) mtx))
+             ((eqv? first '##include-str)
+              (expand-expr (read-str-resource (parse-resource (cadr expr))) mtx))
 
-                 (else
-                   (let ((expander (mtx-search mtx (car expr))))
-                     (if expander
-                       (apply expander (list expr (lambda (expr) (expand-begin (list expr) mtx))))
-                       (expand-list expr mtx)))))))
+             (else
+               (let ((expander (mtx-search mtx (car expr))))
+                 (if expander
+                   (apply expander (list expr (lambda (expr) (expand-begin (list expr) mtx))))
+                   (expand-list expr mtx)))))))
 
         (else
           (expand-constant expr))))
@@ -2212,7 +2232,7 @@
 
                    ((eqv? first 'define-feature)
                     (let ((name (cadr expr))
-                          (use  (assoc 'use (cddr expr))))
+                          (use  (soft-assoc 'use (cddr expr))))
                       (if (live-env-live-feature? env name)
                         (and use (for-each (lambda (x) (live-env-add-feature! env x)) use))
                         #f)))
@@ -4296,13 +4316,12 @@
 (define (extract-features parsed-file)
   (extract
     (lambda (prim acc rec)
-      ;; (pp (car prim))
       (case (car prim)
         ((primitives)
-         (let ((primitives (rec '())))
+         (let ((primitives (rec '() (cdr prim))))
            (append primitives acc)))
         ((primitive feature)
-         (cons prim acc))
+         (cons prim (append (rec '() (cddr prim)) acc)))
         (else
           acc)))
     parsed-file
@@ -4312,12 +4331,7 @@
 (define (extract walker parsed-file base)
   (letrec ((func
              (lambda (prim acc)
-               (let* ((name (car prim))
-                      (body (soft-assoc '@@body (cdr prim)))
-                      (rec (lambda (base)
-                             (if body
-                               (fold func base (cadr body))
-                               base))))
+               (let ((rec (lambda (base body) (fold func base body))))
                  (walker prim acc rec)))))
     (fold
       func
@@ -4373,87 +4387,123 @@
 ;;                 start
 ;;                 (if start (+ macro-len 1) macro-len)))))))
 
+(define (list-prefix? prefix lst)
+  (if (pair? prefix)
+    (if (pair? lst)
+      (if (eqv? (car prefix) (car lst))
+        (list-prefix? (cdr prefix) (cdr lst))
+        #f)
+      #f)
+    #t))
+
+;; detects a macro on a given line
+;; There are 3 types of macros : 
+;;   - start-outer    : @@( ...
+;;   - end-outer      :   ... )@@
+;;   - start-end-outer: @@( ... )@@
+;;   - inner          : @.. ... ..@ or @.. ... 
+;(define macro-prefix '("@@(" "@.." "..@" ")@@"))
+
 (define (detect-macro line)
-  (let loop ((cur line) (start #f) (macro-len 0))
-    (let ((len (string-length cur)))
-      (if (<= len 2)
-        (if start 
-          `(start ,start . ,(+ 1 macro-len))
-          '(none))
-        (cond
-          ((string-prefix? "@@(" cur)
-           (if start
-             (error "cannot start 2 @@( on the same line")
-             (loop (substring cur 3 len) cur 3)))
-          ((string-prefix? ")@@" cur)
-           (if start
-             `(start-end ,start . ,(+ 3 macro-len))
-             '(end)))
-          (else
-            (loop (substring cur 1 len) start (if start (+ macro-len 1) macro-len))))))))
+  (let ((len (string-length line)))
+    (let loop ((cur (string->list line)) 
+               (i 0) 
+               (start #f) 
+               (end #f) 
+               (macro-type 'none))
+      (if (<= (- len i) 2)
+        (let ((start (or start 0))
+              (end (or end len)))
+          (if (eq? macro-type 'none)
+            '(none #f)
+            (list macro-type (substring line start end))))
+        (let* ((match-start-outer (list-prefix? (string->list "@@(") cur)) ;  ) (
+               (match-end-outer   (list-prefix? (string->list ")@@") cur)) ;
+               (match-start-inner (list-prefix? (string->list "@..") cur))
+               (match-end-inner   (list-prefix? (string->list "..@") cur))
+               (match-start       (or match-start-outer match-start-inner))
+               (match-end         (or match-end-outer match-end-inner))
+               (match-any         (or match-start match-end)))
+          (if (not match-any)
+            (loop (cdr cur) (+ i 1) start end macro-type)
+            (begin
+              (if (and start match-start)
+                (error "Cannot start two macros @@( or @.. on the same line")) ; )
+
+              (if (and (not start) match-end-inner)
+                (error "The ..@ macro must start with @.."))
+
+              (if (and (eq? macro-type 'inner) (or match-start-outer match-end-outer))
+                (error "Cannot mix and match outer and inner macros"))
+
+              (if (and (not (or (eq? macro-type 'inner) (eq? macro-type 'none)))
+                       (or match-start-inner match-end-inner))
+                (error "Cannot mix and match inner or outer macros macros"))
+
+              (loop
+                (cdddr cur)
+                (+ i 3)
+                (if match-start (+ i 3) start)
+                (if match-end i end)
+                (cond 
+                  (match-start-outer 'start-outer)
+                  (match-end-outer   (if start 'start-end-outer 'end-outer))
+                  ((or match-start-inner match-end-inner) 'inner))))))))))
 
 
-(define (parse-host-file file-content)
+(define (parse-host-file file-content cur-macro)
+  (define (to-str str)
+    (if (string=? "" str)
+      '()
+      `((str ,str))))
+
   (let loop ((lines (if (pair? file-content) file-content (string-split file-content #\newline)))
-             (parsed-file '())
+             (parsed-file (reverse cur-macro))
              (cur-section ""))
     (if (pair? lines)
-      (let* ((cur-line (string-append (car lines) "\n"))
+      (let* ((cur-line (car lines))
              (macro (detect-macro cur-line))
-             (macro-type (car macro))
-             (macro-args (cdr macro))
-             (parsed-file
-               (cond 
-                 ((eq? macro-type 'end)
-                  `((str ,(string-append cur-section cur-line)) . ,parsed-file))
-                 ((string=? cur-section "")
-                  parsed-file)
-                 ((memq macro-type '(start start-end))
-                  `((str ,cur-section) . ,parsed-file))
-                 (else
-                   parsed-file))))
-
-        (case macro-type
+             (macro-type  (car macro))
+             (macro-value (cadr macro))
+             (next-section 
+               (if (equal? cur-section "") 
+                 cur-line
+                 (string-append cur-section "\n" cur-line)))
+             )
+        (case macro-type 
           ((none)
-           (loop (cdr lines) parsed-file (string-append cur-section cur-line)))
+           (loop (cdr lines) parsed-file next-section))
 
-          ((end)
-           (cons (cdr lines) (reverse parsed-file)))
+          ((end-outer)
+           (let ((body (reverse `(,@(to-str next-section) . ,parsed-file))))
+             (cons (cdr lines) 
+                   body)))
 
-          ((start)
-           (let* ((macro (car macro-args))
-                  (macro-len (cdr macro-args))
-                  (macro-string (substring macro 2 macro-len))
-                  (macro-sexp (read (open-input-string (string-append macro-string ")"))))
-                  (body-pair (parse-host-file (cdr lines)))
-                  (lines-after-body (car body-pair))
-                  (body-parsed  (cdr body-pair))
-                  (head `(@@head ,cur-line))
-                  (body `(@@body ,body-parsed)))
-
-
-             (loop lines-after-body
-                   `((,@macro-sexp ,head ,body) . ,parsed-file)
+          ((inner)
+           (let* ((macro-value (string-append "(" macro-value ")"))
+                  (macro-sexp  (read (open-input-string macro-value))))
+             (loop (cdr lines)
+                   `(,@macro-sexp ,@(to-str cur-section) . ,parsed-file)
                    "")))
-
-          ((start-end)
-           (let* ((macro (car macro-args))
-                  (macro-len (cdr macro-args))
-                  (macro-string (substring macro 2 (- macro-len 2)))  ;; skips the @@ and @@
-                  (macro-sexp (read (open-input-string macro-string)))
-                  (head-parsed cur-line)
-                  (body `(@@body . (((str ,head-parsed)))))
-                  (head `(@@head . (,head-parsed))))
-             
-
-             (loop
-               (cdr lines)
-               `((,@macro-sexp ,head ,body) . ,parsed-file)
-               "")))
-
-          (else (error "Unknown macro-type"))))
-
+          
+          ((start-outer start-end-outer)
+           (let* ((macro-value (string-append "(" macro-value ")"))
+                  (macro-sexp (read (open-input-string macro-value)))
+                  (body-pair (if (eqv? macro-type 'start-outer)
+                               (parse-host-file (cdr lines) `(,@macro-sexp (@@head ,cur-line))) ; recursive call
+                               (cons (cdr lines) `(,@macro-sexp (str ,cur-line)))))
+                  (lines-after-body (car body-pair))
+                  (full-macro  (cdr body-pair)))
+             (loop lines-after-body
+                   `(,full-macro ,@(to-str cur-section) . ,parsed-file)
+                   "")))
+          (else 
+           (error "Unknown macro type" macro-type))))
       (reverse `((str ,cur-section) . ,parsed-file)))))
+                
+
+                 
+
 
 ;;
 ;; (define (parse-host-file cur-line)
@@ -4676,6 +4726,7 @@
            (error "Cannot evaluate expression in replace" expr)))))
 
 
+
 (define (generate-file parsed-file host-config encode)
 
   (define live-features (host-config-features host-config))
@@ -4693,103 +4744,104 @@
   (define cache (make-table))
 
   (extract
-   (lambda (prim acc rec)
-    (case (car prim)
+    (lambda (prim acc rec)
 
-     ((feature define-primitive)
-      (let ((condition (cadr prim)))
-       (if (eval-feature condition live-features)
-        (rec "")
-        acc)))
+      (case (car prim)
 
-     ((replace)
-      (let ((expr (caddr prim)))
-       (if (and (pair? expr) 
-            (memq (car expr) cached-functions)
-            (not (table-ref cache expr #f)))
-        (table-set! cache expr (replace-eval expr encode host-config)))))
+        ((feature define-primitive)
+         (let ((condition (cadr prim)))
+           (if (eval-feature condition live-features)
+             (rec "" (cddr prim))
+             acc)))
 
-     (else acc)))
-   parsed-file
-   "")
+        ((replace)
+         (let ((expr (caddr prim)))
+           (if (and (pair? expr) 
+                    (memq (car expr) cached-functions)
+                    (not (table-ref cache expr #f)))
+             (table-set! cache expr (replace-eval expr encode host-config)))))
+
+        (else acc)))
+    parsed-file
+    "")
+
 
   (letrec ((extract-func
             (lambda (prim acc rec)
              (case (car prim)
               ((str)
-               (string-append acc (cadr prim)))
+               (string-append acc "\n" (cadr prim)))
               ((feature define-feature)
                (let ((condition (cadr prim)))
-                (if (eval-feature condition live-features)
-                 (string-append acc (rec ""))
-                 acc)))
+                 (if (eval-feature condition live-features)
+                   (string-append acc (string-append (rec "" (cddr prim))))
+                   acc)))
               ((primitives)
                (let* ((gen (cdr (soft-assoc 'gen prim)))
+                      (bin (soft-assoc 'bind prim))
                       (generate-one
-                       (lambda (prim)
-                        (let* ((name (car prim))
-                               (index (cadr prim))
-                               (primitive (caddr prim))
+                        (lambda (prim)
+                          (let* ((name (car prim))
+                                 (index (cadr prim))
+                                 (primitive (caddr prim))
+                                 (body (rec "" (cddr primitive)))
+                                 (head (soft-assoc '@@head (cddr primitive)))
+                                 (head (if head (cadr head) body)))
+                            (let loop ((gen gen))
+                              (if (pair? gen)
+                                (string-append
+                                  (cond ((string? (car gen)) (car gen))
+                                        ((eq? (car gen) 'index) 
+                                         (if (pair? index) (number->string (car index)) (number->string index)))
+                                        ((eq? (car gen) 'body) body)
+                                        ((eq? (car gen) 'head) head))
+                                  (loop (cdr gen)))
+                                ""))))))
+                 (string-append
+                   acc
+                   (string-concatenate (map generate-one primitives)))))
 
-                               ;(_ (if (not primitive) (error "Cannot find needed primitive inside program :" name)))
-                               (body  (extract extract-func (cadr (soft-assoc '@@body primitive)) ""))
-                               (head  (soft-assoc '@@head primitive)))
-                         (let loop ((gen gen))
-                          (if (pair? gen)
-                           (string-append
-                            (cond ((string? (car gen)) (car gen))
-                             ((eq? (car gen) 'index) 
-                              (if (pair? index) (number->string (car index)) (number->string index)))
-                             ((eq? (car gen) 'body) body)
-                             ((eq? (car gen) 'head) (cadr head)))
-                            (loop (cdr gen)))
-                           ""))))))
-                (string-append
-                 acc
-                 (apply string-append
-                  (map generate-one primitives)))))
+              ((use-feature)
+               (string-append acc (rec "" (cddr prim))))
 
-        ((use-feature)
-         (string-append acc (rec "")))
+              ((primitive define-primitive)
+               (string-append acc (rec "" (cddr prim))))
 
-        ((primitive define-primitive)
-         (string-append acc (rec "")))
+              ((location)
+               (let* ((name (cadr prim))
+                      (feature-pair (assoc name locations))
+                      (matched-features (if feature-pair (cdr feature-pair) '())))
+                 (string-append
+                   acc
+                   (extract extract-func matched-features ""))))
 
-        ((location)
-         (let* ((name (cadr prim))
-                (feature-pair (assoc name locations))
-                (matched-features (if feature-pair (cdr feature-pair) '())))
-           (string-append
-             acc
-             (extract extract-func matched-features ""))))
+              ((replace)
+               (let* ((pattern     (cadr prim))
+                      (pattern     (if (symbol? pattern)
+                                     (symbol->string pattern)
+                                     pattern))
+                      (replacement-text 
+                        (or 
+                          (table-ref cache (caddr prim) #f) 
+                          (replace-eval (caddr prim) encode host-config)))
+                      (replacement-text 
+                        (cond ((symbol? replacement-text)
+                               (symbol->string replacement-text))
+                              ((number? replacement-text)
+                               (number->string replacement-text))
+                              ((string? replacement-text)
+                               replacement-text)
+                              (else
+                                (error "Error while replacing doesn't support the type : " replacement-text)))))
+                 (string-append acc (string-replace (rec "" (cdddr prim)) pattern replacement-text))))
 
-        ((replace)
-         (let* ((pattern     (cadr prim))
-                (pattern     (if (symbol? pattern)
-                              (symbol->string pattern)
-                              pattern))
-                (replacement-text 
-                 (or 
-                  (table-ref cache (caddr prim) #f) 
-                  (replace-eval (caddr prim) encode host-config)))
-                (replacement-text 
-                 (cond ((symbol? replacement-text)
-                        (symbol->string replacement-text))
-                  ((number? replacement-text)
-                   (number->string replacement-text))
-                  ((string? replacement-text)
-                   replacement-text)
-                  (else
-                   (error "Error while replacing doesn't support the type : " replacement-text)))))
-          (string-append acc (string-replace (rec "") pattern replacement-text))))
-
-        (else
-         acc)))))
+              (else
+                acc)))))
 
     (extract
-     extract-func
-     parsed-file
-     "")))
+      extract-func
+      parsed-file
+      "")))
 
 
 
@@ -4960,7 +5012,7 @@
              #f
              (report-first-status
                "Parsing host file"
-               (parse-host-file vm-source))))
+               (parse-host-file vm-source '()))))
 
          (encoding-name (if (equal? encoding-name "auto")
                             (let* ((available-features (extract-feature-names host-file))

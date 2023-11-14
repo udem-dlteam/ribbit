@@ -405,7 +405,8 @@ num get_code(){
 //  return x < 0 ? 57 : x;
 //}
 
-#define HALF_ENCODING_SIZE (00) // @@(replace "00" encoding/half-encoding-size)@@
+#define ENCODING_SIZE  (00)                // @@(replace "00" encoding/ribn-base)@@
+#define HALF_ENCODING_SIZE ENCODING_SIZE/2
 
 num get_int(num n) {
   num x = get_code();

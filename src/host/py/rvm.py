@@ -4,6 +4,7 @@
 input=");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" # RVM code that prints HELLO!
 # )@@
 
+
 import numpy as np # @@(feature py/numpy)@@
 import os # @@(feature py/io)@@
 
@@ -24,8 +25,14 @@ def getchar():
 # )@@
 
 
-debug = True   # @@(feature debug)@@
-debug = False  # @@(feature (not debug))@@
+# @@(feature debug
+debug = True   
+# )@@
+# @@(feature (not debug)
+debug = False  
+# )@@
+
+
 tracing = False                                                         # DEBUG
 step_count = 0                                                          # DEBUG
 start_tracing = 0                                                       # DEBUG
@@ -170,34 +177,39 @@ def prim2(f):
 def prim3(f):
     return lambda: push(f(pop(),pop(),pop()))
 
+def prim(n, f):
+    return lambda:push(f(*[pop() for _ in range(n)]))
+
 def f0s(y,x):x[0]=y;return y
 def f1s(y,x):x[1]=y;return y
 def f2s(y,x):x[2]=y;return y
 
 
+
 primitives = [
- # @@(primitives (gen body)
- prim3(lambda z,y,x:[x,y,z]),                                            # @@(primitive (##rib a b c))@@
- prim1(lambda x:x),                                                      # @@(primitive (##id x))@@
- lambda:(pop(),None)[1],                                                 # @@(primitive (##arg1 x y))@@
- lambda:push([pop(),pop()][0]),                                          # @@(primitive (##arg2 x y))@@
- lambda:push([pop()[0],stack,1]),                                        # @@(primitive (##close rib))@@
- prim1(lambda x:bool2scm(is_rib(x))),                                    # @@(primitive (##rib? rib))@@
- prim1(lambda x:x[0]),                                                   # @@(primitive (##field0 rib))@@
- prim1(lambda x:x[1]),                                                   # @@(primitive (##field1 rib))@@
- prim1(lambda x:x[2]),                                                   # @@(primitive (##field2 rib))@@
- prim2(f0s),                                                             # @@(primitive (##field0-set! rib x))@@
- prim2(f1s),                                                             # @@(primitive (##field1-set! rib x))@@
- prim2(f2s),                                                             # @@(primitive (##field2-set! rib x))@@
- prim2(lambda y,x:bool2scm(x is y if is_rib(x) or is_rib(y) else x==y)), # @@(primitive (##eqv? x y))@@
- prim2(lambda y,x:bool2scm(x<y)),                                        # @@(primitive (##< a b))@@
- prim2(lambda y,x:x+y),                                                  # @@(primitive (##+ a b))@@
- prim2(lambda y,x:x-y),                                                  # @@(primitive (##- a b))@@
- prim2(lambda y,x:x*y),                                                  # @@(primitive (##* a b))@@
- prim2(lambda y,x:int(x/y)),                                             # @@(primitive (##quotient a b))@@
- getchar,                                                                # @@(primitive (##getchar))@@
- prim1(putchar),                                                         # @@(primitive (##putchar c))@@
- prim1(exit),                                                            # @@(primitive (##exit a))@@
+ # @@(primitives (gen body) 
+ # @.. (bind "prim(" (len args) ", lambda " (list->host (reverse args) " ") ":" binding "(" (list->host args " ") "))" )
+ prim(3,lambda z,y,x:[x,y,z]),                                            # @@(primitive (##rib a b c))@@
+ prim(1,lambda x:x),                                                      # @@(primitive (##id x))@@
+ lambda:(pop(),None)[1],                                                  # @@(primitive (##arg1 x y))@@
+ lambda:push([pop(),pop()][0]),                                           # @@(primitive (##arg2 x y))@@
+ lambda:push([pop()[0],stack,1]),                                         # @@(primitive (##close rib))@@
+ prim(1,lambda x:bool2scm(is_rib(x))),                                    # @@(primitive (##rib? rib))@@
+ prim(1,lambda x:x[0]),                                                   # @@(primitive (##field0 rib))@@
+ prim(1,lambda x:x[1]),                                                   # @@(primitive (##field1 rib))@@
+ prim(1,lambda x:x[2]),                                                   # @@(primitive (##field2 rib))@@
+ prim(2,f0s),                                                             # @@(primitive (##field0-set! rib x))@@
+ prim(2,f1s),                                                             # @@(primitive (##field1-set! rib x))@@
+ prim(2,f2s),                                                             # @@(primitive (##field2-set! rib x))@@
+ prim(2,lambda y,x:bool2scm(x is y if is_rib(x) or is_rib(y) else x==y)), # @@(primitive (##eqv? x y))@@
+ prim(2,lambda y,x:bool2scm(x<y)),                                        # @@(primitive (##< a b))@@
+ prim(2,lambda y,x:x+y),                                                  # @@(primitive (##+ a b))@@
+ prim(2,lambda y,x:x-y),                                                  # @@(primitive (##- a b))@@
+ prim(2,lambda y,x:x*y),                                                  # @@(primitive (##* a b))@@
+ prim(2,lambda y,x:int(x/y)),                                             # @@(primitive (##quotient a b))@@
+ getchar,                                                                 # @@(primitive (##getchar))@@
+ prim(1,putchar),                                                         # @@(primitive (##putchar c))@@
+ prim(1,exit),                                                            # @@(primitive (##exit a))@@
  # )@@
 ]
 
