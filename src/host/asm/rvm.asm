@@ -2236,7 +2236,7 @@ prim_apply_done:
 
 ;; @@(feature welcome-msg
 
-hello: dd "              ____________________", 0xa,"             |                    |", 0xa, "             | Welcome to Ribbit! |", 0xa,"             |                    |",0xa,"    λ        | - Rib the Frog     |", 0xa,"  @...@  --- |____________________|", 0xa, " (-----)",0xa,"( >___< )",0xa,"^^ ~~~ ^^",0xa,0x0
+hello: dd "              ____________________", 0xa,"             |                    |", 0xa, "             | Welcome to Ribbit! |", 0xa,"             |                    |",0xa,"    λ        | - Rib the Frog     |", 0xa,"  @. .@  --- |____________________|", 0xa, " (-----)",0xa,"( >___< )",0xa,"^^ ~~~ ^^",0xa,0x0
 %define HELLO_SIZE ($-hello)-WORD_SIZE*5
 
 prim_welcome:
