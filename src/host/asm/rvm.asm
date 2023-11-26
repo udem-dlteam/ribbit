@@ -102,11 +102,13 @@ _start:
 ;%define DEBUG_PRIM
 
 
-%if 0
+; @@(feature debug 
+%if 0 ;; @@(replace "0" "1")@@
 %define DEBUG
 %define DEBUG_INSTR
 %define DEBUG_PRIM
 %endif
+; )@@
 
 %if 0 ;; @@(replace "0" "1")@@
 %define RVM_GEN
