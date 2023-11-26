@@ -1,4 +1,4 @@
-(define data-file (open-output-file "../../tests/data/71-output-data.txt"))
+(define data-file (open-output-file "tests/data/71-output-data.txt"))
 
 (display "output-port? ")
 (display (output-port? data-file))
@@ -11,7 +11,7 @@
 (define input-port-test '())
 
 (display "File content: ")
-(call-with-input-file "../../tests/data/71-output-data.txt" 
+(call-with-input-file "tests/data/71-output-data.txt" 
                       (lambda (port)
                         (let loop ((ch (read-char port)))
                           (if (eof-object? ch)

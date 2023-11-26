@@ -1,4 +1,4 @@
-(define data-file (open-input-file "../../tests/data/72-read-data.txt"))
+(define data-file (open-input-file "tests/data/72-read-data.txt"))
 
 (display (input-port? data-file))
 (newline)
