@@ -512,7 +512,7 @@
 
     (define (string-split str pattern)
       (let ((pattern? (if (char? pattern) (lambda (c) (char=? c pattern)) pattern))
-            (final '("")))
+            (final (list "")))
         (for-each
           (lambda (c)
             (if (pattern? c)
@@ -565,12 +565,12 @@
 
 ;;;------------------------------------------------------------------------------
 
-(define predefined '(##rib false true nil)) ;; predefined symbols
+(define predefined (list '##rib 'false 'true 'nil)) ;; predefined symbols
 
 (define default-primitives
   (map
     (lambda (p) `(primitive ,p (@@head "") (@@body (str ""))))
-    '((##rib x y z)
+    `((##rib x y z)
       (##id x)
       (##arg1 x y)
       (##arg2 x y)
@@ -697,7 +697,7 @@
 (define forced-first-primitives (list '##rib '##- '##arg1))
 
 (define (make-host-config live-features primitives feature-locations)
-  (rib live-features (cons '(##rib 0) primitives) feature-locations))
+  (rib live-features (cons (list '##rib 0) primitives) feature-locations))
 
 (define (host-config-features host-config) (field0 host-config))
 (define (host-config-primitives host-config) (field1 host-config))
@@ -1115,7 +1115,7 @@
                                                          v)
                                                        cont))))))
                        (comp-bind ctx
-                                  '(_)
+                                  (list _)
                                   (cons first '())
                                   (cons (cons '_ args) '())
                                   cont)))))))
@@ -1327,13 +1327,14 @@
          (exprs
            (car exprs-and-exports))
          (exprs
-           (if (pair? exprs) exprs '(#f)))
+           (if (pair? exprs) exprs (list #f)))
          (host-features (extract-features (or parsed-vm default-primitives)))
 
          (expansion
            `(begin
               ,@(host-feature->expansion-feature host-features) ;; add host features
               ,(expand-begin exprs (make-mtx '() '()))))
+
          (exports
            (exports->alist (cdr exprs-and-exports)))
          (live-globals-and-features
@@ -1638,7 +1639,7 @@
                     (rest (filter (lambda (x) (not (string? x))) (cdr expr))))
                 (parse-host-file
                   (fold string-append "" code)
-                  (append '(define-primitive) rest))))
+                  (append (list 'define-primitive) rest))))
 
              ((eqv? (car expr) 'define-feature) ;; parse arguments as a source file
               (let* ((bindings (cddr expr))
@@ -1814,7 +1815,7 @@
                            (eval expander-body)))))))
             (else
               (expand-body-done defs exprs mtx))))
-        (expand-body-done defs '(0) mtx))))
+        (expand-body-done defs (list 0) mtx))))
 
 (define (expand-body-done defs exprs mtx)
   (if (pair? defs)
@@ -2765,8 +2766,8 @@
           (if (< index (- max offset))
             (let* ((optimal-table
                      (let ((optimal (table-copy current-encoding-table)))
-                       (table-ref optimal (append instruction '(long)))
-                       (table-set! optimal (append instruction '(long)) index)
+                       (table-ref optimal (append instruction (list 'long)))
+                       (table-set! optimal (append instruction (list 'long)) index)
                        optimal))
                    (optimal-table-value (sum-byte-count value-table (reverse instruction) optimal-table encoding-size))
                    (gain               (- old-gain optimal-table-value))
@@ -3534,11 +3535,11 @@
           proc
           symtbl
           encoding
-          (encoding-inst-get encoding '(skip int long))
+          (encoding-inst-get encoding (list 'skip 'int 'long))
           (ribn-base))))
 
     (define (p/enc-symtbl)
-      (let* ((symtbl-and-symbols* (encode-symtbl proc exports host-config (encoding-inst-size encoding '(call sym short))))
+      (let* ((symtbl-and-symbols* (encode-symtbl proc exports host-config (encoding-inst-size encoding (list 'call 'sym 'short))))
              (symbol* (cdr symtbl-and-symbols*)))
         (set! symtbl   (car symtbl-and-symbols*))
         (set! stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base))))
@@ -3556,7 +3557,7 @@
       (p/enc-symtbl)
       (p/enc-prog)
       (p/merge-prog-sym)
-      (let loop1 ((crs compression-range-size-min) (best-compression '(99999999999 99999999999)))
+      (let loop1 ((crs compression-range-size-min) (best-compression (list 99999999999 99999999999)))
         (if (<= crs compression-range-size-max)
             (let loop2 ((sb size-base-min) (best-compression best-compression))
               (if (<= sb size-base-max)
@@ -4415,7 +4416,7 @@
         (let ((start (or start 0))
               (end (or end len)))
           (if (eq? macro-type 'none)
-            '(none #f)
+            (list 'none #f)
             (list macro-type (substring line start end))))
         (let* ((match-start-outer (list-prefix? (string->list "@@(") cur)) ;  ) (
                (match-end-outer   (list-prefix? (string->list ")@@") cur)) ;
