@@ -14,6 +14,9 @@
 
 ;;; ######################################## Beginning of ELF header
 
+;; feature that is always true
+;; @@(feature (or debug (not debug)) (use ##exit))@@
+
 
 ;; @@(feature debug 
 %macro DB_PRINT 1
@@ -1140,7 +1143,7 @@ string_jump	db "jump --",0
 string_call	db "call --",0
 %endif
 
-; @@(feature arity-check
+; @@(feature arity-check (use ##exit)
 string_arity_error db "Arity check error",0x0a,0
 ;; this code assumes that the program will exit after
 

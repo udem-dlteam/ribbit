@@ -2232,9 +2232,9 @@
                         (liveness (caddr expr) (extend params cte) #f))))
 
                    ((eqv? first 'define-feature)
-                    (let ((name (cadr expr))
+                    (let ((feature-expr (cadr expr))
                           (use  (soft-assoc 'use (cddr expr))))
-                      (if (live-env-live-feature? env name)
+                      (if (eval-feature feature-expr (live-env-features env))
                         (and use (for-each (lambda (x) (live-env-add-feature! env x)) use))
                         #f)))
 
