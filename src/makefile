@@ -1,10 +1,21 @@
 HOSTS = c js py scm hs lua ml sh asm clj zig
 
-RSC_COMPILER ?= gsi -:r4rs ../../rsc.scm 
+#RSC_COMPILER ?= gsi -:r4rs rsc.scm
+RSC_COMPILER ?= ./rsc.exe
 
 all:
 
 .PHONY: prebuilt
+
+check: rsc.exe
+	@if [ "$$HOST" = "" ]; then \
+	  for host in $(HOSTS); do \
+	    echo "====================== TESTING HOST $$host"; \
+	    cd host/$$host; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check; cd ../..; \
+	  done; \
+	else \
+	  cd host/$$HOST; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check; cd ../..; \
+	fi
 
 prebuilt:
 	RIBBIT_BUILD_DIR=`pwd`/prebuilt RIBBIT_BUILD_OPTS="-m" $(MAKE) build-all
@@ -18,28 +29,14 @@ build-all:
 tests/*: all
 	TEST_FILTER="$@" $(MAKE) check
 	
-bench:
-	@if [ "$$HOST" = "" ]; then \
-	  for host in $(HOSTS); do \
-	    echo "====================== BENCHMARKING HOST $$host"; \
-	    cd host/$$host; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) bench; cd ../..; \
-	  done; \
-	else \
-	  cd host/$$HOST; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) bench; cd ../..; \
-	fi
 
-check:
-	@if [ "$$HOST" = "" ]; then \
-	  for host in $(HOSTS); do \
-	    echo "====================== TESTING HOST $$host"; \
-	    cd host/$$host; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check; cd ../..; \
-	  done; \
-	else \
-	  cd host/$$HOST; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check; cd ../..; \
-	  ps; \
-	fi
+rsc.exe: rsc.scm
+	@echo "====================== BUILDING RSC.EXE"
+	@echo "This process may take a while..."
+	gsc -:r4rs -exe -debug -cc-options "-D___MULTIPLE_HOSTS -U___SINGLE_HOST" -o rsc.exe rsc.scm
 
-check-repl:
+
+check-repl: rsc.exe
 	@UP_CASE="(##vector-set! ##main-readtable 1 'upcase)"; \
 	if [ "$$HOST" = "" ]; then \
 	  for host in $(HOSTS); do \
@@ -50,19 +47,9 @@ check-repl:
 	  cd host/$$HOST; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check-repl; cd ../..; \
 	fi
 
-check-fancy:
-	@UP_CASE="(##vector-set! ##main-readtable 1 'upcase)"; \
-	if [ "$$HOST" = "" ]; then \
-	  for host in $(HOSTS); do \
-	    echo "====================== TESTING HOST $$host"; \
-		cd host/$$host; RSC_COMPILER="gsi -:r4rs ../../rsc.scm" $(MAKE) check; cd ../..; \
-	  done; \
-	else \
-	  cd host/$$HOST; RSC_COMPILER="gsi -:r4rs ../../rsc.scm" $(MAKE) check; cd ../..; \
-	fi
-
 check-pipeline: check
 check-all: check-pipeline check-fancy check-features check-bootstrap
+
 	
 
 check-features:
@@ -120,7 +107,6 @@ check-bootstrap:
 	  echo "====================== ***FAILED*** BOOTSTRAP USING HOST $$host EXECUTED WITH $$host_interpreter"; \
 	  exit 1; \
 	fi
-
 
 
 

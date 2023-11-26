@@ -12,9 +12,8 @@
 # HOST_COMPILER takes two arguments, the output file (executable binary) and
 # the source file to compile
 
-RSC_DEFAULT = ../../rsc
-RSC_COMPILER ?= ${RSC_DEFAULT}
-REPL_PATH ?= ../../tests/r4rs/repl/repl.scm
+RSC_COMPILER ?= gsi -:r4rs rsc.scm
+REPL_PATH ?= tests/r4rs/repl/repl.scm
 
 TEST_FEATURES ?= .
 RSC_MUST_TEST_FEATURES ?= ,
@@ -42,84 +41,11 @@ build-repl-max-tc: ../../repl-max.scm
 build-rsc: ../../rsc.scm  
 	dir="$(RIBBIT_BUILD_DIR)"; $(RSC_COMPILER) -t $(HOST) -l max $(RIBBIT_BUILD_OPTS) -o $${dir:-build}/rsc.$(HOST) $<
 
-bench:
-	@host="$(HOST)"; \
-	INTERPRETER="$(HOST_INTERPRETER)"; \
-	COMPILER="$(HOST_COMPILER)"; \
-	RSC_COMPILER="${RSC_COMPILER}"; \
-	RSC_DEFAULT="${RSC_DEFAULT}"; \
-	RSC_BENCH_OPTIONS='${RSC_MUST_BENCH_OPTIONS}'; \
-	BENCH_OPTIONS='${BENCH_OPTIONS}'; \
-	BENCH_DIR='${BENCH_DIR}'; \
-	if [ "$$BENCH_OPTIONS" != "." ]; then \
-	  RSC_BENCH_OPTIONS="$$RSC_BENCH_OPTIONS;$$BENCH_OPTIONS"; \
-	fi; \
-	BENCH_FILTER='${BENCH_FILTER}'; \
-	for prog in `ls ../../$$BENCH_DIR/*.scm benchmarks/*.scm | grep -E "$$BENCH_FILTER"`; do \
-	  setup=`sed -n -e '/;;;setup:/p' $$prog | sed -e 's/^;;;setup://'`; \
-	  cleanup=`sed -n -e '/;;;cleanup:/p' $$prog | sed -e 's/^;;;cleanup://'`; \
-	  options=`sed -n -e '/;;;options: */p' $$prog | sed -e 's/^;;;options: *//'`; \
-	  argv=`sed -n -e '/;;;argv:/p' $$prog | sed -e 's/^;;;argv://'`; \
-	  fancy_compiler=`sed -n -e '/;;;fancy-compiler/p' $$prog`; \
-	  if [ "$$setup" != "" ]; then \
-        sh -c "$$setup"; \
-	    if [ $$? != 0 ]; then \
-			echo "Error in the setup"; \
-		fi; \
-	  fi; \
-	  for option in `echo "$$options" | sed -e 's/ /,/g' | sed -e 's/,*\;,*/\n/g'`; do \
-	    option=`echo "$$option" | sed -e 's/,/ /g'`; \
-	    echo "---------------------- $$prog [options: $$option] [argv:$$argv]"; \
-        for bench_options in `echo "$$RSC_BENCH_OPTIONS" | sed -e 's/ /,/g' | sed -e 's/,*\;,*/\n/g'`; do \
-	      bench_options=`echo "$$bench_options" | sed -e 's/,/ /g'`; \
-	      if [ "$$bench_options" != "," ] && [ "$$bench_options" != "" ]; then \
-  	        echo "    >>> [benchmarks options: $$bench_options]"; \
-  	      fi; \
-	      rm -f benchmark.$$host*; \
-	      echo -n "Compile Time: "; \
-	      time -f '%E seconds' $$RSC_COMPILER -t $$host "$$option" "$$bench_options" -o benchmark.$$host $$prog; \
-	      echo -n "Program-size: "; \
-	      echo "$$(ls -l benchmark.$$host | awk '{print $$5}') bytes ($$(ls -lh benchmark.$$host | awk '{print $$5}'))"; \
-	      if [ "$$INTERPRETER" != "" ]; then \
-	        stdin="$(sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://')"; \
-	        echo -n "Run Time: "; \
-			ps; \
-	        echo "$$stdin" | time -f '%E seconds' $$INTERPRETER benchmark.$$host "$$argv" > benchmark.$$host.out; \
-			if [ "$$?" != 0 ]; then \
-			  echo "/!\\ ERROR /!\\"; \
-			  continue; \
-			fi; \
-	      else \
-	        $$COMPILER benchmark.$$host.exe benchmark.$$host; \
-	        echo -n "Program-size (compiled): "; \
-	        echo "$$(ls -l benchmark.$$host.exe | awk '{print $$5}') bytes ($$(ls -lh benchmark.$$host.exe | awk '{print $$5}'))"; \
-	        stdin="$(sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://')"; \
-	        echo -n "Run Time: "; \
-	        echo "$$stdin" | time -f '%E seconds' ./benchmark.$$host.exe "$$argv" > benchmark.$$host.out; \
-			if [ "$$?" != 0 ]; then \
-			  echo "/!\\ ERROR /!\\"; \
-			  continue; \
-			fi; \
-	      fi; \
-	      sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - benchmark.$$host.out; \
-	      rm -f benchmark.$$host*; \
-	      echo ""; \
- 	    done; \
-	  done; \
-	  if [ "$$cleanup" != "" ]; then \
-        sh -c "$$cleanup"; \
-	    if [ $$? != 0 ]; then \
-		  echo "Error in the cleanup"; \
-		fi; \
-	  fi; \
-	done
-
 check-repl: 
 	@host="$(HOST)"; \
 	INTERPRETER="$(HOST_INTERPRETER)"; \
 	COMPILER="$(HOST_COMPILER)"; \
 	RSC_COMPILER="${RSC_COMPILER}"; \
-	RSC_DEFAULT="${RSC_DEFAULT}"; \
 	RSC_TEST_FEATURES='${RSC_MUST_TEST_FEATURES}'; \
 	TEST_FEATURES='${TEST_FEATURES}'; \
 	TEST_DIR="${TEST_DIR}"; \
@@ -170,24 +96,20 @@ check:
 	INTERPRETER="$(HOST_INTERPRETER)"; \
 	COMPILER="$(HOST_COMPILER)"; \
 	RSC_COMPILER="${RSC_COMPILER}"; \
-	RSC_DEFAULT="${RSC_DEFAULT}"; \
 	RSC_TEST_FEATURES='${RSC_MUST_TEST_FEATURES}'; \
 	TEST_FEATURES='${TEST_FEATURES}'; \
 	TEST_DIR="${TEST_DIR}"; \
-	IS_FANCY="$$([ "$$RSC_DEFAULT" != "$$RSC_COMPILER" ] && echo "yes")"; \
+	pushd ../../; \
 	if [ "$$TEST_FEATURES" != "." ]; then \
 	  RSC_TEST_FEATURES="$$RSC_TEST_FEATURES;$$TEST_FEATURES"; \
 	fi; \
-	if [ "$$IS_FANCY" != "yes" ]; then \
-	  RSC_TEST_FEATURES=","; \
-	fi; \
 	TEST_FILTER='${TEST_FILTER}'; \
-	for prog in `ls ../../$$TEST_DIR/$$TEST_FILTER.scm tests/$$TEST_FILTER.scm`; do \
+	for prog in `ls $$TEST_DIR/**/$$TEST_FILTER.scm host/$$HOST/tests/$$TEST_FILTER.scm`; do \
 	  setup=`sed -n -e '/;;;setup:/p' $$prog | sed -e 's/^;;;setup://'`; \
 	  cleanup=`sed -n -e '/;;;cleanup:/p' $$prog | sed -e 's/^;;;cleanup://'`; \
 	  options=`sed -n -e '/;;;options:/p' $$prog | sed -e 's/^;;;options://'`; \
 	  argv=`sed -n -e '/;;;argv:/p' $$prog | sed -e 's/^;;;argv://'`; \
-	  fancy_compiler=`sed -n -e '/;;;fancy-compiler/p' $$prog`; \
+	  test_name=`basename $$prog`; \
 	  echo "---------------------- $$prog [options:$$options] [argv:$$argv]"; \
 	  if [ "$$setup" != "" ]; then \
         sh -c "$$setup"; \
@@ -195,32 +117,31 @@ check:
 			echo "Error in the setup"; \
 		fi; \
 	  fi; \
-	  if [ "$$IS_FANCY" != "yes" ] && [ "$$fancy_compiler" = ";;;fancy-compiler" ]; then \
-	    echo ">>> Skipped because it doesn't use the fancy compiler"; \
-	  else \
-	    for test_feature in `echo "$$RSC_TEST_FEATURES" | sed -e 's/ /,/g' | sed -e 's/,*\;,*/\n/g'`; do \
-		  if [ "$$test_feature" != "," ] && [ "$$test_feature" != "" ]; then \
-			echo "    >>> [test features: `echo "$$test_feature" | sed -e 's/,/ /g'`]"; \
-	      fi; \
-	      rm -f test.$$host*; \
-	      $$RSC_COMPILER -t $$host $$options `echo "$$test_feature" | sed -e 's/,/ /g'` -o test.$$host $$prog; \
-	      if [ "$$INTERPRETER" != "" ]; then \
-	        sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | $$INTERPRETER test.$$host "$$argv" > test.$$host.out; \
-	      else \
-	        $$COMPILER test.$$host.exe test.$$host; \
-	        sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | ./test.$$host.exe "$$argv" > test.$$host.out; \
-	      fi; \
-	      sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - test.$$host.out; \
-	      rm -f test.$$host*; \
-		done; \
-	  fi; \
+	  for test_feature in `echo "$$RSC_TEST_FEATURES" | sed -e 's/ /,/g' | sed -e 's/,*\;,*/\n/g'`; do \
+	    if [ "$$test_feature" != "," ] && [ "$$test_feature" != "" ]; then \
+	  	echo "    >>> [test features: `echo "$$test_feature" | sed -e 's/,/ /g'`]"; \
+	    fi; \
+	    test_path=.tests/$$test_name.$$host; \
+	    feature_list=`echo "$$test_feature" | sed -e 's/,/ /g'`; \
+	    mkdir -p .tests; \
+	    rm -f test_path; \
+	    $$RSC_COMPILER -t $$host $$options $$feature_list -o .tests/$$test_name.$$host $$prog; \
+	    if [ "$$INTERPRETER" != "" ]; then \
+	      sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | $$INTERPRETER $$test_path "$$argv" > $$test_path.out; \
+	    else \
+	      $$COMPILER $$test_path.exe $$test_path; \
+	      sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | ./$$test_path.exe "$$argv" > $$test_path.out; \
+	    fi; \
+	    sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - $$test_path.out; \
+	  done; \
 	  if [ "$$cleanup" != "" ]; then \
         sh -c "$$cleanup"; \
 	    if [ $$? != 0 ]; then \
 		  echo "Error in the cleanup"; \
 		fi; \
 	  fi; \
-	done
+	done; \
+	popd
 
 clean:
 	@host="$(HOST)"; \
