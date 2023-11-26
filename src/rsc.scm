@@ -1445,21 +1445,19 @@
 (define (expand-expr expr mtx)
 
   (cond ((symbol? expr)
-         (let ((expander (mtx-search mtx expr)))
+         (let ((expander (mtx-search mtx expr))
+               (expand-func (lambda (expr) (expand-begin (list expr) mtx))))
            (if expander
-             (apply expander (list expr (lambda (expr) (expand-begin (list expr) mtx))))
+             (expander expr expand-func)
              expr)))
 
         ((pair? expr)
-         (let ((first (car expr)))
+         (let* ((first (car expr))
+                (expander (mtx-search mtx first)))
 
            (cond
-             ((eqv? first '##RIBBIT-VERSION)
-              (expand-constant ##RIBBIT-VERSION))
-
-             ((mtx-search mtx first) =>
-              (lambda (expander)
-                (apply expander (list expr (lambda (expr) (expand-begin (list expr) mtx))))))
+             (expander
+               (expander expr (lambda (expr) (expand-begin (list expr) mtx))))
 
              ((eqv? first 'quote)
               (expand-constant (cadr expr)))
@@ -1471,7 +1469,7 @@
               (let* ((var (cadr expr))
                      (expander (mtx-search mtx var)))
                 (if expander
-                  (apply expander (list expr (lambda (expr) (expand-begin (list expr) mtx))))
+                  (expander expr (lambda (expr) (expand-begin (list expr) mtx)))
                   (list 'set! var (expand-expr (caddr expr) mtx)))))
 
              ((eqv? first 'if)
@@ -1734,10 +1732,7 @@
               (expand-expr (read-str-resource (parse-resource (cadr expr))) mtx))
 
              (else
-               (let ((expander (mtx-search mtx (car expr))))
-                 (if expander
-                   (apply expander (list expr (lambda (expr) (expand-begin (list expr) mtx))))
-                   (expand-list expr mtx)))))))
+               (expand-list expr mtx)))))
 
         (else
           (expand-constant expr))))
@@ -1807,12 +1802,20 @@
                        (let ((expander-name (cadr expr))
                              (expander-body (caddr expr)))
                          (if (not (eq? (car expander-body) 'lambda))
-                           (error "*** define-macro: expected lambda expression" expander-body))
+                           (error "*** define-expander: expected lambda expression" expander-body))
 
                          (mtx-add-cte
                            mtx
                            expander-name
                            (eval expander-body)))))))
+            ((and (pair? expr) (mtx-search mtx (car expr)))
+             (let ((expander (mtx-search mtx (car expr))))
+               (loop (cons
+                       (expander expr (lambda (expr) (expand-expr expr mtx)))
+                       (cdr exprs))
+                     defs
+                     mtx)))
+
             (else
               (expand-body-done defs exprs mtx))))
         (expand-body-done defs (list 0) mtx))))
