@@ -1115,7 +1115,7 @@
                                                          v)
                                                        cont))))))
                        (comp-bind ctx
-                                  (list _)
+                                  (list '_)
                                   (cons first '())
                                   (cons (cons '_ args) '())
                                   cont)))))))
