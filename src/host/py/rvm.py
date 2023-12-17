@@ -109,7 +109,7 @@ def start_step():                                                       # DEBUG
  s = stack                                                              # DEBUG
  result = "@" + str(step_count) + " STACK = ("                          # DEBUG
  sep = ""                                                               # DEBUG
- while s[2]==0: result += sep + show(s[0]); sep = " "; s=s[1]           # DEBUG
+ while s[1]!=0: result += sep + show(s[0]); sep = " "; s=s[1]           # DEBUG
  result += ")"                                                          # DEBUG
  print(result)                                                          # DEBUG
 
