@@ -8,9 +8,14 @@
 
 ;; Compatibility layer.
 
-;; Tested with Gambit v4.7.5 and above, Guile 3.0.7, Chicken 5.2.0 and Kawa 3.1
+;; Tested with Gambit v4.7.5 and above, Others used to work, but need to be retested :
+;;  ->  Guile 3.0.7, Chicken 5.2.0 and Kawa 3.1
 
-(define ##RIBBIT-VERSION "0.2.0")
+;; Fix bug with R4RS symbols
+(cond-expand
+  (gambit
+   (|##meta-info| script-line "gsi -:r4rs")))
+
 
 (cond-expand
 

@@ -33,7 +33,7 @@ tests/*: all
 rsc.exe: rsc.scm
 	@echo "====================== BUILDING RSC.EXE"
 	@echo "This process may take a while..."
-	gsc -:r4rs -exe -debug -cc-options "-D___MULTIPLE_HOSTS -U___SINGLE_HOST" -o rsc.exe rsc.scm
+	gsc -:r4rs -exe -o rsc.exe rsc.scm
 
 
 check-repl: rsc.exe
