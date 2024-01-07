@@ -6,8 +6,8 @@
 (cond-expand
   ((host js)
    (define-primitive (string-from-file path)
-                     (use scm2str str2scm)
-                     "() => {try{return push(str2scm(node_fs.readFileSync(scm2str(pop()), 'utf-8').toString()))}catch{ return push(FALSE)}},")
+                     (use scm2str str2scm js/node/fs)
+                     "() => {try{return push(str2scm(fs.readFileSync(scm2str(pop()), 'utf-8').toString()))}catch{ return push(FALSE)}},")
 
    (define-primitive (command-line)
                      (use list2scm)
