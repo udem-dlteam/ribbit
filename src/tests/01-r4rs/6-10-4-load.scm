@@ -1,5 +1,5 @@
 (export number->string string->number display write newline or not positive? negative?)
-(load "../../tests/r4rs/6-5-6-num-conversion.scm")
+(load "tests/01-r4rs/6-5-6-num-conversion.scm")
 
 ;;;options: -l r4rs
 ;;;expected:

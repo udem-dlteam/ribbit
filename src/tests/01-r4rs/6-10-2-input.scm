@@ -1,5 +1,5 @@
 ;
-(define this-file (open-input-file "../../tests/r4rs/6-10-2-input.scm"))
+(define this-file (open-input-file "tests/01-r4rs/6-10-2-input.scm"))
 (write (peek-char this-file))
 (newline)
 
@@ -25,7 +25,7 @@
 ;;;expected:
 ;;;#\;
 ;;;#\;
-;;;(define this-file (open-input-file "../../tests/r4rs/6-10-2-input.scm"))
+;;;(define this-file (open-input-file "tests/01-r4rs/6-10-2-input.scm"))
 ;;;#\newline
 ;;;#\(
 ;;;(write (peek-char this-file))
