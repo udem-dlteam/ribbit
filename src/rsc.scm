@@ -4991,7 +4991,6 @@
                         output-path
                         exe-output-path
                         rvm-path
-                        generate-profile
                         _target
                         input-path
                         lib-path
@@ -4999,7 +4998,6 @@
                         verbosity
                         debug-info
                         _progress-status
-                        primitives
                         features-enabled
                         features-disabled
                         encoding-name
@@ -5077,174 +5075,214 @@
       (report-done)))
 
 (define (parse-cmd-line args)
-  (if (null? (cdr args))
+  (define usage 
+"`rsc` - The Ribbit Scheme Compiler
 
-    (pipeline-compiler)
+SYNOPSIS
+`rsc` [OPTION]... [FILE]
 
-    (let ((verbosity 0)
-          (debug-info '())
-          (target "rvm")
-          (generate-strip #f)
-          (base-strip #f)
-          (input-path #f)
-          (output-path #f)
-          (exe-output-path #f)
-          (lib-path '())
-          (src-path #f)
-          (minify? #f)
-          (primitives #f)
-          (features-enabled '())
-          (features-disabled '())
-          (rvm-path #f)
-          (progress-status #f)
-          (byte-stats #f)
-          (call-stats #f)
-          (encoding-name "auto"))
+COMPILATION OPTIONS
+  `-t`, `--target TARGET`
+  Specify the compilation target. Can be any of: `rvm`, `js`, `py`, etc..
 
-      (let loop ((args (cdr args)))
-        (if (pair? args)
-          (let ((arg (car args))
-                (rest (cdr args)))
-            (cond ((and (pair? rest) (member arg '("-t" "--target")))
-                   (set! target (car rest))
-                   (loop (cdr rest)))
-                  ((and (pair? rest) (member arg '("-i" "--input")))
-                   (set! input-path (car rest))
-                   (loop (cdr rest)))
-                  ((and (pair? rest) (member arg '("-o" "--output")))
-                   (set! output-path (car rest))
-                   (loop (cdr rest)))
-                  ((and (pair? rest) (member arg '("-s" "--strip")))
-                   (set! base-strip (if (string=? (car rest) "-")
-                                      (read-line (current-input-port) #f)
-                                      (call-with-input-file
-                                        (car rest)
-                                        (lambda (port)
-                                          (read-line port #f)))))
-                   (loop (cdr rest)))
-                  ((and (pair? rest) (member arg '("-l" "--library")))
-                   (set! lib-path (cons (car rest) lib-path))
-                   (loop (cdr rest)))
-                  ((and (pair? rest) (member arg '("-m" "--minify")))
-                   (set! minify? #t)
-                   (loop rest))
-                  ((and (pair? rest) (member arg '("-p" "--primitives")))
-                   (set! primitives (read (open-input-string (car rest))))
-                   (loop (cdr rest)))
-                  ((and (pair? rest) (member arg '("-e" "--encoding")))
-                   (set! encoding-name (car rest))
-                   (loop (cdr rest)))
-                  ((and (pair? rest) (member arg '("-r" "--rvm")))
-                   (set! rvm-path (car rest))
-                   (loop (cdr rest)))
-                  ((and (pair? rest) (member arg '("-f+" "--enable-feature")))
-                   (set! features-enabled (cons (string->symbol (car rest)) features-enabled))
-                   (loop (cdr rest)))
-                  ((and (pair? rest) (member arg '("-f-" "--disable-feature")))
-                   (set! features-disabled (cons (string->symbol (car rest)) features-disabled))
-                   (loop (cdr rest)))
+  `-o`, `--output PATH`
+  Define the output path for the compiled file.
 
-                  ((and (pair? rest) (member arg '("-bs" "--byte-stats")))
-                   (set! byte-stats (string->number (car rest)))
-                   (loop (cdr rest)))
+  `-x`, `--exe`, `--executable PATH`
+  Specify an executable output path. If no path is given, default naming is used.
 
-                  ((and (pair? rest) (member arg '("-di" "--debug-info")))
-                   (set! debug-info (cons (string->symbol (car rest)) debug-info))
-                   (loop (cdr rest)))
+  `-l`, `--library PATH`
+  Add a library path.
 
-                  ((member arg '("-gs" "--generate-strip"))
-                   (if (and (pair? rest)
-                            (>= (string-length (car rest)) 1)
-                            (string=? (substring (car rest) 0 1) "-"))
-                     (begin
-                       (set! generate-strip #t)
-                       (loop rest))
-                     (begin
-                       (set! generate-strip (car rest))
-                       (loop (cdr rest)))))
+  `-m`, `--minify`
+  Enable minification of the output.
 
-                  ((member arg '("-x" "--exe" "--executable"))
-                   (if (and (pair? rest)
-                            (not (string=? (substring (car rest) 0 1) "-")))
-                     (begin
-                       (set! exe-output-path (car rest))
-                       (loop (cdr rest)))
-                     (begin
-                       (set! exe-output-path #t)
-                       (loop rest))))
+  `-e`, `--encoding NAME`
+  Set the encoding name. Default is 'auto'.
 
-                  ((member arg '("-cs" "--call-stats"))
-                   (set! call-stats #t)
-                   (loop rest))
+  `-r`, `--rvm PATH`
+  Define the RVM path. Defaults to ./host/`target`/rvm.`target`
 
-                  ((member arg '("-v" "--v"))
-                   (set! verbosity (+ verbosity 1))
-                   (loop rest))
-                  ((member arg '("-vv" "--vv"))
-                   (set! verbosity (+ verbosity 2))
-                   (loop rest))
-                  ((member arg '("-vvv" "--vvv"))
-                   (set! verbosity (+ verbosity 3))
-                   (loop rest))
-                  ((member arg '("-ps" "--progress-status"))
-                   (set! progress-status #t)
-                   (loop rest))
-                  ((member arg '("-q")) ;; silently ignore Chicken's -q option
-                   (loop rest))
-                  (else
-                    (if (and (>= (string-length arg) 2)
-                             (string=? (substring arg 0 1) "-"))
-                      (begin
-                        (display "*** ignoring option ")
-                        (display arg)
-                        (newline)
-                        (loop rest))
-                      (begin
-                        (set! src-path arg)
-                        (loop rest))))))))
+  `-f+`, `--enable-feature FEATURE`
+  Enable a specific feature.
 
-      (if (not src-path)
+  `-f-`, `--disable-feature FEATURE`
+  Disable a specific feature.
 
-        (begin
-          (display "*** a Scheme source file must be specified\n")
-          (exit-program-abnormally))
+  `-i`, `--input PATH_TO_FILE`
+  Set an stdin buffer at compile time included in the resulting RVM. This is usefull to compress data as
+  some information could be kept in the stdin and processed later on.
 
-        (fancy-compiler
-          src-path
-          (or output-path
-              (if (or (equal? src-path "-") (equal? target "rvm"))
-                "-"
+DEBUGING OPTIONS
+
+  `-v`, `-vv`, `-vvv`
+  Set verbosity level. Multiple 'v's increase verbosity.
+
+  `-di`, `--debug-info INFO`
+  Add debug information. Info can be any of : `expansion`, `rvm-code`, `exports` and `host-config`.
+
+  `-ps`, `--progress-status`
+  Show progress status during compilation.
+
+  `-bs`, `--byte-stats STATS`
+  Set byte statistics.
+
+  `-cs`, `--call-stats`
+  Enable call statistics.
+
+  `-q`
+  Silently ignore this option (specific to Chicken Scheme).
+
+  `-h`, `--help`
+  Displays this help message.
+
+EXAMPLE
+`rsc -t c -l r4rs source.scm -o output.c -x run-output.exe -m -v`
+This command compiles `source.scm` to C with verbosity set to 1 and minification enabled. 
+The output is written to output.c, with an executable compiled to run-output.exe (with gcc).")
+
+
+  (let ((verbosity 0)
+        (debug-info '())
+        (target "rvm")
+        (input-path #f)
+        (output-path #f)
+        (exe-output-path #f)
+        (lib-path '())
+        (src-path #f)
+        (minify? #f)
+        (features-enabled '())
+        (features-disabled '())
+        (rvm-path #f)
+        (progress-status #f)
+        (byte-stats #f)
+        (call-stats #f)
+        (encoding-name "auto"))
+
+    (let loop ((args (cdr args)))
+      (if (pair? args)
+        (let ((arg (car args))
+              (rest (cdr args)))
+          (cond ((and (pair? rest) (member arg '("-t" "--target")))
+                 (set! target (car rest))
+                 (loop (cdr rest)))
+                ((and (pair? rest) (member arg '("-i" "--input")))
+                 (set! input-path (car rest))
+                 (loop (cdr rest)))
+                ((and (pair? rest) (member arg '("-o" "--output")))
+                 (set! output-path (car rest))
+                 (loop (cdr rest)))
+                ((and (pair? rest) (member arg '("-l" "--library")))
+                 (set! lib-path (cons (car rest) lib-path))
+                 (loop (cdr rest)))
+                ((and (pair? rest) (member arg '("-m" "--minify")))
+                 (set! minify? #t)
+                 (loop rest))
+                ((and (pair? rest) (member arg '("-e" "--encoding")))
+                 (set! encoding-name (car rest))
+                 (loop (cdr rest)))
+                ((and (pair? rest) (member arg '("-r" "--rvm")))
+                 (set! rvm-path (car rest))
+                 (loop (cdr rest)))
+                ((and (pair? rest) (member arg '("-f+" "--enable-feature")))
+                 (set! features-enabled (cons (string->symbol (car rest)) features-enabled))
+                 (loop (cdr rest)))
+                ((and (pair? rest) (member arg '("-f-" "--disable-feature")))
+                 (set! features-disabled (cons (string->symbol (car rest)) features-disabled))
+                 (loop (cdr rest)))
+
+                ((and (pair? rest) (member arg '("-bs" "--byte-stats")))
+                 (set! byte-stats (string->number (car rest)))
+                 (loop (cdr rest)))
+
+                ((and (pair? rest) (member arg '("-di" "--debug-info")))
+                 (set! debug-info (cons (string->symbol (car rest)) debug-info))
+                 (loop (cdr rest)))
+
+                ((member arg '("-h" "--help"))
+                 (display usage)
+                 (exit 0))
+
+                ((member arg '("-x" "--exe" "--executable"))
+                 (if (and (pair? rest)
+                          (not (string=? (substring (car rest) 0 1) "-")))
+                   (begin
+                     (set! exe-output-path (car rest))
+                     (loop (cdr rest)))
+                   (begin
+                     (set! exe-output-path #t)
+                     (loop rest))))
+
+                ((member arg '("-cs" "--call-stats"))
+                 (set! call-stats #t)
+                 (loop rest))
+
+                ((member arg '("-v" "--v"))
+                 (set! verbosity (+ verbosity 1))
+                 (loop rest))
+                ((member arg '("-vv" "--vv"))
+                 (set! verbosity (+ verbosity 2))
+                 (loop rest))
+                ((member arg '("-vvv" "--vvv"))
+                 (set! verbosity (+ verbosity 3))
+                 (loop rest))
+                ((member arg '("-ps" "--progress-status"))
+                 (set! progress-status #t)
+                 (loop rest))
+                ((member arg '("-q")) ;; silently ignore Chicken's -q option
+                 (loop rest))
+                (else
+                  (if (and (>= (string-length arg) 2)
+                           (string=? (substring arg 0 1) "-"))
+                    (begin
+                      (display "*** ignoring option ")
+                      (display arg)
+                      (newline)
+                      (loop rest))
+                    (begin
+                      (set! src-path arg)
+                      (loop rest))))))))
+
+    (if (not src-path)
+
+      (begin
+        (display "*** a Scheme source file must be specified\n")
+        (exit-program-abnormally))
+
+      (fancy-compiler
+        src-path
+        (or output-path
+            (if (or (equal? src-path "-") (equal? target "rvm"))
+              "-"
+              (string-append
+                src-path
+                (string-append "." target))))
+        (and exe-output-path
+             (if (string? exe-output-path)
+               exe-output-path
+               (string-append
+                 src-path
+                 (string-append "." target ".exe"))))
+        (or rvm-path
+            (path-expand
+              (string-append
+                "host/"
                 (string-append
-                  src-path
-                  (string-append "." target))))
-          (and exe-output-path
-               (if (string? exe-output-path)
-                 exe-output-path
-                 (string-append
-                   src-path
-                   (string-append "." target ".exe"))))
-          (or rvm-path
-              (path-expand
-                (string-append
-                  "host/"
-                  (string-append
-                    target
-                    (string-append "/rvm." target)))
-                (path-directory (car (cmd-line)))))
-          generate-strip
-          target
-          input-path
-          (if (null? lib-path) '("empty") lib-path)
-          minify?
-          verbosity
-          debug-info
-          progress-status
-          primitives
-          features-enabled
-          features-disabled
-          encoding-name
-          byte-stats
-          call-stats)))))
+                  target
+                  (string-append "/rvm." target)))
+              (path-directory (car (cmd-line)))))
+        target
+        input-path
+        (if (null? lib-path) '("empty") lib-path)
+        minify?
+        verbosity
+        debug-info
+        progress-status
+        features-enabled
+        features-disabled
+        encoding-name
+        byte-stats
+        call-stats))))
 
 (parse-cmd-line (cmd-line))
 
