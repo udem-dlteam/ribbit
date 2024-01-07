@@ -13,7 +13,7 @@
 # the source file to compile
 
 RSC_COMPILER ?= gsi -:r4rs rsc.scm
-REPL_PATH ?= tests/r4rs/repl/repl.scm
+REPL_PATH ?= lib/r4rs/repl.scm
 
 TEST_FEATURES ?= .
 RSC_MUST_TEST_FEATURES ?= ,
@@ -50,6 +50,7 @@ check-repl:
 	TEST_FEATURES='${TEST_FEATURES}'; \
 	TEST_DIR="${TEST_DIR}"; \
 	REPL_PATH="${REPL_PATH}"; \
+	pushd ../../; \
 	if [ "$$TEST_FEATURES" != "." ]; then \
 	  RSC_TEST_FEATURES="$$RSC_TEST_FEATURES;$$TEST_FEATURES"; \
 	fi; \
@@ -71,16 +72,16 @@ check-repl:
 	  if [ "$$test_feature" != "," ] && [ "$$test_feature" != "" ]; then \
 	     echo "    >>> [test features: `echo "$$test_feature" | sed -e 's/,/ /g'`]"; \
 	  fi; \
-	  $$RSC_COMPILER -t $$host $$options -f+ quiet `echo "$$test_feature" | sed -e 's/,/ /g'` -o test.$$host $$repl; \
-	  for prog in `ls ../../$$TEST_DIR/$$TEST_FILTER.scm tests/$$TEST_FILTER.scm`; do \
+	  $$RSC_COMPILER -t $$host $$options -f+ quiet `echo "$$test_feature" | sed -e 's/,/ /g'` -o repl.$$host $$repl; \
+	  for prog in `ls $$TEST_DIR/01-r4rs/$$TEST_FILTER.scm host/$$HOST/tests/$$TEST_FILTER.scm`; do \
 	    echo "     testing in repl: $$prog"; \
 	    if [ "$$INTERPRETER" != "" ]; then \
-	      echo "(load \"$$prog\")" | $$INTERPRETER test.$$host | head -n -2 > test.$$host.out; \
+	      echo "(load \"$$prog\")" | $$INTERPRETER repl.$$host | tail -r | tail -n +3 | tail -r  > repl.$$host.out; \
 	    else \
-	      $$COMPILER test.$$host.exe test.$$host; \
-		  echo "(load \"$$prog\")" | ./test.$$host.exe | head -n -2 > test.$$host.out; \
+	      $$COMPILER repl.$$host.exe repl.$$host; \
+		  echo "(load \"$$prog\")" | ./repl.$$host.exe | tail -r | tail -n +3 | tail -r > repl.$$host.out; \
 	    fi; \
-        sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - test.$$host.out; \
+        sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - repl.$$host.out; \
         if [ "$$cleanup" != "" ]; then \
           sh -c "$$cleanup"; \
           if [ $$? != 0 ]; then \
@@ -89,7 +90,8 @@ check-repl:
         fi; \
       done; \
 	  rm -f test.$$host*; \
-    done
+    done; \
+	popd
 
 check:
 	@host="$(HOST)"; \

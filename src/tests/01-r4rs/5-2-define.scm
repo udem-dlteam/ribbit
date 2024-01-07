@@ -26,40 +26,46 @@
 
 (define x 34)
 
-(define (foo) (define x 5) x)
-(display (foo)) ;; 5
-(newline)
-
 (display x) ;; 34
 (newline)
 
-
-(define (foo x) ((lambda () (define x 5) x)) x)
-
-(display (foo 88)) ;; 88
-(newline)
-
-(display (foo 4)) ;; 4
-(newline)
-
-(display x) ;; 34
-(newline)
-
-
-(display (letrec ((foo (lambda (arg)
-					  (or arg (and (procedure? foo)
-						       (foo 99))))))
-			    (define bar (foo #f))
-			    (foo #f)))
-(newline)
-
-
-(display (letrec ((foo 77)
-				   (bar #f)
-				   (retfoo (lambda () foo)))
-			    (define baz (retfoo))
-			    (retfoo)))
-(newline)
+; Internal definitions are not required by r4rs
+;  and not supported in the repl. They do work in
+;  the AOT Compiler.
+; (define (foo) (define x 5) x)
+; (display (foo)) ;; 5
+; (newline)
+; 
+; (display x) ;; 34
+; (newline)
+; 
+; 
+; (define (foo x) ((lambda () (define x 5) x)) x)
+; 
+; (display (foo 88)) ;; 88
+; (newline)
+; 
+; (display (foo 4)) ;; 4
+; (newline)
+; 
+; (display x) ;; 34
+; (newline)
+; 
+; 
+; (display (letrec ((foo (lambda (arg)
+; 					  (or arg (and (procedure? foo)
+; 						       (foo 99))))))
+; 			    (define bar (foo #f))
+; 			    (foo #f)))
+; (newline)
+; 
+; 
+; (display (letrec ((foo 77)
+; 				   (bar #f)
+; 				   (retfoo (lambda () foo)))
+; 			    (define baz (retfoo))
+; 			    (retfoo)))
+; (newline)
 
 ;;;options: -l r4rs
 ;;;expected:
@@ -67,10 +73,5 @@
 ;;;1
 ;;;(3 6)
 ;;;9
-;;;5
 ;;;34
-;;;88
-;;;4
-;;;34
-;;;99
-;;;77
+;;;
