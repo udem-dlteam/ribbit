@@ -1,4 +1,4 @@
-(##include-once "./expander-utils.scm")
+(##include-once "ribbit:expander-utils.scm")
 (##include-once "./bool.scm")
 
 
