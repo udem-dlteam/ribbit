@@ -45,6 +45,6 @@
     
 
 ;;;fancy-compiler
-;;;options: -l empty
+;;;options: -l define-macro -f+ arity-check
 ;;;expected:
 ;;;ABCDEF
