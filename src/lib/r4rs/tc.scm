@@ -1,3 +1,6 @@
+(##include-once "ribbit:r4rs.scm")
+(##include-once "ribbit:define-macro.scm")
+
 (define-macro 
   (tc-pair? o)
   `(and (##rib? ,o) (##eqv? (##field2 ,o) 0)))
@@ -62,6 +65,7 @@
          ;; ,(if (not (eq? proc 'assq))
          ;;     `(display ',proc)
          ;;     '())
+
          (if (not ##dont-type-check-typechecking)
            (begin 
              (set! ##dont-type-check-typechecking #t)
