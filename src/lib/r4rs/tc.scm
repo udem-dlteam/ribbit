@@ -1,21 +1,13 @@
 (##include-once (ribbit "r4rs"))
-(##include-once (ribbit "define-macro")
+(##include-once (ribbit "define-macro"))
 
 (define-macro 
   (tc-pair? o)
   `(and (##rib? ,o) (##eqv? (##field2 ,o) 0)))
 
 (define (##tc-error . msgs)
-  (let loop ((msgs msgs))
-    (if (pair? msgs)
-      (begin
-        (##ntc-display (##field0 msgs))
-        (loop (##field1 msgs)))
-      (if-feature
-        (not die)
-        (begin 
-          (newline)
-          (repl))))))
+  (map ##ntc-display msgs)
+  (repl))
 
 (define ##dont-type-check-typechecking #f)
 

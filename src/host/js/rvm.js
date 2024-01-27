@@ -17,6 +17,39 @@ isNode = process?.versions?.node != null;
 if (isNode) { 
 // )@@
 
+
+// @@(feature sym2str (use chars2str)
+sym2str = (s) => chars2str(s[1][0]); 
+// )@@
+
+// @@(feature chars2str
+chars2str = (s) => (s===NIL) ? "" : (String.fromCharCode(s[0])+chars2str(s[1])); 
+// )@@
+
+// @@(feature (or debug debug-trace error-msg) (use sym2str chars2str)
+show_opnd = (o) => is_rib(o) && o[2] === 2 ? ("sym " + sym2str(o)) :
+    is_rib(o) && o[2] === 1 ? ("proc " + (!is_rib(o[0]) ? sym2str(symbol_ref_debug(o[0])) : ""))
+    : ("int " + o);  //debug
+  // @@(feature js/node
+show_stack = () => {  //debug
+    let s = stack;  //debug
+    let r = [];  //debug
+    while (!s[2]) { r[r[lengthAttr]]=s[0]; s=s[1]; }  //debug
+    console.log(require("util").inspect(r, {showHidden: false, depth: 2}).replace(/\\n/g, "").replace(/  /g, " "));  //debug
+};  //debug
+  // )@@
+  // @@(feature js/web
+show_stack = () => {  //debug
+    let s = stack;  //debug
+    let r = [];  //debug
+    while (!s[2]) { r[r[lengthAttr]]=s[0]; s=s[1]; }  //debug
+    console.log(r);  //debug
+};  //debug
+  // )@@
+
+
+// )@@
+
 // @@(feature (or js/node (not js/web))
 // Implement putchar/getchar to the terminal
 
@@ -41,9 +74,6 @@ getchar = () => {
     return true; // indicate that no further waiting is necessary
 };
 
-sym2str = (s) => chars2str(s[1][0]);  //debug
-chars2str = (s) => (s===NIL) ? "" : (String.fromCharCode(s[0])+chars2str(s[1]));  //debug
-
 // @@(feature (or debug debug-trace error-msg) (use sym2str chars2str)
 function show_opnd(o) {
   console.log("value : ", o)
@@ -63,7 +93,6 @@ show_stack = () => {  //debug
     while (!s[2]) { r[r[lengthAttr]]=s[0]; s=s[1]; }  //debug
     console.log(require("util").inspect(r, {showHidden: false, depth: 2}).replace(/\\n/g, "").replace(/  /g, " "));  //debug
 };  //debug
-// )@@
 // )@@
 
 
