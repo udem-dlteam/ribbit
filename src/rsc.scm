@@ -883,7 +883,7 @@
         (eqv? next1 next2)
         (and (c-rib? next1) (c-rib? next2) (c-rib-eq? next1 next2))))))
 
-(define table-hash-size 512)
+(define table-hash-size 32000)
 
 
 (define (hash-c-rib field0 field1 field2)
