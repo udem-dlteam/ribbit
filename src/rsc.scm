@@ -904,6 +904,13 @@
 
       (else (error "Cannot hash the following instruction : " op))))
 
+  (define (hash-combine-over-vector vec)
+    (let ((len (vector-length vec)))
+      (let loop ((i 0) (acc 0))
+        (if (< i (vector-length vec))
+          (loop (+ i 1) (hash-combine acc (opnd->hash (vector-ref vec i))))
+          acc))))
+
   (define (opnd->hash opnd)
     (cond
       ((null? opnd)
@@ -923,7 +930,7 @@
       ((list? opnd)
        (fold hash-combine 0 (map opnd->hash opnd)))
       ((vector? opnd)
-       (fold hash-combine 0 (map opnd->hash (vector->list opnd))))
+       (hash-combine-over-vector opnd))
       ((pair? opnd)
        (hash-combine (opnd->hash (car opnd)) (opnd->hash (cdr opnd))))
       ((c-rib? opnd)
