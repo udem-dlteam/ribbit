@@ -4974,12 +4974,13 @@
   (if progress-status
     (display "...Done.\n")))
 
-(define (report-status msg cont)
-  (if progress-status
-    (begin
-      (report-done)
-      (report-first-status msg #f)))
-  cont)
+(define-macro (report-status msg cont)
+  `(if progress-status
+     (begin
+       (report-done)
+       (report-first-status ,msg #f)
+       ,cont)
+     (begin ,cont)))
 
 ;;;----------------------------------------------------------------------------
 
