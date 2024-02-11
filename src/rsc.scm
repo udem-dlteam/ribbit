@@ -115,9 +115,6 @@
 
 (cond-expand
 
-  (ribbit
-    (begin))
-
   (chicken
 
    (import (chicken process-context))
@@ -312,8 +309,17 @@
                (substring path 0 (+ i 1))
                (loop (- i 1))))))
 
-   ;; TODO: define `path-directory`
-   (define (path-directory path) (rsc-path-directory path))
+   (define (string-end string)
+     (string-ref string (- (string-length string) 1)))
+
+   (define (path-directory path)
+     (if (eqv? (string-end path) #\/)
+       path
+       (let ((len (string-length path)))
+         (let loop ((i (- len 1)))
+           (if (or (eqv? (string-ref path i) #\/) (eqv? i 0))
+             (substring path 0 i)
+             (loop (- i 1)))))))
 
    (define (path-expand path dir)
      (if (or (= (string-length dir) 0) (string-prefix? dir path))
@@ -457,6 +463,10 @@
 
   (define (executable-path)
     (executable-pathname)))
+
+ (ribbit
+   (define (script-file)
+     (car (command-line))))
 
  (else
    (define (script-file)
@@ -1436,12 +1446,12 @@
 
 (define defined-features '()) ;; used as parameters for expand-functions
 
-;; (cond-expand
-;;   (ribbit
-;;    (define (current-directory) (path-directory (car (cmd-line)))))
-;;
-;;   (else
-;;     (begin)))
+(cond-expand
+  (ribbit
+   (define (current-directory) (path-directory (car (cmd-line)))))
+
+  (else
+    (begin)))
 
 ;; For includes
 (define current-resource `(file ,(current-directory) "MAIN"))
