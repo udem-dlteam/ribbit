@@ -2005,15 +2005,25 @@
 (define resource-str-reader-table
   `((ribbit
       ,(lambda (resource-path)
-         (let ((resource-path (path-normalize (path-expand resource-path (path-expand "lib" (ribbit-root-dir))))))
-           (if (not (file-exists? resource-path))
-             (error "The path needs to point to an existing file. Error while trying to include library at" resource-path)
-             (string-from-file resource-path)))))
+         (let* ((resource-paths 
+                  (fold 
+                    (lambda (lib-path acc) 
+                      (let ((path (path-normalize (path-expand resource-path lib-path))))
+                        (append 
+                          (list (string-append path ".scm") path)
+                          acc)))
+                    '()
+                    ribbit-path))
+                (valid-resource-path
+                  (filter file-exists? resource-paths)))
+          (if (null? valid-resource-path)
+             (error "The path needs to point to an existing file. Error while trying to include library at" resource-paths)
+             (open-input-file (car valid-resource-path))))))
 
     (file ,(lambda (resource-path)
              (if (not (file-exists? resource-path))
                (error "The path needs to point to an existing file. Error while trying to include library at" resource-path)
-               (string-from-file resource-path))))))
+               (open-input-file resource-path))))))
 
 (define (add-resource-str-reader! name reader)
   (if (or (not (symbol? name)) (memq #\: (string->list (symbol->string name))))
@@ -2023,17 +2033,20 @@
   (set! resource-str-reader-table (append resource-str-reader-table (list (list name reader)))))
 
 (define (parse-resource include-path)
-  (if (string-prefix? "./" include-path)  ;; for local folder "lib" where in the root of the project
-    (make-resource (car current-resource) (path-normalize (path-expand (path-normalize include-path) (resource-dir current-resource))))
+  (let ((resource-type 
+          (if (pair? include-path) 
+            (car include-path) 
+            (car current-resource)))
+        (path 
+          (if (pair? include-path) 
+            (path-normalize (cadr include-path))
+            (path-normalize 
+              (path-expand 
+                (path-normalize include-path) 
+                (resource-dir current-resource))))))
+    (make-resource resource-type path)))
 
-    (let* ((splitted (string-split include-path #\:))
-           (resource-prefix (car splitted))
-           (resource-path (cdr splitted)))
-      (if (null? resource-path)
-        (make-resource (car current-resource) (path-normalize (path-expand (path-normalize include-path) (resource-dir current-resource))))
-        (make-resource (string->symbol resource-prefix) (path-normalize (string-concatenate resource-path ":")))))))
-
-(define (read-str-resource resource)
+(define (get-resource-port resource)
   (let ((resource-path (resource-file resource))
         (reader (assq (resource-type resource) resource-str-reader-table)))
     (if reader
@@ -2043,7 +2056,7 @@
 (define (expand-resource resource mtx)
   (let ((old-current-resource current-resource))
     (set! current-resource resource)
-    (let ((result (expand-begin (read-all (open-input-string (read-str-resource resource))) mtx)))
+    (let ((result (expand-begin (read-all (get-resource-port resource)) mtx)))
       (set! current-resource old-current-resource)
       result)))
 
@@ -4267,6 +4280,8 @@
 (define (ribbit-root-dir) ;; TODO: make it work (maybe with a primitive or a env variable)
   (root-dir))
 
+; Path where to find the ribbit libraries
+(define ribbit-path (list (path-expand "lib" (ribbit-root-dir))))
 
 (define (read-from-file path)
   (let* ((port (open-input-file path))
@@ -4279,13 +4294,7 @@
     (read-all port)))
 
 (define (read-library lib-path)
-  (list (list
-      '##include-once
-      (string-append
-        "ribbit:"
-        (if (equal? (rsc-path-extension lib-path) "")
-          (string-append lib-path ".scm")
-          lib-path)))))
+  `((##include-once (ribbit ,lib-path))))
 
 (define (read-program lib-path src-path)
   (append (apply append (map read-library lib-path))
@@ -5015,6 +5024,12 @@
 
   (set! target _target) ;; hack to propagate the target to the expension phase
   (set! progress-status _progress-status)
+  (set! ribbit-path 
+    (cons
+      (path-expand 
+        (string-append "host/" _target "/lib")  
+        (ribbit-root-dir))
+      ribbit-path))
 
   (let* ((vm-source
            (if (equal? _target "rvm")

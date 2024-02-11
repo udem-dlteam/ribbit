@@ -1,4 +1,4 @@
-(##include-once "ribbit:expander-utils.scm")
+(##include-once (ribbit "expander-utils.scm"))
 
 
 ;; ########## Booleans && Equality (R4RS sections 6.1 and 6.2) ########## ;;

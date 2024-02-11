@@ -1,5 +1,5 @@
-(##include-once "ribbit:r4rs.scm")
-(##include-once "ribbit:define-macro.scm")
+(##include-once (ribbit "r4rs"))
+(##include-once (ribbit "define-macro")
 
 (define-macro 
   (tc-pair? o)
