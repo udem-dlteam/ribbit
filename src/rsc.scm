@@ -1485,7 +1485,7 @@
               (expand-constant (cadr expr)))
 
              ((eqv? first 'quasiquote)
-              (expand-quasiquote (cadr expr)))
+              (expand-quasiquote (cadr expr) mtx))
 
              ((eqv? first 'set!)
               (let* ((var (cadr expr))
@@ -1764,7 +1764,7 @@
     x
     (list 'quote x)))
 
-(define (expand-quasiquote rest)
+(define (expand-quasiquote rest mtx)
   (let parse ((x rest) (depth 1))
     (cond
       ((not (pair? x))
@@ -1774,12 +1774,12 @@
       ((eqv? (car x) 'unquote)
        (if (= depth 1)
          (if (pair? (cdr x))
-           (cadr x)
+           (expand-expr (cadr x) mtx)
            (error "unquote: bad syntax"))
          (list '##qq-cons (expand-constant 'unquote) (parse (cdr x) (- depth 1)))))
       ((and (pair? (car x)) (eqv? (caar x) 'unquote-splicing))
        (if (= depth 1)
-         (list '##qq-append (cadar x) (parse (cdr x) depth))
+         (list '##qq-append (expand-expr (cadar x) mtx) (parse (cdr x) depth))
          (list '##qq-cons (list '##qq-cons (expand-constant 'unquote-splicing) (parse (cdar x) (- depth 1))) (parse (cdr x) depth))))
       ((eqv? (car x) 'quasiquote)
        (list '##qq-cons (expand-constant 'quasiquote) (parse (cdr x) (+ depth 1))))
@@ -2142,10 +2142,11 @@
 
   (if (live-env-live? live-env var)
     live-env
-    (live-env-set-globals!
-      live-env
-      (let ((g (cons var '())))
-        (cons g (live-env-globals live-env))))))
+    (begin
+      (live-env-set-globals!
+        live-env
+        (let ((g (cons var '())))
+          (cons g (live-env-globals live-env)))))))
 
 (define (live-env-live? live-env var)
   (assq var (live-env-globals live-env)))
