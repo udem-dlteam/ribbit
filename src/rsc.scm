@@ -1869,7 +1869,6 @@
 
 
 
-
 (define (make-mtx global-macro cte)  ;; macro-contex object
   (rib global-macro cte 0))
 
@@ -4295,6 +4294,10 @@
 (define ribbit-path (list (path-expand "lib" (ribbit-root-dir))))
 
 (define (read-from-file path)
+
+  (if (not (file-exists? path))
+    (error "*** Cannot find source file at location" path))
+  
   (let* ((port (open-input-file path))
          (first-line (read-line port #\newline))
          (port (if (and (not (eof-object? first-line)) (string-prefix? "#!" first-line))
