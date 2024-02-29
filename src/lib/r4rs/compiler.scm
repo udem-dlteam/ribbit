@@ -58,6 +58,14 @@
 (define eval@const-op     3)
 (define eval@if-op        4)
 
+
+(define eval@pair-type      0)
+(define eval@procedure-type 1)
+(define eval@symbol-type    2)
+(define eval@string-type    3)
+(define eval@vector-type    4)
+(define eval@singleton-type 5)
+
 (define (eval@add-nb-args nb tail)
   (##rib eval@const-op
        nb
@@ -113,7 +121,7 @@
                      eval@if-op
                      (eval@comp cte (caddr expr) cont)
                      (if (null? (cdddr expr))
-                       cont
+                       (eval@comp cte 0 cont) ;; push some dummy value
                        (eval@comp cte (cadddr expr) cont)))))
 
                  ((##eqv? first 'lambda)
@@ -409,7 +417,7 @@
     (##rib eval@jump/call-op '##id 0)
     (eval@add-nb-args 1 (##rib eval@jump/call-op '##id 0)))) ;; jump
 
-(define (eval@make-procedure code env) (##rib code env procedure-type))
+(define (eval@make-procedure code env) (##rib code env eval@procedure-type))
 
 (define (eval expr)
   ((eval@make-procedure (##rib 0 0 (eval@comp '() expr eval@tail)) '())))
