@@ -509,6 +509,16 @@
           (loop (+ i 1) (cdr str)))
         #f))))
 
+(define (string-find pattern str)
+  (let ((len (string-length str))
+        (plen (string-length pattern)))
+    (let loop ((i 0))
+      (if (< i (- len plen))
+        (if (string=? pattern (substring str i (+ i plen)))
+          i
+          (loop (+ i 1)))
+        #f))))
+
 (cond-expand
 
   (ribbit (begin))
@@ -4846,13 +4856,18 @@
 
               (else
                 acc)))))
-
-    (extract
-      extract-func
-      parsed-file
-      "")))
-
-
+    (let ((final-text 
+            (extract
+              extract-func
+              parsed-file
+              ""))
+          (legacy-pattern ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"))
+      (if (string-find legacy-pattern final-text)
+        (string-replace 
+          final-text
+          ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"
+          (replace-eval '(encode 92) encode host-config))
+        final-text))))
 
 
 ;;;----------------------------------------------------------------------------
@@ -4914,8 +4929,7 @@
 
 
 (define (string-replace str pattern replacement)
-  (let ((len-pattern (string-length pattern))
-        (len-replacement (string-length replacement)))
+  (let ((len-pattern (string-length pattern)))
     (let loop1 ((i 0) (j 0) (out '()))
       (if (<= (+ j len-pattern) (string-length str))
           (let loop2 ((k (- len-pattern 1)))
