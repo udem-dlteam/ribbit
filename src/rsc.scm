@@ -4785,89 +4785,103 @@
     "")
 
 
-  (letrec ((extract-func
-            (lambda (prim acc rec)
-             (case (car prim)
-              ((str)
-               (string-append acc "\n" (cadr prim)))
-              ((feature define-feature)
-               (let ((condition (cadr prim)))
-                 (if (eval-feature condition live-features)
-                   (string-append acc (string-append (rec "" (cddr prim))))
-                   acc)))
-              ((primitives)
-               (let* ((gen (cdr (soft-assoc 'gen prim)))
-                      (bin (soft-assoc 'bind prim))
-                      (generate-one
-                        (lambda (prim)
-                          (let* ((name (car prim))
-                                 (index (cadr prim))
-                                 (primitive (caddr prim))
-                                 (body (rec "" (cddr primitive)))
-                                 (head (soft-assoc '@@head (cddr primitive)))
-                                 (head (if head (cadr head) body)))
-                            (let loop ((gen gen))
-                              (if (pair? gen)
-                                (string-append
-                                  (cond ((string? (car gen)) (car gen))
-                                        ((eq? (car gen) 'index)
-                                         (if (pair? index) (number->string (car index)) (number->string index)))
-                                        ((eq? (car gen) 'body) body)
-                                        ((eq? (car gen) 'head) head))
-                                  (loop (cdr gen)))
-                                ""))))))
-                 (string-append
-                   acc
-                   (string-concatenate (map generate-one primitives)))))
-
-              ((use-feature)
-               (string-append acc (rec "" (cddr prim))))
-
-              ((primitive define-primitive)
-               (string-append acc (rec "" (cddr prim))))
-
-              ((location)
-               (let* ((name (cadr prim))
-                      (feature-pair (assoc name locations))
-                      (matched-features (if feature-pair (cdr feature-pair) '())))
-                 (string-append
-                   acc
-                   (extract extract-func matched-features ""))))
-
-              ((replace)
-               (let* ((pattern     (cadr prim))
-                      (pattern     (if (symbol? pattern)
-                                     (symbol->string pattern)
-                                     pattern))
-                      (replacement-text
-                        (or
-                          (table-ref cache (caddr prim) #f)
-                          (replace-eval (caddr prim) encode host-config)))
-                      (replacement-text
-                        (cond ((symbol? replacement-text)
-                               (symbol->string replacement-text))
-                              ((number? replacement-text)
-                               (number->string replacement-text))
-                              ((string? replacement-text)
-                               replacement-text)
-                              (else
-                                (error "Error while replacing doesn't support the type : " replacement-text)))))
-                 (string-append acc (string-replace (rec "" (cdddr prim)) pattern replacement-text))))
-
-              (else
-                acc)))))
-    (let ((final-text 
+  (let ((parsed-file
+          (reverse
             (extract
-              extract-func
+              (lambda (prim acc rec)
+                (case (car prim)
+                  ((str)
+                   (let ((content (cadr prim))
+                         (legacy-pattern ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"))
+                     `((str 
+                         ,(if (string-find legacy-pattern content)
+                            (string-replace 
+                              content
+                              ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"
+                              (replace-eval '(encode 92) encode host-config))
+                            content))
+                       . ,acc)))
+                  (else
+                    (cons prim acc))))
               parsed-file
-              ""))
-          (legacy-pattern ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"))
-      (if (string-find legacy-pattern final-text)
-        (string-replace 
-          final-text
-          ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"
-          (replace-eval '(encode 92) encode host-config))
-        final-text))))
+              '()))))
+
+
+    (letrec ((extract-func
+               (lambda (prim acc rec)
+                 (case (car prim)
+                   ((str)
+                    (string-append acc "\n" (cadr prim)))
+                   ((feature define-feature)
+                    (let ((condition (cadr prim)))
+                      (if (eval-feature condition live-features)
+                        (string-append acc (string-append (rec "" (cddr prim))))
+                        acc)))
+                   ((primitives)
+                    (let* ((gen (cdr (soft-assoc 'gen prim)))
+                           (bin (soft-assoc 'bind prim))
+                           (generate-one
+                             (lambda (prim)
+                               (let* ((name (car prim))
+                                      (index (cadr prim))
+                                      (primitive (caddr prim))
+                                      (body (rec "" (cddr primitive)))
+                                      (head (soft-assoc '@@head (cddr primitive)))
+                                      (head (if head (cadr head) body)))
+                                 (let loop ((gen gen))
+                                   (if (pair? gen)
+                                     (string-append
+                                       (cond ((string? (car gen)) (car gen))
+                                             ((eq? (car gen) 'index)
+                                              (if (pair? index) (number->string (car index)) (number->string index)))
+                                             ((eq? (car gen) 'body) body)
+                                             ((eq? (car gen) 'head) head))
+                                       (loop (cdr gen)))
+                                     ""))))))
+                      (string-append
+                        acc
+                        (string-concatenate (map generate-one primitives)))))
+
+                   ((use-feature)
+                    (string-append acc (rec "" (cddr prim))))
+
+                   ((primitive define-primitive)
+                    (string-append acc (rec "" (cddr prim))))
+
+                   ((location)
+                    (let* ((name (cadr prim))
+                           (feature-pair (assoc name locations))
+                           (matched-features (if feature-pair (cdr feature-pair) '())))
+                      (string-append
+                        acc
+                        (extract extract-func matched-features ""))))
+
+                   ((replace)
+                    (let* ((pattern     (cadr prim))
+                           (pattern     (if (symbol? pattern)
+                                          (symbol->string pattern)
+                                          pattern))
+                           (replacement-text
+                             (or
+                               (table-ref cache (caddr prim) #f)
+                               (replace-eval (caddr prim) encode host-config)))
+                           (replacement-text
+                             (cond ((symbol? replacement-text)
+                                    (symbol->string replacement-text))
+                                   ((number? replacement-text)
+                                    (number->string replacement-text))
+                                   ((string? replacement-text)
+                                    replacement-text)
+                                   (else
+                                     (error "Error while replacing doesn't support the type : " replacement-text)))))
+                      (string-append acc (string-replace (rec "" (cdddr prim)) pattern replacement-text))))
+
+                   (else
+                     acc)))))
+      (extract
+        extract-func
+        parsed-file
+        ""))))
 
 
 ;;;----------------------------------------------------------------------------
