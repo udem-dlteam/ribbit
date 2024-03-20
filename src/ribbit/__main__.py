@@ -4,8 +4,8 @@ import argparse
 import sys
 
 order = [
-  "Input", 
-  "Utils", 
+  # "Input", 
+  # "Utils", 
   "VM definitions", 
   "Primitives", 
   "Decode Symbol Table", 
@@ -83,7 +83,7 @@ class RVM:
         
         try:
             val = subprocess.run(
-              f'HOST={self.target} RSC_COMPILER="./rsc.exe --rvm {FILEPATH} -f+ arity-check -e original" RSC_MUST_TEST_FEATURES="," make check',
+              f'HOST={self.target} TEMP_DIR=".run.{id}" RSC_COMPILER="./rsc.exe --rvm {FILEPATH} -f+ arity-check -e original" RSC_MUST_TEST_FEATURES="," make check',
               cwd=f"{RIBBIT_ROOT}/src",
               shell=True,
               capture_output=True,

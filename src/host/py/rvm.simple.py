@@ -1,15 +1,6 @@
-# #=# Input
-# @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
-input=");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" # RVM code that prints HELLO!
-# )@@
-
-# #=# Utils
-import os # @@(feature py/io)@@
-import sys
-stdo=sys.stdout
-list_tail=lambda lst,i:lst if i==0 else list_tail(lst[1],i-1)
-
 # #=# VM definitions
+input=");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" # RVM code that prints HELLO!
+
 FALSE=[0,0,5]
 TRUE=[0,0,5]
 NIL=[0,0,5]
@@ -42,6 +33,8 @@ def get_int(n):
 
 
 # #=# Primitives
+import sys
+stdo=sys.stdout
 
 putchar=lambda c:[stdo.write(chr(c)),stdo.flush(),c][2]
 
@@ -73,7 +66,7 @@ def scm2str(s):
 
 primitives = [
  # @@(primitives (gen body) 
- prim(3,lambda z,y,x:[x,y,z]),                                            # @@(primitive (##rib a b c))@@
+ prim(3,lambda z,y,x:[x,y,z]),                                            # @@(primitive (##rib a b c))@@           
  prim(1,lambda x:x),                                                      # @@(primitive (##id x))@@
  lambda:(pop(),None)[1],                                                  # @@(primitive (##arg1 x y))@@
  lambda:push([pop(),pop()][0]),                                           # @@(primitive (##arg2 x y))@@
@@ -115,43 +108,59 @@ while 1:
   accum=[c,accum,0]
   n+=1
 
+list_tail=lambda lst,i:lst if i==0 else list_tail(lst[1],i-1)
 symtbl=[[FALSE,[accum,n,3],2],symtbl,0]
 symbol_ref=lambda n: list_tail(symtbl,n)[0]
 
 # #=# Decode instruction graph 
-while 1:
- x=get_code()
- n=x
- d=0
- op=0
- while 1:
-  d=[20,30,0,10,11,4][op]
-  if n<=2+d:break
-  n-=d+3;op+=1
- if x>90:
-  n=pop()
- else:
-  if op==0:stack=[0,stack,0];op+=1
-  n = get_int(0)if n==d else symbol_ref(get_int(n-d-1))if n>=d else symbol_ref(n)if op<3 else n
-  if 4<op:
-   n=[[n,0,pop()],NIL,1]
-   if not stack:break
-   op=4
- stack[0]=[op-1,n,stack[0]]
 
-def set_global(val):
- global symtbl
- symtbl[0][0]=val
- symtbl=symtbl[1]
+LENGTH_ARRAY=[20, 30, 0, 10, 11, 4]
+while True:
+    token = get_code()
+    arg = token
+    op = 0
+    range_val = LENGTH_ARRAY[op]
+    while range_val + 2 < arg:
+        arg -= range_val + 3
+        op += 1
+        range_val = LENGTH_ARRAY[op]
+    if token > 90:
+        arg = pop()
+    else:
+        if not op:
+            stack = [0, stack, 0]
+        if arg >= range_val:
+            if arg == range_val:
+                arg = get_int(0)
+            else:
+                arg = symbol_ref(get_int(arg - range_val - 1))
+        else:
+            if op < 3:
+                arg = symbol_ref(arg)
+        if op > 4:
+            arg = [[arg, 0, pop()], 0, 1]
+            if not stack:
+                break
+            op = 4
+    if op != 0:
+        stack[0] = [op - 1, arg, stack[0]]
+    else:
+        stack[0] = [0, arg, stack[0]]
 
-set_global([0,symtbl,1]) # primitive 0
+def set_global(x):
+    global symtbl
+    symtbl[0][0] = x
+    symtbl = symtbl[1]
+
+set_global([0, symtbl, 1])
 set_global(FALSE)
 set_global(TRUE)
 set_global(NIL)
 
 # #=# Execute RVM instructions
 
-pc = n[0][2]
+# We can take the pc from the last closure created
+pc = arg[0][2]
 stack=[0,0,[5,0,0]] # primordial continuation (executes halt instr.)
 
 get_opnd=lambda o:(o if is_rib(o) else list_tail(stack,o))

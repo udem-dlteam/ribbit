@@ -1,16 +1,5 @@
-// #=# Input
-// @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
-input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y";
-// )@@
-
-// #=# Utils
-lengthAttr = "length";
-fs = require("fs"); // @@(feature (or js/node/fs ##getchar ##putchar))@@
-
-list_tail = (x,i) => i ? list_tail(x[1],i-1) : x;
-inst_tail = (x,i) => i ? inst_tail(x[2],i-1) : x;
 // #=# VM definitions
-// build the symbol table
+input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y";
 
 FALSE = [0,0,5]; TRUE = [0,0,5]; NIL = [0,0,5];
 
@@ -24,6 +13,7 @@ get_code = () => { let x = get_byte()-35; return x<0 ? 57 : x; };
 get_int = (n) => { let x = get_code(); n *= 46; return x<46 ? n+x : get_int(n+x-46); };
 
 // #=# Primitives
+fs = require("fs");
 
 putchar = (c) => {
     let buffer = Buffer.alloc(1);
@@ -40,7 +30,7 @@ getchar_sync = () => {
 };
 
 getchar = () => {
-    push(pos<input[lengthAttr] ? get_byte() : getchar_sync());
+    push(pos<input.length ? get_byte() : getchar_sync());
     return true; // indicate that no further waiting is necessary
 };
 
@@ -55,7 +45,7 @@ scm2str = (r) => {
 };
 is_rib = (x) => {
     if (x === undefined) console.log(stack);
-    return x[lengthAttr];
+    return x.length;
 };
 
 primitives = [
@@ -101,6 +91,8 @@ while (1) {
 }
 
 symtbl = [[0,[accum,n,3],2],symtbl,0];
+
+list_tail = (x,i) => i ? list_tail(x[1],i-1) : x;
 symbol_ref = (n) => list_tail(symtbl,n)[0];
 
 // #=# Decode instruction graph 

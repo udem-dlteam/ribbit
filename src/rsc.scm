@@ -1343,8 +1343,15 @@
            (car exprs-and-exports))
          (exprs
            (if (pair? exprs) exprs (list #f)))
-         (host-features (extract-features (or parsed-vm default-primitives)))
-
+         (vm-has-primitives? (and parsed-vm (assoc 'primitives parsed-vm)))
+         (host-features 
+           (append 
+             (if (not vm-has-primitives?)
+               (reverse (extract-features default-primitives))
+               '())
+             (if parsed-vm
+               (extract-features parsed-vm)
+               '())))
          (expansion
            `(begin
               ,@(host-feature->expansion-feature host-features) ;; add host features
@@ -4784,7 +4791,6 @@
     parsed-file
     "")
 
-
   (let ((parsed-file
           (reverse
             (extract
@@ -4880,7 +4886,9 @@
                      acc)))))
       (extract
         extract-func
-        parsed-file
+        `((location __start)
+          ,@parsed-file
+          (location __end))
         ""))))
 
 
