@@ -395,21 +395,24 @@ rib *alloc_rib2(obj car, obj cdr, obj tag) {
 }
 
 unsigned char get_byte() { return input[pos++]; }
-num get_code(){
-  return get_byte();
-}
 
 
-//num get_code() {
-//  num x = get_byte() - 35;
-//  return x < 0 ? 57 : x;
-//}
 
 #define ENCODING_SIZE  (00)                // @@(replace "00" encoding/ribn-base)@@
 #define HALF_ENCODING_SIZE ENCODING_SIZE/2
 
+#if ENCODING_SIZE==92
+#define GET_CODE get_code
+num get_code() {
+  num x = get_byte() - 35;
+  return x < 0 ? 57 : x;
+}
+#else
+#define GET_CODE get_byte
+#endif
+
 num get_int(num n) {
-  num x = get_code();
+  num x = GET_CODE();
   n *= HALF_ENCODING_SIZE;
   return x < HALF_ENCODING_SIZE ? n + x : get_int(n + x - HALF_ENCODING_SIZE);
 }
@@ -759,7 +762,7 @@ void run() {
       while (1) {
 #define code CAR(proc)
           if (IS_NUM(code)) {
-            pop(); // @@(feature (not prim-no-arity))@@
+            pop(); // @@(feature (and arity-check (not prim-no-arity)))@@
             proc=prim(NUM(code));
 
             if (IS_RIB(proc)) continue;
@@ -947,7 +950,7 @@ void decode() {
   int i;
 
   while (1) {
-    num x = get_code();
+    num x = GET_CODE();
     n = x;
     op = -1;
 
@@ -999,7 +1002,7 @@ void decode() {
   int op;
 
   while (1) {
-    num x = get_code();
+    num x = GET_CODE();
     n = x;
     op = -1;
 
