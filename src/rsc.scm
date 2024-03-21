@@ -4805,7 +4805,7 @@
                                         ((eq? (car gen) 'body) body)
                                         ((eq? (car gen) 'head) head))
                                   (loop (cdr gen)))
-                                ""))))))
+                                "\n"))))))
                  (string-append
                    acc
                    (string-concatenate (map generate-one primitives)))))
