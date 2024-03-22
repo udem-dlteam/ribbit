@@ -26,6 +26,11 @@ BENCH_DIR ?= benchmarks
 BENCH_FILTER ?= *
 TEMP_DIR ?= .tests
 
+BOOT_FILE ?= rsc.scm
+BOOT_FILE2 ?= ${BOOT_FILE}
+BOOT0 ?=
+BOOT1 ?= ${BOOT0}
+
 all:
 
 build-all: build-repl-min build-repl-max build-repl-max-tc build-rsc
@@ -42,7 +47,13 @@ build-repl-max-tc: ../../repl-max.scm
 build-rsc: ../../rsc.scm  
 	dir="$(RIBBIT_BUILD_DIR)"; $(RSC_COMPILER) -t $(HOST) -l max $(RIBBIT_BUILD_OPTS) -o $${dir:-build}/rsc.$(HOST) $<
 
-check-repl: 
+check-bootstrap:
+	echo "====================== TESTING FIRST BOOSTRAP ===="
+	cd ../.. && time ${RSC_COMPILER}                            -ps -t ${HOST} -l r4rs -l prim-wrap ${BOOT0} -l boot-host -f+ v-port -o rsc-bootstrap1.${HOST} ${BOOT_FILE}
+	cd ../.. && time ${HOST_INTERPRETER} rsc-bootstrap1.${HOST} -ps -t ${HOST} -l r4rs -l prim-wrap ${BOOT0} -l boot-host -f+ v-port -o rsc-bootstrap2.${HOST} ${BOOT_FILE}
+
+
+check-repl:
 	@host="$(HOST)"; \
 	INTERPRETER="$(HOST_INTERPRETER)"; \
 	COMPILER="$(HOST_COMPILER)"; \
@@ -73,24 +84,29 @@ check-repl:
 	  if [ "$$test_feature" != "," ] && [ "$$test_feature" != "" ]; then \
 	     echo "    >>> [test features: `echo "$$test_feature" | sed -e 's/,/ /g'`]"; \
 	  fi; \
+	  echo $$RSC_COMPILER -t $$host $$options -f+ quiet `echo "$$test_feature" | sed -e 's/,/ /g'` -o repl.$$host $$repl; \
 	  $$RSC_COMPILER -t $$host $$options -f+ quiet `echo "$$test_feature" | sed -e 's/,/ /g'` -o repl.$$host $$repl; \
-	  for prog in `ls $$TEST_DIR/01-r4rs/$$TEST_FILTER.scm host/$$HOST/tests/$$TEST_FILTER.scm`; do \
-	    echo "     testing in repl: $$prog"; \
-	    if [ "$$INTERPRETER" != "" ]; then \
-	      echo "(load \"$$prog\")" | $$INTERPRETER repl.$$host | tail -r | tail -n +3 | tail -r  > repl.$$host.out; \
-	    else \
-	      $$COMPILER repl.$$host.exe repl.$$host; \
-		  echo "(load \"$$prog\")" | ./repl.$$host.exe | tail -r | tail -n +3 | tail -r > repl.$$host.out; \
-	    fi; \
-        sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - repl.$$host.out; \
-        if [ "$$cleanup" != "" ]; then \
-          sh -c "$$cleanup"; \
-          if [ $$? != 0 ]; then \
-		    echo "Error in the cleanup"; \
-    	  fi; \
-        fi; \
-      done; \
-	  rm -f test.$$host*; \
+		if [ $$? != 0 ]; then \
+		  echo "Could not build repl"; \
+		else \
+	    for prog in `ls $$TEST_DIR/01-r4rs/$$TEST_FILTER.scm host/$$HOST/tests/$$TEST_FILTER.scm`; do \
+	      echo "     testing in repl: $$prog"; \
+	      if [ "$$INTERPRETER" != "" ]; then \
+	        echo "(load \"$$prog\")" | $$INTERPRETER repl.$$host | tail -r | tail -n +3 | tail -r  > repl.$$host.out; \
+	      else \
+	        $$COMPILER repl.$$host.exe repl.$$host; \
+		    echo "(load \"$$prog\")" | ./repl.$$host.exe | tail -r | tail -n +3 | tail -r > repl.$$host.out; \
+	      fi; \
+          sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - repl.$$host.out; \
+          if [ "$$cleanup" != "" ]; then \
+            sh -c "$$cleanup"; \
+            if [ $$? != 0 ]; then \
+		      echo "Error in the cleanup"; \
+      	  fi; \
+          fi; \
+        done; \
+	    rm -f test.$$host*; \
+		  fi; \
     done; \
 	popd
 

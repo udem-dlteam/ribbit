@@ -1383,7 +1383,7 @@
       return
       0
       (c-make-procedure
-        (c-rib 2 ;; 0 parameters
+        (c-rib 0 ;; 0 parameters
                0
                (comp ctx
                      expansion
