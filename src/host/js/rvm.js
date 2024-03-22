@@ -12,6 +12,9 @@ debug = true;
 // @@(feature (and (not debug) (not debug-trace))
 debug = false;
 // )@@
+//
+
+debug = false // @@(feature force-debug-off)@@
 
 
 
@@ -49,9 +52,18 @@ sym2str = (s) => chars2str(s[1][0]);  //debug
 chars2str = (s) => (s===NIL) ? "" : (String.fromCharCode(s[0])+chars2str(s[1]));  //debug
 
 // @@(feature (or debug debug-trace error-msg) (use sym2str chars2str)
-show_opnd = (o) => is_rib(o) && o[2] === 2 ? ("sym " + sym2str(o)) :
-    is_rib(o) && o[2] === 1 ? ("proc " + (!is_rib(o[0]) ? sym2str(symbol_ref_debug(o[0])) : ""))
-    : ("int " + o);  //debug
+function show_opnd(o) {
+  console.log("value : ", o)
+  if (is_rib(o) && o[2] === 2)
+    return "sym " + sym2str(o);
+  if (is_rib(o) && o[2] === 1)
+    if (is_rib(o[0]))
+      return "proc ";
+    else
+      return "proc " + sym2str(symbol_ref_debug(o[0]));
+  return "int " + o;
+}
+
 show_stack = () => {  //debug
     let s = stack;  //debug
     let r = [];  //debug
@@ -100,14 +112,6 @@ getchar = () => pos<input[lengthAttr] && push(get_byte());
 // --------------------------------------------------------------
 
 // VM
-
-// @@(feature (or error-msg debug) (use scm2str)
-halt = () => {
-  const error_code = pop();
-	const error_msg = new Error(error_code !== undefined && is_rib(error_code) && error_code[2] === 3 ? scm2str(error_code) : `Exit with code: ${error_code}`);
-	throw error_msg;
-};
-// )@@
 
 // build the symbol table
 
@@ -471,7 +475,7 @@ host_call = () =>{
 
 
 is_rib = (x) => {
-    if (x === undefined) console.log(stack);
+    if (x === undefined) console.log("Found undefined value while calling is_rib. Showing stack : ", stack); // @@(feature debug-trace)@@
     return x[lengthAttr];
 };
 
@@ -504,7 +508,7 @@ primitives = [
   prim2((y, x) => x/y|0),                           //  @@(primitive (##quotient x y))@@
   getchar,                                          //  @@(primitive (##getchar))@@
   prim1(putchar),                                   //  @@(primitive (##putchar c))@@
-  () => pop() && halt(),//will crash with error on != 0 @@(primitive (##exit n))@@
+  () => (pop(),false) ,                              //  @@(primitive (##exit x))@@
 // )@@
 ];
 
@@ -523,7 +527,8 @@ run = () => {
             // @@(feature (or debug-trace debug error-msg)
             if (c === undefined) {
                 console.log("Undefined function: " + show_opnd(o));
-                halt();
+                show_stack();
+                exit();
             }
             // )@@
             if (is_rib(c)) {
@@ -543,8 +548,9 @@ run = () => {
                 let nparams = c[0] >> 1;
                 // @@(feature arity-check
                 if (c[0] & 1 ? nparams > nargs : nparams != nargs){
+                    console.log(c[0])
                     console.log("*** Unexpected number of arguments nargs:", nargs, " nparams:", nparams, "variadics:", c[0]&1);
-                    halt();
+                    exit();
                 }
                 // )@@
 
