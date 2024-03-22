@@ -33,11 +33,11 @@ debug = False
 # )@@
 
 
+# @@(feature debug 
 tracing = False                                                         # DEBUG
 step_count = 0                                                          # DEBUG
 start_tracing = 0                                                       # DEBUG
 next_stamp = 0                                                          # DEBUG
-# @@(feature debug 
 def show(obj):                                                          # DEBUG
  if not is_rib(obj): return str(obj)                                    # DEBUG
  type = obj[2]                                                          # DEBUG
@@ -188,7 +188,6 @@ def f2s(y,x):x[2]=y;return y
 
 primitives = [
  # @@(primitives (gen body) 
- # @.. (bind "prim(" (len args) ", lambda " (list->host (reverse args) " ") ":" binding "(" (list->host args " ") "))" )
  prim(3,lambda z,y,x:[x,y,z]),                                            # @@(primitive (##rib a b c))@@
  prim(1,lambda x:x),                                                      # @@(primitive (##id x))@@
  lambda:(pop(),None)[1],                                                  # @@(primitive (##arg1 x y))@@
@@ -290,11 +289,11 @@ set_global(NIL)
 stack=[0,0,[5,0,0]] # primordial continuation (executes halt instr.)
 
 while 1:
- if debug: start_step() # DEBUG
+ if debug: start_step() # @@(feature debug)@@
  o=pc[1]
  i=pc[0]
  if i<1: # jump/call
-  if tracing: print(("call " if is_rib(pc[2]) else "jump ") + show(o)) # DEBUG
+  if tracing: print(("call " if is_rib(pc[2]) else "jump ") + show(o)) # @@(feature debug)@@
   o=get_opnd(o)[0]
   while 1:
    c=o[0]
@@ -343,20 +342,20 @@ while 1:
    pc=c
    break
  elif i<2: # set
-  if tracing: print("set " + show(o)) # DEBUG
+  if tracing: print("set " + show(o)) # @@(feature debug)@@
   get_opnd(o)[0]=stack[0]; stack = stack[1]
  elif i<3: # get
-  if tracing: print("get " + show(o)) # DEBUG
+  if tracing: print("get " + show(o)) # @@(feature debug)@@
   push(get_opnd(o)[0])
  elif i<4: # const
-  if tracing: print("const " + show(o)) # DEBUG
+  if tracing: print("const " + show(o)) # @@(feature debug)@@
   push(o)
  elif i<5: # if
-  if tracing: print("if") # DEBUG
+  if tracing: print("if") # @@(feature debug)@@
   if pop() is not FALSE:
    pc=pc[1]
    continue
  else: # halt
-  if tracing: print("halt") # DEBUG
+  if tracing: print("halt") # @@(feature debug)@@
   break
  pc = pc[2]

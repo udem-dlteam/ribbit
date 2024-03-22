@@ -24,6 +24,7 @@ BENCH_OPTIONS ?= .
 RSC_MUST_BENCH_OPTIONS ?= ,
 BENCH_DIR ?= benchmarks
 BENCH_FILTER ?= *
+TEMP_DIR ?= .tests
 
 all:
 
@@ -101,11 +102,15 @@ check:
 	RSC_TEST_FEATURES='${RSC_MUST_TEST_FEATURES}'; \
 	TEST_FEATURES='${TEST_FEATURES}'; \
 	TEST_DIR="${TEST_DIR}"; \
+	TEMP_DIR="${TEMP_DIR}"; \
 	pushd ../../; \
 	if [ "$$TEST_FEATURES" != "." ]; then \
 	  RSC_TEST_FEATURES="$$RSC_TEST_FEATURES;$$TEST_FEATURES"; \
 	fi; \
 	TEST_FILTER='${TEST_FILTER}'; \
+	test_passed=0; \
+	num_test=0; \
+	mkdir -p $$TEMP_DIR; \
 	for prog in `ls $$TEST_DIR/**/$$TEST_FILTER.scm host/$$HOST/tests/$$TEST_FILTER.scm`; do \
 	  setup=`sed -n -e '/;;;setup:/p' $$prog | sed -e 's/^;;;setup://'`; \
 	  cleanup=`sed -n -e '/;;;cleanup:/p' $$prog | sed -e 's/^;;;cleanup://'`; \
@@ -114,20 +119,19 @@ check:
 	  test_name=`basename $$prog`; \
 	  echo "---------------------- $$prog [options:$$options] [argv:$$argv]"; \
 	  if [ "$$setup" != "" ]; then \
-        sh -c "$$setup"; \
+      sh -c "$$setup"; \
 	    if [ $$? != 0 ]; then \
-			echo "Error in the setup"; \
-		fi; \
+	      echo "Error in the setup"; \
+		  fi; \
 	  fi; \
 	  for test_feature in `echo "$$RSC_TEST_FEATURES" | sed -e 's/ /,/g' | sed -e 's/,*\;,*/\n/g'`; do \
 	    if [ "$$test_feature" != "," ] && [ "$$test_feature" != "" ]; then \
 	  	echo "    >>> [test features: `echo "$$test_feature" | sed -e 's/,/ /g'`]"; \
 	    fi; \
-	    test_path=.tests/$$test_name.$$host; \
+	    test_path=$$TEMP_DIR/$$test_name.$$host; \
 	    feature_list=`echo "$$test_feature" | sed -e 's/,/ /g'`; \
-	    mkdir -p .tests; \
 	    rm -f test_path; \
-	    $$RSC_COMPILER -t $$host $$options $$feature_list -o .tests/$$test_name.$$host $$prog; \
+	    $$RSC_COMPILER -t $$host $$options $$feature_list -o $$test_path $$prog; \
 	    if [ "$$INTERPRETER" != "" ]; then \
 	      sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | $$INTERPRETER $$test_path "$$argv" > $$test_path.out; \
 	    else \
@@ -135,14 +139,21 @@ check:
 	      sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | ./$$test_path.exe "$$argv" > $$test_path.out; \
 	    fi; \
 	    sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - $$test_path.out; \
+	    if [ $$? = 0 ]; then \
+	      test_passed=$$(($$test_passed + 1)); \
+	    fi; \
+	    num_test=$$(($$num_test + 1)); \
+			rm -f $$test_path*; \
 	  done; \
 	  if [ "$$cleanup" != "" ]; then \
-        sh -c "$$cleanup"; \
+      sh -c "$$cleanup"; \
 	    if [ $$? != 0 ]; then \
-		  echo "Error in the cleanup"; \
-		fi; \
+	      echo "Error in the cleanup"; \
+		  fi; \
 	  fi; \
 	done; \
+	rmdir $$TEMP_DIR; \
+	echo "!!! $$test_passed/$$num_test passed"; \
 	popd
 
 clean:
