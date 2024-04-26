@@ -123,8 +123,7 @@
      PRIM1();
      char* filename = scm2str(x);
      FILE* file = fopen(filename, \"r\");
-     if (file == NULL) perror(\"Couldn't open the file\\n\");
-     push2((long) file | 1, PAIR_TAG);
+     push2(file ? (long) file | 1 : FALSE, PAIR_TAG);
      free((void*) filename);
      break;
      }")
