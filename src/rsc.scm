@@ -2026,12 +2026,12 @@
                 (valid-resource-path
                   (filter file-exists? resource-paths)))
           (if (null? valid-resource-path)
-             (error "The path needs to point to an existing file. Error while trying to include library at" resource-paths)
+             (error "Error while trying to include library, file doesn't exist." resource-paths)
              (open-input-file (car valid-resource-path))))))
 
     (file ,(lambda (resource-path)
              (if (not (file-exists? resource-path))
-               (error "The path needs to point to an existing file. Error while trying to include library at" resource-path)
+               (error "Error while trying to include library, file doesn't exist." resource-path)
                (open-input-file resource-path))))))
 
 (define (add-resource-str-reader! name reader)
