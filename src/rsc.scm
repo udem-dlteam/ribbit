@@ -4738,6 +4738,7 @@
     `((encode ,encode-as-string 2)
       (encode-as-bytes ,encode-as-bytes 5)
       (encode-as-string ,encode-as-string 2)
+      (rvm-code-to-bytes ,rvm-code-to-bytes 3)
       (list->host ,list->host 5)))
 
 
