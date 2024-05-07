@@ -9,13 +9,6 @@ input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y";
 // @@(feature (or debug debug-trace)
 debug = true;
 // )@@
-// @@(feature (and (not debug) (not debug-trace))
-debug = false;
-// )@@
-//
-
-debug = false // @@(feature force-debug-off)@@
-
 
 
 lengthAttr = "length";
@@ -505,7 +498,7 @@ primitives = [
   prim2((y, x) => x+y),                             //  @@(primitive (##+ x y))@@
   prim2((y, x) => x-y),                             //  @@(primitive (##- x y))@@
   prim2((y, x) => x*y),                             //  @@(primitive (##* x y))@@
-  prim2((y, x) => x/y|0),                           //  @@(primitive (##quotient x y))@@
+  prim2((y, x) => Math.trunc(x/y)),                           //  @@(primitive (##quotient x y))@@
   getchar,                                          //  @@(primitive (##getchar))@@
   prim1(putchar),                                   //  @@(primitive (##putchar c))@@
   () => (pop(),false) ,                              //  @@(primitive (##exit x))@@
@@ -521,7 +514,7 @@ run = () => {
     case 0: // jump/call
         o = get_opnd(o)[0];
         while(1) {
-            if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } //debug
+            if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } // @@(feature debug)@@
             let c = o[0];
 
             // @@(feature (or debug-trace debug error-msg)
@@ -548,7 +541,6 @@ run = () => {
                 let nparams = c[0] >> 1;
                 // @@(feature arity-check
                 if (c[0] & 1 ? nparams > nargs : nparams != nargs){
-                    console.log(c[0])
                     console.log("*** Unexpected number of arguments nargs:", nargs, " nparams:", nparams, "variadics:", c[0]&1);
                     exit();
                 }
@@ -598,19 +590,19 @@ run = () => {
         }
         break;
     case 1: // set
-        if (debug) { console.log("--- set " + show_opnd(o)); show_stack(); } //debug
+        if (debug) { console.log("--- set " + show_opnd(o)); show_stack(); } // @@(feature debug)@@
         get_opnd(o)[0] = pop();
         break;
     case 2: // get
-        if (debug) { console.log("--- get " + show_opnd(o)); show_stack(); } //debug
+        if (debug) { console.log("--- get " + show_opnd(o)); show_stack(); } // @@(feature debug)@@
         push(get_opnd(o)[0]);
         break;
     case 3: // const
-        if (debug) { console.log("--- const " + (is_rib(o) ? "" : ("int " + o))); show_stack(); } //debug
+        if (debug) { console.log("--- const " + (is_rib(o) ? "" : ("int " + o))); show_stack(); } // @@(feature debug)@@
         push(o);
         break;
     case 4: // if
-        if (debug) { console.log("--- if"); show_stack(); } //debug
+        if (debug) { console.log("--- if"); show_stack(); } // @@(feature debug)@@
         if (pop() !== FALSE) { pc = pc[1]; continue; }
         break;
     }

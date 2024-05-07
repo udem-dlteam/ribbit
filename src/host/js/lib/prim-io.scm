@@ -31,7 +31,7 @@
   (##write-char-fd ch fd)
   (use js/node/fs)
   "prim2((fd, ch) => {
-  return fs.writeSync(fd, String.fromCodePoint(ch), null, 'utf8')})
+  return fs.writeSync(fd, String.fromCodePoint(ch), null, 'utf8');})
   ,")
 
 (define-primitive
