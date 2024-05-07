@@ -50,8 +50,6 @@ check-repl: rsc.exe
 check-pipeline: check
 check-all: check-pipeline check-fancy check-features check-bootstrap
 
-	
-
 check-features:
 	@host="$${HOST:-js}"; \
 	for host_path in ./tests/hosts/*; do \
@@ -80,32 +78,15 @@ check-features:
 		fi; \
 	done
 
-check-bootstrap:
-	@host="$${HOST:-js}"; \
-	case $$host in \
-	   js) host_interpreter="$${JS_HOST_INTERPRETER:-node}";; \
-           py) host_interpreter="$${PY_HOST_INTERPRETER:-python3}";; \
-          scm) host_interpreter="$${SCM_HOST_INTERPRETER:-gsi}";; \
-           hs) host_interpreter="$${HS_HOST_INTERPRETER:-runhaskell}";; \
-          lua) host_interpreter="$${LUA_HOST_INTERPRETER:-lua}";; \
-        scala) host_interpreter="$${SCALA_HOST_INTERPRETER:-scala}";; \
-           ml) host_interpreter="$${ML_HOST_INTERPRETER:-ocaml}";; \
-           sh) host_interpreter="$${SH_HOST_INTERPRETER:-ksh}";; \
-          zig) host_interpreter="$${ZIG_HOST_INTERPRETER:-zig run -O ReleaseFast}";; \
-           clj) host_interpreter="$${CLJ_HOST_INTERPRETER:-clj}";; \
-	esac; \
-	echo ./rsc -t $$host -l max -o rsc-bootstrap1.$$host rsc.scm; \
-	time ./rsc -t $$host -l max -o rsc-bootstrap1.$$host rsc.scm; \
-	echo ./rsc -t $$host -l max -c \"$$host_interpreter rsc-bootstrap1.$$host\" -o rsc-bootstrap2.$$host rsc.scm; \
-	time ./rsc -t $$host -l max -c "$$host_interpreter rsc-bootstrap1.$$host" -o rsc-bootstrap2.$$host rsc.scm; \
-	echo ./rsc -t $$host -l max -c \"$$host_interpreter rsc-bootstrap2.$$host\" -o rsc-bootstrap3.$$host rsc.scm; \
-	time ./rsc -t $$host -l max -c "$$host_interpreter rsc-bootstrap2.$$host" -o rsc-bootstrap3.$$host rsc.scm; \
-	if diff rsc-bootstrap2.$$host rsc-bootstrap3.$$host > rsc-bootstrap.diff; then \
-	  echo "====================== SUCCESSFUL BOOTSTRAP USING HOST $$host EXECUTED WITH $$host_interpreter"; \
-	  rm -f rsc-bootstrap*; \
+check-bootstrap: rsc.exe
+	@UP_CASE="(##vector-set! ##main-readtable 1 'upcase)"; \
+	if [ "$$HOST" = "" ]; then \
+	  for host in $(HOSTS); do \
+	    echo "====================== TESTING HOST $$host"; \
+		cd host/$$host; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check-bootstrap; cd ../..; \
+	  done; \
 	else \
-	  echo "====================== ***FAILED*** BOOTSTRAP USING HOST $$host EXECUTED WITH $$host_interpreter"; \
-	  exit 1; \
+	  cd host/$$HOST; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check-bootstrap; cd ../..; \
 	fi
 
 

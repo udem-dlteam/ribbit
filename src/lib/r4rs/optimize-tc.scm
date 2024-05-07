@@ -1,4 +1,4 @@
-(##include-once "ribbit:expander-utils.scm")
+(##include-once (ribbit "expander-utils.scm"))
 
 (define-macro 
   (type-error proc-name expected arg-num)

@@ -1,6 +1,5 @@
-(##include-once "ribbit:r4rs.scm")
-(##include-once "ribbit:r4rs/sys.scm")
-;; (##include-once "ribbit:r4rs/io-style.scm")
+(##include-once (ribbit "r4rs"))
+(##include-once (ribbit "r4rs/sys"))
 
 (define args (cmd-line))
 

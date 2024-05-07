@@ -9,10 +9,6 @@ input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y";
 // @@(feature (or debug debug-trace)
 debug = true;
 // )@@
-// @@(feature (and (not debug) (not debug-trace))
-debug = false;
-// )@@
-
 
 
 lengthAttr = "length";
@@ -49,9 +45,18 @@ sym2str = (s) => chars2str(s[1][0]);  //debug
 chars2str = (s) => (s===NIL) ? "" : (String.fromCharCode(s[0])+chars2str(s[1]));  //debug
 
 // @@(feature (or debug debug-trace error-msg) (use sym2str chars2str)
-show_opnd = (o) => is_rib(o) && o[2] === 2 ? ("sym " + sym2str(o)) :
-    is_rib(o) && o[2] === 1 ? ("proc " + (!is_rib(o[0]) ? sym2str(symbol_ref_debug(o[0])) : ""))
-    : ("int " + o);  //debug
+function show_opnd(o) {
+  console.log("value : ", o)
+  if (is_rib(o) && o[2] === 2)
+    return "sym " + sym2str(o);
+  if (is_rib(o) && o[2] === 1)
+    if (is_rib(o[0]))
+      return "proc ";
+    else
+      return "proc " + sym2str(symbol_ref_debug(o[0]));
+  return "int " + o;
+}
+
 show_stack = () => {  //debug
     let s = stack;  //debug
     let r = [];  //debug
@@ -100,14 +105,6 @@ getchar = () => pos<input[lengthAttr] && push(get_byte());
 // --------------------------------------------------------------
 
 // VM
-
-// @@(feature (or error-msg debug) (use scm2str)
-halt = () => {
-  const error_code = pop();
-	const error_msg = new Error(error_code !== undefined && is_rib(error_code) && error_code[2] === 3 ? scm2str(error_code) : `Exit with code: ${error_code}`);
-	throw error_msg;
-};
-// )@@
 
 // build the symbol table
 
@@ -471,7 +468,7 @@ host_call = () =>{
 
 
 is_rib = (x) => {
-    if (x === undefined) console.log(stack);
+    if (x === undefined) console.log("Found undefined value while calling is_rib. Showing stack : ", stack); // @@(feature debug-trace)@@
     return x[lengthAttr];
 };
 
@@ -501,10 +498,10 @@ primitives = [
   prim2((y, x) => x+y),                             //  @@(primitive (##+ x y))@@
   prim2((y, x) => x-y),                             //  @@(primitive (##- x y))@@
   prim2((y, x) => x*y),                             //  @@(primitive (##* x y))@@
-  prim2((y, x) => x/y|0),                           //  @@(primitive (##quotient x y))@@
+  prim2((y, x) => Math.trunc(x/y)),                           //  @@(primitive (##quotient x y))@@
   getchar,                                          //  @@(primitive (##getchar))@@
   prim1(putchar),                                   //  @@(primitive (##putchar c))@@
-  () => pop() && halt(),//will crash with error on != 0 @@(primitive (##exit n))@@
+  () => (pop(),false) ,                              //  @@(primitive (##exit x))@@
 // )@@
 ];
 
@@ -517,13 +514,14 @@ run = () => {
     case 0: // jump/call
         o = get_opnd(o)[0];
         while(1) {
-            if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } //debug
+            if (debug) { console.log((pc[2]===0 ? "--- jump " : "--- call ") + show_opnd(o)); show_stack(); } // @@(feature debug)@@
             let c = o[0];
 
             // @@(feature (or debug-trace debug error-msg)
             if (c === undefined) {
                 console.log("Undefined function: " + show_opnd(o));
-                halt();
+                show_stack();
+                exit();
             }
             // )@@
             if (is_rib(c)) {
@@ -544,7 +542,7 @@ run = () => {
                 // @@(feature arity-check
                 if (c[0] & 1 ? nparams > nargs : nparams != nargs){
                     console.log("*** Unexpected number of arguments nargs:", nargs, " nparams:", nparams, "variadics:", c[0]&1);
-                    halt();
+                    exit();
                 }
                 // )@@
 
@@ -592,19 +590,19 @@ run = () => {
         }
         break;
     case 1: // set
-        if (debug) { console.log("--- set " + show_opnd(o)); show_stack(); } //debug
+        if (debug) { console.log("--- set " + show_opnd(o)); show_stack(); } // @@(feature debug)@@
         get_opnd(o)[0] = pop();
         break;
     case 2: // get
-        if (debug) { console.log("--- get " + show_opnd(o)); show_stack(); } //debug
+        if (debug) { console.log("--- get " + show_opnd(o)); show_stack(); } // @@(feature debug)@@
         push(get_opnd(o)[0]);
         break;
     case 3: // const
-        if (debug) { console.log("--- const " + (is_rib(o) ? "" : ("int " + o))); show_stack(); } //debug
+        if (debug) { console.log("--- const " + (is_rib(o) ? "" : ("int " + o))); show_stack(); } // @@(feature debug)@@
         push(o);
         break;
     case 4: // if
-        if (debug) { console.log("--- if"); show_stack(); } //debug
+        if (debug) { console.log("--- if"); show_stack(); } // @@(feature debug)@@
         if (pop() !== FALSE) { pc = pc[1]; continue; }
         break;
     }

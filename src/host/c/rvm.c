@@ -6,6 +6,10 @@
 #define DEBUG_I_CALL
 // )@@
 
+// @@(feature debug-gc
+#define DEBUG_GC
+// )@@
+
 #ifdef DEBUG_I_CALL
 #define DEBUG
 #endif
@@ -152,6 +156,17 @@ typedef struct {
   obj fields[RIB_NB_FIELDS];
 } rib;
 
+
+// GC constants
+rib *heap_start;
+obj *alloc_limit;
+#define MAX_NB_OBJS 100000000 // 48000 is minimum for bootstrap
+#define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
+#define heap_bot ((obj *)(heap_start))
+#define heap_mid (heap_bot + (SPACE_SZ))
+#define heap_top (heap_bot + (SPACE_SZ << 1))
+// end GC constants
+
 #define EXIT_ILLEGAL_INSTR 6
 #define EXIT_NO_MEMORY 7
 
@@ -171,9 +186,33 @@ typedef struct {
   obj z = pop();                                                               \
   PRIM2()
 
+// CHECK_ACCESS will check if pointers are in the right space range when 
+//  accessing them with CAR, CDR or TAG
+// #define CHECK_ACCESS
+#ifdef CHECK_ACCESS
+obj check_access(obj x){
+  if (IS_NUM(x)){
+    printf("ERROR ACCESSING NUMBER AS RIB %ld\n", NUM(x));
+  }
+  obj to_space_start = (obj)((alloc_limit == heap_mid) ? heap_mid : heap_bot);
+  obj to_space_end   = (obj)(to_space_start + SPACE_SZ);
+
+  if (to_space_start < x && x < to_space_end){
+    printf("ERROR ACCESSING OUTSIDE SPACE %ld\n", NUM(x));
+  }
+  
+
+  return x;
+}
+
+#define CAR(x) RIB(check_access(x))->fields[0]
+#define CDR(x) RIB(check_access(x))->fields[1]
+#define TAG(x) RIB(check_access(x))->fields[2]
+#else
 #define CAR(x) RIB(x)->fields[0]
 #define CDR(x) RIB(x)->fields[1]
 #define TAG(x) RIB(x)->fields[2]
+#endif
 #define TOS CAR(stack)
 
 #define NUM_0 (TAG_NUM(0))
@@ -201,14 +240,7 @@ obj symbol_table = NUM_0;
 
 size_t pos = 0;
 
-rib *heap_start;
 
-// GC
-#define MAX_NB_OBJS 1000000 // 48000 is minimum for bootstrap
-#define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
-#define heap_bot ((obj *)(heap_start))
-#define heap_mid (heap_bot + (SPACE_SZ))
-#define heap_top (heap_bot + (SPACE_SZ << 1))
 
 #ifdef NO_STD
 #define vm_exit(code)                                                          \
@@ -302,11 +334,11 @@ void copy() {
 }
 
 void gc() {
-#ifdef DEBUG
+#ifdef DEBUG_GC
   obj *from_space = (alloc_limit == heap_mid) ? heap_bot : heap_mid;
 
   size_t objc = alloc - from_space;
-  printf("\t--GC %d -> ", objc);
+  printf("\t--GC %zu -> ", objc);
 #endif
 
   // swap
@@ -333,10 +365,11 @@ void gc() {
     copy();
   }
 
-#ifdef DEBUG
+#ifdef DEBUG_GC
 
   objc = alloc - to_space;
-  printf("%d\n", objc);
+  printf("%zu\n", objc);
+  fflush(stdout);
 
 #endif
 }
@@ -443,6 +476,12 @@ obj get_cont() {
 
 #define TRUE (CAR(FALSE))
 #define NIL (CDR(FALSE))
+// Temp values that can be used to shield 
+//  pointers from the evil GC
+#define TEMP1 CAR(TRUE)
+#define TEMP2 CDR(TRUE)
+#define TEMP3 CAR(NIL)
+#define TEMP4 CDR(NIL)
 
 #ifdef DEBUG
 
@@ -469,11 +508,11 @@ void show_operand(obj o) {
 // @@(feature scm2str
 char* scm2str(obj s) {
     int length = (int) NUM(CDR(s)); 
-    rib* current = RIB(CAR(s));
+    obj current = CAR(s);
     char* str = malloc(length + 1);
     for (int i = 0; i < length; i++) {
         str[i] = (char) NUM(CAR(current));
-        current = RIB(CDR(current));
+        current = CDR(current);
     }
 
     str[length] = '\0';
@@ -486,17 +525,23 @@ char* scm2str(obj s) {
 // @@(feature str2scm
 obj str2scm(char* s) {
     obj chrs = NIL;
+    int len = 0;
     int i = 0;
 
-    while (s[i++]);
+    while (s[len++]); // calculate length
+    len--; // remove \0 at the end
+    
+    // Construct list by the tail
+    i = len;
+    while (i--) 
+      chrs = TAG_RIB(alloc_rib(TAG_NUM(s[i]), chrs, PAIR_TAG));
 
-    for (int j = i - 1; j >= 0; j--) chrs = TAG_RIB(alloc_rib(TAG_NUM(s[j]), chrs, PAIR_TAG));
-
-    return TAG_RIB(alloc_rib(chrs, TAG_NUM(i), STRING_TAG));
+    return TAG_RIB(alloc_rib(chrs, TAG_NUM(len), STRING_TAG));
 }
 // )@@
 
 // @@(feature list2scm (use str2scm)
+// Warning, this implementation assumes string inside of the list
 obj list2scm(char **s, int length) {
     obj list = NIL;
     for (int i = length - 1; i >= 0; i--)
@@ -984,7 +1029,7 @@ void decode() {
     //printf("i : %d\n", i); // @@(feature debug)@@
     //fflush(stdout); // @@(feature debug)@@
 
-    rib *c = alloc_rib(TAG_NUM(i), n, 0);
+    rib *c = alloc_rib(TAG_NUM(i), n, NUM_0);
     c->fields[2] = TOS;
     TOS = TAG_RIB(c);
   }

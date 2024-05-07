@@ -15,12 +15,12 @@
 
 (define (exit code) (##exit code))
 
-;; (define (eqv? x y) (##eqv? x y))
-;; (define (< x y) (##< x y))
-;; (define (+ x y) (##+ x y))
-;; (define (- x y) (##- x y))
-;; (define (* x y) (##* x y))
-;; (define (quotient x y) (##quotient x y))
+(define (eqv? x y) (##eqv? x y))
+(define (< x y) (##< x y))
+(define (+ x y) (##+ x y))
+(define (- x y) (##- x y))
+(define (* x y) (##* x y))
+(define (quotient x y) (##quotient x y))
 
 (define (getchar) (##getchar))
 (define (putchar x) (##putchar x))

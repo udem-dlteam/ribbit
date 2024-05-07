@@ -115,9 +115,6 @@
 
 (cond-expand
 
-  (ribbit
-    (begin))
-
   (chicken
 
    (import (chicken process-context))
@@ -312,8 +309,17 @@
                (substring path 0 (+ i 1))
                (loop (- i 1))))))
 
-   ;; TODO: define `path-directory`
-   (define (path-directory path) (rsc-path-directory path))
+   (define (string-end string)
+     (string-ref string (- (string-length string) 1)))
+
+   (define (path-directory path)
+     (if (eqv? (string-end path) #\/)
+       path
+       (let ((len (string-length path)))
+         (let loop ((i (- len 1)))
+           (if (or (eqv? (string-ref path i) #\/) (eqv? i 0))
+             (substring path 0 i)
+             (loop (- i 1)))))))
 
    (define (path-expand path dir)
      (if (or (= (string-length dir) 0) (string-prefix? dir path))
@@ -457,6 +463,10 @@
 
   (define (executable-path)
     (executable-pathname)))
+
+ (ribbit
+   (define (script-file)
+     (car (command-line))))
 
  (else
    (define (script-file)
@@ -883,7 +893,7 @@
         (eqv? next1 next2)
         (and (c-rib? next1) (c-rib? next2) (c-rib-eq? next1 next2))))))
 
-(define table-hash-size 512)
+(define table-hash-size 32000)
 
 
 (define (hash-c-rib field0 field1 field2)
@@ -904,6 +914,13 @@
 
       (else (error "Cannot hash the following instruction : " op))))
 
+  (define (hash-combine-over-vector vec)
+    (let ((len (vector-length vec)))
+      (let loop ((i 0) (acc 0))
+        (if (< i (vector-length vec))
+          (loop (+ i 1) (hash-combine acc (opnd->hash (vector-ref vec i))))
+          acc))))
+
   (define (opnd->hash opnd)
     (cond
       ((null? opnd)
@@ -923,7 +940,7 @@
       ((list? opnd)
        (fold hash-combine 0 (map opnd->hash opnd)))
       ((vector? opnd)
-       (fold hash-combine 0 (map opnd->hash (vector->list opnd))))
+       (hash-combine-over-vector opnd))
       ((pair? opnd)
        (hash-combine (opnd->hash (car opnd)) (opnd->hash (cdr opnd))))
       ((c-rib? opnd)
@@ -1366,7 +1383,7 @@
       return
       0
       (c-make-procedure
-        (c-rib 2 ;; 0 parameters
+        (c-rib 0 ;; 0 parameters
                0
                (comp ctx
                      expansion
@@ -1429,12 +1446,12 @@
 
 (define defined-features '()) ;; used as parameters for expand-functions
 
-;; (cond-expand
-;;   (ribbit
-;;    (define (current-directory) (path-directory (car (cmd-line)))))
-;;
-;;   (else
-;;     (begin)))
+(cond-expand
+  (ribbit
+   (define (current-directory) (path-directory (car (cmd-line)))))
+
+  (else
+    (begin)))
 
 ;; For includes
 (define current-resource `(file ,(current-directory) "MAIN"))
@@ -1468,7 +1485,7 @@
               (expand-constant (cadr expr)))
 
              ((eqv? first 'quasiquote)
-              (expand-quasiquote (cadr expr)))
+              (expand-quasiquote (cadr expr) mtx))
 
              ((eqv? first 'set!)
               (let* ((var (cadr expr))
@@ -1747,7 +1764,7 @@
     x
     (list 'quote x)))
 
-(define (expand-quasiquote rest)
+(define (expand-quasiquote rest mtx)
   (let parse ((x rest) (depth 1))
     (cond
       ((not (pair? x))
@@ -1757,12 +1774,12 @@
       ((eqv? (car x) 'unquote)
        (if (= depth 1)
          (if (pair? (cdr x))
-           (cadr x)
+           (expand-expr (cadr x) mtx)
            (error "unquote: bad syntax"))
          (list '##qq-cons (expand-constant 'unquote) (parse (cdr x) (- depth 1)))))
       ((and (pair? (car x)) (eqv? (caar x) 'unquote-splicing))
        (if (= depth 1)
-         (list '##qq-append (cadar x) (parse (cdr x) depth))
+         (list '##qq-append (expand-expr (cadar x) mtx) (parse (cdr x) depth))
          (list '##qq-cons (list '##qq-cons (expand-constant 'unquote-splicing) (parse (cdar x) (- depth 1))) (parse (cdr x) depth))))
       ((eqv? (car x) 'quasiquote)
        (list '##qq-cons (expand-constant 'quasiquote) (parse (cdr x) (+ depth 1))))
@@ -1849,7 +1866,6 @@
                         (resource-file current-resource)
                         ". "
                         (string-concatenate (map object->string args) " "))))
-
 
 
 
@@ -1998,15 +2014,25 @@
 (define resource-str-reader-table
   `((ribbit
       ,(lambda (resource-path)
-         (let ((resource-path (path-normalize (path-expand resource-path (path-expand "lib" (ribbit-root-dir))))))
-           (if (not (file-exists? resource-path))
-             (error "The path needs to point to an existing file. Error while trying to include library at" resource-path)
-             (string-from-file resource-path)))))
+         (let* ((resource-paths 
+                  (fold 
+                    (lambda (lib-path acc) 
+                      (let ((path (path-normalize (path-expand resource-path lib-path))))
+                        (append 
+                          (list (string-append path ".scm") path)
+                          acc)))
+                    '()
+                    ribbit-path))
+                (valid-resource-path
+                  (filter file-exists? resource-paths)))
+          (if (null? valid-resource-path)
+             (error "Error while trying to include library, file doesn't exist." resource-paths)
+             (open-input-file (car valid-resource-path))))))
 
     (file ,(lambda (resource-path)
              (if (not (file-exists? resource-path))
-               (error "The path needs to point to an existing file. Error while trying to include library at" resource-path)
-               (string-from-file resource-path))))))
+               (error "Error while trying to include library, file doesn't exist." resource-path)
+               (open-input-file resource-path))))))
 
 (define (add-resource-str-reader! name reader)
   (if (or (not (symbol? name)) (memq #\: (string->list (symbol->string name))))
@@ -2016,17 +2042,20 @@
   (set! resource-str-reader-table (append resource-str-reader-table (list (list name reader)))))
 
 (define (parse-resource include-path)
-  (if (string-prefix? "./" include-path)  ;; for local folder "lib" where in the root of the project
-    (make-resource (car current-resource) (path-normalize (path-expand (path-normalize include-path) (resource-dir current-resource))))
+  (let ((resource-type 
+          (if (pair? include-path) 
+            (car include-path) 
+            (car current-resource)))
+        (path 
+          (if (pair? include-path) 
+            (path-normalize (cadr include-path))
+            (path-normalize 
+              (path-expand 
+                (path-normalize include-path) 
+                (resource-dir current-resource))))))
+    (make-resource resource-type path)))
 
-    (let* ((splitted (string-split include-path #\:))
-           (resource-prefix (car splitted))
-           (resource-path (cdr splitted)))
-      (if (null? resource-path)
-        (make-resource (car current-resource) (path-normalize (path-expand (path-normalize include-path) (resource-dir current-resource))))
-        (make-resource (string->symbol resource-prefix) (path-normalize (string-concatenate resource-path ":")))))))
-
-(define (read-str-resource resource)
+(define (get-resource-port resource)
   (let ((resource-path (resource-file resource))
         (reader (assq (resource-type resource) resource-str-reader-table)))
     (if reader
@@ -2036,7 +2065,7 @@
 (define (expand-resource resource mtx)
   (let ((old-current-resource current-resource))
     (set! current-resource resource)
-    (let ((result (expand-begin (read-all (open-input-string (read-str-resource resource))) mtx)))
+    (let ((result (expand-begin (read-all (get-resource-port resource)) mtx)))
       (set! current-resource old-current-resource)
       result)))
 
@@ -2112,10 +2141,11 @@
 
   (if (live-env-live? live-env var)
     live-env
-    (live-env-set-globals!
-      live-env
-      (let ((g (cons var '())))
-        (cons g (live-env-globals live-env))))))
+    (begin
+      (live-env-set-globals!
+        live-env
+        (let ((g (cons var '())))
+          (cons g (live-env-globals live-env)))))))
 
 (define (live-env-live? live-env var)
   (assq var (live-env-globals live-env)))
@@ -4260,8 +4290,14 @@
 (define (ribbit-root-dir) ;; TODO: make it work (maybe with a primitive or a env variable)
   (root-dir))
 
+; Path where to find the ribbit libraries
+(define ribbit-path (list (path-expand "lib" (ribbit-root-dir))))
 
 (define (read-from-file path)
+
+  (if (not (file-exists? path))
+    (error "*** Cannot find source file at location" path))
+  
   (let* ((port (open-input-file path))
          (first-line (read-line port #\newline))
          (port (if (and (not (eof-object? first-line)) (string-prefix? "#!" first-line))
@@ -4272,13 +4308,7 @@
     (read-all port)))
 
 (define (read-library lib-path)
-  (list (list
-      '##include-once
-      (string-append
-        "ribbit:"
-        (if (equal? (rsc-path-extension lib-path) "")
-          (string-append lib-path ".scm")
-          lib-path)))))
+  `((##include-once (ribbit ,lib-path))))
 
 (define (read-program lib-path src-path)
   (append (apply append (map read-library lib-path))
@@ -4708,6 +4738,7 @@
     `((encode ,encode-as-string 2)
       (encode-as-bytes ,encode-as-bytes 5)
       (encode-as-string ,encode-as-string 2)
+      (rvm-code-to-bytes ,rvm-code-to-bytes 3)
       (list->host ,list->host 5)))
 
 
@@ -4967,12 +4998,13 @@
   (if progress-status
     (display "...Done.\n")))
 
-(define (report-status msg cont)
-  (if progress-status
-    (begin
-      (report-done)
-      (report-first-status msg #f)))
-  cont)
+(define-macro (report-status msg cont)
+  `(if progress-status
+     (begin
+       (report-done)
+       (report-first-status ,msg #f)
+       ,cont)
+     (begin ,cont)))
 
 ;;;----------------------------------------------------------------------------
 
@@ -5007,6 +5039,12 @@
 
   (set! target _target) ;; hack to propagate the target to the expension phase
   (set! progress-status _progress-status)
+  (set! ribbit-path 
+    (cons
+      (path-expand 
+        (string-append "host/" _target "/lib")  
+        (ribbit-root-dir))
+      ribbit-path))
 
   (let* ((vm-source
            (if (equal? _target "rvm")
