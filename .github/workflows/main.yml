@@ -1,0 +1,25 @@
+name: Test
+run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
+on: 
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+jobs:
+  download_gambit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download a Build Artifact
+      - uses: actions/download-artifact@v4
+      - with: 
+        # Name of the artifact to download. If unspecified, all artifacts for the run are downloaded.
+        name: gambit-linux-x86_64
+        path: gambit
+        # The repository owner and the repository name joined together by "/". If github-token is specified, this is the repository that artifacts will be downloaded from.
+        repository: gambit/gambit
+        # The id of the workflow run where the desired download artifact was uploaded from. If github-token is specified, this is the run that artifacts will be downloaded from.
+        run-id: 7920968329
