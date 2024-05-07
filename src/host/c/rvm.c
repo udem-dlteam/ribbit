@@ -160,7 +160,7 @@ typedef struct {
 // GC constants
 rib *heap_start;
 obj *alloc_limit;
-#define MAX_NB_OBJS 1000000 // 48000 is minimum for bootstrap
+#define MAX_NB_OBJS 100000000 // 48000 is minimum for bootstrap
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
 #define heap_mid (heap_bot + (SPACE_SZ))
@@ -338,7 +338,7 @@ void gc() {
   obj *from_space = (alloc_limit == heap_mid) ? heap_bot : heap_mid;
 
   size_t objc = alloc - from_space;
-  printf("\t--GC %d -> ", objc);
+  printf("\t--GC %zu -> ", objc);
 #endif
 
   // swap
@@ -368,7 +368,7 @@ void gc() {
 #ifdef DEBUG_GC
 
   objc = alloc - to_space;
-  printf("%d\n", objc);
+  printf("%zu\n", objc);
   fflush(stdout);
 
 #endif
