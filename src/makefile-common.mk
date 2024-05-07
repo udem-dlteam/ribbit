@@ -28,6 +28,7 @@ TEMP_DIR ?= .tests
 
 BOOT_FILE ?= rsc.scm
 BOOT_FILE2 ?= ${BOOT_FILE}
+BOOT_HOST ?= ${HOST}
 BOOT0 ?=
 BOOT1 ?= ${BOOT0}
 
@@ -49,13 +50,13 @@ build-rsc: ../../rsc.scm
 
 check-bootstrap:
 	echo "====================== TESTING FIRST BOOSTRAP ===="
-	cd ../.. && time ${RSC_COMPILER} -ps -t ${HOST} -l r4rs -l prim-wrap ${BOOT0} -l boot-host -f+ v-port -o rsc-bootstrap1.${HOST} ${BOOT_FILE}
+	cd ../.. && time ${RSC_COMPILER} -ps -t ${HOST} -l r4rs -l prim-wrap ${BOOT0} -l boot-host -e original -f+ v-port -o rsc-bootstrap1.${HOST} ${BOOT_FILE}
 	@cd ../..; \
 	if [ "${HOST_INTERPRETER}" != "" ]; then \
-		time ${HOST_INTERPRETER} rsc-bootstrap1.${HOST} -ps -t ${HOST} -l r4rs -l prim-wrap ${BOOT0} -l boot-host -f+ v-port -o rsc-bootstrap2.${HOST} ${BOOT_FILE}; \
+		time ${HOST_INTERPRETER} rsc-bootstrap1.${HOST} -ps -t ${HOST} -l r4rs -l prim-wrap ${BOOT0} -l boot-host -e original -f+ v-port -o rsc-bootstrap2.${HOST} ${BOOT_FILE}; \
   else \
 		${HOST_COMPILER} rsc-bootstrap1.exe -g rsc-bootstrap1.${HOST}; \
-		time ./rsc-bootstrap1.exe -ps -t ${HOST} -l r4rs -l prim-wrap ${BOOT0} -l boot-host -f+ v-port -o rsc-bootstrap2.${HOST} ${BOOT_FILE}; \
+		time ./rsc-bootstrap1.exe -ps -t ${HOST} -l r4rs -l prim-wrap ${BOOT0} -l boot-host -f+ v-port -e original -o rsc-bootstrap2.${HOST} ${BOOT_FILE}; \
 	fi 
 
 
