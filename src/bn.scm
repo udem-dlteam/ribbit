@@ -2,17 +2,15 @@
 
 ;; bignums operations (two's complement, little endian representation)
 
-;; second `x` is for the variadic version of the procedure
-
 ;; `x+t` means that the procedure is "fully" tested
 
-;; addition (bn+)              [x+t] [x] logic works but needs some cleanup
-;; substraction (bn-)          [x+t] [x]
+;; addition (bn+)              [x+t] logic works but needs some cleanup
+;; substraction (bn-)          [x+t]
 ;; unary substraction (bn-u)   [x+t]
 
-;; multiplication (bn*)        [x+t] [x] need a better algorithm 
+;; multiplication (bn*)        [x+t] need a better algorithm 
 
-;; quotient (bn-quotient)      [x+t]     need a better algorithm
+;; quotient (bn-quotient)      [x+t] need a better algorithm
 ;; remainder (bn-remainder)    [x+t]
 ;; modulo (bn-modulo)          [x+t]
 
@@ -24,8 +22,8 @@
 
 ;; negation (bn-neg)           [x+t]
 
-;; bitwise not (bn~)           [ ]     <- need to implement bitwise operations
-;; bitwise and (bn-and)        [ ]        for this to work in ribbit
+;; bitwise not (bn~)           [ ]   <- need to implement bitwise operations
+;; bitwise and (bn-and)        [ ]      for this to work in ribbit
 ;; bitwise or (bn-ior)         [ ] 
 ;; bitwise xor (bn-xor)        [ ]
 ;; shl                         [ ]
@@ -45,15 +43,19 @@
 
 ;; TODO stress tests for multiplication and quotient
 
-
+;; TODO variadic versions of the procedures
 
 ;; TODO
 ;;  - bitwise operations + tests
-;;  - eq? and equal? + normalisation
-;;  - cond-expand
-;;  - remove tabs
+;;  - normalisation (if necessary)
+;;  - cond-expand 
 ;;  - test with ribbit
 
+
+;; Léonard's comments:
+;;  - equal? => bn-eq? (infinite loop)        [x]
+;;  - expt not defined ribbit's r4rs library  [ ] just removed it for now
+;;  - bn-fold                                 [ ]
 
 ;;------------------------------------------------------------------------------
 
@@ -62,7 +64,9 @@
 
 ;; (define base (expt 2 15))
 
-(define base (expt 2 3))
+;; (define base (expt 2 3))
+
+(define base 8)
 
 ;; (define base 2) ;; for testing
 
@@ -98,14 +102,9 @@
 ;; (define (cdr lst) (field1 lst))
 ;; (define (cons a b) (rib a b 0))
 
-
-
 ;; for ribbit only
-(define (set-cdr! lst x)                
-  (##field1-set! lst x))
-
-
-
+;; (define (set-cdr! lst x)                
+;;   (##field1-set! lst x))
 
 (define bn0 (cons 0 '_))
 (set-cdr! bn0 bn0)
@@ -116,40 +115,32 @@
 (define (end? n)
   (or (eq? n bn0) (eq? n bn-1)))
 
-;; (define (end? n)
-;;   (or (equal? n bn0) (equal? n bn-1)))
 
 (define (_pp lst)
   (define (__pp lst)
-    (if (or (eq? lst bn0) (eq? lst bn-1))
-     (begin
-       (display (if (eq? lst bn0) "$0 $0 ...)" "$-1 $-1 ...)"))
-       (newline))
-     (begin
-       (display (car lst))
-       (display " ")
-       (__pp (cdr lst)))))
-  (display "(")
+    (if (end? lst)
+        (begin
+          (display (if (eq? lst bn0) "#($0 #($0 ..." "#($-1 #($-1 ..."))
+          ;; (display (if (eq? lst bn0) "$0 $0 ...)" "$-1 $-1 ...)"))
+          (newline))
+        (begin
+          (display "#(")
+          (display (car lst))
+          (display " ")
+          (__pp (cdr lst)))))
+  ;; (display "(")
   (__pp lst))
 
+;; (define (bn-fold func base lst)
+;;   (if (pair? lst)
+;;       (bn-fold func (func (car lst) base) (cdr lst))
+;;       base))
 
-;; (define (_pp lst)
-;;   (define (__pp lst)
-;;     (if (or (eq? lst bn0) (eq? lst bn-1))
-;;         (begin
-;;           (display (if (eq? lst bn0) "#($0 #($0 ..." "#($-1 #($-1 ..."))
-;;           (newline))
-;;         (begin
-;;           (display "#(")
-;;           (display (car lst))
-;;           (display " ")
-;;           (__pp (cdr lst)))))
-;;   (__pp lst))
+(define (bn-eq? a b)
+  (if (and (end? a) (end? b))
+      (eq? a b)
+      (and (eqv? (car a) (car b)) (bn-eq? (cdr a) (cdr b)))))
 
-(define (bn-fold func base lst)
-  (if (pair? lst)
-      (bn-fold func (func (car lst) base) (cdr lst))
-      base))
 
 ;;------------------------------------------------------------------------------
 
@@ -186,14 +177,14 @@
       (cons 0 bn-1)
       (_bn+ a b 0)))
 
-(define (var-bn+ . args)
-  (bn-fold (lambda (a b) (bn+ a b)) bn0 args))
+;; (define (var-bn+ . args)
+;;   (bn-fold (lambda (a b) (bn+ a b)) bn0 args))
 
 (define (bn- a b)
   (bn+ a (bn-neg b)))
 
-(define (var-bn- . args)
-  (bn-fold (lambda (a b) (bn- a b)) bn0 args))
+;; (define (var-bn- . args)
+;;   (bn-fold (lambda (a b) (bn- a b)) bn0 args))
 
 (define (bn-u a)
   (bn- bn0 a))
@@ -240,8 +231,8 @@
       (__bn* (bn-abs a) (bn-abs b))
       (bn-neg (__bn* (bn-abs a) (bn-abs b)))))
 
-(define (var-bn* . args)
-  (bn-fold (lambda (a b) (bn* a b)) (cons 1 bn0) args))
+;; (define (var-bn* . args)
+;;   (bn-fold (lambda (a b) (bn* a b)) (cons 1 bn0) args))
 
 
 ;; faster algorithms
@@ -278,12 +269,12 @@
 ;; comparison
 
 (define (bn= a b)
-  (equal? a b))
+  (bn-eq? a b))
 
 (define (bn< a b)
   (if (and (end? a) (end? b))  
       (if (eq? a b) #f (eq? a bn-1))
-      (if (equal? (cdr a) (cdr b))
+      (if (bn-eq? (cdr a) (cdr b))
           (< (car a) (car b))
           (bn< (cdr a) (cdr b)))))
 
@@ -362,7 +353,7 @@
   (bn+ (bn~ a) (cons 1 bn0)))
 
 (define (bn-zero? a)
-  (equal? a bn0))
+  (bn-eq? a bn0))
 
 (define (bn-positive? a)
   (bn< bn0 a))
@@ -387,12 +378,12 @@
         (bn-gcd-aux _b _a))))
 
 (define (bn-gcd-aux a b)
-  (if (equal? a bn0)
+  (if (bn-eq? a bn0)
       b
       (bn-gcd-aux (bn-remainder b a) a)))
 
 (define (bn-lcm a b)
-  (if (equal? b bn0)
+  (if (bn-eq? b bn0)
       (let ((_a (bn-abs a))
             (_b (bn-abs b)))
         (bn* (bn-quotient _a (bn-gcd _a _b)) _b))))
@@ -405,6 +396,8 @@
 
 ;; utilities
 
+;; FIXME define-macro doesn't work 
+
 ;; (define-macro (test a b)
 ;;   `(let ((_a ,a)
 ;;          (_b ,b))
@@ -416,12 +409,14 @@
 ;;            (newline)))))
 
 (define (test a b)
-  (if (not (equal? a b))
+  (if (not (bn-eq? a b))
       (begin
         (display "results not matching: ") 
         (display "a: ") (_pp a)
         (display "b: ")(_pp b)
         (newline))))
+
+;; for comparison tests
 
 ;; (define-macro (test2 a b)
 ;;   `(let ((_a ,a)
@@ -432,8 +427,6 @@
 ;;            (display "a: ") (pp _a)
 ;;            (display "b: ")(pp _b)
 ;;            (newline)))))
-
-;; for comparison tests
 
 (define (test2 a b)
   (if (not (eqv? a b))
