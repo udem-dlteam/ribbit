@@ -2,73 +2,78 @@
 
 ;; bignums operations (two's complement, little endian representation)
 
-;; `x+t` means that the procedure is "fully" tested
 
-;; addition (bn+)              [x+t] logic works but needs some cleanup
-;; substraction (bn-)          [x+t]
-;; unary substraction (bn-u)   [x+t]
+;; TODO
 
-;; multiplication (bn*)        [x+t] need a better algorithm 
+;; normalization (bn-norm & co)[x] special case for -1 doesn't change anything
+;; fold (bn-fold)              [x] same as the fold defined in ribbit
+;; fixnum?                     [-] temporary def
+;; bignum?                     [-] temporary def
+;; fixnum->bignum              [x]
+;; bignum->fixnum              [x]
+;; bn-encode                   [x] need to integrate in fixnum->bignum
 
-;; quotient (bn-quotient)      [x+t] need a better algorithm
-;; remainder (bn-remainder)    [x+t]
-;; modulo (bn-modulo)          [x+t]
+;; addition (bn+)              [x] logic works but needs some cleanup
+;; variadic addition           [x]
+;; substraction (bn-)          [x] variadic substraction not defined in ribbit
+;; unary substraction (bn-u)   [x]
 
-;; equal (bn=)                 [x+t]
-;; less (bn<)                  [x+t]
-;; less or equal (bn<=)        [x+t]
-;; greater (bn>)               [x+t]
-;; greater or equal (bn>=)     [x+t]
+;; multiplication (bn*)        [x] need a better algorithm
+;; variadic multiplication     [x]
 
-;; negation (bn-neg)           [x+t]
+;; quotient (bn-quotient)      [x] need a better algorithm
+;; remainder (bn-remainder)    [x]
+;; modulo (bn-modulo)          [x]
 
-;; bitwise not (bn~)           [ ]   <- need to implement bitwise operations
-;; bitwise and (bn-and)        [ ]      for this to work in ribbit
-;; bitwise or (bn-ior)         [ ] 
-;; bitwise xor (bn-xor)        [ ]
-;; shl                         [ ]
-;; shift-left                  [ ]
-;; shr                         [ ]
-;; shift-right                 [ ]
+;; equal (bn=)                 [x]
+;; variadic equal              [x]
+;; less (bn<)                  [x]
+;; variadic less               [x]
+;; less or equal (bn<=)        [x]
+;; variadic less or equal      [x]
+;; greater (bn>)               [x]
+;; variadic greater            [x]
+;; greater or equal (bn>=)     [x]
+;; variadic greater or equal   [x]
+
+;; negation (bn-neg)           [x]
+
+;; bitwise not (bn~)           [x] no bitwise operators in ribbit
 
 ;; bn-zero?                    [x]
 ;; bn-positive?                [x]
 ;; bn-negative?                [x]
+;; bn-even?                    [x]
+;; bn-odd?                     [x]
 ;; bn-max                      [x]
+;; variadic min                [x]
 ;; bn-min                      [x]
+;; variadic min                [x]
 ;; bn-abs                      [x]
 ;; bn-gcd                      [x]
+;; variadic gcd                [ ]
 ;; bn-lcm                      [x]
+;; variadic lcm                [ ]
 
 
-;; TODO stress tests for multiplication and quotient
+;; functions accept both fixnums and bignums  [x]
 
-;; TODO variadic versions of the procedures
+;; normalize all primary functions            [x]
 
-;; TODO
-;;  - bitwise operations + tests
-;;  - normalisation (if necessary)
-;;  - cond-expand 
-;;  - test with ribbit
+;; tests (inc. stress tests for mult and quo) [ ]
 
-
-;; Léonard's comments:
-;;  - equal? => bn-eq? (infinite loop)        [x]
-;;  - expt not defined ribbit's r4rs library  [ ] just removed it for now
-;;  - bn-fold                                 [ ]
 
 ;;------------------------------------------------------------------------------
 
 ;; utilities
 
 
-;; (define base (expt 2 15))
-
-;; (define base (expt 2 3))
+;; (define base 32768)
 
 (define base 8)
 
-;; (define base 2) ;; for testing
+;; (define base 2)
+
 
 ;; (cond-expand
  
@@ -102,7 +107,8 @@
 ;; (define (cdr lst) (field1 lst))
 ;; (define (cons a b) (rib a b 0))
 
-;; for ribbit only
+
+;; ;; for ribbit only
 ;; (define (set-cdr! lst x)                
 ;;   (##field1-set! lst x))
 
@@ -115,31 +121,100 @@
 (define (end? n)
   (or (eq? n bn0) (eq? n bn-1)))
 
+(define (bn-fold func base lst)
+  (if (pair? lst)
+      (bn-fold func (func (car lst) base) (cdr lst))
+      base))
 
-(define (_pp lst)
-  (define (__pp lst)
-    (if (end? lst)
-        (begin
-          (display (if (eq? lst bn0) "#($0 #($0 ..." "#($-1 #($-1 ..."))
-          ;; (display (if (eq? lst bn0) "$0 $0 ...)" "$-1 $-1 ...)"))
-          (newline))
-        (begin
-          (display "#(")
-          (display (car lst))
-          (display " ")
-          (__pp (cdr lst)))))
-  ;; (display "(")
-  (__pp lst))
+(define (scan-until-false func base state lst)
+  (if (and (pair? lst) state)
+    (scan-until-false func (car lst) (func base (car lst)) (cdr lst))
+    state))
 
-;; (define (bn-fold func base lst)
-;;   (if (pair? lst)
-;;       (bn-fold func (func (car lst) base) (cdr lst))
-;;       base))
+(define (fixnum? n) ;; temp, for our current representation
+  (and (number? n) (< n base) (> n (- 0 base))))
 
-(define (bn-eq? a b)
-  (if (and (end? a) (end? b))
-      (eq? a b)
-      (and (eqv? (car a) (car b)) (bn-eq? (cdr a) (cdr b)))))
+(define (bignum? n) ;; temp, for our current representation
+  (pair? n))
+
+(define (fixnum->bignum n)
+  (if (fixnum? n)
+      (if (eq? 0 n)
+          bn0
+          (if (< n 0)
+              (cons (+ base n) bn-1) 
+              (cons n bn0)))
+      (if (and (number? n) (or (>= n base) (<= n (- 0 base))))
+          (bn-encode n)
+          n))) ;; assuming n is a bignum for now
+         
+(define (bignum->fixnum n)
+  (if (bignum? n)
+      (if (end? (cdr n))
+          (if (eq? bn0 (cdr n))
+              (car n)
+              (if (eq? 0 (car n))  ;; (0 $-1 $-1 ...) is not a fixnum
+                  n
+                  (- 0 (bn-neg n))))
+          n)
+      n))
+
+(define (bn-encode n)
+  (define (_bn-encode n)
+    (cond ((and (> n (- 0 base)) (< n base))
+           (cons n bn0))
+          (else
+           (cons (remainder n base) (_bn-encode (quotient n base))))))
+  (let ((_n (_bn-encode (abs n))))
+    (if (<= 0 n)
+        _n
+        (bn-neg _n))))
+
+
+;;------------------------------------------------------------------------------
+
+;; normalization
+
+;; Removes unnecessary symbols from a bignum e.g. (0 1 0 0 bn0) => (0 1 bn0)
+;; and transforms the resulting bignum into a fixnum if possible.
+
+;; The algorithm uses two "pointers" (p1, p2), one (p1) that memorizes the
+;; previous symbol encountered and its last position in the list, while
+;; the other one (p2) seeks the first occurence of a new symbol. If p2
+;; encounters bn0 (bn-1), we strip off the unnecessary symbols. Example:
+
+;; 0 0 0 1 1 1 0 0 0 0 0 bn0  =>  0 0 0 1 1 1 0 0 0 0 0 bn0
+;; ^ ^                            ^     ^
+;;                            =>  0 0 0 1 1 1 0 0 0 0 0 bn0
+;;                                    ^ ^
+;;                            =>  0 0 0 1 1 1 0 0 0 0 0 bn0
+;;                                    ^       ^
+;;                            =>  0 0 0 1 1 1 0 0 0 0 0 bn0
+;;                                          ^ ^
+;;                            =>  0 0 0 1 1 1 0 0 0 0 0 bn0
+;;                                          ^            ^
+;;                            =>  0 0 0 1 1 1 bn0
+
+(define (bn-norm n) 
+
+  (define (__bn-norm _p1 _p2)
+    (if (eq? (car (cdr _p1)) (car _p2)) 
+        (cons (car _p1) (_bn-norm (cdr _p1) _p2)) 
+        (cons (car _p1) (__bn-norm (cdr _p1) _p2))))
+
+  (define (_bn-norm p1 p2)
+    (if (eq? (car p1) (car p2))
+        (if (or (eq? p2 bn0) (eq? p2 bn-1)) ;; end?
+            p2
+            (_bn-norm p1 (cdr p2))) ;; find next 
+        (__bn-norm p1 p2)))         ;; memorize prev
+
+  (if (number? n)
+      (if (fixnum? n)
+          n
+          (fixnum->bignum n))
+      (let ((_n (_bn-norm n (cdr n))))
+        (bignum->fixnum _n))))
 
 
 ;;------------------------------------------------------------------------------
@@ -159,11 +234,12 @@
 ;;        (intuition: sum of pos (neg) numbers will always be pos (neg))
 
 (define (bn+ a b)
+  
   (define (_bn+ a b carry)
     (if (and (end? a) (end? b))
         (if (eq? a b)
             (if (eq? 0 carry)
-                (if (eq? a bn0) bn0 bn-1) ;;(cons 0 bn-1))
+                (if (eq? a bn0) bn0 bn-1)
                 (cons carry (_bn+ (cdr a) (cdr b) 0)))
             (if (eq? 0 carry) bn-1 bn0))
         (let* ((_a (car a))
@@ -172,25 +248,30 @@
                (rem (modulo res base))
                (quo (quotient res base)))
           (cons rem (_bn+ (cdr a) (cdr b) quo)))))
-  ;; (_bn+ a b 0))
+  
   (if (and (eq? a bn-1) (eq? b bn-1)) ;; small patch, need to rework that
-      (cons 0 bn-1)
-      (_bn+ a b 0)))
+      (- 0 2) ;; -2
+      (let ((_a (fixnum->bignum a))
+            (_b (fixnum->bignum b)))
+        (bn-norm (_bn+ _a _b 0)))))
 
-;; (define (var-bn+ . args)
-;;   (bn-fold (lambda (a b) (bn+ a b)) bn0 args))
+
+(define (var-bn+ . args)
+  (bn-fold (lambda (a b) (bn+ a b)) bn0 args))
+
 
 (define (bn- a b)
   (bn+ a (bn-neg b)))
 
-;; (define (var-bn- . args)
-;;   (bn-fold (lambda (a b) (bn- a b)) bn0 args))
 
 (define (bn-u a)
   (bn- bn0 a))
 
+
 (define (bn-remainder a b)
   (bn- a (bn* b (bn-quotient a b))))
+
+;; FIXME not sure if I need to modify anything here to deal with fixnums
 
 (define (bn-modulo a b)
   (let ((r (bn-remainder a b)))
@@ -199,7 +280,6 @@
         (if (eqv? (bn< a bn0) (bn< b bn0))
             r
             (bn+ r b)))))
-
 
 ;;------------------------------------------------------------------------------
 
@@ -213,26 +293,35 @@
   (define (_bn* a b carry)  ;; one line multiplication
     (if (end? a)
         (if (eq? 0 carry) bn0 (cons carry bn0))
-        (let* ((_a (car a))
-               (_b (car b))
-               (res (+ (* _a _b) carry))
+        (let* ((_a (fixnum->bignum a))
+               (_b (fixnum->bignum b))
+               (__a (car _a))
+               (__b (car _b))
+               (res (+ (* __a __b) carry))
                (rem (modulo res base))
                (quo (quotient res base)))
-          (cons rem (_bn* (cdr a) b quo)))))
+          (cons rem (_bn* (cdr _a) _b quo)))))
   
   (define (__bn* a b) ;; full (positive) mutiplication
     (if (end? b)
         bn0 
-        (let ((res (_bn* a b 0)) 
-              (pad (cons 0 a))) 
-          (bn+ res (__bn* pad (cdr b))))))
-  
-  (if (eqv? (bn< a bn0) (bn< b bn0)) 
-      (__bn* (bn-abs a) (bn-abs b))
-      (bn-neg (__bn* (bn-abs a) (bn-abs b)))))
+        (let* ((_a (fixnum->bignum a))
+               (_b (fixnum->bignum b))
+               (res (_bn* _a _b 0))
+               (pad (cons 0 _a)))
+          (bn+ res (__bn* pad (cdr _b))))))
 
-;; (define (var-bn* . args)
-;;   (bn-fold (lambda (a b) (bn* a b)) (cons 1 bn0) args))
+  (if (and (fixnum? a) (fixnum? b))
+      (bn-norm (* a b))
+      (let ((_a (if (fixnum? a) (fixnum->bignum a) a))
+            (_b (if (fixnum? b) (fixnum->bignum b) b)))
+        (if (eqv? (bn< _a bn0) (bn< _b bn0))
+            (bn-norm (__bn* (bn-abs _a) (bn-abs _b)))
+            (bn-norm (bn-neg (__bn* (bn-abs _a) (bn-abs _b))))))))
+
+
+(define (var-bn* . args)
+  (bn-fold (lambda (a b) (bn* a b)) (cons 1 bn0) args))
 
 
 ;; faster algorithms
@@ -254,14 +343,20 @@
 
 (define (bn-quotient a b)
   (define (_bn-quotient a b quo)
-    (if (bn< (bn-abs a) (bn-abs b))
-        quo
-        (if (eqv? (bn< a bn0) (bn< b bn0))
-            (_bn-quotient (bn- a b) b (bn+ quo (cons 1 bn0)))
-            (_bn-quotient (bn+ a b) b (bn+ quo (cons 1 bn-1))))))
-  (if (eq? b bn0)
-      (display "error: division by 0") ;; error handling?
-      (_bn-quotient a b bn0)))
+    (let ((_a (fixnum->bignum a))
+          (_b (fixnum->bignum b)))
+      (if (bn< (bn-abs a) (bn-abs b))
+          quo
+          (if (eqv? (bn< _a bn0) (bn< _b bn0))
+              (_bn-quotient (bn- _a _b) _b (bn+ quo (cons 1 bn0)))
+              (_bn-quotient (bn+ _a _b) _b (bn+ quo (cons 1 bn-1)))))))
+  (if (and (fixnum? a) (fixnum? b))
+      (quotient a b)
+      (let ((_a (if (fixnum? a) (fixnum->bignum a) a))
+            (_b (if (fixnum? b) (fixnum->bignum b) b)))
+        (if (eq? _b bn0)
+            (display "error: division by 0") ;; error handling?
+            (bn-norm (_bn-quotient a b bn0))))))
 
 
 ;;------------------------------------------------------------------------------
@@ -269,62 +364,95 @@
 ;; comparison
 
 (define (bn= a b)
-  (bn-eq? a b))
+  (if (and (pair? a) (pair? b))
+      (if (and (end? a) (end? b))
+          (eq? a b)
+          (and (eqv? (car a) (car b)) (bn= (cdr a) (cdr b))))
+      (if (number? a)
+          (if (number? b)
+              (eq? a b)
+              (bn= (fixnum->bignum a) b))
+          (bn= a (fixnum->bignum b)))))
+
+;; (define (bn= a b)
+;;   (eq? (bn- a b) bn0))
+
+(define (var-bn= a . rest)
+  (scan-until-false eqv? a #t rest))
 
 (define (bn< a b)
-  (if (and (end? a) (end? b))  
-      (if (eq? a b) #f (eq? a bn-1))
-      (if (bn-eq? (cdr a) (cdr b))
-          (< (car a) (car b))
-          (bn< (cdr a) (cdr b)))))
+  (define (_bn< a b)
+    (let ((_a (fixnum->bignum a))
+          (_b (fixnum->bignum b)))
+      (if (and (end? _a) (end? _b))  
+          (if (eq? _a _b) #f (eq? _a bn-1))
+          (if (bn= (cdr _a) (cdr _b))
+              (< (car _a) (car _b))
+              (_bn< (cdr _a) (cdr _b))))))
+  (if (and (bn-negative? a) (bn-negative? b))
+      (_bn< b a)
+      (_bn< a b)))
+
+(define (var-bn< a . rest) 
+  (scan-until-false (lambda (a b) (bn< a b)) a #t rest))
 
 (define (bn<= a b)
   (or (bn= a b) (bn< a b)))
 
+(define (var-bn<= a . rest)
+  (scan-until-false (lambda (a b) (not (bn< b a))) a #t rest))
+
 (define (bn> a b)
   (not (bn<= a b)))
 
+(define (var-bn> a . rest) 
+  (scan-until-false (lambda (a b) (bn< b a)) a #t rest))
+
 (define (bn>= a b)
   (not (bn< a b)))
+
+(define (var-bn>= a . rest) 
+  (scan-until-false (lambda (a b) (not (bn< a b))) a #t rest))
 
 
 ;;------------------------------------------------------------------------------
 
 ;; bitwise operations
 
-(define (bn~ a) 
+(define (bn~ a)
+  (define (_bn~ a)
     (if (end? a)
-        (if (or (eq? a bn0) (eq? (cdr a) bn0)) bn-1 bn0)
-        ;;(if (equal? a bn0) bn-1 bn0)
+        (if (eq? a bn0) bn-1 bn0)
         (let* ((_a (car a))
                (res (- (- base 1) _a)))
-          (cons res (bn~ (cdr a))))))
+          (cons res (_bn~ (cdr a))))))
+  (bn-norm (_bn~ (fixnum->bignum a))))
 
 ;; FIXME only works with gambit since ribbit doesn't support bitwise operations
 
-(cond-expand
+;; (cond-expand
 
- (gambit
+;;  (gambit
 
-  (define (bn-and a b)
-    (if (and (end? a) (end? b))
-        (if (and (equal? a bn-1) (equal? b bn-1)) bn-1 bn0)
-        (let ((res (bitwise-and (car a) (car b))))
-          (cons res (bn-and (cdr a) (cdr b))))))
+;;   (define (bn-and a b)
+;;     (if (and (end? a) (end? b))
+;;         (if (and (equal? a bn-1) (equal? b bn-1)) bn-1 bn0)
+;;         (let ((res (bitwise-and (car a) (car b))))
+;;           (cons res (bn-and (cdr a) (cdr b))))))
 
-  (define (bn-ior a b)
-    (if (and (end? a) (end? b))
-        (if (or (equal? a bn-1) (equal? b bn-1)) bn-1 bn0)
-        (let ((res (bitwise-ior (car a) (car b))))
-          (cons res (bn-or (cdr a) (cdr b))))))
+;;   (define (bn-ior a b)
+;;     (if (and (end? a) (end? b))
+;;         (if (or (equal? a bn-1) (equal? b bn-1)) bn-1 bn0)
+;;         (let ((res (bitwise-ior (car a) (car b))))
+;;           (cons res (bn-or (cdr a) (cdr b))))))
 
-  (define (bn-xor a b)
-    (if (and (end? a) (end? b))
-        (if (equal? a b) bn0 bn-1)
-        (let ((res (bitwise-xor (car a) (car b))))
-          (cons res (bn-xor (cdr a) (cdr b))))))
+;;   (define (bn-xor a b)
+;;     (if (and (end? a) (end? b))
+;;         (if (equal? a b) bn0 bn-1)
+;;         (let ((res (bitwise-xor (car a) (car b))))
+;;           (cons res (bn-xor (cdr a) (cdr b))))))
 
- ))
+;;  ))
 
 ;; TODO bit shifts currently only work with base 2
 
@@ -353,22 +481,47 @@
   (bn+ (bn~ a) (cons 1 bn0)))
 
 (define (bn-zero? a)
-  (bn-eq? a bn0))
+  (bn= a bn0))
 
 (define (bn-positive? a)
-  (bn< bn0 a))
+  (bn< 0 a))
 
-(define (bn-negative? a)
-  (bn< a bn0))
+(define (bn-negative? a) ;; can't define it with bn< since we use it there
+  (let ((_a (fixnum->bignum a)))
+    (if (eq? _a bn0)
+        #f
+        (or (eq? _a bn-1) (bn-negative? (cdr _a))))))
+
+(define (bn-even? a)
+  (let ((_a (bn-abs (fixnum->bignum a))))
+    (eq? 0 (bn-modulo _a (fixnum->bignum 2)))))
+
+(define (bn-odd? a)
+  (not (bn-even? a)))
 
 (define (bn-max a b)
-  (if (bn< a b) b a))
+  (if (bn< a b) (bn-norm b) (bn-norm a)))
+
+(define (var-bn-max a . rest)
+  (fold (lambda (curr best)
+          (if (bn< best curr)
+              (bn-norm curr)
+              (bn-norm best)))
+        a rest))
 
 (define (bn-min a b)
-  (if (bn< a b) a b))
+  (if (bn< a b) (bn-norm a) (bn-norm b)))
+
+(define (var-bn-min a . rest)
+  (fold (lambda (curr best)
+          (if (bn< best curr)
+              (bn-norm best)
+              (bn-norm curr)))
+        a rest))
 
 (define (bn-abs a)
-  (if (bn< a bn0) (bn-u a) a))
+  (let ((_a (fixnum->bignum a)))
+    (if (bn< _a bn0) (bn-u _a) (bn-norm _a))))
 
 (define (bn-gcd a b)
   (let ((_a (bn-abs a))
@@ -378,12 +531,12 @@
         (bn-gcd-aux _b _a))))
 
 (define (bn-gcd-aux a b)
-  (if (bn-eq? a bn0)
+  (if (bn= a bn0)
       b
       (bn-gcd-aux (bn-remainder b a) a)))
 
 (define (bn-lcm a b)
-  (if (bn-eq? b bn0)
+  (if (bn= b bn0)
       (let ((_a (bn-abs a))
             (_b (bn-abs b)))
         (bn* (bn-quotient _a (bn-gcd _a _b)) _b))))
@@ -401,7 +554,7 @@
 ;; (define-macro (test a b)
 ;;   `(let ((_a ,a)
 ;;          (_b ,b))
-;;      (if (not (equal? _a _b))
+;;      (if (not (bn= _a _b))
 ;;          (begin
 ;;            (display "results not matching: ") (pp ',a)
 ;;            (display "a: ") (_pp _a)
@@ -409,12 +562,14 @@
 ;;            (newline)))))
 
 (define (test a b)
-  (if (not (bn-eq? a b))
+  (if (not (bn= a b))
       (begin
         (display "results not matching: ") 
         (display "a: ") (_pp a)
         (display "b: ")(_pp b)
-        (newline))))
+        (newline))
+      ;;(_pp a)))
+      ))
 
 ;; for comparison tests
 
@@ -436,28 +591,85 @@
 
 (define base-1 (- base 1))
 
+(define (_pp obj)
+  (define (__pp lst)
+    (if (end? lst)
+        (begin
+          ;; (display (if (eq? lst bn0) "#($0 #($0 ..." "#($-1 #($-1 ..."))
+          (display (if (eq? lst bn0) "$0 $0 ...)"
+                       (if (eq? lst bn-1) "$-1 $-1 ...)" ")")))
+          (newline))
+        (begin
+          ;; (display "#(")
+          (display (car lst))
+          (display " ")
+          (__pp (cdr lst)))))
+  (if (integer? obj)
+      (begin
+        (display obj)
+        (newline))
+      (begin
+        (display "(")
+        (__pp obj))))
+
+;;------------------------------------------------------------------------------
+
+;; utilities
+
+
+;; normalization
+
+;; excessive symbols at the end + list starts with repetition
+(test (bn-norm (cons 0 (cons 0 (cons (- base 1) (cons (- base 1) bn-1)))))
+      (cons 0 (cons 0 bn-1)))
+
+;; no symbols to strip off
+(test (bn-norm (cons (- base 1) (cons (- base 1) bn0)))
+      (cons (- base 1) (cons (- base 1) bn0)))
+
+;; positive fixnum
+(test (bn-norm (cons (- base 1) (cons 0 (cons 0 bn0))))
+      (- base 1))
+
+;; negative fixnum
+(if (< 2 base)
+    (test (bn-norm (cons (- base 2) bn-1))
+          -2))
+
+;; not a fixnum (should not return 0)
+(test (bn-norm (cons 0 (cons (- base 1) (cons (- base 1) bn-1))))
+      (cons 0 bn-1))
+
+;; representation of 0
+(test (bn-norm bn0) bn0)
+
+;; representation of -1
+
+
 
 ;;------------------------------------------------------------------------------
 
 ;; arithmetic
 
 
-;; addition 
+;; addition
+
+;; note on the first test: we represent -1 with (cons 1 bn-1) instead of just bn-1
 
 ;; different parity, carry (pos res)
-(test (bn+ (cons (- base 1) (cons (- base 1) bn-1))
+(test (bn+ (cons (- base 1) bn-1)
            (cons (- base 1) (cons (- base 1) bn0)))
       (cons (- base 2) (cons (- base 1) bn0)))
 
 ;; different parity, carry (res = 0)
-(test (bn+ (cons (- base 1) (cons (- base 1) bn-1))
-           (cons (- base 1) (cons 0 bn0)))
-      (cons (- base 2) bn0))
+(test (bn+ (cons (- base 1) bn-1)
+           (cons (- base 1) bn0))
+      (- base 2))
 
 ;; different parity, no carry (neg res)
-(test (bn+ (cons 0 (cons (- base 1) bn-1))
-           (cons (- base 1) (cons 0 bn0)))
-      bn-1)
+(test (bn+ (cons 0  bn-1)
+           (cons (- base 1) bn0))
+      -1)
 
 ;; same parity (pos), carry
 (test (bn+ (cons (- base 1) (cons (- base 1) bn0))
@@ -467,7 +679,8 @@
 ;; same parity (pos), no carry
 (test (bn+ (cons (- base 1) (cons 0 bn0))
            (cons 0 (cons 0 bn0)))
-      (cons base-1 bn0))
+      (- base 1))
+      ;; (cons base-1 bn0))
 
 ;; same parity (neg), carry
 (test (bn+ (cons (- base 1) (cons (- base 1) bn-1))
@@ -481,11 +694,11 @@
 
 (test (bn+ bn0 bn0) bn0)
 
-(test (bn+ bn0 bn-1) bn-1)
+(test (bn+ bn0 bn-1) -1) ;; bn-1)
 
-(test (bn+ bn-1 bn0) bn-1)
+(test (bn+ bn-1 bn0) -1) ;; bn-1)
 
-(test (bn+ bn-1 bn-1) (cons 0 bn-1))
+(test (bn+ bn-1 bn-1) -2) ;; (cons (- base 2) bn-1))
 
 
 
@@ -496,53 +709,53 @@
 ;; same parity (positive), no n-carry 
 (test (bn- (cons (- base 1) (cons (- base 1) bn0))
            (cons 0 (cons (- base 1) bn0)))
-      (cons base-1 bn0))
+      (- base 1))
 
 ;; same parity (negative), no n-carry 
 (test (bn- (cons (- base 1) (cons (- base 1) bn-1))
            (cons 0 (cons (- base 1) bn-1)))
-      (cons base-1 bn0))
-
+      (- base 1))
+      
 ;; same parity (positive), n-carry 
 (test (bn- (cons (- base 1) (cons 0 bn0))
            (cons (- base 1) (cons (- base 1) bn0)))
       (cons 0 (cons 1 bn-1)))
-
+      
 ;; same parity (negative), n-carry
 (test (bn- (cons (- base 1) (cons 0 bn-1))
            (cons (- base 1) (cons (- base 1) bn-1)))
       (cons 0 (cons 1 bn-1)))
-
+      
 ;; different parity (pos, neg), no n-carry
 (test (bn- (cons (- base 1) (cons (- base 1) bn0))
            (cons (- base 1) (cons (- base 1) bn-1)))
       (cons 0 (cons 0 (cons 1 bn0))))
-
+      
 ;; different parity (neg, pos), no n-carry
 (test (bn- (cons (- base 1) (cons (- base 1) bn-1))
            (cons (- base 1) (cons (- base 1) bn0)))
       (cons 0 (cons 0 (cons 1 bn-1))))
-
+      
 ;; different parity (pos, neg), n-carry
 (test (bn- (cons (- base 1) bn0)
            (cons (- base 1) (cons (- base 1) (cons 0 bn-1))))
       (cons 0 (cons 1 (cons base-1 bn0))))
+      
+(test (bn- bn0 bn0) 0) ;; bn0)
 
-(test (bn- bn0 bn0) bn0)
+(test (bn- bn0 bn-1) 1) ;; (cons 1 bn0))
 
-(test (bn- bn0 bn-1) (cons 1 bn0))
+(test (bn- bn-1 bn0) -1) ;; bn-1)
 
-(test (bn- bn-1 bn0) bn-1)
-
-(test (bn- bn-1 bn-1) bn0)
+(test (bn- bn-1 bn-1) 0) ;; bn0)
 
 
 
 ;; unary substraction
 
-(test (bn-u bn0) bn0)
+(test (bn-u bn0) 0) ;; bn0)
 
-(test (bn-u bn-1) (cons 1 bn0))
+(test (bn-u bn-1) 1) ;; (cons 1 bn0))
 
 
 
@@ -568,12 +781,12 @@
            (cons (- base 1) (cons 0 bn-1)))
       (cons (- base 1) (cons 1 (cons (- base 2) bn0))))
 
-(test (bn* bn-1 bn-1) (cons 1 bn0))
+(test (bn* bn-1 bn-1) 1) ;; (cons 1 bn0))
 
 ;; anything * 0 = 0
-(test (bn* bn0 bn-1) bn0)
+(test (bn* bn0 bn-1) 0) ;; bn0)
  
-(test (bn* bn-1 bn0) bn0)
+(test (bn* bn-1 bn0) 0) ;; bn0)
 
 
 
@@ -738,13 +951,11 @@
             (cons 0 (cons (- base 1) bn-1)))
        #f)
 
-(test2 (bn< (bn-abs (cons 0 (cons (- base 1) bn0)))
-            (bn-abs (cons (- base 1) (cons (- base 1) bn0))))
-       #t)
-
 (test2 (bn< (cons 0 (cons (- base 1) bn0))
             (cons (- base 1) (cons (- base 1) bn0)))
        #t)
+
+(test2 (bn< (cons 1 bn-1) (cons 2 bn-1)) #f)
 
 
 ;; less or equal
@@ -782,11 +993,6 @@
 
 ;;------------------------------------------------------------------------------
 
-;; bitwise 
-
-
-;;------------------------------------------------------------------------------
-
 ;; misc
 
 ;; negation
@@ -797,4 +1003,6 @@
 
 (test (bn-neg (cons 1 bn0)) bn-1)
 
+
+;; absolute value
 
