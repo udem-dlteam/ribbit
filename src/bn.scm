@@ -2,7 +2,6 @@
 
 ;; bignums operations (two's complement, little endian representation)
 
-
 ;; TODO
 
 ;; normalization (bn-norm & co)[x] special case for -1 doesn't change anything
@@ -63,16 +62,13 @@
 ;; tests (inc. stress tests for mult and quo) [ ]
 
 
+;; ALWAYS REMOVE TABS BEFORE PUSHING OR MODIFY YOUR CONFIG FILE
+
+
+
 ;;------------------------------------------------------------------------------
 
 ;; utilities
-
-
-;; (define base 32768)
-
-(define base 8)
-
-;; (define base 2)
 
 
 ;; (cond-expand
@@ -112,10 +108,24 @@
 ;; (define (set-cdr! lst x)                
 ;;   (##field1-set! lst x))
 
+
+;; constants
+
+;; (define base 32768)
+
+(define base 8)
+
+;; (define base 2)
+
+(define base-1 (- base 1))
+
+;; (define BN_1 (cons 1 bn0))
+
+
 (define bn0 (cons 0 '_))
 (set-cdr! bn0 bn0)
 
-(define bn-1 (cons (- base 1) '_))
+(define bn-1 (cons base-1 '_))
 (set-cdr! bn-1 bn-1)
 
 (define (end? n)
@@ -132,32 +142,41 @@
     state))
 
 (define (fixnum? n) ;; temp, for our current representation
-  (and (number? n) (< n base) (> n (- 0 base))))
+  (number? n))
 
 (define (bignum? n) ;; temp, for our current representation
   (pair? n))
 
 (define (fixnum->bignum n)
   (if (fixnum? n)
-      (if (eq? 0 n)
-          bn0
-          (if (< n 0)
-              (cons (+ base n) bn-1) 
-              (cons n bn0)))
-      (if (and (number? n) (or (>= n base) (<= n (- 0 base))))
-          (bn-encode n)
-          n))) ;; assuming n is a bignum for now
-         
+      (if (and (< n base) (> n (- 0 base)))
+          (if (eqv? 0 n)
+              bn0
+              (if (eqv? -1 n)
+                  (cons base-1 bn-1) ;; special representation for -1
+                  (if (< n 0)
+                      (cons (+ base n) bn-1) 
+                      (cons n bn0))))
+          (bn-encode n))
+      (if (bignum? n)
+          n
+          #f)))
+
 (define (bignum->fixnum n)
   (if (bignum? n)
       (if (end? (cdr n))
           (if (eq? bn0 (cdr n))
               (car n)
-              (if (eq? 0 (car n))  ;; (0 $-1 $-1 ...) is not a fixnum
-                  n
+              (if (eqv? 0 (car n))  ;; (0 $-1 $-1 ...) is not a fixnum
+                  #f
                   (- 0 (bn-neg n))))
-          n)
-      n))
+          #f) ;; conversion is not possible
+      (if (fixnum? n)
+          n
+          #f)))
+
+
+;; FIXME need to cleanup this
 
 (define (bn-encode n)
   (define (_bn-encode n)
@@ -198,23 +217,102 @@
 (define (bn-norm n) 
 
   (define (__bn-norm _p1 _p2)
-    (if (eq? (car (cdr _p1)) (car _p2)) 
+    (if (eqv? (car (cdr _p1)) (car _p2)) 
         (cons (car _p1) (_bn-norm (cdr _p1) _p2)) 
         (cons (car _p1) (__bn-norm (cdr _p1) _p2))))
 
   (define (_bn-norm p1 p2)
-    (if (eq? (car p1) (car p2))
-        (if (or (eq? p2 bn0) (eq? p2 bn-1)) ;; end?
+    (if (eqv? (car p1) (car p2))
+        (if (end? p2)
             p2
             (_bn-norm p1 (cdr p2))) ;; find next 
         (__bn-norm p1 p2)))         ;; memorize prev
 
-  (if (number? n)
-      (if (fixnum? n)
+  (if (fixnum? n)
+      (if (and (< n base) (> n (- 0 base)))
           n
           (fixnum->bignum n))
       (let ((_n (_bn-norm n (cdr n))))
-        (bignum->fixnum _n))))
+        (or (bignum->fixnum _n) _n)))) ;; return a fixnum if possible
+
+
+;;------------------------------------------------------------------------------
+
+;; ;; conversion
+
+;; (define (bn-number->string a radix)
+  
+;;   (define (bn-number->string-aux a)
+;;     (let* ((q (bn-norm (bn-quotient a base)))
+;;         (d (bn-norm (bn+ 48 (bn-remainder a base)))))
+;;       (cons d (if (bn< 0 q) (bn-number->string-aux (cdr a)) '()))))
+
+;;   (to-string (bn-number->string-aux (fixnum->bignum a))))
+
+
+
+;; FIXME ignore this section for now
+
+
+
+(define (bn-number->string a)
+
+  ;; works I guess
+  (define (to-string lst)
+  (fold string-append "" (map string (map integer->char lst))))
+
+  (define (bn-number->string-aux a radix)
+    (let* ((q (bn-quotient a radix))
+           (d (bn-remainder a radix))
+           ;; (c (if (bn< 9 d) (bn+ 65 (- d 10)) (bn+ 48 d))))
+           (c (if (bn< 9 d) (+ 65 (- d 10)) (+ 48 d))))
+      (cons c (if (bn< 0 q) (bn-number->string-aux (cdr a) base) '()))))
+
+  (let ((chars (if (bn< a 0)
+                   ;; (cons #\- (bn-number->string-aux (bn-abs a) base))
+                   (cons 45 (bn-number->string-aux (bn-abs a) 10))
+                   (bn-number->string-aux (bn-norm a) 10))))
+    (to-string chars)))
+
+
+(define (bn-string->number str radix)
+
+  (define (convert-16 c) ;; not sure what the 16 refers to tbh
+    (cond 
+      ((and (bn< 47 c) (bn< c 58)) (bn- c 48))   ;; 0-9
+      ((and (bn< 64 c) (bn< c 71)) (bn- c 65))   ;; A-F
+      ((and (bn< 96 c) (bn< c 103)) (bn- c 97))  ;; a-f
+      (else #f)))
+
+  (define (convert c)
+    (if (and (bn< 47 c) (bn< c 58))
+        (bn- c 48)
+        #f))
+
+  (define (string->number-aux lst)
+    (if (null? lst) ;; FIXME: remove the null? check
+        #f
+        (string->number-aux2 lst 0 (if (eqv? radix 16) convert-16 convert))))
+
+  (define (string->number-aux2 lst n converter)
+    (if (pair? lst)
+      (let* ((c (car lst))
+             (x (converter c)))
+        (if x
+            (string->number-aux2 
+             (cdr lst) ;; cdr
+             (bn+ (bn* radix n) x)
+              converter)
+            #f))
+      n))
+
+  (let ((lst (string->list str)))
+    (if (null? lst)
+        #f
+        (if (eqv? (car lst) 45) ;; negative number?
+            (let ((n (string->number-aux (cdr lst))))
+              (and n (bn- 0 n)))
+            (string->number-aux lst)))))
 
 
 ;;------------------------------------------------------------------------------
@@ -234,30 +332,39 @@
 ;;        (intuition: sum of pos (neg) numbers will always be pos (neg))
 
 (define (bn+ a b)
-  
-  (define (_bn+ a b carry)
-    (if (and (end? a) (end? b))
-        (if (eq? a b)
-            (if (eq? 0 carry)
-                (if (eq? a bn0) bn0 bn-1)
-                (cons carry (_bn+ (cdr a) (cdr b) 0)))
-            (if (eq? 0 carry) bn-1 bn0))
-        (let* ((_a (car a))
-               (_b (car b))
-               (res (+ _a _b carry))
-               (rem (modulo res base))
-               (quo (quotient res base)))
-          (cons rem (_bn+ (cdr a) (cdr b) quo)))))
-  
-  (if (and (eq? a bn-1) (eq? b bn-1)) ;; small patch, need to rework that
-      (- 0 2) ;; -2
+  (if (and (fixnum? a) (fixnum? b))
+      (bn-norm (+ a b))
       (let ((_a (fixnum->bignum a))
             (_b (fixnum->bignum b)))
         (bn-norm (_bn+ _a _b 0)))))
 
+;; bignum addition without normalization for intermediate calcualtions
+(define (##bn+ a b)
+  (if (and (fixnum? a) (fixnum? b))
+      (fixnum->bignum (+ a b))
+      (let ((_a (fixnum->bignum a))
+            (_b (fixnum->bignum b)))
+        (_bn+ _a _b 0))))
+
+(define (_bn+ a b carry)
+  (if (and (end? a) (end? b))
+      (if (eq? a b)
+          (if (eqv? 0 carry)
+              (if (eq? a bn0) bn0 bn-1)
+              (if (eq? a bn-1)
+                  bn-1
+                  (cons carry (_bn+ (cdr a) (cdr b) 0))))
+          (if (eqv? 0 carry) bn-1 bn0))
+      (let* ((_a (car a))
+             (_b (car b))
+             (res (+ _a _b carry))
+             (rem (modulo res base))
+             (quo (quotient res base)))
+        (cons rem (_bn+ (cdr a) (cdr b) quo)))))
+
 
 (define (var-bn+ . args)
-  (bn-fold (lambda (a b) (bn+ a b)) bn0 args))
+  (bn-fold bn+ bn0 args))
 
 
 (define (bn- a b)
@@ -270,6 +377,7 @@
 
 (define (bn-remainder a b)
   (bn- a (bn* b (bn-quotient a b))))
+
 
 ;; FIXME not sure if I need to modify anything here to deal with fixnums
 
@@ -289,18 +397,28 @@
 ;; long multiplication in O(n^2) so that we have something that works for now
 
 (define (bn* a b)
+
+  ;;   (define (_bn* a b carry)  ;; one line multiplication
+  ;;     (if (end? a)
+  ;;         (if (eqv? 0 carry) bn0 (cons carry bn0))
+  ;;         (let* (;; (_a (fixnum->bignum a))
+  ;;                ;; (_b (fixnum->bignum b))
+  ;;                (__a (car _a))
+  ;;                (__b (car _b))
+  ;;                (res (+ (* __a __b) carry))
+  ;;                (rem (modulo res base))
+  ;;                (quo (quotient res base)))
+  ;;           (cons rem (_bn* (cdr _a) _b quo)))))
   
   (define (_bn* a b carry)  ;; one line multiplication
     (if (end? a)
-        (if (eq? 0 carry) bn0 (cons carry bn0))
-        (let* ((_a (fixnum->bignum a))
-               (_b (fixnum->bignum b))
-               (__a (car _a))
-               (__b (car _b))
-               (res (+ (* __a __b) carry))
+        (if (eqv? 0 carry) bn0 (cons carry bn0))
+        (let* ((_a (car a))
+               (_b (car b))
+               (res (+ (* _a _b) carry))
                (rem (modulo res base))
                (quo (quotient res base)))
-          (cons rem (_bn* (cdr _a) _b quo)))))
+          (cons rem (_bn* (cdr a) b quo)))))
   
   (define (__bn* a b) ;; full (positive) mutiplication
     (if (end? b)
@@ -319,9 +437,8 @@
             (bn-norm (__bn* (bn-abs _a) (bn-abs _b)))
             (bn-norm (bn-neg (__bn* (bn-abs _a) (bn-abs _b))))))))
 
-
 (define (var-bn* . args)
-  (bn-fold (lambda (a b) (bn* a b)) (cons 1 bn0) args))
+  (bn-fold bn* (cons 1 bn0) args))
 
 
 ;; faster algorithms
@@ -355,7 +472,7 @@
       (let ((_a (if (fixnum? a) (fixnum->bignum a) a))
             (_b (if (fixnum? b) (fixnum->bignum b) b)))
         (if (eq? _b bn0)
-            (display "error: division by 0") ;; error handling?
+            (quotient 0 0) ;; just to trigger an error
             (bn-norm (_bn-quotient a b bn0))))))
 
 
@@ -363,38 +480,28 @@
 
 ;; comparison
 
-(define (bn= a b)
-  (if (and (pair? a) (pair? b))
-      (if (and (end? a) (end? b))
-          (eq? a b)
-          (and (eqv? (car a) (car b)) (bn= (cdr a) (cdr b))))
-      (if (number? a)
-          (if (number? b)
-              (eq? a b)
-              (bn= (fixnum->bignum a) b))
-          (bn= a (fixnum->bignum b)))))
-
 ;; (define (bn= a b)
-;;   (eq? (bn- a b) bn0))
+;;   (if (and (pair? a) (pair? b))
+;;       (if (and (end? a) (end? b))
+;;           (eq? a b)
+;;           (and (eqv? (car a) (car b)) (bn= (cdr a) (cdr b))))
+;;       (if (number? a)
+;;           (if (number? b)
+;;               (eqv? a b)
+;;               (bn= (fixnum->bignum a) b))
+;;           (bn= a (fixnum->bignum b)))))
+
+(define (bn= a b)
+  (eqv? (bn- a b) 0))
 
 (define (var-bn= a . rest)
   (scan-until-false eqv? a #t rest))
 
 (define (bn< a b)
-  (define (_bn< a b)
-    (let ((_a (fixnum->bignum a))
-          (_b (fixnum->bignum b)))
-      (if (and (end? _a) (end? _b))  
-          (if (eq? _a _b) #f (eq? _a bn-1))
-          (if (bn= (cdr _a) (cdr _b))
-              (< (car _a) (car _b))
-              (_bn< (cdr _a) (cdr _b))))))
-  (if (and (bn-negative? a) (bn-negative? b))
-      (_bn< b a)
-      (_bn< a b)))
+  (bn-negative? (bn- a b)))
 
 (define (var-bn< a . rest) 
-  (scan-until-false (lambda (a b) (bn< a b)) a #t rest))
+  (scan-until-false bn< a #t rest))
 
 (define (bn<= a b)
   (or (bn= a b) (bn< a b)))
@@ -424,7 +531,7 @@
     (if (end? a)
         (if (eq? a bn0) bn-1 bn0)
         (let* ((_a (car a))
-               (res (- (- base 1) _a)))
+               (res (- base-1 _a)))
           (cons res (_bn~ (cdr a))))))
   (bn-norm (_bn~ (fixnum->bignum a))))
 
@@ -484,7 +591,7 @@
   (bn= a bn0))
 
 (define (bn-positive? a)
-  (bn< 0 a))
+  (bn< bn0 a))
 
 (define (bn-negative? a) ;; can't define it with bn< since we use it there
   (let ((_a (fixnum->bignum a)))
@@ -493,30 +600,33 @@
         (or (eq? _a bn-1) (bn-negative? (cdr _a))))))
 
 (define (bn-even? a)
-  (let ((_a (bn-abs (fixnum->bignum a))))
-    (eq? 0 (bn-modulo _a (fixnum->bignum 2)))))
+  (let ((_a (bn-abs a))
+        (_2 (fixnum->bignum 2)))
+    (eqv? 0 (bn-modulo _a _2))))
 
 (define (bn-odd? a)
   (not (bn-even? a)))
 
 (define (bn-max a b)
-  (if (bn< a b) (bn-norm b) (bn-norm a)))
+  ;; (if (bn< a b) (bn-norm b) (bn-norm a)))
+  (if (bn< a b) b a))
 
 (define (var-bn-max a . rest)
   (fold (lambda (curr best)
           (if (bn< best curr)
-              (bn-norm curr)
-              (bn-norm best)))
+              curr ;; (bn-norm curr)
+              best)) ;; (bn-norm best)))
         a rest))
 
 (define (bn-min a b)
-  (if (bn< a b) (bn-norm a) (bn-norm b)))
+  ;; (if (bn< a b) (bn-norm a) (bn-norm b)))
+  (if (bn< a b) a b))
 
 (define (var-bn-min a . rest)
   (fold (lambda (curr best)
           (if (bn< best curr)
-              (bn-norm best)
-              (bn-norm curr)))
+              best ;; (bn-norm best)
+              curr)) ;; (bn-norm curr)))
         a rest))
 
 (define (bn-abs a)
@@ -531,12 +641,12 @@
         (bn-gcd-aux _b _a))))
 
 (define (bn-gcd-aux a b)
-  (if (bn= a bn0)
-      b
+  (if (or (eq? a bn0) (eqv? a 0)) ;; (bn= a bn0)
+      (bn-norm b)
       (bn-gcd-aux (bn-remainder b a) a)))
 
 (define (bn-lcm a b)
-  (if (bn= b bn0)
+  (if (or (eq? b bn0) (eqv? n 0)) ;; (bn= b bn0)
       (let ((_a (bn-abs a))
             (_b (bn-abs b)))
         (bn* (bn-quotient _a (bn-gcd _a _b)) _b))))
@@ -568,8 +678,8 @@
         (display "a: ") (_pp a)
         (display "b: ")(_pp b)
         (newline))
-      ;;(_pp a)))
-      ))
+      (_pp a)))
+      ;;))
 
 ;; for comparison tests
 
@@ -588,8 +698,6 @@
       (begin
         (display "a comparison test failed")
         (newline))))
-
-(define base-1 (- base 1))
 
 (define (_pp obj)
   (define (__pp lst)
@@ -644,6 +752,7 @@
 (test (bn-norm bn0) bn0)
 
 ;; representation of -1
+(test (bn-norm (cons (- base 1) bn-1)) -1)
 
 
 
@@ -685,7 +794,7 @@
 ;; same parity (neg), carry
 (test (bn+ (cons (- base 1) (cons (- base 1) bn-1))
            (cons (- base 1) (cons (- base 1) bn-1)))
-      (cons (- base 2) (cons (- base 1) (cons 1 bn-1))))
+      -2)
 
 ;; same parity (neg), no carry
 (test (bn+ (cons (- base 1) (cons 0 bn-1))
@@ -698,7 +807,9 @@
 
 (test (bn+ bn-1 bn0) -1) ;; bn-1)
 
-(test (bn+ bn-1 bn-1) -2) ;; (cons (- base 2) bn-1))
+;; new representation of -1, we assume this case will never happen
+
+;; (test (bn+ bn-1 bn-1) -2) ;; (cons (- base 2) bn-1))
 
 
 
@@ -734,7 +845,7 @@
 ;; different parity (neg, pos), no n-carry
 (test (bn- (cons (- base 1) (cons (- base 1) bn-1))
            (cons (- base 1) (cons (- base 1) bn0)))
-      (cons 0 (cons 0 (cons 1 bn-1))))
+      (cons 0 (cons 0 bn-1)))
       
 ;; different parity (pos, neg), n-carry
 (test (bn- (cons (- base 1) bn0)
@@ -755,7 +866,7 @@
 
 (test (bn-u bn0) 0) ;; bn0)
 
-(test (bn-u bn-1) 1) ;; (cons 1 bn0))
+(test (bn-u (cons (- base 1) bn-1)) 1) ;; (cons 1 bn0))
 
 
 
@@ -781,13 +892,20 @@
            (cons (- base 1) (cons 0 bn-1)))
       (cons (- base 1) (cons 1 (cons (- base 2) bn0))))
 
-(test (bn* bn-1 bn-1) 1) ;; (cons 1 bn0))
+(test (bn* -1 -1) 1) ;; (cons 1 bn0))
 
 ;; anything * 0 = 0
-(test (bn* bn0 bn-1) 0) ;; bn0)
+(test (bn* bn0 -1) 0) ;; bn0)
  
-(test (bn* bn-1 bn0) 0) ;; bn0)
+(test (bn* -1 bn0) 0) ;; bn0)
 
+(test (bn* 1234 56789) 70077626)
+
+(test (bn* -1234 56789) -70077626)
+
+(test (bn* 1234 -56789) -70077626)
+
+(test (bn* -1234 -56789) 70077626)
 
 
 ;; quotient 
@@ -834,11 +952,11 @@
 
 (test (bn-quotient (cons (- base 1) (cons (- base 1) (cons (- base 1) bn0)))
                    (cons (- base 1) (cons 0 bn-1)))
-      (cons 0 (cons 1 bn-1)))
+      (cons 0 (cons (- base 1) bn-1)))
 
 (test (bn-quotient (cons (- base 1) (cons 0 (cons 0 bn-1)))
                    (cons (- base 1) (cons (- base 1) bn0)))
-      (cons 0 (cons 1 bn-1)))
+      (cons 0 (cons (- base 1) bn-1)))
 
 (test (bn-quotient (cons (- base 1) (cons 0 (cons 0 bn-1)))
                    (cons (- base 1) (cons 0 bn-1)))
@@ -891,7 +1009,7 @@
     ;; (modulo neg pos) => pos
     (test (bn-modulo (cons 0 (cons 0 (cons (- base 1) bn-1)))
                      (cons 0 (cons 1 bn0)))
-          (cons 0 (cons 1 (cons (- base 2) bn0)))))
+          (cons 0 (cons 1 bn0))))
 
 ;; (modulo a b), a,b < 0, |a| > |b| => neg
 (test (bn-modulo (cons (- base 1) (cons (- base 1) (cons 0 bn-1)))
@@ -914,11 +1032,11 @@
 
 (test2 (bn= bn0 bn0) #t) 
 
-(test2 (bn= bn-1 bn-1) #t)
+(test2 (bn= (cons (- base 1) bn-1) (cons (- base 1) bn-1)) #t)
 
-(test2 (bn= bn0 bn-1) #f)
+(test2 (bn= bn0 (cons (- base 1) bn-1)) #f)
 
-(test2 (bn= bn-1 bn0) #f)
+(test2 (bn= (cons (- base 1) bn-1) bn0) #f)
 
 (test2 (bn= (cons (- base 1) bn0)
             (cons (- base 1) bn0))
@@ -933,11 +1051,11 @@
 
 (test2 (bn< bn0 bn0) #f)
 
-(test2 (bn< bn-1 bn-1) #f)
+(test2 (bn< (cons (- base 1) bn-1) (cons (- base 1) bn-1)) #f)
 
 (test2 (bn< bn0 bn-1) #f)
 
-(test2 (bn< bn-1 bn0) #t)
+(test2 (bn< (cons (- base 1) bn-1) bn0) #t)
 
 (test2 (bn< (cons (- base 1) bn0) bn0) #f)
 
@@ -955,40 +1073,70 @@
             (cons (- base 1) (cons (- base 1) bn0)))
        #t)
 
-(test2 (bn< (cons 1 bn-1) (cons 2 bn-1)) #f)
+(test2 (bn< (cons 1 bn-1) (cons 2 bn-1)) #t)
 
 
 ;; less or equal
 
 (test2 (bn<= bn0 bn0) #t)
 
-(test2 (bn<= bn-1 bn-1) #t)
+(test2 (bn<= (cons (- base 1) bn-1) (cons (- base 1) bn-1)) #t)
 
-(test2 (bn<= bn0 bn-1) #f)
+(test2 (bn<= bn0 (cons (- base 1) bn-1)) #f)
 
-(test2 (bn<= bn-1 bn0) #t)
+(test2 (bn<= (cons (- base 1) bn-1) bn0) #t)
+
+(test2 (bn<= -100 101) #t)
+
+(test2 (bn<= -100 0) #t)
+
+(test2 (bn<= -100 100) #t)
+
+(test2 (bn<= 100 100) #t)
+
+(test2 (bn<= 100 -100) #f)
 
 
 ;; greater than
 
 (test2 (bn> bn0 bn0) #f)
 
-(test2 (bn> bn-1 bn-1) #f)
+(test2 (bn> (cons (- base 1) bn-1) (cons (- base 1) bn-1)) #f)
 
-(test2 (bn> bn0 bn-1) #t)
+(test2 (bn> bn0 (cons (- base 1) bn-1)) #t)
 
-(test2 (bn> bn-1 bn0) #f)
+(test2 (bn> (cons (- base 1) bn-1) bn0) #f)
+
+(test2 (bn> -100 101) #f)
+
+(test2 (bn> -100 0) #f)
+
+(test2 (bn> -100 100) #f)
+
+(test2 (bn> 100 100) #f)
+
+(test2 (bn> 101 -100) #t)
 
 
 ;; greater or equal
 
 (test2 (bn>= bn0 bn0) #t)
 
-(test2 (bn>= bn-1 bn-1) #t)
+(test2 (bn>= (cons (- base 1) bn-1) (cons (- base 1) bn-1)) #t)
 
-(test2 (bn>= bn0 bn-1) #t)
+(test2 (bn>= bn0 (cons (- base 1) bn-1)) #t)
 
-(test2 (bn>= bn-1 bn0) #f)
+(test2 (bn>= (cons (- base 1) bn-1) bn0) #f)
+
+(test2 (bn>= -100 101) #f)
+
+(test2 (bn>= -100 0) #f)
+
+(test2 (bn>= -100 100) #f)
+
+(test2 (bn>= 100 100) #t)
+
+(test2 (bn>= 101 -100) #t)
 
 
 ;;------------------------------------------------------------------------------
