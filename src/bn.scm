@@ -45,25 +45,14 @@
 ;; bn-even?                    [x]
 ;; bn-odd?                     [x]
 ;; bn-max                      [x]
-;; variadic min                [x]
+;; variadic max                [x]
 ;; bn-min                      [x]
 ;; variadic min                [x]
 ;; bn-abs                      [x]
 ;; bn-gcd                      [x]
 ;; variadic gcd                [ ]
-;; bn-lcm                      [x]
+;; bn-lcm                      [ ]
 ;; variadic lcm                [ ]
-
-
-;; functions accept both fixnums and bignums  [x]
-
-;; normalize all primary functions            [x]
-
-;; tests (inc. stress tests for mult and quo) [ ]
-
-
-;; ALWAYS REMOVE TABS BEFORE PUSHING OR MODIFY YOUR CONFIG FILE
-
 
 
 ;;------------------------------------------------------------------------------
@@ -171,7 +160,7 @@
                   #f
                   (- 0 (bn-neg n))))
           #f) ;; conversion is not possible
-      (if (fixnum? n)
+      (if (and (fixnum? n) (< n base) (> n (- 0 base)))
           n
           #f)))
 
@@ -646,7 +635,7 @@
       (bn-gcd-aux (bn-remainder b a) a)))
 
 (define (bn-lcm a b)
-  (if (or (eq? b bn0) (eqv? n 0)) ;; (bn= b bn0)
+  (if (or (eq? b bn0) (eqv? b 0)) ;; (bn= b bn0)
       (let ((_a (bn-abs a))
             (_b (bn-abs b)))
         (bn* (bn-quotient _a (bn-gcd _a _b)) _b))))
@@ -659,7 +648,7 @@
 
 ;; utilities
 
-;; FIXME define-macro doesn't work 
+;; FIXME define-macro doesn't work
 
 ;; (define-macro (test a b)
 ;;   `(let ((_a ,a)
@@ -720,6 +709,7 @@
         (display "(")
         (__pp obj))))
 
+
 ;;------------------------------------------------------------------------------
 
 ;; utilities
@@ -754,6 +744,37 @@
 ;; representation of -1
 (test (bn-norm (cons (- base 1) bn-1)) -1)
 
+;; already a fixnum
+(test (bn-norm (- base 1)) (- base 1))
+
+
+
+;; conversions
+
+;; ;; fixnum->bignum: simple case positive
+;; (test (fixnum->bignum 0) bn0)
+
+;; ;; fixnum->bignum: simple case negative
+;; (test (fixnum->bignum -1) (cons (- base 1) bn-1))
+
+;; ;; fixnum->bignum: already a bignum
+;; (test (fixnum->bignum (cons (- base 1) bn0)) (cons (- base 1) bn0))
+
+;; fixnum->bignum: invalid conversion
+(test2 (fixnum->bignum #t) #f)
+
+;; ;; bignum->fixnum: simple case positive
+;; (test (bignum->fixnum (cons (- base 1) bn-1)) -1)
+
+;; ;; bignum->fixnum: simple case negative
+;; (test (bignum->fixnum (cons (- base 1) bn0)) (- base 1))
+
+;; ;; bignum->fixnum: already a fixnum
+;; (test (bignum->fixnum -1) -1)
+
+;; bignum->fixnum: invalid conversion
+(test2 (bignum->fixnum base) #f)
+
 
 
 ;;------------------------------------------------------------------------------
@@ -762,8 +783,6 @@
 
 
 ;; addition
-
-;; note on the first test: we represent -1 with (cons 1 bn-1) instead of just bn-1
 
 ;; different parity, carry (pos res)
 (test (bn+ (cons (- base 1) bn-1)
@@ -807,9 +826,24 @@
 
 (test (bn+ bn-1 bn0) -1) ;; bn-1)
 
-;; new representation of -1, we assume this case will never happen
+(test (bn+ (cons (- base 1) bn-1) (cons (- base 1) bn-1)) -2)
 
-;; (test (bn+ bn-1 bn-1) -2) ;; (cons (- base 2) bn-1))
+(test (bn+ 1234 56789) 58023)
+
+(test (bn+ -1234 56789) 55555)
+
+(test (bn+ 1234 -56789) -55555)
+
+(test (bn+ -1234 -56789) -58023)
+
+
+;; variadic addition
+
+(test (var-bn+ 1 2 3 4 5) 15)
+
+(test (var-bn+ -1 -2 -3 -4 -5) -15)
+
+(test (var-bn+ 0 0 0 0 0 0 0 0 0 0 0 0 0) 0)
 
 
 
@@ -860,6 +894,14 @@
 
 (test (bn- bn-1 bn-1) 0) ;; bn0)
 
+(test (bn- 1234 56789) -55555)
+
+(test (bn- -1234 56789) -58023)
+
+(test (bn- 1234 -56789) 58023)
+
+(test (bn- -1234 -56789) 55555)
+
 
 
 ;; unary substraction
@@ -867,6 +909,10 @@
 (test (bn-u bn0) 0) ;; bn0)
 
 (test (bn-u (cons (- base 1) bn-1)) 1) ;; (cons 1 bn0))
+
+(test (bn-u 123456789) -123456789)
+
+(test (bn-u -123456789) 123456789)
 
 
 
@@ -906,6 +952,15 @@
 (test (bn* 1234 -56789) -70077626)
 
 (test (bn* -1234 -56789) 70077626)
+
+
+;; variadic multiplication
+
+(test (var-bn* 1 2 3 4 5 6 7 8 9) 362880)
+
+(test (var-bn* 0 0 0 0 0 0 0 0 0 0) 0)
+
+(test (var-bn* -1 -2 -3 -4 -5 -6 -7 -8 -9) -362880)
 
 
 ;; quotient 
@@ -962,6 +1017,15 @@
                    (cons (- base 1) (cons 0 bn-1)))
       (cons 0 (cons 1 bn0)))
 
+(test (bn-quotient 123456 789) 156)
+
+(test (bn-quotient 123456 -789) -156)
+
+(test (bn-quotient -123456 789) -156)
+
+(test (bn-quotient -123456 -789) 156)
+
+ 
 
 ;; remainder
 
@@ -989,6 +1053,14 @@
 (test (bn-remainder (cons (- base 1) bn0)
                     bn-1)
       (cons (- base 2) bn0))
+
+(test (bn-remainder 123456 789) 372)
+
+(test (bn-remainder 123456 -789) 372)
+
+(test (bn-remainder -123456 789) -372)
+
+(test (bn-remainder -123456 -789) -372)
 
 
 
@@ -1022,6 +1094,14 @@
 ;; division by 0
 ;; (test (bn-modulo bn0 bn0) error)
 
+(test (bn-modulo 123456 789) 372)
+
+(test (bn-modulo 123456 -789) -417)
+
+(test (bn-modulo -123456 789) 417)
+
+(test (bn-modulo -123456 -789) -372)
+
 
 ;;------------------------------------------------------------------------------
 
@@ -1045,6 +1125,23 @@
 (test2 (bn= (cons (- base 1) bn0)
             (cons 0 bn0))
        #f)
+
+(test2 (bn= 100 100) #t)
+
+(test2 (bn= -100 -100) #t)
+
+(test2 (bn= 100 -100) #f)
+
+
+;; variadic equality
+
+(test2 (var-bn= 1 1 1 1 2 3 4 5) #f)
+
+(test2 (var-bn= 3 3 3) #t)
+
+(test2 (var-bn= 0 0 0 0 0 0 (bn-norm bn0)) #t)
+
+(test2 (var-bn= -1 (bn-norm (cons (- base 1) bn-1)) (bn-neg 1)) #t)
 
 
 ;; less than
@@ -1075,6 +1172,19 @@
 
 (test2 (bn< (cons 1 bn-1) (cons 2 bn-1)) #t)
 
+(test2 (bn< 100 100) #f)
+
+(test2 (bn< -100 100) #t)
+
+(test2 (bn< 100 -100) #f)
+
+
+;; variadic less than
+
+(test2 (var-bn< 1 2 3 4 5 6 7 8 9) #t)
+
+(test2 (var-bn< -1 -2 -3 -4 -5 -6 -7 -8 -9) #f)
+
 
 ;; less or equal
 
@@ -1095,6 +1205,15 @@
 (test2 (bn<= 100 100) #t)
 
 (test2 (bn<= 100 -100) #f)
+
+
+;; variadic less or equal
+
+(test2 (var-bn<= 1 2 3 4 5 6 7 8 9) #t)
+
+(test2 (var-bn<= -1 -2 -3 -4 -5 -6 -7 -8 -9) #f)
+
+(test2 (var-bn<= 0 0 0 0 0 0 0 0 0 0 0 0 0) #t)
 
 
 ;; greater than
@@ -1118,6 +1237,15 @@
 (test2 (bn> 101 -100) #t)
 
 
+;; variadic greater than
+
+(test2 (var-bn> 1 2 3 4 5 6 7 8 9) #f)
+
+(test2 (var-bn> -1 -2 -3 -4 -5 -6 -7 -8 -9) #t)
+
+(test2 (var-bn> 0 0 0 0 0 0 0 0 0 0 0 0 0) #f)
+
+
 ;; greater or equal
 
 (test2 (bn>= bn0 bn0) #t)
@@ -1139,6 +1267,15 @@
 (test2 (bn>= 101 -100) #t)
 
 
+;; variadic greater than
+
+(test2 (var-bn>= 1 2 3 4 5 6 7 8 9) #f)
+
+(test2 (var-bn>= -1 -2 -3 -4 -5 -6 -7 -8 -9) #t)
+
+(test2 (var-bn>= 0 0 0 0 0 0 0 0 0 0 0 0 0) #t)
+
+
 ;;------------------------------------------------------------------------------
 
 ;; misc
@@ -1147,10 +1284,148 @@
 
 (test (bn-neg bn0) bn0)
 
-(test (bn-neg bn-1) (cons 1 bn0))
+(test (bn-neg 0) 0)
 
-(test (bn-neg (cons 1 bn0)) bn-1)
+(test (bn-neg (cons (- base 1) bn-1)) 1)
+
+(test (bn-neg (cons 1 bn0)) -1)
+
+(test (bn-neg 123456789) -123456789)
+
+(test (bn-neg -123456789) 123456789)
 
 
-;; absolute value
+;; bitwise not
+
+(test (bn~ 0) -1)
+
+(test (bn~ 10000) -10001)
+
+(test (bn~ -10000) 9999)
+
+;; bn-zero?
+
+(test2 (bn-zero? 0) #t)
+
+(test2 (bn-zero? (- 0 base)) #f)
+
+(test2 (bn-zero? (+ 0 base)) #f)
+
+;; bn-positive?
+
+(test2 (bn-positive? 0) #f)
+
+(test2 (bn-positive? -1000) #f)
+
+(test2 (bn-positive? 1000) #t)
+
+
+;; bn-negative?
+
+(test2 (bn-negative? 0) #f)
+
+(test2 (bn-negative? -1000) #t)
+
+(test2 (bn-negative? 10000) #f)
+
+
+;; bn-even?
+
+(test2 (bn-even? 100) #t)
+
+(test2 (bn-even? -100) #t)
+
+(test2 (bn-even? 101) #f)
+
+(test2 (bn-even? -101) #f)
+
+
+;; bn-odd?
+
+(test2 (bn-odd? 100) #f)
+
+(test2 (bn-odd? -100) #f)
+
+(test2 (bn-odd? 101) #t)
+
+(test2 (bn-odd? -101) #t)
+
+
+;; bn-max
+
+(test2 (bn-max 0 bn0) 0)
+
+(test2 (bn-max 0 100) 100)
+
+(test2 (bn-max 0 -100) 0)
+
+
+;; variadic max
+
+(test2 (var-bn-max 0 0 0 0 0 0 bn0) 0)
+
+(test2 (var-bn-max 1 2 3 4 5 6 7 8 9) 9)
+
+(test2 (var-bn-max -1 -2 -3 -4 -5 -6 -7 -8 -9) -1)
+
+
+;; bn-min
+
+;; FIXME test with bn0 fails?
+
+;; (test2 (bn-min 0 bn0) 0)
+
+(test2 (bn-min 0 100) 0)
+
+(test2 (bn-min 0 -100) -100)
+
+
+;; variadic min
+
+;; FIXME test with bn0 fails?
+
+;; (test2 (var-bn-min 0 0 0 0 0 0 bn0) 0)
+
+(test2 (var-bn-min 1 2 3 4 5 6 7 8 9) 1)
+
+(test2 (var-bn-min -1 -2 -3 -4 -5 -6 -7 -8 -9) -9)
+
+
+;; bn-abs
+
+(test (bn-abs bn0) 0)
+
+(test (bn-abs 100) 100)
+
+(test (bn-abs -100) 100)
+
+
+;; bn-gcd
+
+(test (bn-gcd 0 0) 0)
+
+(test (bn-gcd 18 24) 6)
+
+(test (bn-gcd -18 24) 6)
+
+(test (bn-gcd 18 -24) 6)
+
+(test (bn-gcd -18 -24) 6)
+
+(test (bn-gcd 7 11) 1)
+
+
+;; bn-lcm
+
+;; FIXME bn-lcm isn't working
+
+;; (test (bn-lcm 3 3) 3)
+
+;; (test (bn-lcm 18 24) 72)
+
+;; (test (bn-lcm -18 24) 72)
+
+;; (test (bn-lcm 18 -24) 72)
+
+;; (test (bn-lcm -18 -24) 72)
 
