@@ -98,8 +98,6 @@
 ;;   (##field1-set! lst x))
 
 
-;; constants
-
 ;; (define base 32768)
 
 (define base 8)
@@ -108,14 +106,14 @@
 
 (define base-1 (- base 1))
 
-;; (define BN_1 (cons 1 bn0))
-
 
 (define bn0 (cons 0 '_))
 (set-cdr! bn0 bn0)
 
 (define bn-1 (cons base-1 '_))
 (set-cdr! bn-1 bn-1)
+
+(define bn1 (cons 1 bn0))
 
 (define (end? n)
   (or (eq? n bn0) (eq? n bn-1)))
@@ -133,12 +131,15 @@
 (define (fixnum? n) ;; temp, for our current representation
   (number? n))
 
+(define (in-range? n)
+  (and (< n base) (> n (- 0 base))))
+
 (define (bignum? n) ;; temp, for our current representation
   (pair? n))
 
 (define (fixnum->bignum n)
   (if (fixnum? n)
-      (if (and (< n base) (> n (- 0 base)))
+      (if (in-range? n)
           (if (eqv? 0 n)
               bn0
               (if (eqv? -1 n)
@@ -151,6 +152,8 @@
           n
           #f)))
 
+(define bn2 (fixnum->bignum 2))
+
 (define (bignum->fixnum n)
   (if (bignum? n)
       (if (end? (cdr n))
@@ -160,7 +163,7 @@
                   #f
                   (- 0 (bn-neg n))))
           #f) ;; conversion is not possible
-      (if (and (fixnum? n) (< n base) (> n (- 0 base)))
+      (if (and (fixnum? n) (in-range? n))
           n
           #f)))
 
@@ -177,6 +180,17 @@
     (if (<= 0 n)
         _n
         (bn-neg _n))))
+
+
+;; helper functions to encode bignums
+
+(define $ bn-encode)
+
+(define ($$ . var) 
+  (let loop ((var var))
+    (if (null? (cdr var))
+      (car var)
+      (cons (car var) (loop (cdr var))))))
 
 
 ;;------------------------------------------------------------------------------
@@ -218,7 +232,7 @@
         (__bn-norm p1 p2)))         ;; memorize prev
 
   (if (fixnum? n)
-      (if (and (< n base) (> n (- 0 base)))
+      (if (in-range? n)
           n
           (fixnum->bignum n))
       (let ((_n (_bn-norm n (cdr n))))
@@ -248,7 +262,7 @@
 
   ;; works I guess
   (define (to-string lst)
-  (fold string-append "" (map string (map integer->char lst))))
+    (fold string-append "" (map string (map integer->char lst))))
 
   (define (bn-number->string-aux a radix)
     (let* ((q (bn-quotient a radix))
@@ -266,7 +280,7 @@
 
 (define (bn-string->number str radix)
 
-  (define (convert-16 c) ;; not sure what the 16 refers to tbh
+  (define (convert-16 c) 
     (cond 
       ((and (bn< 47 c) (bn< c 58)) (bn- c 48))   ;; 0-9
       ((and (bn< 64 c) (bn< c 71)) (bn- c 65))   ;; A-F
@@ -321,7 +335,7 @@
 ;;        (intuition: sum of pos (neg) numbers will always be pos (neg))
 
 (define (bn+ a b)
-  (if (and (fixnum? a) (fixnum? b))
+  (if (and (fixnum? a) (fixnum? b) (in-range? a) (in-range? b))
       (bn-norm (+ a b))
       (let ((_a (fixnum->bignum a))
             (_b (fixnum->bignum b)))
@@ -329,7 +343,7 @@
 
 ;; bignum addition without normalization for intermediate calcualtions
 (define (##bn+ a b)
-  (if (and (fixnum? a) (fixnum? b))
+  (if (and (fixnum? a) (fixnum? b) (in-range? a) (in-range? b))
       (fixnum->bignum (+ a b))
       (let ((_a (fixnum->bignum a))
             (_b (fixnum->bignum b)))
@@ -418,7 +432,7 @@
                (pad (cons 0 _a)))
           (bn+ res (__bn* pad (cdr _b))))))
 
-  (if (and (fixnum? a) (fixnum? b))
+  (if (and (fixnum? a) (fixnum? b) (in-range? a) (in-range? b))
       (bn-norm (* a b))
       (let ((_a (if (fixnum? a) (fixnum->bignum a) a))
             (_b (if (fixnum? b) (fixnum->bignum b) b)))
@@ -427,7 +441,7 @@
             (bn-norm (bn-neg (__bn* (bn-abs _a) (bn-abs _b))))))))
 
 (define (var-bn* . args)
-  (bn-fold bn* (cons 1 bn0) args))
+  (bn-fold bn* bn1 args))
 
 
 ;; faster algorithms
@@ -448,23 +462,25 @@
 ;; FIXME currently VERY VERY slow 
 
 (define (bn-quotient a b)
+
   (define (_bn-quotient a b quo)
     (let ((_a (fixnum->bignum a))
           (_b (fixnum->bignum b)))
-      (if (bn< (bn-abs a) (bn-abs b))
+      (if (bn< a b)
           quo
-          (if (eqv? (bn< _a bn0) (bn< _b bn0))
-              (_bn-quotient (bn- _a _b) _b (bn+ quo (cons 1 bn0)))
-              (_bn-quotient (bn+ _a _b) _b (bn+ quo (cons 1 bn-1)))))))
-  (if (and (fixnum? a) (fixnum? b))
+          (_bn-quotient (bn- _a _b) _b (bn+ quo bn1)))))
+
+  (if (and (fixnum? a) (fixnum? b) (in-range? a) (in-range? b))
       (quotient a b)
-      (let ((_a (if (fixnum? a) (fixnum->bignum a) a))
-            (_b (if (fixnum? b) (fixnum->bignum b) b)))
-        (if (eq? _b bn0)
-            (quotient 0 0) ;; just to trigger an error
-            (bn-norm (_bn-quotient a b bn0))))))
-
-
+      (if (or (eq? b bn0) (eqv? b 0))
+          (quotient 0 0)
+          (let ((_a (bn-abs a))
+                (_b (bn-abs b)))
+            (if (eqv? (bn< 0 a) (bn< 0 b))
+                (bn-norm (_bn-quotient _a _b bn0))
+                (bn-norm (bn-neg (_bn-quotient _a _b bn0))))))))
+            
+      
 ;;------------------------------------------------------------------------------
 
 ;; comparison
@@ -484,7 +500,7 @@
   (eqv? (bn- a b) 0))
 
 (define (var-bn= a . rest)
-  (scan-until-false eqv? a #t rest))
+  (scan-until-false bn= a #t rest))
 
 (define (bn< a b)
   (bn-negative? (bn- a b)))
@@ -574,7 +590,7 @@
 ;; misc (mostly just adapted from ribbit's own definitions)
 
 (define (bn-neg a)
-  (bn+ (bn~ a) (cons 1 bn0)))
+  (bn+ (bn~ a) bn1))
 
 (define (bn-zero? a)
   (bn= a bn0))
@@ -589,9 +605,8 @@
         (or (eq? _a bn-1) (bn-negative? (cdr _a))))))
 
 (define (bn-even? a)
-  (let ((_a (bn-abs a))
-        (_2 (fixnum->bignum 2)))
-    (eqv? 0 (bn-modulo _a _2))))
+  (let ((_a (bn-abs a)))
+    (eqv? 0 (bn-modulo _a bn2))))
 
 (define (bn-odd? a)
   (not (bn-even? a)))
@@ -667,8 +682,8 @@
         (display "a: ") (_pp a)
         (display "b: ")(_pp b)
         (newline))
-      (_pp a)))
-      ;;))
+      ;;(_pp a)))
+      ))
 
 ;; for comparison tests
 
@@ -751,26 +766,26 @@
 
 ;; conversions
 
-;; ;; fixnum->bignum: simple case positive
-;; (test (fixnum->bignum 0) bn0)
+;; fixnum->bignum: simple case positive
+(test (fixnum->bignum 0) bn0)
 
-;; ;; fixnum->bignum: simple case negative
-;; (test (fixnum->bignum -1) (cons (- base 1) bn-1))
+;; fixnum->bignum: simple case negative
+(test (fixnum->bignum -1) (cons (- base 1) bn-1))
 
-;; ;; fixnum->bignum: already a bignum
-;; (test (fixnum->bignum (cons (- base 1) bn0)) (cons (- base 1) bn0))
+;; fixnum->bignum: already a bignum
+(test (fixnum->bignum (cons (- base 1) bn0)) (cons (- base 1) bn0))
 
 ;; fixnum->bignum: invalid conversion
 (test2 (fixnum->bignum #t) #f)
 
-;; ;; bignum->fixnum: simple case positive
-;; (test (bignum->fixnum (cons (- base 1) bn-1)) -1)
+;; bignum->fixnum: simple case positive
+(test (bignum->fixnum (cons (- base 1) bn-1)) -1)
 
-;; ;; bignum->fixnum: simple case negative
-;; (test (bignum->fixnum (cons (- base 1) bn0)) (- base 1))
+;; bignum->fixnum: simple case negative
+(test (bignum->fixnum (cons (- base 1) bn0)) (- base 1))
 
-;; ;; bignum->fixnum: already a fixnum
-;; (test (bignum->fixnum -1) -1)
+;; bignum->fixnum: already a fixnum
+(test (bignum->fixnum -1) -1)
 
 ;; bignum->fixnum: invalid conversion
 (test2 (bignum->fixnum base) #f)
@@ -828,23 +843,22 @@
 
 (test (bn+ (cons (- base 1) bn-1) (cons (- base 1) bn-1)) -2)
 
-(test (bn+ 1234 56789) 58023)
+(test (bn+ ($ 1234) ($ 56789)) ($ 58023))
 
-(test (bn+ -1234 56789) 55555)
+(test (bn+ ($ -1234) ($ 56789)) ($ 55555))
 
-(test (bn+ 1234 -56789) -55555)
+(test (bn+ ($ 1234) ($ -56789)) ($ -55555))
 
-(test (bn+ -1234 -56789) -58023)
+(test (bn+ ($ -1234) ($ -56789)) ($ -58023))
 
 
 ;; variadic addition
 
-(test (var-bn+ 1 2 3 4 5) 15)
+(test (var-bn+ ($ 100) ($ 200) ($ 300) ($ 400) ($ 500)) ($ 1500))
 
-(test (var-bn+ -1 -2 -3 -4 -5) -15)
+(test (var-bn+ ($ -100) ($ -200) ($ -300) ($ -400) ($ -500)) ($ -1500))
 
-(test (var-bn+ 0 0 0 0 0 0 0 0 0 0 0 0 0) 0)
-
+(test (var-bn+ ($ 0) ($ 0) ($ 0) ($ 0) ($ 0)) bn0)
 
 
 ;; substraction
@@ -894,13 +908,13 @@
 
 (test (bn- bn-1 bn-1) 0) ;; bn0)
 
-(test (bn- 1234 56789) -55555)
+(test (bn- ($ 1234) ($ 56789)) ($ -55555))
 
-(test (bn- -1234 56789) -58023)
+(test (bn- ($ -1234) ($ 56789)) ($ -58023))
 
-(test (bn- 1234 -56789) 58023)
+(test (bn- ($ 1234) ($ -56789)) ($ 58023))
 
-(test (bn- -1234 -56789) 55555)
+(test (bn- ($ -1234) ($ -56789)) ($ 55555))
 
 
 
@@ -910,9 +924,9 @@
 
 (test (bn-u (cons (- base 1) bn-1)) 1) ;; (cons 1 bn0))
 
-(test (bn-u 123456789) -123456789)
+(test (bn-u ($ 123456789)) ($ -123456789))
 
-(test (bn-u -123456789) 123456789)
+(test (bn-u ($ -123456789)) ($ 123456789))
 
 
 
@@ -945,22 +959,22 @@
  
 (test (bn* -1 bn0) 0) ;; bn0)
 
-(test (bn* 1234 56789) 70077626)
+(test (bn* ($ 1234) ($ 56789)) ($ 70077626))
 
-(test (bn* -1234 56789) -70077626)
+(test (bn* ($ -1234) ($ 56789)) ($ -70077626))
 
-(test (bn* 1234 -56789) -70077626)
+(test (bn* ($ 1234) ($ -56789)) ($ -70077626))
 
-(test (bn* -1234 -56789) 70077626)
+(test (bn* ($ -1234) ($ -56789)) ($ 70077626))
 
 
 ;; variadic multiplication
 
-(test (var-bn* 1 2 3 4 5 6 7 8 9) 362880)
+(test (var-bn* ($ 100) ($ 200) ($ 300) ($ 400)) ($ 2400000000))
 
-(test (var-bn* 0 0 0 0 0 0 0 0 0 0) 0)
+(test (var-bn* ($ -100) ($ -200) ($ -300)) ($ -6000000))
 
-(test (var-bn* -1 -2 -3 -4 -5 -6 -7 -8 -9) -362880)
+(test (var-bn* ($ 0) ($ 0) ($ 0) ($ 0) ($ 0)) bn0)
 
 
 ;; quotient 
@@ -973,22 +987,22 @@
 ;; (quotient neg pos) => neg
 (test (bn-quotient (cons (- base 1) (cons 0 bn-1))
                    (cons 0 (cons (- base 1) bn0)))
-      (cons 1 bn-1))
+      -1)
 
 ;; (quotient pos neg) => neg
 (test (bn-quotient (cons 0 (cons (- base 1) bn0))
                    (cons 0 (cons (- base 1) bn-1)))
-      bn-1)
+      (- (- base 1)))
 
 ;; (quotient neg neg) => pos
 (test (bn-quotient (cons (- base 1) (cons 0 bn-1))
                    (cons 0 bn-1))
-      (cons (- base 1) bn0))
+      (- base 1))
 
 ;; a and b equal => 1
 (test (bn-quotient (cons (- base 1) (cons (- base 1) bn0))
                    (cons (- base 1) (cons (- base 1) bn0)))
-      (cons 1 bn0))
+      1)
 
 
 ;; division by 0, error
@@ -1017,13 +1031,13 @@
                    (cons (- base 1) (cons 0 bn-1)))
       (cons 0 (cons 1 bn0)))
 
-(test (bn-quotient 123456 789) 156)
+(test (bn-quotient ($ 123456) ($ 789)) ($ 156))
 
-(test (bn-quotient 123456 -789) -156)
+(test (bn-quotient ($ 123456) ($ -789)) ($ -156))
 
-(test (bn-quotient -123456 789) -156)
+(test (bn-quotient ($ -123456) ($ 789)) ($ -156))
 
-(test (bn-quotient -123456 -789) 156)
+(test (bn-quotient ($ -123456) ($ -789)) ($ 156))
 
  
 
@@ -1036,13 +1050,13 @@
 
 ;; (remainder pos neg) => pos
 (test (bn-remainder (cons (- base 1) (cons (- base 1) bn0))
-                    (cons (- base 1) (cons (- base 2) bn-1)))
-      (cons (- base 2) (cons (- base 2) bn0)))
+                    (cons 0 (cons (- base 1) bn-1)))
+      (- base 1))
 
 ;; (remainder neg pos) => neg
 (test (bn-remainder (cons (- base 1) (cons (- base 1) (cons 0 bn-1)))
                     (cons (- base 1) (cons (- base 1) bn0)))
-      (cons (- base 2) (cons base-1 (cons 1 bn-1))))
+      (cons 0 bn-1))
 
 ;; (remainder neg neg) => neg
 (test (bn-remainder (cons (- base 1) (cons (- base 1) (cons 0 bn-1)))
@@ -1051,16 +1065,16 @@
 
 ;; (remainder a b) where |a| == |b| => 0
 (test (bn-remainder (cons (- base 1) bn0)
-                    bn-1)
-      (cons (- base 2) bn0))
+                    (cons (- base 1) bn-1))
+      0)
 
-(test (bn-remainder 123456 789) 372)
+(test (bn-remainder ($ 123456) ($ 789)) ($ 372))
 
-(test (bn-remainder 123456 -789) 372)
+(test (bn-remainder ($ 123456) ($ -789)) ($ 372))
 
-(test (bn-remainder -123456 789) -372)
+(test (bn-remainder ($ -123456) ($ 789)) ($ -372))
 
-(test (bn-remainder -123456 -789) -372)
+(test (bn-remainder ($ -123456) ($ -789)) ($ -372))
 
 
 
@@ -1094,13 +1108,13 @@
 ;; division by 0
 ;; (test (bn-modulo bn0 bn0) error)
 
-(test (bn-modulo 123456 789) 372)
+(test (bn-modulo ($ 123456) ($ 789)) ($ 372))
 
-(test (bn-modulo 123456 -789) -417)
+(test (bn-modulo ($ 123456) ($ -789)) ($ -417))
 
-(test (bn-modulo -123456 789) 417)
+(test (bn-modulo ($ -123456) ($ 789)) ($ 417))
 
-(test (bn-modulo -123456 -789) -372)
+(test (bn-modulo ($ -123456) ($ -789)) ($ -372))
 
 
 ;;------------------------------------------------------------------------------
@@ -1126,20 +1140,20 @@
             (cons 0 bn0))
        #f)
 
-(test2 (bn= 100 100) #t)
+(test2 (bn= ($ 100) ($ 100)) #t)
 
-(test2 (bn= -100 -100) #t)
+(test2 (bn= ($ -100) ($ -100)) #t)
 
-(test2 (bn= 100 -100) #f)
+(test2 (bn= ($ 100) ($ -100)) #f)
 
 
 ;; variadic equality
 
-(test2 (var-bn= 1 1 1 1 2 3 4 5) #f)
+(test2 (var-bn= ($ 500) ($ 500) ($ 500) ($ 300) ($ 500)) #f)
 
-(test2 (var-bn= 3 3 3) #t)
+(test2 (var-bn= ($ 3000) ($ 3000) ($ 3000)) #t)
 
-(test2 (var-bn= 0 0 0 0 0 0 (bn-norm bn0)) #t)
+(test2 (var-bn= ($ 0) ($ 0) ($ 0) ($ 0) ($ 0)) #t)
 
 (test2 (var-bn= -1 (bn-norm (cons (- base 1) bn-1)) (bn-neg 1)) #t)
 
@@ -1172,18 +1186,18 @@
 
 (test2 (bn< (cons 1 bn-1) (cons 2 bn-1)) #t)
 
-(test2 (bn< 100 100) #f)
+(test2 (bn< ($ 100) ($ 100)) #f)
 
-(test2 (bn< -100 100) #t)
+(test2 (bn< ($ -100) ($ 100)) #t)
 
-(test2 (bn< 100 -100) #f)
+(test2 (bn< ($ 100) ($ -100)) #f)
 
 
 ;; variadic less than
 
-(test2 (var-bn< 1 2 3 4 5 6 7 8 9) #t)
+(test2 (var-bn< ($ 100) ($ 200) ($ 300) ($ 400)) #t)
 
-(test2 (var-bn< -1 -2 -3 -4 -5 -6 -7 -8 -9) #f)
+(test2 (var-bn< ($ -100) ($ -200) ($ -300) ($ -400)) #f)
 
 
 ;; less or equal
@@ -1196,24 +1210,24 @@
 
 (test2 (bn<= (cons (- base 1) bn-1) bn0) #t)
 
-(test2 (bn<= -100 101) #t)
+(test2 (bn<= ($ -100) ($ 101)) #t)
 
-(test2 (bn<= -100 0) #t)
+(test2 (bn<= ($ -100) 0) #t)
 
-(test2 (bn<= -100 100) #t)
+(test2 (bn<= ($ -100) ($ 100)) #t)
 
-(test2 (bn<= 100 100) #t)
+(test2 (bn<= ($ 100) ($ 100)) #t)
 
-(test2 (bn<= 100 -100) #f)
+(test2 (bn<= ($ 100) ($ -100)) #f)
 
 
 ;; variadic less or equal
 
-(test2 (var-bn<= 1 2 3 4 5 6 7 8 9) #t)
+(test2 (var-bn<= ($ 100) ($ 200) ($ 300) ($ 400)) #t)
 
-(test2 (var-bn<= -1 -2 -3 -4 -5 -6 -7 -8 -9) #f)
+(test2 (var-bn<= ($ -100) ($ -200) ($ -300) ($ -400)) #f)
 
-(test2 (var-bn<= 0 0 0 0 0 0 0 0 0 0 0 0 0) #t)
+(test2 (var-bn<= ($ 0) ($ 0) ($ 0) ($ 0) ($ 0)) #t)
 
 
 ;; greater than
@@ -1226,24 +1240,24 @@
 
 (test2 (bn> (cons (- base 1) bn-1) bn0) #f)
 
-(test2 (bn> -100 101) #f)
+(test2 (bn> ($ -100) ($ 101)) #f)
 
-(test2 (bn> -100 0) #f)
+(test2 (bn> ($ -100) 0) #f)
 
-(test2 (bn> -100 100) #f)
+(test2 (bn> ($ -100) ($ 100)) #f)
 
-(test2 (bn> 100 100) #f)
+(test2 (bn> ($ 100) ($ 100)) #f)
 
-(test2 (bn> 101 -100) #t)
+(test2 (bn> ($ 101) ($ -100)) #t)
 
 
 ;; variadic greater than
 
-(test2 (var-bn> 1 2 3 4 5 6 7 8 9) #f)
+(test2 (var-bn> ($ 100) ($ 200) ($ 300) ($ 400)) #f)
 
-(test2 (var-bn> -1 -2 -3 -4 -5 -6 -7 -8 -9) #t)
+(test2 (var-bn> ($ -100) ($ -200) ($ -300) ($ -400)) #t)
 
-(test2 (var-bn> 0 0 0 0 0 0 0 0 0 0 0 0 0) #f)
+(test2 (var-bn> ($ 0) ($ 0) ($ 0) ($ 0) ($ 0)) #f)
 
 
 ;; greater or equal
@@ -1256,24 +1270,24 @@
 
 (test2 (bn>= (cons (- base 1) bn-1) bn0) #f)
 
-(test2 (bn>= -100 101) #f)
+(test2 (bn>= ($ -100) ($ 101)) #f)
 
-(test2 (bn>= -100 0) #f)
+(test2 (bn>= ($ -100) 0) #f)
 
-(test2 (bn>= -100 100) #f)
+(test2 (bn>= ($ -100) ($ 100)) #f)
 
-(test2 (bn>= 100 100) #t)
+(test2 (bn>= ($ 100) ($ 100)) #t)
 
-(test2 (bn>= 101 -100) #t)
+(test2 (bn>= ($ 101) ($ -100)) #t)
 
 
 ;; variadic greater than
 
-(test2 (var-bn>= 1 2 3 4 5 6 7 8 9) #f)
+(test2 (var-bn>= ($ 100) ($ 200) ($ 300) ($ 400)) #f)
 
-(test2 (var-bn>= -1 -2 -3 -4 -5 -6 -7 -8 -9) #t)
+(test2 (var-bn>= ($ -100) ($ -200) ($ -300) ($ -400)) #t)
 
-(test2 (var-bn>= 0 0 0 0 0 0 0 0 0 0 0 0 0) #t)
+(test2 (var-bn>= ($ 0) ($ 0) ($ 0) ($ 0) ($ 0)) #t)
 
 
 ;;------------------------------------------------------------------------------
@@ -1290,18 +1304,18 @@
 
 (test (bn-neg (cons 1 bn0)) -1)
 
-(test (bn-neg 123456789) -123456789)
+(test (bn-neg ($ 123456789)) ($ -123456789))
 
-(test (bn-neg -123456789) 123456789)
+(test (bn-neg ($ -123456789)) ($ 123456789))
 
 
 ;; bitwise not
 
 (test (bn~ 0) -1)
 
-(test (bn~ 10000) -10001)
+(test (bn~ ($ 10000)) ($ -10001))
 
-(test (bn~ -10000) 9999)
+(test (bn~ ($ -10000)) ($ 9999))
 
 ;; bn-zero?
 
@@ -1315,117 +1329,114 @@
 
 (test2 (bn-positive? 0) #f)
 
-(test2 (bn-positive? -1000) #f)
+(test2 (bn-positive? ($ -1000)) #f)
 
-(test2 (bn-positive? 1000) #t)
+(test2 (bn-positive? ($ 1000)) #t)
 
 
 ;; bn-negative?
 
 (test2 (bn-negative? 0) #f)
 
-(test2 (bn-negative? -1000) #t)
+(test2 (bn-negative? ($ -1000)) #t)
 
-(test2 (bn-negative? 10000) #f)
+(test2 (bn-negative? ($ 10000)) #f)
 
 
 ;; bn-even?
 
-(test2 (bn-even? 100) #t)
+(test2 (bn-even? ($ 100)) #t)
 
-(test2 (bn-even? -100) #t)
+(test2 (bn-even? ($ -100)) #t)
 
-(test2 (bn-even? 101) #f)
+(test2 (bn-even? ($ 101)) #f)
 
-(test2 (bn-even? -101) #f)
+(test2 (bn-even? ($ -101)) #f)
 
 
 ;; bn-odd?
 
-(test2 (bn-odd? 100) #f)
+(test2 (bn-odd? ($ 100)) #f)
 
-(test2 (bn-odd? -100) #f)
+(test2 (bn-odd? ($ -100)) #f)
 
-(test2 (bn-odd? 101) #t)
+(test2 (bn-odd? ($ 101)) #t)
 
-(test2 (bn-odd? -101) #t)
+(test2 (bn-odd? ($ -101)) #t)
 
 
 ;; bn-max
 
-(test2 (bn-max 0 bn0) 0)
+(test (bn-max ($ 0) bn0) ($ 0))
 
-(test2 (bn-max 0 100) 100)
+(test (bn-max ($ 0) ($ 100)) ($ 100))
 
-(test2 (bn-max 0 -100) 0)
+(test (bn-max ($ 0) ($ -100)) ($ 0))
 
 
 ;; variadic max
 
-(test2 (var-bn-max 0 0 0 0 0 0 bn0) 0)
+(test (var-bn-min ($ 0) ($ 0) ($ 0) ($ 0) bn0) ($ 0))
 
-(test2 (var-bn-max 1 2 3 4 5 6 7 8 9) 9)
+(test (var-bn-max ($ 100) ($ 200) ($ 300) ($ 400) ($ 500)) ($ 500))
 
-(test2 (var-bn-max -1 -2 -3 -4 -5 -6 -7 -8 -9) -1)
+(test (var-bn-max ($ -100) ($ -200) ($ -300) ($ -400) ($ -500)) ($ -100))
 
 
 ;; bn-min
 
-;; FIXME test with bn0 fails?
+(test (bn-min ($ 0) bn0) ($ 0))
 
-;; (test2 (bn-min 0 bn0) 0)
+(test (bn-min ($ 0) ($ 100)) ($ 0))
 
-(test2 (bn-min 0 100) 0)
-
-(test2 (bn-min 0 -100) -100)
+(test (bn-min ($ 0) ($ -100)) ($ -100))
 
 
 ;; variadic min
 
 ;; FIXME test with bn0 fails?
 
-;; (test2 (var-bn-min 0 0 0 0 0 0 bn0) 0)
+(test (var-bn-min ($ 0) ($ 0) ($ 0) ($ 0) bn0) ($ 0))
 
-(test2 (var-bn-min 1 2 3 4 5 6 7 8 9) 1)
+(test (var-bn-min ($ 100) ($ 200) ($ 300) ($ 400) ($ 500)) ($ 100))
 
-(test2 (var-bn-min -1 -2 -3 -4 -5 -6 -7 -8 -9) -9)
+(test (var-bn-min ($ -100) ($ -200) ($ -300) ($ -400) ($ -500)) ($ -500))
 
 
 ;; bn-abs
 
 (test (bn-abs bn0) 0)
 
-(test (bn-abs 100) 100)
+(test (bn-abs ($ 100)) ($ 100))
 
-(test (bn-abs -100) 100)
+(test (bn-abs ($ -100)) ($ 100))
 
 
 ;; bn-gcd
 
 (test (bn-gcd 0 0) 0)
 
-(test (bn-gcd 18 24) 6)
+(test (bn-gcd ($ 18) ($ 24)) ($ 6))
 
-(test (bn-gcd -18 24) 6)
+(test (bn-gcd ($ -18) ($ 24)) ($ 6))
 
-(test (bn-gcd 18 -24) 6)
+(test (bn-gcd ($ 18) ($ -24)) ($ 6))
 
-(test (bn-gcd -18 -24) 6)
+(test (bn-gcd ($ -18) ($ -24)) ($ 6))
 
-(test (bn-gcd 7 11) 1)
+(test (bn-gcd ($ 7) ($ 11)) ($ 1))
 
 
-;; bn-lcm
+;; ;; bn-lcm
 
-;; FIXME bn-lcm isn't working
+;; ;; FIXME bn-lcm isn't working
 
-;; (test (bn-lcm 3 3) 3)
+;; (test (bn-lcm ($ 3) ($ 3)) ($ 3))
 
-;; (test (bn-lcm 18 24) 72)
+;; (test (bn-lcm ($ 18) ($ 24)) ($ 72))
 
-;; (test (bn-lcm -18 24) 72)
+;; (test (bn-lcm ($ -18) ($ 24)) ($ 72))
 
-;; (test (bn-lcm 18 -24) 72)
+;; (test (bn-lcm ($ 18) ($ -24)) ($ 72))
 
-;; (test (bn-lcm -18 -24) 72)
-
+;; (test (bn-lcm ($ -18) ($ -24)) ($ 72))
