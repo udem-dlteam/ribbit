@@ -143,7 +143,8 @@
           (if (eqv? 0 n)
               bn0
               (if (eqv? -1 n)
-                  (cons base-1 bn-1) ;; special representation for -1
+                  bn-1
+                  ;; (cons base-1 bn-1) ;; special representation for -1
                   (if (< n 0)
                       (cons (+ base n) bn-1) 
                       (cons n bn0))))
@@ -353,7 +354,10 @@
   (if (and (end? a) (end? b))
       (if (eq? a b)
           (if (eqv? 0 carry)
-              (if (eq? a bn0) bn0 bn-1)
+              ;; (if (eq? a bn0) bn0 bn-1)
+              (if (eq? a bn-1)
+                  (cons (- base 2) bn-1) 
+                  bn0)
               (if (eq? a bn-1)
                   bn-1
                   (cons carry (_bn+ (cdr a) (cdr b) 0))))
@@ -400,18 +404,6 @@
 ;; long multiplication in O(n^2) so that we have something that works for now
 
 (define (bn* a b)
-
-  ;;   (define (_bn* a b carry)  ;; one line multiplication
-  ;;     (if (end? a)
-  ;;         (if (eqv? 0 carry) bn0 (cons carry bn0))
-  ;;         (let* (;; (_a (fixnum->bignum a))
-  ;;                ;; (_b (fixnum->bignum b))
-  ;;                (__a (car _a))
-  ;;                (__b (car _b))
-  ;;                (res (+ (* __a __b) carry))
-  ;;                (rem (modulo res base))
-  ;;                (quo (quotient res base)))
-  ;;           (cons rem (_bn* (cdr _a) _b quo)))))
   
   (define (_bn* a b carry)  ;; one line multiplication
     (if (end? a)
@@ -484,17 +476,6 @@
 ;;------------------------------------------------------------------------------
 
 ;; comparison
-
-;; (define (bn= a b)
-;;   (if (and (pair? a) (pair? b))
-;;       (if (and (end? a) (end? b))
-;;           (eq? a b)
-;;           (and (eqv? (car a) (car b)) (bn= (cdr a) (cdr b))))
-;;       (if (number? a)
-;;           (if (number? b)
-;;               (eqv? a b)
-;;               (bn= (fixnum->bignum a) b))
-;;           (bn= a (fixnum->bignum b)))))
 
 (define (bn= a b)
   (eqv? (bn- a b) 0))
@@ -754,10 +735,10 @@
       (cons 0 bn-1))
 
 ;; representation of 0
-(test (bn-norm bn0) bn0)
+(test (bn-norm bn0) 0)
 
 ;; representation of -1
-(test (bn-norm (cons (- base 1) bn-1)) -1)
+(test (bn-norm bn-1) -1)
 
 ;; already a fixnum
 (test (bn-norm (- base 1)) (- base 1))
@@ -833,7 +814,7 @@
 ;; same parity (neg), no carry
 (test (bn+ (cons (- base 1) (cons 0 bn-1))
            (cons (- base 1) (cons 0 bn-1)))
-      (cons (- base 2) (cons 1 bn-1)))
+      (cons (- base 2) (cons 1 (cons (- base 2) bn-1))))
 
 (test (bn+ bn0 bn0) bn0)
 
@@ -1440,3 +1421,4 @@
 ;; (test (bn-lcm ($ 18) ($ -24)) ($ 72))
 
 ;; (test (bn-lcm ($ -18) ($ -24)) ($ 72))
+
