@@ -635,6 +635,7 @@
    (define vector-type    4)
    (define singleton-type 5)
    (define char-type      6)
+   (define bignum-type    7) ;; bignums are activated with scheme-bignum feature
 
    (define (instance? type) (lambda (o) (and (rib? o) (eqv? (field2 o) type))))
 
@@ -1378,7 +1379,7 @@
     (set! host-config host-config-ctx)
 
     (set! tail (add-nb-args #t ctx 1 tail))
-
+    
     (vector-set!
       return
       0
@@ -2449,6 +2450,96 @@
 
 (define (encode-constants proc host-config)
 
+  (define bignum-base 8)
+
+  (define bn0-symbol #f)
+
+  (define bn-1-symbol #f)
+
+  (define (make-cyclic-rib elem type tail)
+    (c-rib
+     const-op
+     elem
+     (c-rib
+      const-op
+      0
+      (c-rib
+       const-op
+       type
+       (add-nb-args
+	#t
+	3
+	(c-rib
+	 jump/call-op
+	 '##rib
+	 (c-rib
+	  get-op
+	  0
+	  (c-rib
+	   get-op
+	   0
+	   (add-nb-args
+	    #t
+	    2
+	    (c-rib
+	     jump/call-op
+	     '##field1-set!
+	     (c-rib
+	      set-op
+	      0
+	      tail)))))))))))
+
+  (define (bn0)
+    (if bn0-symbol
+	bn0-symbol
+	(let ((v (fresh-symbol)))
+	  (set! built-constants
+		(cons (cons #f (cons v (make-cyclic-rib 0 bignum-type 0)))
+		      built-constants))
+	  (set! bn0-symbol v)
+	  bn0-symbol)))
+
+  (define (bn-1)
+    (if bn-1-symbol
+	bn-1-symbol
+	(let ((v (fresh-symbol)))
+	  (set! built-constants
+		(cons (cons #f (cons v (make-cyclic-rib (- base 1) bignum-type 0)))
+		      built-constants))
+	  (set! bn-1-symbol v)
+	  bn-1-symbol)))
+
+  (define (bignum-in-range? n)
+    (or (>= n bignum-base) (< n (- 0 bignum-base))))
+
+  (define (bignum-encode n)
+  
+    (define (_bn-encode-pos n tail)
+      (if (bignum-in-range? n)
+          (c-rib
+	   const-op
+	   (remainder n bignum-base)
+	   (_bn-encode-pos
+	    (quotient n bignum-base)
+	    (c-rib
+	     const-op
+	     bignum-type
+	     (add-nb-args
+	      #t
+	      3
+	      (c-rib
+	       jump/call-op
+	       '##rib
+	       tail)))))
+	  (c-rib
+	   get-op
+	   (bn0)
+	   tail)))
+
+    ;; TODO implement negative version as well
+    
+    (if (<= 0 n) (_bn-encode-pos n 0) (_bn-encode-pos (abs n) 0)))
+
   (define built-constants '())
 
   (define (add-nb-args prim? nb-args tail)
@@ -2472,25 +2563,28 @@
                   o
                   tail))
           ((number? o)
-           (if (< o 0)
-             (begin
+	   (if (and (host-config-feature-live? host-config 'scheme-bignum)
+		    (bignum-in-range? o))
+	       (bignum-encode o)
+               (if (< o 0)
+		   (begin
 
-               (if (not (host-config-feature-live? host-config '##-))
-                 (host-config-feature-add! host-config '##- #t))
+		     (if (not (host-config-feature-live? host-config '##-))
+			 (host-config-feature-add! host-config '##- #t))
 
-               (c-rib const-op
-                      0
-                      (c-rib const-op
-                             (- o)
-                             (add-nb-args
-                               #t
-                               2
-                               (c-rib jump/call-op
-                                      '##-
-                                      tail)))))
-               (c-rib const-op
-                      o
-                      tail)))
+		     (c-rib const-op
+			    0
+			    (c-rib const-op
+				   (- o)
+				   (add-nb-args
+				    #t
+				    2
+				    (c-rib jump/call-op
+					   '##-
+					   tail)))))
+		   (c-rib const-op
+			  o
+			  tail))))	   
           ((char? o)
            (if (and (host-config-features host-config)
                     (memq 'no-chars (host-config-features host-config)))
@@ -2610,6 +2704,13 @@
 
   (define constant-counter 0)
 
+  (define (fresh-symbol)
+    (let ((v (string->symbol
+              (string-append "_"
+                             (number->string constant-counter)))))
+      (set! constant-counter (+ constant-counter 1))
+      v))
+
   (define (constant-global-var o)
     (cond ((eqv? o #f)
            'false)
@@ -2621,10 +2722,7 @@
            (let ((x (assq o built-constants)))
              (if x
                  (cadr x)
-                 (let ((v (string->symbol
-                           (string-append "_"
-                                          (number->string constant-counter)))))
-                   (set! constant-counter (+ constant-counter 1))
+		 (let ((v (fresh-symbol)))
                    (build-constant-in-global-var o v)
                    v))))))
 
@@ -2633,17 +2731,23 @@
     (lambda (code traverse)
       (let ((op (c-rib-oper code))
             (o  (c-rib-opnd code)))
-        (cond ((eqv? op if-op)
+	(cond ((eqv? op if-op)
                (traverse o))
               ((eqv? op const-op)
                (if (c-procedure? o)
-                 (traverse (c-rib-next (c-rib-oper o))))
-               (if (not (or (symbol? o)
-                            (c-procedure? o)
-                            (and (number? o) (>= o 0))))
+                 (traverse (c-rib-next (c-rib-oper o)))
+		 (if (not (or (symbol? o)
+			      (and (number? o)
+				   (>= o 0)
+				   (not
+				    (and 
+				    (host-config-feature-live?
+				     host-config
+				     'scheme-bignum)
+				    (bignum-in-range? o))))))
                    (let ((constant (constant-global-var o)))
                      (c-rib-oper-set! code get-op)
-                     (c-rib-opnd-set! code constant))))))))
+                     (c-rib-opnd-set! code constant)))))))))
 
   (add-init-code proc))
 
@@ -2868,7 +2972,6 @@
           (table->list running-sums))
         (list winner-inst winner-index winner-value)))
 
-
     ;; starting, set size 1 for long encodings
     (for-each
       (lambda (encoding)
@@ -2879,7 +2982,6 @@
             0
             (begin (set! encoding-size-counter (- encoding-size-counter 1)) 1))))
       encodings)
-
 
     (if (< encoding-size-counter 0)
       (error "Encoding size is not big enough to fit all encodings" encoding-size-counter))
