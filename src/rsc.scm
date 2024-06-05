@@ -2512,7 +2512,7 @@
       bn-1-symbol
       (let ((v (fresh-symbol)))
         (set! built-constants
-          (cons (cons #f (cons v (make-cyclic-rib (- base 1) bignum-type 0)))
+          (cons (cons #f (cons v (make-cyclic-rib (- bignum-base 1) bignum-type 0)))
                 built-constants))
         (set! bn-1-symbol v)
         bn-1-symbol)))
@@ -2540,13 +2540,59 @@
                   '##rib
                   tail)))))
         (c-rib
-          get-op
-          (bn0)
-          tail)))
+          const-op
+          n
+	  (c-rib
+	   get-op
+	   (bn0)
+	   (c-rib
+	    const-op
+	    bignum-type
+	    (add-nb-args
+             #t
+             3
+             (c-rib
+              jump/call-op
+              '##rib
+	      tail)))))))
 
-    ;; TODO implement negative version as well
-
-    (if (<= 0 n) (_bn-encode-pos n 0) (_bn-encode-pos (abs n) 0)))
+    (define (_bn-encode-neg n tail)
+      (if (bignum-in-range? n)
+        (c-rib
+          const-op
+          (- (- bignum-base 1) (remainder n bignum-base))
+          (_bn-encode-neg
+            (quotient n bignum-base)
+            (c-rib
+              const-op
+              bignum-type
+              (add-nb-args
+                #t
+                3
+                (c-rib
+                  jump/call-op
+                  '##rib
+                  tail)))))
+        (c-rib
+          const-op
+          (- (- bignum-base 1) n)
+	  (c-rib
+	   get-op
+	   (bn-1)
+	   (c-rib
+	    const-op
+	    bignum-type
+	    (add-nb-args
+             #t
+             3
+             (c-rib
+              jump/call-op
+              '##rib
+	      tail)))))))
+	       
+    (if (<= 0 n)
+	(_bn-encode-pos n 0)
+	(_bn-encode-neg (abs (+ n 1)) 0)))
 
   (define built-constants '())
 
