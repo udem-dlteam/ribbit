@@ -2197,11 +2197,19 @@
       (live-env-reset-defs env)
       (live-env-set-clean! env)
       (liveness expr env (not exports))
+
+      ;; If scheme-bignum is activated, we need to create a cyclic structure 
+      ;; for bignum(0) and bignum(-1), thus needing ##field1-set!
+      (if (live-env-live-feature? env 'scheme-bignum) 
+        (begin
+          ;; make sure that ##field1-set! is defined before our constant
+          (if (not (memq '##field1-set! forced-first-primitives))
+            (set! forced-first-primitives (append forced-first-primitives '(##field1-set!))))
+          (live-env-add-feature! env '##field1-set!)))
+
       (if (live-env-clean? env)
         env
         (loop)))))
-
-
 
 (define (liveness expr env export-all?)
   (define export-all (live-env-live-feature? env 'export-all))
@@ -2450,7 +2458,7 @@
 
 (define (encode-constants proc host-config)
 
-  (define bignum-base 8)
+  (define bignum-base 1024)
 
   (define bn0-symbol #f)
 
@@ -2458,86 +2466,86 @@
 
   (define (make-cyclic-rib elem type tail)
     (c-rib
-     const-op
-     elem
-     (c-rib
       const-op
-      0
+      elem
       (c-rib
-       const-op
-       type
-       (add-nb-args
-	#t
-	3
-	(c-rib
-	 jump/call-op
-	 '##rib
-	 (c-rib
-	  get-op
-	  0
-	  (c-rib
-	   get-op
-	   0
-	   (add-nb-args
-	    #t
-	    2
-	    (c-rib
-	     jump/call-op
-	     '##field1-set!
-	     (c-rib
-	      set-op
-	      0
-	      tail)))))))))))
+        const-op
+        0
+        (c-rib
+          const-op
+          type
+          (add-nb-args
+            #t
+            3
+            (c-rib
+              jump/call-op
+              '##rib
+              (c-rib
+                get-op
+                0
+                (c-rib
+                  get-op
+                  0
+                  (add-nb-args
+                    #t
+                    2
+                    (c-rib
+                      jump/call-op
+                      '##field1-set!
+                      (c-rib
+                        set-op
+                        0
+                        tail)))))))))))
 
   (define (bn0)
     (if bn0-symbol
-	bn0-symbol
-	(let ((v (fresh-symbol)))
-	  (set! built-constants
-		(cons (cons #f (cons v (make-cyclic-rib 0 bignum-type 0)))
-		      built-constants))
-	  (set! bn0-symbol v)
-	  bn0-symbol)))
+      bn0-symbol
+      (let ((v (fresh-symbol)))
+        (set! built-constants
+          (cons (cons #f (cons v (make-cyclic-rib 0 bignum-type 0)))
+                built-constants))
+        (set! bn0-symbol v)
+        bn0-symbol)))
 
   (define (bn-1)
     (if bn-1-symbol
-	bn-1-symbol
-	(let ((v (fresh-symbol)))
-	  (set! built-constants
-		(cons (cons #f (cons v (make-cyclic-rib (- base 1) bignum-type 0)))
-		      built-constants))
-	  (set! bn-1-symbol v)
-	  bn-1-symbol)))
+      bn-1-symbol
+      (let ((v (fresh-symbol)))
+        (set! built-constants
+          (cons (cons #f (cons v (make-cyclic-rib (- base 1) bignum-type 0)))
+                built-constants))
+        (set! bn-1-symbol v)
+        bn-1-symbol)))
 
   (define (bignum-in-range? n)
     (or (>= n bignum-base) (< n (- 0 bignum-base))))
 
   (define (bignum-encode n)
-  
+
     (define (_bn-encode-pos n tail)
       (if (bignum-in-range? n)
-          (c-rib
-	   const-op
-	   (remainder n bignum-base)
-	   (_bn-encode-pos
-	    (quotient n bignum-base)
-	    (c-rib
-	     const-op
-	     bignum-type
-	     (add-nb-args
-	      #t
-	      3
-	      (c-rib
-	       jump/call-op
-	       '##rib
-	       tail)))))
-	  (c-rib
-	   get-op
-	   (bn0)
-	   tail)))
+        (c-rib
+          const-op
+          (remainder n bignum-base)
+          (_bn-encode-pos
+            (quotient n bignum-base)
+            (c-rib
+              const-op
+              bignum-type
+              (add-nb-args
+                #t
+                3
+                (c-rib
+                  jump/call-op
+                  '##rib
+                  tail)))))
+        (c-rib
+          get-op
+          (bn0)
+          tail)))
 
     ;; TODO implement negative version as well
-    
+
     (if (<= 0 n) (_bn-encode-pos n 0) (_bn-encode-pos (abs n) 0)))
 
   (define built-constants '())
@@ -2563,28 +2571,28 @@
                   o
                   tail))
           ((number? o)
-	   (if (and (host-config-feature-live? host-config 'scheme-bignum)
-		    (bignum-in-range? o))
-	       (bignum-encode o)
-               (if (< o 0)
-		   (begin
+           (if (and (host-config-feature-live? host-config 'scheme-bignum)
+                    (bignum-in-range? o))
+             (bignum-encode o)
+             (if (< o 0)
+               (begin
 
-		     (if (not (host-config-feature-live? host-config '##-))
-			 (host-config-feature-add! host-config '##- #t))
+                 (if (not (host-config-feature-live? host-config '##-))
+                   (host-config-feature-add! host-config '##- #t))
 
-		     (c-rib const-op
-			    0
-			    (c-rib const-op
-				   (- o)
-				   (add-nb-args
-				    #t
-				    2
-				    (c-rib jump/call-op
-					   '##-
-					   tail)))))
-		   (c-rib const-op
-			  o
-			  tail))))	   
+                 (c-rib const-op
+                        0
+                        (c-rib const-op
+                               (- o)
+                               (add-nb-args
+                                 #t
+                                 2
+                                 (c-rib jump/call-op
+                                        '##-
+                                        tail)))))
+               (c-rib const-op
+                      o
+                      tail))))	   
           ((char? o)
            (if (and (host-config-features host-config)
                     (memq 'no-chars (host-config-features host-config)))
@@ -2723,28 +2731,28 @@
              (if x
                  (cadr x)
 		 (let ((v (fresh-symbol)))
-                   (build-constant-in-global-var o v)
-                   v))))))
+       (build-constant-in-global-var o v)
+       v))))))
 
   (traverse-code
     (c-rib-oper proc)
     (lambda (code traverse)
       (let ((op (c-rib-oper code))
             (o  (c-rib-opnd code)))
-	(cond ((eqv? op if-op)
+        (cond ((eqv? op if-op)
                (traverse o))
               ((eqv? op const-op)
                (if (c-procedure? o)
                  (traverse (c-rib-next (c-rib-oper o)))
-		 (if (not (or (symbol? o)
-			      (and (number? o)
-				   (>= o 0)
-				   (not
-				    (and 
-				    (host-config-feature-live?
-				     host-config
-				     'scheme-bignum)
-				    (bignum-in-range? o))))))
+                 (if (not (or (symbol? o)
+                              (and (number? o)
+                                   (>= o 0)
+                                   (not
+                                     (and 
+                                       (host-config-feature-live?
+                                         host-config
+                                         'scheme-bignum)
+                                       (bignum-in-range? o))))))
                    (let ((constant (constant-global-var o)))
                      (c-rib-oper-set! code get-op)
                      (c-rib-opnd-set! code constant)))))))))
