@@ -2460,9 +2460,9 @@
 
   (define bignum-base 1024)
 
-  (define bn0-symbol #f)
+  (define bn0-symbol '##bn0)
 
-  (define bn-1-symbol #f)
+  (define bn-1-symbol '##bn-1)
 
   (define (make-cyclic-rib elem type tail)
     (c-rib
@@ -2497,26 +2497,6 @@
                         0
                         tail)))))))))))
 
-  (define (bn0)
-    (if bn0-symbol
-      bn0-symbol
-      (let ((v (fresh-symbol)))
-        (set! built-constants
-          (cons (cons #f (cons v (make-cyclic-rib 0 bignum-type 0)))
-                built-constants))
-        (set! bn0-symbol v)
-        bn0-symbol)))
-
-  (define (bn-1)
-    (if bn-1-symbol
-      bn-1-symbol
-      (let ((v (fresh-symbol)))
-        (set! built-constants
-          (cons (cons #f (cons v (make-cyclic-rib (- bignum-base 1) bignum-type 0)))
-                built-constants))
-        (set! bn-1-symbol v)
-        bn-1-symbol)))
-
   (define (bignum-in-range? n)
     (or (>= n bignum-base) (< n (- 0 bignum-base))))
 
@@ -2542,19 +2522,19 @@
         (c-rib
           const-op
           n
-	  (c-rib
-	   get-op
-	   (bn0)
-	   (c-rib
-	    const-op
-	    bignum-type
-	    (add-nb-args
+          (c-rib
+           get-op
+           bn0-symbol
+           (c-rib
+            const-op
+            bignum-type
+            (add-nb-args
              #t
              3
              (c-rib
               jump/call-op
               '##rib
-	      tail)))))))
+              tail)))))))
 
     (define (_bn-encode-neg n tail)
       (if (bignum-in-range? n)
@@ -2576,25 +2556,33 @@
         (c-rib
           const-op
           (- (- bignum-base 1) n)
-	  (c-rib
-	   get-op
-	   (bn-1)
-	   (c-rib
-	    const-op
-	    bignum-type
-	    (add-nb-args
+          (c-rib
+           get-op
+           bn-1-symbol
+           (c-rib
+            const-op
+            bignum-type
+            (add-nb-args
              #t
              3
              (c-rib
               jump/call-op
               '##rib
-	      tail)))))))
-	       
+              tail)))))))
+               
     (if (<= 0 n)
-	(_bn-encode-pos n 0)
-	(_bn-encode-neg (abs (+ n 1)) 0)))
+        (_bn-encode-pos n 0)
+        (_bn-encode-neg (abs (+ n 1)) 0)))
 
   (define built-constants '())
+
+  (define (add-bn-symbols)
+    (set! built-constants
+          (cons (cons #f (cons bn0-symbol (make-cyclic-rib 0 bignum-type 0)))
+                built-constants))
+    (set! built-constants
+          (cons (cons #f (cons bn-1-symbol (make-cyclic-rib (- bignum-base 1) bignum-type 0)))
+                built-constants)))
 
   (define (add-nb-args prim? nb-args tail)
     (if (and (host-config-features host-config)
@@ -2638,7 +2626,7 @@
                                         tail)))))
                (c-rib const-op
                       o
-                      tail))))	   
+                      tail))))     
           ((char? o)
            (if (and (host-config-features host-config)
                     (memq 'no-chars (host-config-features host-config)))
@@ -2776,10 +2764,14 @@
            (let ((x (assq o built-constants)))
              (if x
                  (cadr x)
-		 (let ((v (fresh-symbol)))
+                 (let ((v (fresh-symbol)))
        (build-constant-in-global-var o v)
        v))))))
 
+  ;; add bn0 and bn-1 symbols in symbol table if bignums are activated
+  (if (host-config-feature-live? host-config 'scheme-bignum)
+      (add-bn-symbols))
+  
   (traverse-code
     (c-rib-oper proc)
     (lambda (code traverse)
@@ -2803,6 +2795,9 @@
                      (c-rib-oper-set! code get-op)
                      (c-rib-opnd-set! code constant)))))))))
 
+  ;; (if (host-config-feature-live? host-config 'scheme-bignum)
+  ;;     (add-bn-symbols))
+  
   (add-init-code proc))
 
 (define (traverse-code code func)
