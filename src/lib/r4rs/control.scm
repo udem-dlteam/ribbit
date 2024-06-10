@@ -58,18 +58,15 @@ push(num_args) # @@(feature arity-check)@@
    (define-primitive
      (##apply f args)
      " ,  (do
-            let numArgs = 0
-            arg <- pop
-            f <- pop
-            let loop arg' numArgs' = do
-              case arg' of
-                ribNil -> do
-                  push (head arg')
-                  loop (tail arg') (numArgs' + 1)
-                _ -> do
-                  push numArgs' -- @@(feature arity-check)@@
-                  return f)
-        ")))
+       args <- pop
+       f <- pop
+       let loop numArgs' arg'  = do
+             if arg' == ribNil then 
+               push numArgs' >> return f
+             else do
+               read0 arg' >>= push
+               read1 arg' >>= loop (numArgs' + 1)
+       loop (0::Int) args)")))
 
 ;; Control features (R4RS section 6.9).
 
