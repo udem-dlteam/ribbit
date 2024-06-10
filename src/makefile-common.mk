@@ -84,7 +84,7 @@ check-repl:
 	  sh -c "$$setup"; \
 	  if [ $$? != 0 ]; then \
 	    echo "Error in the setup"; \
-	  exit 1; \
+	  	exit 1; \
 	  fi; \
 	fi; \
 	for test_feature in "" `echo "$$TEST_FEATURES" | tr ',' '\n' | sed -e 's/ /,/g'`; do \
@@ -94,27 +94,37 @@ check-repl:
 	  fi; \
 	  echo $$RSC_COMPILER -t $$host $$options -f+ quiet `echo "$$test_feature" | sed -e 's/,/ /g'` -o repl.$$host $$repl; \
 	  $$RSC_COMPILER -t $$host $$options -f+ quiet `echo "$$test_feature" | sed -e 's/,/ /g'` -o repl.$$host $$repl; \
-	  if [ $$? != 0 ]; then \
+		if [ "$$?" != "0" ]; then \
 	    echo "Could not build repl"; \
+			exit 1; \
 	  else \
 	    for prog in `ls $$TEST_DIR/01-r4rs/$$TEST_FILTER.scm host/$$HOST/tests/$$TEST_FILTER.scm`; do \
 	      echo "     testing in repl: $$prog"; \
 	      if [ "$$INTERPRETER" != "" ]; then \
 	        echo "(load \"$$prog\")" | $$INTERPRETER repl.$$host > repl.$$host.out; \
+					if [ "$$?" != "0" ]; then \
+					  error=1; \
+					fi; \
 	      else \
 	        $$COMPILER repl.$$host.exe repl.$$host; \
+					if [ "$$?" != "0" ]; then \
+					  error=1; \
+					fi; \
 	        echo "(load \"$$prog\")" | ./repl.$$host.exe > repl.$$host.out; \
+					if [ "$$?" != "0" ]; then \
+					  error=1; \
+					fi; \
 	      fi; \
 	      lines=$$(wc -l < repl.$$host.out); \
 	      lines_to_keep=$$((lines - 2)); \
 	      head -n $$lines_to_keep repl.$$host.out > repl.$$host.expected; \
 	      sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - repl.$$host.expected; \
-	      if [ $$? != 0 ]; then \
+	      if [ "$$?" != "0" ]; then \
 	        error=1; \
 	      fi; \
 	      if [ "$$cleanup" != "" ]; then \
 	        sh -c "$$cleanup"; \
-	        if [ $$? != 0 ]; then \
+					if [ "$$?" != "0" ]; then \
 	          echo "Error in the cleanup"; \
 	        fi; \
 	      fi; \
@@ -122,7 +132,7 @@ check-repl:
 	  rm -f test.$$host*; \
 	  fi; \
 	done; \
-	if [ $$error != 0 ]; then \
+	if [ "$$error" == "1" ]; then \
 	  exit 1; \
 	fi
 

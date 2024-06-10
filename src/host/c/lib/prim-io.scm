@@ -62,7 +62,7 @@
   char buffer[1] = {(char) NUM(x)};
   int success = fwrite(buffer, 1, 1, file);
   if (success != 1) {
-  perror(\"WHAT\");
+  perror(\"Cannot write to file.\");
   }
   fflush(file);
   push2(TRUE, PAIR_TAG);
