@@ -745,7 +745,7 @@
     (if (eqv? location '@@inline)
       #f
       (if location-ref
-        (set-cdr! location-ref (cons feature (cdr location-ref)))
+        (set-cdr! location-ref (append (cdr location-ref) (list feature)))
         (begin
           (host-config-locations-set! host-config (cons (list location feature) (host-config-locations host-config)))
           #t)))))
