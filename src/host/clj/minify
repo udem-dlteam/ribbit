@@ -1,5 +1,5 @@
 #!/bin/sh
-gsi `dirname "$0"`/../../minify.scm \
+`dirname "$0"`/../../script/minify \
 --comment-char ";" \
 --keep-spaces \
 --ident-chars "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789-/!?>:*" \
