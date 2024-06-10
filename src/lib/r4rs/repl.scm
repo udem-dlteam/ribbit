@@ -208,7 +208,11 @@
 
   space
   tab
-  return)
+  return
+
+  ;#; ribbit specific
+  export
+  )
 
 
 ;; (if-feature 
@@ -216,6 +220,11 @@
 ;;   (begin 
 ;;     (welcome-msg)
 ;;     (newline)))
+
+;; no-op to not crash when encontering an export statement in the repl
+(define (export . args)
+  #t)
+
 
 (repl)
 
