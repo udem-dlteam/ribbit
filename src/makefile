@@ -9,6 +9,10 @@ all:
 
 .PHONY: prebuilt
 
+scripts/minify: scripts/minify.scm
+	${GSC} -exe -o scripts/minify scripts/minify.scm
+
+
 check: rsc.exe
 	@if [ "$$HOST" = "" ]; then \
 	  for host in $(HOSTS); do \
@@ -93,8 +97,6 @@ check-bootstrap: rsc.exe
 	else \
 	  cd host/$$HOST; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check-bootstrap; cd ../..; \
 	fi
-
-
 
 clean:
 	@for host in $(HOSTS); do \

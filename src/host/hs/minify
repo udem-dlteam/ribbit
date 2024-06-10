@@ -20,7 +20,7 @@ sed 's/ }/}/g' \
 | sed  '/^$/d' \
 | sed -e '/^[ \t]*--/d' \
 | sed 's/[[:blank:]]*$//' \
-| gsi `dirname "$0"`/../../minify.scm \
+| `dirname "$0"`/../../scripts/minify \
 --comment-char "-" --comment-char2 "-" \
 --keep-spaces --keep-ident-case \
 --ident-chars "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789" \
@@ -35,5 +35,7 @@ sed 's/ }/}/g' \
 "in" "if" "then" "else" "MonadIO" "fail" "show" "NOINLINE" "type" "main" \
 "error" "length" "drop" "span" "const" "div" "putChar" "getChar" "replicate" \
 "mapM" "reverse" "min" "flip" "eofHandler" "isEOFError" "catchAny" "return" "UNPACK" \
-"liftIO" "uncurry" "join" "getArgs" "readFile" "hiding" "hSetBuffering" "stdout" \
-"NoBuffering" "ap"
+"liftIO" "uncurry" "join" "getArgs" "readFile" "hiding" "hSetBuffering" "stdout" "stdin" \
+"NoBuffering" "Bits" "Dynamic" "shiftR" "shiftL" "fromIntegral" "toInteger" "toEnum" \
+"quot" "_" "id" "Handle" "not" "when" "hPutChar" "hGetChar" "hIsEOF" "hClose" \
+"openFile" "WriteMode" "ReadMode"
