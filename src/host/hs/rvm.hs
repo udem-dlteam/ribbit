@@ -151,7 +151,7 @@ code x = let v=ord x-35 in if v<0 then 57 else v
 type Prim = IO ()
 
 -- push :: ToRib a => a -> IO () -- Debug
-push v = getStack >>= cons v >>= setStack
+push v = getStack >>= cons v >>= setStack >> pure ribNil
 
 -- pop :: IO Rib -- Debug
 pop = getStack >>= \case RibRef r -> readRef r >>= \(RibObj top rest _) -> setStack rest >> pure top
@@ -160,13 +160,13 @@ pop = getStack >>= \case RibRef r -> readRef r >>= \(RibObj top rest _) -> setSt
 -- Primitives
 
 -- prim1 :: (Rib -> IO Rib) -> Prim -- Debug
-prim1 f = pop >>= f >>= push >> pure ribNil
+prim1 f = pop >>= f >>= push
 
 -- prim2 :: (Rib -> Rib -> IO Rib) -> Prim -- Debug
-prim2 f = flip (,) <$> pop <*> pop >>= uncurry f >>= push >> pure ribNil
+prim2 f = flip (,) <$> pop <*> pop >>= uncurry f >>= push
 
 -- prim3 :: ((Rib,Rib,Rib) -> IO Rib) -> Prim -- Debug
-prim3 f = (,,) <$> pop <*> pop <*> pop >>= f >>= push >> pure ribNil 
+prim3 f = (,,) <$> pop <*> pop <*> pop >>= f >>= push
 
 -- safeGetChar :: IO Int -- Debug
 safeGetChar = fmap ord getChar `catchAny` const (pure (-1))
@@ -174,7 +174,7 @@ safeGetChar = fmap ord getChar `catchAny` const (pure (-1))
 -- close :: Prim -- Debug
 close = do
  v1 <- pop >>= read0
- getStack >>= mkProc v1 >>= push >> pure ribNil
+ getStack >>= mkProc v1 >>= push
 
 -- primitives :: [Prim] -- Debug
 primitives =
@@ -198,7 +198,7 @@ primitives =
  , prim2 $ onInt (-)                                         -- @@(primitive (##- x y))@@
  , prim2 $ onInt (*)                                         -- @@(primitive (##* x y))@@
  , prim2 $ onInt quot                                        -- @@(primitive (##quotient x y))@@
- , safeGetChar >>= push . RibInt >> pure ribNil              -- @@(primitive (##getchar))@@
+ , safeGetChar >>= push . RibInt                             -- @@(primitive (##getchar))@@
  , prim1 (\r@(RibInt v) -> putChar (chr v) >> pure r)        -- @@(primitive (##putchar x))@@
  -- )@@
  ]
@@ -299,15 +299,18 @@ call pc o = do
 
      RibInt n -> do
       result <- primitives!!n
-      read2 pc >>= \case
-       -- call
-       RibRef _ -> read2 pc >>= eval
-       -- jump
-       RibInt _ -> do
-        k <- getCont
-        stack <- getStack
-        read0 k >>= write1 stack
-        read2 k >>= eval
+      if result == ribNil then do
+           read2 pc >>= \case
+            -- call
+            RibRef _ -> read2 pc >>= eval
+            -- jump
+            RibInt _ -> do
+             k <- getCont
+             stack <- getStack
+             read0 k >>= write1 stack
+             read2 k >>= eval
+      else
+          call pc result 
 
 -- eval :: Rib -> IO () -- Debug
 eval pc = do

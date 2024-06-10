@@ -3,12 +3,12 @@
 (define-primitive
   (##stdin-fd)
   (use hs/io-handle)
-  " , push . RibForeign $ RibHandle stdin")
+  " , (push . RibForeign $ RibHandle stdin) >> return ribNil")
 
 (define-primitive
   (##stdout-fd)
   (use hs/io-handle)
-  " , push . RibForeign $ RibHandle stdout")
+  " , (push . RibForeign $ RibHandle stdout) >> return ribNil")
 
 (define-primitive 
   (##get-fd-input-file filename)
