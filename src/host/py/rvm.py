@@ -115,6 +115,8 @@ def start_step():                                                       # DEBUG
 
 # )@@ 
 
+# @@(location decl)@@
+
 pos=-1
 def get_byte():
  global pos
