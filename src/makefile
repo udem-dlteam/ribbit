@@ -1,6 +1,8 @@
 HOSTS = c js py scm hs lua ml sh asm clj zig
 
 #RSC_COMPILER ?= gsi -:r4rs rsc.scm
+GSI ?= gsi
+GSC ?= gsc
 RSC_COMPILER ?= ./rsc.exe
 
 all:
@@ -14,7 +16,10 @@ check: rsc.exe
 	    cd host/$$host; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check; cd ../..; \
 	  done; \
 	else \
-	  cd host/$$HOST; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check; cd ../..; \
+	  cd host/$$HOST; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check; \
+		if [ "$$?" != "0" ]; then \
+			exit 1; \
+		fi; \
 	fi
 
 prebuilt:
@@ -33,7 +38,7 @@ tests/*: all
 rsc.exe: rsc.scm
 	@echo "====================== BUILDING RSC.EXE"
 	@echo "This process may take a while..."
-	gsc -:r4rs -exe -o rsc.exe rsc.scm
+	${GSC} -:r4rs -exe -o rsc.exe rsc.scm
 
 
 check-repl: rsc.exe
@@ -57,7 +62,7 @@ check-features:
 	    nb_visible_original=`grep -c visible $$host_path`; \
 		nb_hidden_original=`grep -c hidden $$host_path`; \
 		echo "====================== TESTING FEATURE $$host_path (v:$$nb_visible_original, h:$$nb_hidden_original, options: '$$options')"; \
-		cmd="gsi rsc.scm -t $$host $$options lib/empty.scm --rvm $$host_path -o .test-feature.REMOVE"; \
+		cmd="$${GSI} rsc.scm -t $$host $$options lib/empty.scm --rvm $$host_path -o .test-feature.REMOVE"; \
 		$$cmd; \
 		nb_visible_after=`grep -c visible .test-feature.REMOVE;` \
 		nb_hidden_after=`grep -c hidden .test-feature.REMOVE`; \
