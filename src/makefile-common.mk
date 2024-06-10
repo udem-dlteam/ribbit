@@ -115,7 +115,6 @@ check-repl:
 	    rm -f test.$$host*; \
 		  fi; \
     done; \
-	popd
 
 check:
 	@host="$(HOST)"; \
@@ -126,7 +125,7 @@ check:
 	TEST_FEATURES='${TEST_FEATURES}'; \
 	TEST_DIR="${TEST_DIR}"; \
 	TEMP_DIR="${TEMP_DIR}"; \
-	pushd ../../; \
+	cd ../..; \
 	if [ "$$TEST_FEATURES" != "." ]; then \
 	  RSC_TEST_FEATURES="$$RSC_TEST_FEATURES;$$TEST_FEATURES"; \
 	fi; \
@@ -156,10 +155,10 @@ check:
 	    rm -f test_path; \
 	    $$RSC_COMPILER -t $$host $$options $$feature_list -o $$test_path $$prog; \
 	    if [ "$$INTERPRETER" != "" ]; then \
-	      sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | $$INTERPRETER $$test_path "$$argv" > $$test_path.out; \
+	      sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | $$INTERPRETER $$test_path $$argv > $$test_path.out; \
 	    else \
 	      $$COMPILER $$test_path.exe $$test_path; \
-	      sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | ./$$test_path.exe "$$argv" > $$test_path.out; \
+	      sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | ./$$test_path.exe $$argv > $$test_path.out; \
 	    fi; \
 	    sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - $$test_path.out; \
 	    if [ $$? = 0 ]; then \
@@ -177,7 +176,9 @@ check:
 	done; \
 	rmdir $$TEMP_DIR; \
 	echo "!!! $$test_passed/$$num_test passed"; \
-	popd
+	if [ "$$test_passed" != "$$num_test" ]; then \
+	  exit 1; \
+	fi
 
 clean:
 	@host="$(HOST)"; \
