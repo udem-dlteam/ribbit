@@ -44,73 +44,78 @@ for tag in $(echo $TEST_TAGS | tr ' ' '\n'); do
     runs=`get_attribute $test_path "$tag-run"`
   fi
 
-  for run in $(echo $runs | tr ',' '\n' | sed -e "s/ /,/g"); do
-    run=`echo $run | sed -e "s/,/ /g"`
-    
-    # Compile test
-    cmd="$RSC_COMPILER -t $HOST $run -o $prog.$HOST $test_path"
-    `$cmd` > $prog.err 2>&1 
-    if [ "$?" != "0" ]; then
-      if [ "$success" = "1" ]; then
-        success=0
-        echo "❌"
-      fi
-      echo ">>>>>> [run: '$run' input: '$input' argv: '$argv']"
-      echo ">>>>>> Error during compilation (see $prog.err)"
-      echo ">>>>>> Compile with : '$cmd'"
-      echo ">>>>>> See error below."
-      cat $prog.err
-      echo ""
-      continue
-    fi
-
-    # Run test
-    echo $input | run_file $prog.$HOST $prog.out $argv > $prog.err 2>&1 
-    if [ "$?" != 0 ]; then
-      if [ $success -eq 1 ]; then
-        success=0
-        echo "❌"
-      fi
-      echo ">>>>>> [run: '$run' input: '$input' argv: '$argv']"
-      echo ">>>>>> Error during test execution (see $prog.err)"
-      echo ">>>>>> Compile with : '$cmd'"
-      echo ">>>>>> See error below."
-      cat $prog.err
-      echo ""
-      continue
-    fi
-
-    # Check output
-    sed -e '1,/;;;expected:/d' -e 's/^;;;//' $test_path | diff - $prog.out > $prog.diff 2>&1;
-    if [ "$?" = "0" ]; then
-      test_ran=1
-    else
-      if [ "$success" = "1" ]; then
-        success=0
-        echo "❌"
-      fi
-      echo ">>>>>> [run: '$run' input: '$input' argv: '$argv']"
-      echo ">>>>>> Results doesn't match expected value (see See $prog.diff)"
-      echo ">>>>>> Compile with : '$cmd'"
-      echo ">>>>>> See error below."
-      cat $prog.diff
-      echo ""
-      test_err=1
-    fi
-
-    # Cleanup
-    if [ "$cleanup" != "" ]; then
-      sh -c "$cleanup" > $prog.err 2>&1;
+  for feature in "" $(echo $TEST_FEATURES | tr ',' '\n' | sed -e "s/ /,/g" ); do
+    for run in $(echo $runs | tr ',' '\n' | sed -e "s/ /,/g"); do
+      echo ".\c"
+      run=`echo $run | sed -e "s/,/ /g"`
+      feature=`echo $feature | sed -e "s/,/ /g"`
+      
+      # Compile test
+      cmd="$RSC_COMPILER -t $HOST $run $feature -o $prog.$HOST $test_path"
+      `$cmd` > $prog.err  2>&1 
       if [ "$?" != "0" ]; then
         if [ "$success" = "1" ]; then
           success=0
           echo "❌"
         fi
-          echo ">>> $test_path [options: $run]"
-          tail -n 10 $prog.err
-          echo "Error during cleaning up : see $prog.err for more details."
+        echo ">>>>>> [run: '$run' features: '$feature' input: '$input' argv: '$argv']"
+        echo ">>>>>> Error during compilation (see $prog.err)"
+        echo ">>>>>> Compile with : '$cmd'"
+        echo ">>>>>> See error below."
+        cat $prog.err
+        echo ""
+        continue
+      fi
+
+      # Run test
+      echo $input | run_file $prog.$HOST $prog.out $argv > $prog.err 2>&1 
+      if [ "$?" != 0 ]; then
+        if [ $success -eq 1 ]; then
+          success=0
+          echo "❌"
+        fi
+        echo ">>>>>> [run: '$run' features: '$feature' input: '$input' argv: '$argv']"
+        echo ">>>>>> Error during test execution (see $prog.err)"
+        echo ">>>>>> Compile with : '$cmd'"
+        echo ">>>>>> See error below."
+        tail -n 10 $prog.out
+        cat $prog.err
+        echo ""
+        continue
+      fi
+
+      # Check output
+      sed -e '1,/;;;expected:/d' -e 's/^;;;//' $test_path | diff - $prog.out > $prog.diff 2>&1;
+      if [ "$?" = "0" ]; then
+        test_ran=1
+      else
+        if [ "$success" = "1" ]; then
+          success=0
+          echo "❌"
+        fi
+        echo ">>>>>> [run: '$run' features: '$feature' input: '$input' argv: '$argv']"
+        echo ">>>>>> Results doesn't match expected value (see See $prog.diff)"
+        echo ">>>>>> Compile with : '$cmd'"
+        echo ">>>>>> See error below."
+        cat $prog.diff
+        echo ""
+        test_err=1
+      fi
+
+      # Cleanup
+      if [ "$cleanup" != "" ]; then
+        sh -c "$cleanup" > $prog.err 2>&1;
+        if [ "$?" != "0" ]; then
+          if [ "$success" = "1" ]; then
+            success=0
+            echo "❌"
+          fi
+            echo ">>> $test_path [options: $run]"
+            tail -n 10 $prog.err
+            echo "Error during cleaning up : see $prog.err for more details."
+        fi;
       fi;
-    fi;
+    done
   done
 done
 

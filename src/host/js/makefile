@@ -1,6 +1,7 @@
+
 HOST = js
 HOST_INTERPRETER = $${JS_HOST_INTERPRETER:-node}
+
 TEST_TAGS=js core r4rs
-RSC_MUST_TEST_FEATURES ?= -e original; -e optimal -f+ compression/tag
-RSC_MUST_BENCH_OPTIONS ?= -f+ js/node; -f+ js/node -e skip
+TEST_FEATURES ?= -e original, -e optimal, -e optimal -f+ compression/lzss/tag, -m, -m -e optimal -f+ compression/lzss/tag
 include ../../makefile-common.mk
