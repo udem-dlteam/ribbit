@@ -180,26 +180,26 @@ close = do
 primitives =
  [
 -- @@(primitives (gen body)
- prim3 (\(c,b,a) -> toRib $ RibObj a b c)                    -- @@(primitive (rib a b c))@@
- , prim1 pure                                                -- @@(primitive (id x))@@
- , void pop >> pure ribNil                                   -- @@(primitive (arg1 x y))@@
- , prim2 (const pure)                                        -- @@(primitive (arg2 x y))@@
- , close                                                     -- @@(primitive (close rib))@@ 
- , prim1 (pure . (\case RibInt _ -> ribFalse; _ -> ribTrue)) -- @@(primitive (rib? rib))@@
- , prim1 read0                                               -- @@(primitive (field0 rib))@@
- , prim1 read1                                               -- @@(primitive (field1 rib))@@
- , prim1 read2                                               -- @@(primitive (field2 rib))@@
- , prim2 $ writePrim write0                                  -- @@(primitive (field0-set! rib))@@
- , prim2 $ writePrim write1                                  -- @@(primitive (field1-set! rib))@@ 
- , prim2 $ writePrim write2                                  -- @@(primitive (field2-set! rib))@@ 
- , prim2 $ \r1 r2 -> toBool (r1 == r2)                       -- @@(primitive (eqv? rib))@@
- , prim2 $ \(RibInt r1) (RibInt r2) -> toBool (r1 < r2)      -- @@(primitive (< x y))@@
- , prim2 $ onInt (+)                                         -- @@(primitive (+ x y))@@
- , prim2 $ onInt (-)                                         -- @@(primitive (- x y))@@
- , prim2 $ onInt (*)                                         -- @@(primitive (* x y))@@
- , prim2 $ onInt quot                                        -- @@(primitive (quotient x y))@@
- , safeGetChar >>= push . RibInt >> pure ribNil              -- @@(primitive (getchar))@@
- , prim1 (\r@(RibInt v) -> putChar (chr v) >> pure r)        -- @@(primitive (putchar x))@@
+ prim3 (\(c,b,a) -> toRib $ RibObj a b c)                    -- @@(primitive (##rib a b c))@@
+ , prim1 pure                                                -- @@(primitive (##id x))@@
+ , void pop >> pure ribNil                                   -- @@(primitive (##arg1 x y))@@
+ , prim2 (const pure)                                        -- @@(primitive (##arg2 x y))@@
+ , close                                                     -- @@(primitive (##close rib))@@ 
+ , prim1 (pure . (\case RibInt _ -> ribFalse; _ -> ribTrue)) -- @@(primitive (##rib? rib))@@
+ , prim1 read0                                               -- @@(primitive (##field0 rib))@@
+ , prim1 read1                                               -- @@(primitive (##field1 rib))@@
+ , prim1 read2                                               -- @@(primitive (##field2 rib))@@
+ , prim2 $ writePrim write0                                  -- @@(primitive (##field0-set! rib))@@
+ , prim2 $ writePrim write1                                  -- @@(primitive (##field1-set! rib))@@ 
+ , prim2 $ writePrim write2                                  -- @@(primitive (##field2-set! rib))@@ 
+ , prim2 $ \r1 r2 -> toBool (r1 == r2)                       -- @@(primitive (##eqv? rib))@@
+ , prim2 $ \(RibInt r1) (RibInt r2) -> toBool (r1 < r2)      -- @@(primitive (##< x y))@@
+ , prim2 $ onInt (+)                                         -- @@(primitive (##+ x y))@@
+ , prim2 $ onInt (-)                                         -- @@(primitive (##- x y))@@
+ , prim2 $ onInt (*)                                         -- @@(primitive (##* x y))@@
+ , prim2 $ onInt quot                                        -- @@(primitive (##quotient x y))@@
+ , safeGetChar >>= push . RibInt >> pure ribNil              -- @@(primitive (##getchar))@@
+ , prim1 (\r@(RibInt v) -> putChar (chr v) >> pure r)        -- @@(primitive (##putchar x))@@
  -- )@@
  ]
 
