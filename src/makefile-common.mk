@@ -12,7 +12,7 @@
 # HOST_COMPILER takes two arguments, the output file (executable binary) and
 # the source file to compile
 
-RSC_COMPILER ?= gsi -:r4rs rsc.scm
+RSC_COMPILER ?= ${GSI} -:r4rs rsc.scm
 REPL_PATH ?= lib/r4rs/repl.scm
 
 TEST_FEATURES ?= .
