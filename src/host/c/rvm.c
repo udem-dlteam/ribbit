@@ -95,12 +95,13 @@ unsigned char input[] = {41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,
 unsigned char compressed_input[] = {41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121,0}; // RVM code that prints HELLO!
 // )@@
 
-#define ORIGINAL_SIZE 00 // @@(replace "00" compression/lzss/2b/original-size)@@
-#define RANGE_START 00 // @@(replace "00" compression/lzss/2b/range-start)@@
-#define MAX_ENCODING_SIZE 00 // @@(replace "00" compression/lzss/2b/max-encoding-size)@@
-#define MAX_LEN 00 // @@(replace "00" compression/lzss/2b/max-len)@@
+#define BYTE_BASE 00            // @@(replace "00" compression/lzss/2b/byte-base)@@
+#define SIZE_BASE 00            // @@(replace "00" compression/lzss/2b/size-base)@@
+#define RIBN_BASE 00            // @@(replace "00" compression/lzss/2b/ribn-base)@@
+#define RIBN_SIZE 00            // @@(replace "00" compression/lzss/2b/ribn-size)@@
+#define COMPRESSED_RIBN_SIZE 00 // @@(replace "00" compression/lzss/2b/compressed-ribn-size)@@
 
-unsigned char input[ORIGINAL_SIZE]; 
+unsigned char input[RIBN_SIZE]; 
 
 void decompress(){
   int j = 0;
@@ -108,11 +109,11 @@ void decompress(){
 
   while(i < sizeof(compressed_input)){
     unsigned char c1 = compressed_input[i++];
-    if (c1 >= RANGE_START){
+    if (c1 >= RIBN_BASE){
       unsigned char c2 = compressed_input[i++];
-      unsigned int combined = (c1 - RANGE_START) * MAX_ENCODING_SIZE + c2;
-      unsigned int offset = combined / MAX_LEN;
-      unsigned int length = (combined % MAX_LEN) + 3;
+      unsigned int combined = (c1 - RIBN_BASE) * BYTE_BASE + c2;
+      unsigned int offset = combined / SIZE_BASE;
+      unsigned int length = (combined % SIZE_BASE) + 3;
 
       while(length--) 
         input[j++] = input[j-offset];
