@@ -85,8 +85,7 @@
 (display (>= 5 4 3 4 2 1 -10))
 (newline)
 
-;;;fancy-compiler
-;;;options: -l r4rs/io -l r4rs/number
+;;;r4rs-run: -l r4rs/io -l r4rs/number
 ;;;expected:
 ;;;#f
 ;;;#t

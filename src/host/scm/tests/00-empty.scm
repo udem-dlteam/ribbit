@@ -1,2 +1,2 @@
-;;;options: -l empty
+;;;run: -l empty
 ;;;expected:

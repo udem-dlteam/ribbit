@@ -17,8 +17,7 @@
 ;; (display `(1 ```,,@,,@(list (+ 1 2)) 4))
 ;; (newline)
 
-;;;fancy-compiler
-;;;options: -l r4rs/pair-list -l r4rs/io
+;;;r4rs-run: -l r4rs/pair-list -l r4rs/io
 ;;;expected:
 ;;;(x 12)
 ;;;(grape apple banana cherry orange kiwi)

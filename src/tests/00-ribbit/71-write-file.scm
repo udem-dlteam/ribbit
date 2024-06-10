@@ -20,7 +20,7 @@
 (close-output-port data-file)
 
 ;;;cleanup: rm tests/data/71-output-data.txt
-;;;options: -l r4rs/io 
+;;;r4rs-run: -l r4rs/io 
 ;;;fancy-compiler
 ;;;expected:
 ;;;output-port? #t

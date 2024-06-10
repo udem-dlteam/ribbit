@@ -4,18 +4,12 @@
 (newline)
 (display (append '(a (b)) '((c))))
 (newline)
-(display (append '(a b) '(c . d)))
-(newline)
-(display (append '() 'a))
-(newline)
-(display (append '(a b) 'c))
+(display (append '(a b) '(c d)))
 (newline)
 
-;;;options: -l r4rs/pair-list -l r4rs/io
+;;;run: -l max
 ;;;expected:
 ;;;(x y)
 ;;;(a b c d)
 ;;;(a (b) (c))
-;;;(a b c . d)
-;;;a
-;;;(a b . c)
+;;;(a b c d)

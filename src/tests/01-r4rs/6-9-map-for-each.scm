@@ -19,7 +19,7 @@
            v))
 (newline)
 
-;;;options: -l r4rs
+;;;r4rs-run: -l r4rs
 ;;;expected:
 ;;;(b e h)
 ;;;(5 7 9)

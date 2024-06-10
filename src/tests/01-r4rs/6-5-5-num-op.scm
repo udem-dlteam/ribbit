@@ -139,8 +139,7 @@
 (display (divtest -238 -9))
 (newline)
 
-;;;fancy-compiler
-;;;options: -l r4rs
+;;;r4rs-run: -l r4rs
 ;;;expected:
 ;;;3
 ;;;5

@@ -163,7 +163,7 @@
 (display (char-ci>=? #\A #\a))
 (newline)
 
-;;;options: -l r4rs
+;;;r4rs-run: -l r4rs
 ;;;expected:
 ;;;#f
 ;;;#f

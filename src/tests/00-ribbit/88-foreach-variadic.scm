@@ -4,8 +4,7 @@
 
 (for-each (lambda (x y z) (display x) (display y) (display z) (newline)) (list 1 2 3 4 5) (list 6 7 8 9 10) (list 11 12 13 14 15))
 
-;;;fancy-compiler
-;;;options: -l r4rs/io -l r4rs/control -l r4rs/pair-list
+;;;r4rs-run: -l r4rs/io -l r4rs/control -l r4rs/pair-list
 ;;;expected:
 ;;;1
 ;;;2

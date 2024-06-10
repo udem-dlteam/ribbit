@@ -63,7 +63,7 @@
              (negative? (string->number "-8000000" 16))))
 (newline)
 
-;;;options: -l r4rs
+;;;r4rs-run: -l r4rs
 ;;;expected:
 ;;;"0"
 ;;;"100"

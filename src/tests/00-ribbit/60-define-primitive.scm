@@ -79,7 +79,8 @@ try self.stackPush(num(val.num * val.num));
 (##putchar (square 6))
 (##putchar 10)
 
-;;;options: -l max
+;;;run: -l max -f+ arity-check
+;;;run: -l empty -f+ arity-check
 ;;;fancy-compiler
 ;;;expected:
 ;;;$

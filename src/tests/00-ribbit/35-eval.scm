@@ -3,7 +3,9 @@
 (write (eval (read)))
 (##putchar 10)
 
-;;;options: -l r4rs
+;;;run: -l min -f+ arity-check
+;;;run: -l max -f+ arity-check
+;;;r4rs-run: -l r4rs
 ;;;input:(* 6 7)
 ;;;expected:
 ;;;42

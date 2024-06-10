@@ -9,7 +9,7 @@
 (close-input-port data-file)
 (close-input-port data-file)
 
-;;;options: -l r4rs/io 
+;;;r4rs-run: -l r4rs/io 
 ;;;fancy-compiler
 ;;;expected:
 ;;;#t

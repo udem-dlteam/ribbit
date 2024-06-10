@@ -25,8 +25,7 @@
 (display (max -5))
 (newline)
 
-;;;fancy-compiler
-;;;options: -l r4rs/math -l r4rs/io
+;;;r4rs-run: -l r4rs/math -l r4rs/io
 ;;;expected:
 ;;;2
 ;;;-5

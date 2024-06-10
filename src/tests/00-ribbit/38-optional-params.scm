@@ -51,7 +51,7 @@
 ; (foo 69) ; error
 ; (foo 69 69 69 69) ; error
 
-;;;options: -l empty
+;;;run: -l empty
 ;;;expected:
 ;;;EEE
 ;;;EEA
