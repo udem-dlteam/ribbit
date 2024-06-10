@@ -1,0 +1,296 @@
+name: Test
+run-name: Test RVMs
+on: 
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+jobs:
+  compile_RSC:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the ribbit repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+
+      - name: Cache gambit
+        id: cache-gambit
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-gambit
+        with:
+          path: ./gambit
+          key: gambit-v4.9.5-${{ runner.os }}
+
+      - if: ${{ steps.cache-gambit.outputs.cache-hit != 'true' }}
+        name: Install Gambit Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install texinfo autoconf2.69
+          sudo ln -s -f `which autoconf2.69` `which autoconf`
+
+      - if: ${{ steps.cache-gambit.outputs.cache-hit != 'true' }}
+        name: Checkout the gambit repository
+        uses: actions/checkout@v2
+        with:
+          repository: gambit/gambit
+          ref: v4.9.5
+          path: gambit-src
+
+      - if: ${{ steps.cache-gambit.outputs.cache-hit != 'true' }}
+        name: Build Gambit for Use 
+        run: |
+          mkdir gambit
+          cd gambit-src && ./configure --enable-single-host --enable-gambitdir=~~execdir/.. --prefix=$(pwd)/../gambit --enable-targets=""  && make clean && make -j`nproc` core && make modules && make install
+
+      - name: Make sure gsi and gsc are working
+        run: |
+          ./gambit/bin/gsi -v
+          ./gambit/bin/gsc -v
+
+      - name: create rsc.exe
+        run: |
+          cd src
+          make rsc.exe GSC=$(pwd)/../gambit/bin/gsc GSI=$(pwd)/../gambit/bin/gsi
+
+      - name: upload rsc.exe
+        uses: actions/upload-artifact@v2
+        with:
+          name: rsc-exe
+          path: src/rsc.exe
+
+  py_rvm:
+    runs-on: ubuntu-latest
+    needs: compile_RSC
+    steps:
+      - name: Checkout the ribbit repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+      - name: Download rsc.exe artifact into rsc-exe
+        uses: actions/download-artifact@v2
+        with:
+          name: rsc-exe
+          path: src
+      - name: Set up permissions on rsc.exe
+        run: |
+          chmod +x src/rsc.exe
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Run RVM tests
+        run: |
+          cd src; HOST=py make check RSC_COMPILER="./rsc.exe"
+
+      - name: Run repl tests
+        run: |
+          cd src; HOST=py make check-repl RSC_COMPILER="./rsc.exe"
+
+
+  js_rvm:
+    runs-on: ubuntu-latest
+    needs: compile_RSC
+    steps:
+      - name: Checkout the ribbit repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+      - name: Download rsc.exe artifact into rsc-exe
+        uses: actions/download-artifact@v2
+        with:
+          name: rsc-exe
+          path: src
+      - name: Set up permissions on rsc.exe
+        run: |
+          chmod +x src/rsc.exe
+
+      - name: Set up Nodejs
+        uses: actions/setup-node@v4
+        with:
+          node-version: '21'
+
+      - name: Run RVM tests
+        run: |
+          cd src; HOST=js make check RSC_COMPILER="./rsc.exe"
+
+      - name: Run repl tests
+        run: |
+          cd src; HOST=js make check-repl RSC_COMPILER="./rsc.exe"
+
+
+  sh_rvm:
+    runs-on: ubuntu-latest
+    needs: compile_RSC
+    steps:
+      - name: Checkout the ribbit repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+      - name: Download rsc.exe artifact into rsc-exe
+        uses: actions/download-artifact@v2
+        with:
+          name: rsc-exe
+          path: src
+      - name: Set up permissions on rsc.exe
+        run: |
+          chmod +x src/rsc.exe
+
+      - name: Run RVM tests
+        run: |
+          cd src; HOST=sh make check RSC_COMPILER="./rsc.exe"
+
+  c_rvm:
+    runs-on: ubuntu-latest
+    needs: compile_RSC
+    steps:
+      - name: Checkout the ribbit repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+      - name: Download rsc.exe artifact into rsc-exe
+        uses: actions/download-artifact@v2
+        with:
+          name: rsc-exe
+          path: src
+      - name: Set up permissions on rsc.exe
+        run: |
+          chmod +x src/rsc.exe
+
+      - name: Setup gcc
+        uses: egor-tensin/setup-gcc@v1
+        with:
+          version: latest
+          platform: x64
+
+      - name: Run RVM tests
+        run: |
+          cd src; HOST=c make check RSC_COMPILER="./rsc.exe"
+
+      - name: Run repl tests
+        run: |
+          cd src; HOST=c make check-repl RSC_COMPILER="./rsc.exe"
+
+  asm_rvm:
+    runs-on: ubuntu-latest
+    needs: compile_RSC
+    steps:
+      - name: Checkout the ribbit repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+      - name: Download rsc.exe artifact into rsc-exe
+        uses: actions/download-artifact@v2
+        with:
+          name: rsc-exe
+          path: src
+      - name: Set up permissions on rsc.exe
+        run: |
+          chmod +x src/rsc.exe
+      - uses: ilammy/setup-nasm@v1
+      - name: Run RVM tests
+        run: |
+          cd src; HOST=asm make check RSC_COMPILER="./rsc.exe"
+
+      - name: Run repl tests
+        run: |
+          cd src; HOST=asm make check-repl RSC_COMPILER="./rsc.exe"
+
+          # Disabled for now, doesn't work
+          # scm_rvm:
+          #   runs-on: ubuntu-latest
+          #   needs: compile_RSC
+          #   steps:
+          #     - name: Checkout the ribbit repository
+          #       uses: actions/checkout@v2
+          #       with:
+          #         repository: ${{ github.repository }}
+          #         ref: ${{ github.ref }}
+          #     - name: Cache gambit
+          #       id: cache-gambit
+          #       uses: actions/cache@v3
+          #       env:
+          #         cache-name: cache-gambit
+          #       with:
+          #         path: ./gambit
+          #         key: gambit-v4.9.5-${{ runner.os }}
+
+          #     - if: ${{ steps.cache-gambit.outputs.cache-hit != 'true' }}
+          #       name: Install Gambit Dependencies
+          #       run: |
+          #         sudo apt-get update
+          #         sudo apt-get install texinfo autoconf2.69
+          #         sudo ln -s -f `which autoconf2.69` `which autoconf`
+
+          #     - if: ${{ steps.cache-gambit.outputs.cache-hit != 'true' }}
+          #       name: Checkout the gambit repository
+          #       uses: actions/checkout@v2
+          #       with:
+          #         repository: gambit/gambit
+          #         ref: v4.9.5
+          #         path: gambit-src
+
+          #     - if: ${{ steps.cache-gambit.outputs.cache-hit != 'true' }}
+          #       name: Build Gambit for Use 
+          #       run: |
+          #         mkdir gambit
+          #         cd gambit-src && ./configure --enable-single-host --enable-gambitdir=~~execdir/.. --prefix=$(pwd)/../gambit --enable-targets=""  && make clean && make -j`nproc` core && make modules && make install
+
+          #     - name: Make sure gsi and gsc are working
+          #       run: |
+          #         ./gambit/bin/gsi -v
+          #         ./gambit/bin/gsc -v
+          #   
+          #     - name: Download rsc.exe artifact into rsc-exe
+          #       uses: actions/download-artifact@v2
+          #       with:
+          #         name: rsc-exe
+          #         path: src
+
+          #     - name: Set up permissions on rsc.exe
+          #       run: |
+          #         chmod +x src/rsc.exe
+
+          #     - name: Run RVM tests
+          #       run: |
+          #         cd src; HOST=scm make check RSC_COMPILER="./rsc.exe" SCM_HOST_INTERPRETER="$(pwd)/../gambit/bin/gsi" SCM_HOST_COMPILER="$(pwd)/../gambit/bin/gsc -exe -o"
+  
+  hs_rvm:
+    runs-on: ubuntu-latest
+    needs: compile_RSC
+    steps:
+      - name: Checkout the ribbit repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+      - name: Download rsc.exe artifact into rsc-exe
+        uses: actions/download-artifact@v2
+        with:
+          name: rsc-exe
+          path: src
+      - name: Set up permissions on rsc.exe
+        run: |
+          chmod +x src/rsc.exe
+      - uses: haskell-actions/setup@v2
+      - name: Run RVM tests
+        run: |
+          cd src; HOST=hs make check RSC_COMPILER="./rsc.exe"
+
+      - name: Run repl tests
+        run: |
+          cd src; HOST=hs make check-repl RSC_COMPILER="./rsc.exe"
+
