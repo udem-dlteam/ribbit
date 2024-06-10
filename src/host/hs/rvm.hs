@@ -367,7 +367,9 @@ getCont = getStack >>= go
 
 -- initialize :: String -> IO Rib -- Debug
 initialize programStr = do
- let (start, end) = span (/= ';') programStr; ((symbolTableStr, emptySymbolsCount), instructionsStr) = (readInt start 0, drop 1 end)
+ let (programRest, emptySymbolsCount) = readInt programStr 0
+ let (start, end) = span (/= ';') programRest; (symbolTableStr, instructionsStr) = (start, drop 1 end)
+
  -- Creating a partial state to decode the instructions.
  -- We just need a stack and the symbol table.
  -- The global object references will be patched later.
