@@ -19,7 +19,7 @@
 (write (char-downcase #\a))
 (newline)
 
-;;;options: -l r4rs
+;;;r4rs-run: -l r4rs
 ;;;expected:
 ;;;#\.
 ;;;#\A

@@ -38,7 +38,7 @@
   (list #t #\a '() 9739 '(test) (lambda (x) x) "test" 'car '#(a b c))
   (list #f #\newline '() -3252 '(t . t) car "" 'nil '#()))
 
-;;;options: -l r4rs
+;;;r4rs-run: -l r4rs
 ;;;expected:
 ;;;(#t #f #f #f #f #f #f #f #f)#t
 ;;;(#t #f #f #f #f #f #f #f #f)#f

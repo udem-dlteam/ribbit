@@ -13,7 +13,7 @@
 (display (call-with-current-continuation procedure?))
 (newline)
 
-;;;options: -l r4rs
+;;;r4rs-run: -l r4rs
 ;;;expected:
 ;;;#t
 ;;;#f

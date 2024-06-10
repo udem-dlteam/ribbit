@@ -25,8 +25,7 @@
 (display (call/cc (lambda (c) (apply c (list 42)))))
 (newline)
 
-;;;fancy-compiler
-;;;options: -l r4rs/control -l r4rs/io -l r4rs/number
+;;;r4rs-run: -l r4rs/control -l r4rs/io -l r4rs/number
 ;;;expected:
 ;;;5
 ;;;2

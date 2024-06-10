@@ -34,8 +34,7 @@
 (close-input-port data-file)
 (close-input-port data-file)
 
-;;;options: -l r4rs/io 
-;;;fancy-compiler
+;;;r4rs-run: -l r4rs/io 
 ;;;expected:
 ;;;#t
 ;;;peek1: #\B

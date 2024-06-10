@@ -25,8 +25,7 @@
 (display (lcm))
 (newline)
 
-;;;fancy-compiler
-;;;options: -l r4rs/math -l r4rs/io
+;;;r4rs-run: -l r4rs/math -l r4rs/io
 ;;;expected:
 ;;;4
 ;;;5

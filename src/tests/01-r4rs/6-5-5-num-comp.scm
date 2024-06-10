@@ -43,8 +43,7 @@
 (display (>= 1 3 2))
 (newline)
 
-;;;fancy-compiler
-;;;options: -l r4rs
+;;;r4rs-run: -l r4rs
 ;;;expected:
 ;;;#t
 ;;;#t

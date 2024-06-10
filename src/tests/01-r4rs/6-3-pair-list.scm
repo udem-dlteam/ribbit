@@ -146,7 +146,7 @@
 (write (assv 5 '((2 3) (5 7) (11 13))))
 (newline)
 
-;;;options: -l r4rs
+;;;r4rs-run: -l r4rs
 ;;;expected:
 ;;;(a b c d e)
 ;;;#t

@@ -16,8 +16,7 @@
 (write (string->number "28" 8))
 (newline)
 
-;;;fancy-compiler
-;;;options: -l r4rs/io -l r4rs/types
+;;;r4rs-run: -l r4rs/io -l r4rs/types
 ;;;expected:
 ;;;"11"
 ;;;"FF"

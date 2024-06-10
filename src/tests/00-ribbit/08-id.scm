@@ -3,6 +3,6 @@
 (##putchar (##id 67))
 (##putchar 10)
 
-;;;options: -l empty
+;;;run: -l empty
 ;;;expected:
 ;;;ABC

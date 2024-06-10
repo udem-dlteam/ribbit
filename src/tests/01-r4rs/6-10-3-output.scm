@@ -34,7 +34,7 @@
     (display (equal? load-test-obj (read port)))
     (newline)))
 
-;;;options: -l r4rs
+;;;r4rs-run: -l r4rs
 ;;;cleanup: rm ./tmp2
 ;;;expected:
 ;;;#t

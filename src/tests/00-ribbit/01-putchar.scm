@@ -1,6 +1,6 @@
 (##putchar 65)
 (##putchar 10)
 
-;;;options: -l empty
+;;;run: -l empty
 ;;;expected:
 ;;;A

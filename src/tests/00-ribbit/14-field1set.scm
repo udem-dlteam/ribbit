@@ -5,6 +5,6 @@
 (##putchar (##field2 r))
 (##putchar 10)
 
-;;;options: -l empty
+;;;run: -l empty
 ;;;expected:
 ;;;0A0

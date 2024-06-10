@@ -2,6 +2,6 @@
 (##putchar (if (##rib? (##rib 1 2 3)) 65 66))
 (##putchar 10)
 
-;;;options: -l empty
+;;;run: -l empty
 ;;;expected:
 ;;;BA

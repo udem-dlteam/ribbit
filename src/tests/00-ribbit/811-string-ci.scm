@@ -18,8 +18,7 @@
 (display (string=? x (string #\A #\b #\C)))
 (newline)
 
-;;;fancy-compiler
-;;;options: -l r4rs/io -l r4rs/string 
+;;;r4rs-run: -l r4rs/io -l r4rs/string 
 ;;;expected:
 ;;;"abc"
 ;;;#t

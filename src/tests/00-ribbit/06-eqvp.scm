@@ -3,6 +3,6 @@
 (##putchar (if (##eqv? 2 2) 65 66))
 (##putchar 10)
 
-;;;options: -l empty
+;;;run: -l empty
 ;;;expected:
 ;;;BBA

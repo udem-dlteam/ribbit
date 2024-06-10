@@ -21,7 +21,7 @@
 (close-input-port this-file)
 (close-input-port this-file)
 
-;;;options: -l r4rs
+;;;r4rs-run: -l r4rs
 ;;;expected:
 ;;;#\;
 ;;;#\;

@@ -67,11 +67,10 @@
 ; 			    (retfoo)))
 ; (newline)
 
-;;;options: -l r4rs
+;;;r4rs-run: -l r4rs
 ;;;expected:
 ;;;6
 ;;;1
 ;;;(3 6)
 ;;;9
 ;;;34
-;;;

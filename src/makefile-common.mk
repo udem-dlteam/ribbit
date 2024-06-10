@@ -12,8 +12,12 @@
 # HOST_COMPILER takes two arguments, the output file (executable binary) and
 # the source file to compile
 
-RSC_COMPILER ?= ${GSI} -:r4rs rsc.scm
+GSI ?= gsi
+GSC ?= gsc
+RSC_COMPILER ?= ${GSI} -:r4rs ../../rsc.scm
 REPL_PATH ?= lib/r4rs/repl.scm
+
+OUT_TEST ?= .tests
 
 TEST_FEATURES ?= .
 RSC_MUST_TEST_FEATURES ?= ,
@@ -117,67 +121,21 @@ check-repl:
     done; \
 
 check:
-	@host="$(HOST)"; \
-	INTERPRETER="$(HOST_INTERPRETER)"; \
-	COMPILER="$(HOST_COMPILER)"; \
-	RSC_COMPILER="${RSC_COMPILER}"; \
-	RSC_TEST_FEATURES='${RSC_MUST_TEST_FEATURES}'; \
-	TEST_FEATURES='${TEST_FEATURES}'; \
-	TEST_DIR="${TEST_DIR}"; \
-	TEMP_DIR="${TEMP_DIR}"; \
-	cd ../..; \
-	if [ "$$TEST_FEATURES" != "." ]; then \
-	  RSC_TEST_FEATURES="$$RSC_TEST_FEATURES;$$TEST_FEATURES"; \
-	fi; \
-	TEST_FILTER='${TEST_FILTER}'; \
-	test_passed=0; \
-	num_test=0; \
-	mkdir -p $$TEMP_DIR; \
-	for prog in `ls $$TEST_DIR/**/$$TEST_FILTER.scm host/$$HOST/tests/$$TEST_FILTER.scm`; do \
-	  setup=`sed -n -e '/;;;setup:/p' $$prog | sed -e 's/^;;;setup://'`; \
-	  cleanup=`sed -n -e '/;;;cleanup:/p' $$prog | sed -e 's/^;;;cleanup://'`; \
-	  options=`sed -n -e '/;;;options:/p' $$prog | sed -e 's/^;;;options://'`; \
-	  argv=`sed -n -e '/;;;argv:/p' $$prog | sed -e 's/^;;;argv://'`; \
-	  test_name=`basename $$prog`; \
-	  echo "---------------------- $$prog [options:$$options] [argv:$$argv]"; \
-	  if [ "$$setup" != "" ]; then \
-      sh -c "$$setup"; \
-	    if [ $$? != 0 ]; then \
-	      echo "Error in the setup"; \
-		  fi; \
-	  fi; \
-	  for test_feature in `echo "$$RSC_TEST_FEATURES" | sed -e 's/ /,/g' | sed -e 's/,*\;,*/\n/g'`; do \
-	    if [ "$$test_feature" != "," ] && [ "$$test_feature" != "" ]; then \
-	  	echo "    >>> [test features: `echo "$$test_feature" | sed -e 's/,/ /g'`]"; \
-	    fi; \
-	    test_path=$$TEMP_DIR/$$test_name.$$host; \
-	    feature_list=`echo "$$test_feature" | sed -e 's/,/ /g'`; \
-	    rm -f test_path; \
-	    $$RSC_COMPILER -t $$host $$options $$feature_list -o $$test_path $$prog; \
-	    if [ "$$INTERPRETER" != "" ]; then \
-	      sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | $$INTERPRETER $$test_path $$argv > $$test_path.out; \
-	    else \
-	      $$COMPILER $$test_path.exe $$test_path; \
-	      sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | ./$$test_path.exe $$argv > $$test_path.out; \
-	    fi; \
-	    sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - $$test_path.out; \
-	    if [ $$? = 0 ]; then \
-	      test_passed=$$(($$test_passed + 1)); \
-	    fi; \
-	    num_test=$$(($$num_test + 1)); \
-			rm -f $$test_path*; \
-	  done; \
-	  if [ "$$cleanup" != "" ]; then \
-      sh -c "$$cleanup"; \
-	    if [ $$? != 0 ]; then \
-	      echo "Error in the cleanup"; \
-		  fi; \
-	  fi; \
+	@cd ../..; \
+	succeded=1; \
+	for prog in `ls ${TEST_DIR}/**/${TEST_FILTER}.scm host/${HOST}/tests/${TEST_FILTER}.scm`; do \
+		HOST="${HOST}" \
+		HOST_COMPILER="$(HOST_COMPILER)" \
+		HOST_INTERPRETER="$(HOST_INTERPRETER)" \
+		RSC_COMPILER="${RSC_COMPILER}" \
+		TEST_TAGS="${TEST_TAGS}" \
+		./run_test.sh $$prog; \
+		if [ $$? != 0 ]; then \
+			succeded=0; \
+		fi; \
 	done; \
-	rmdir $$TEMP_DIR; \
-	echo "!!! $$test_passed/$$num_test passed"; \
-	if [ "$$test_passed" != "$$num_test" ]; then \
-	  exit 1; \
+	if [ $$succeded != 1 ]; then \
+		exit 1; \
 	fi
 
 clean:

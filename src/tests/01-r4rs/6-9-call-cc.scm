@@ -62,7 +62,7 @@
 (display (leaf-eq? '(a (b (c))) '((a) b c d)))
 (newline)
 
-;;;options: -l r4rs
+;;;r4rs-run: -l r4rs
 ;;;expected:
 ;;;-3
 ;;;4

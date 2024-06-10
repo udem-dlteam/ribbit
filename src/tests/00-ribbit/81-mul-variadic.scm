@@ -10,8 +10,7 @@
 (display (*))
 (newline)
 
-;;;fancy-compiler
-;;;options: -l r4rs/number -l r4rs/io
+;;;r4rs-run: -l r4rs/number -l r4rs/io
 ;;;expected:
 ;;;2
 ;;;5

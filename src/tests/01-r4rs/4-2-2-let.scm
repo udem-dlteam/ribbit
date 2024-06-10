@@ -26,7 +26,7 @@
 
 (define (s x) (if x (let () (set! s x) (set! x s))))
 
-;;;options: -l r4rs
+;;;r4rs-run: -l r4rs
 ;;;expected:
 ;;;6
 ;;;35

@@ -1,7 +1,7 @@
 (##putchar (##getchar))
 (##putchar 10)
 
-;;;options: -l empty
+;;;run: -l empty
 ;;;input:ABC
 ;;;expected:
 ;;;A

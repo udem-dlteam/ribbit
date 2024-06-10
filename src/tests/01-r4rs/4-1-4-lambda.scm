@@ -17,7 +17,7 @@
 (display ((lambda (x y . z) z) 3 4 5 6))
 (newline)
 
-;;;options: -l r4rs
+;;;r4rs-run: -l r4rs
 ;;;expected:
 ;;;3
 ;;;10
