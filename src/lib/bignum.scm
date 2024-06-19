@@ -13,11 +13,6 @@
 
 ;; normalization (bn-norm)     [x] 
 
-;; fixnum number->string       [ ]
-;; bn-number->string           [ ]
-;; fixnum string->number       [ ]
-;; bn-string->number           [ ]
-
 ;; addition (bn+)              [x] 
 ;; variadic addition           [x]
 ;; substraction (bn-)          [x]
@@ -66,13 +61,16 @@
 ;; bn-lcm                      [x]
 ;; variadic lcm                [x]
 
+;; fixnum number->string       [x]
+;; bn-number->string           [x]
+;; bn-string->number           [x]
+
 
 ;; Maybe add a cond-expand to detect which library is imported so that we
 ;; can remove procedures that aren't necessary?
 
 ;; IGNORE THIS FOR NOW:
 ;;  - the max-fixnum check for bignum->fixnum
-;;  - string->number and number->string (not adapted yet)
 
 
 ;;------------------------------------------------------------------------------
@@ -99,7 +97,16 @@
 
 ;;(define-feature _ (use scheme-bignum))
 
-(define bignum-type 7)
+
+(define pair-type      0)
+;; (define procedure-type 1)
+;; (define symbol-type    2)
+(define string-type    3)
+;; (define vector-type    4)
+;; (define singleton-type 5)
+;; (define char-type      6)
+(define bignum-type    7)
+
 
 (define (bn-cons car cdr)
   (##rib car cdr bignum-type))
@@ -128,9 +135,9 @@
 
 (define (var-fixnum? lst)
   (cond ((null? lst) #f)
-	((null? (##field1 lst)) (fixnum? (##field0 lst)))
-	(else (and (fixnum? (##field0 lst))
-		   (var-fixnum? (##field1 lst))))))
+        ((null? (##field1 lst)) (fixnum? (##field0 lst)))
+        (else (and (fixnum? (##field0 lst))
+                   (var-fixnum? (##field1 lst))))))
 
 (define (bignum? n)
   (and (##rib? n) (##eqv? (##field2 n) bignum-type)))
@@ -142,11 +149,11 @@
 (define (fixnum->bignum n)
   (if (fixnum? n)
       (if (and (##< n base) (##< (##- 0 (##+ base 1)) n))
-	  (cond ((##eqv? 0 n) bn0)
-		((##eqv? -1 n) bn-1)
-		((##< 0 n) (bn-cons n bn0))         ;; positive fixnum
-		(else (bn-cons (##+ base n) bn-1))) ;; negative fixnum
-	  (bn-encode n))
+          (cond ((##eqv? 0 n) bn0)
+                ((##eqv? -1 n) bn-1)
+                ((##< 0 n) (bn-cons n bn0))         ;; positive fixnum
+                (else (bn-cons (##+ base n) bn-1))) ;; negative fixnum
+          (bn-encode n))
       (if (bignum? n)
           n
           #f)))
@@ -174,7 +181,7 @@
 ;;                   base
 ;;                   (##- 0 (bn-neg n))))
 ;;           (if (##bn< n max-fixnum) ;; conversion is not possible
-;; 	      (##+ (bn-digit n) (##* base (bignum->fixnum (bn-next n))))))
+;;            (##+ (bn-digit n) (##* base (bignum->fixnum (bn-next n))))))
 ;;       (if (and (fixnum? n) (##< n max-fixnum) (##< (##- (##+ max-fixnum 1)) n))
 ;;           n
 ;;           #f)))
@@ -190,7 +197,7 @@
   (if (bignum? n)
       n
       (let ((_n (_bn-encode (if (##< n 0) (##- 0 n) n))))
-	(if (##< (##- 0 1) n) _n (##bn-neg _n)))))
+        (if (##< (##- 0 1) n) _n (##bn-neg _n)))))
 
 ;; helper function to encode bignums
 
@@ -205,8 +212,8 @@
 (define (bn-scan-until-false fn base state lst)
   (if (and (not (null? lst)) state)
       (bn-scan-until-false fn (##field0 lst)
-			   (fn base (##field0 lst))
-			   (##field1 lst))
+                           (fn base (##field0 lst))
+                           (##field1 lst))
       state))
 
 (define (bn-map fn lst)
@@ -259,62 +266,6 @@
           (fixnum->bignum n))
       (let ((_n (_bn-norm n (bn-next n))))
         (or (bignum->fixnum _n) _n)))) ;; return a fixnum if possible
-
-
-;; ;;------------------------------------------------------------------------------
-
-;; ;; FIXME incomplete and redundant type checks 
-
-;; ;; number->string
-
-;; (define (bn-number->string a)
-;;   (if (fixnum? a)
-;;       (number->string a)
-;;       (##bn-number->string (fixnum->bignum a))))
-
-;; (define (##bn-number->string a)
-
-;;   (define (##bn-number->string-aux _a radix)
-;;     (let* ((q (bn-quotient _a radix))
-;;            (d (bn-remainder _a radix)) 
-;;            (c (+ 48 d))) 
-;;       (cons c (if (bn= bn0 q)
-;;                   '()
-;;                   (##bn-number->string-aux q radix)))))
-  
-;;   (let ((chars (##bn-number->string-aux (##bn-abs a) (fixnum->bignum 10))))
-;;     (if (##bn< a bn0)
-;;         (list->string (cons (integer->char 45) ;; negative number, 45 = "#\-"
-;;                             (reverse (map integer->char chars)))) 
-;;         (list->string (reverse (map integer->char chars))))))
-
-
-;; ;; string->number
-
-;; (define (bn-string->number str)
-
-;;   (define (convert c) ;; decimal only
-;;     (let ((_c (char->integer c)))
-;;       (if (and (< 47 _c) (< _c 58))
-;;           (- _c 48)
-;;           #f)))
-
-;;   (define (bn-string->number-aux lst n)
-;;     (if (pair? lst)
-;;         (let* ((c (car lst))
-;;                (x (convert c)))
-;;           (if x
-;;               (bn-string->number-aux (cdr lst) (bn+ (bn* 10 n) x))
-;;               #f))
-;;         n))
-
-;;   (let ((lst (string->list str)))
-;;     (if (null? lst)
-;;         #f
-;;         (if (equal? (car lst) (integer->char 45))
-;;             (let ((n (bn-string->number-aux (cdr lst) 0)))
-;;               (and n (bn-u n)))
-;;             (bn-string->number-aux lst 0)))))
 
 
 ;;------------------------------------------------------------------------------
@@ -704,7 +655,7 @@
 
 (define (##gcd a b)
   (let ((_a (abs a))
-	(_b (abs b)))
+        (_b (abs b)))
     (if (##< _a _b) (##gcd-aux _a _b) (##gcd-aux _b _a))))
 
 (define (##gcd-aux a b)
@@ -739,7 +690,7 @@
   (if (##eqv? b 0)
       0
       (let ((_a (abs a))
-	    (_b (abs b)))
+            (_b (abs b)))
         (##* (##quotient _a (##gcd _b)) _b))))
 
 (define (bn-lcm a b)
@@ -758,6 +709,87 @@
   (if (var-fixnum? args)
       (bn-norm (bn-fold ##lcm 1 args))
       (bn-norm (bn-fold ##bn-lcm bn1 (bn-map fixnum->bignum args)))))
+
+
+;;------------------------------------------------------------------------------
+
+;; FIXME incomplete and redundant type checks
+
+
+;; number->string
+
+(define (##number->string a)
+
+  (define (##number->string-aux _a tail radix)
+    (let* ((quo (##quotient _a radix))
+           (rem (##remainder _a radix))
+           (chars (##rib (##+ 48 rem) tail pair-type)))
+      (if (##eqv? 0 quo)
+          chars
+          (##number->string-aux quo chars radix))))
+
+  (let ((chars (if (##< a 0)
+		   (##rib 45
+			  (##number->string-aux (##- 0 a) '() 10)
+			  pair-type)
+		   (##number->string-aux a '() 10))))
+
+    (##rib chars (length chars) string-type))) ;; FIXME ##length?
+
+
+;; bignum's number->string
+
+(define (bn-number->string a)
+  (if (fixnum? a)
+      (##number->string a)
+      (##bn-number->string (fixnum->bignum a))))
+
+(define (##bn-number->string a)
+
+  (define (##bn-number->string-aux _a tail radix)
+    (let* ((quo (bn-quotient _a radix)) ;; FIXME redundant type check
+           (rem (bn-remainder _a radix)) ;; FIXME redundant type check
+           (chars (##rib (##+ 48 rem) tail pair-type)))
+      (if (bn= bn0 quo) ;; FIXME (##eqv? bn0 quo)
+          chars
+          (##bn-number->string-aux quo chars radix))))
+
+  (let* ((radix (fixnum->bignum 10))
+	 (chars (if (##bn< a bn0)
+		    (##rib 45
+			   (##bn-number->string-aux (##bn-abs a) '() radix)
+			   pair-type)
+		    (##bn-number->string-aux a '() radix))))
+
+    (##rib chars (length chars) string-type))) ;; FIXME ##length?
+
+
+;; bignum's string->number
+
+(define (bn-string->number str)
+
+  (define (convert char)
+    (if (and (##< 47 char) (##< char 58)) ;; 0-9
+	(##- char 48)   
+	#f))
+
+  (define (bn-string->number-aux lst number)
+    (if (null? lst) ;; FIXME define null? ??
+	number
+	(let* ((char (##field0 lst))
+	       (digit (convert char)))
+	  (if digit
+	      (bn-string->number-aux (##field1 lst)
+				     (bn+ (bn* 10 number) digit)) ;; FIXME ##bn?
+	      #f))))
+
+  (let ((lst (##field0 str)))
+    (if (null? lst)
+        #f
+        (if (##eqv? (##field0 lst) 45) ;; negative?
+            (let ((n (bn-string->number-aux (##field1 lst) 0)))
+              (and n (bn-u n))) 
+            (bn-string->number-aux lst 0))))) ;; FIXME normalize?
 
 
 ;;------------------------------------------------------------------------------
@@ -852,7 +884,7 @@
       (begin
         (display "results not matching: ") 
         (display "a: ") (display-rib a 5)
-	(display "b: ") (display-rib b 5)
+        (display "b: ") (display-rib b 5)
         (newline))
       ;;(_pp a)))
       (display "test passed...\n")
@@ -864,7 +896,7 @@
         (display "results not matching: ") (newline)
         (display "a: ") (display a) (newline)
         (display "b: ") (display b) (newline)
-	)
+        )
       (display "test passed...\n")))
 
 
@@ -932,40 +964,6 @@
 
 ;; bignum->fixnum: invalid conversion
 (test2 (bignum->fixnum base) #f)
-
-
-
-;; ;; number->string
-
-;; (test2 (bn-number->string ($ 0)) "0")
-
-;; (test2 (bn-number->string ($ -1)) "-1")
-
-;; (test2 (bn-number->string ($ 100)) "100")
-
-;; (test2 (bn-number->string ($ -100)) "-100")
-
-;; (test2 (bn-number->string ($ 100000)) "100000")
-
-;; (test2 (bn-number->string ($ -100000)) "-100000")
- 
-
-
-;; ;; string->number
-
-;; (test (bn-string->number "0") bn0)
-
-;; (test (bn-string->number "-1") bn-1)
-
-;; (test (bn-string->number "100") ($ 100))
-
-;; (test (bn-string->number "-100") ($ -100))
-
-;; (test (bn-string->number "1000000000") ($ 1000000000))
-
-;; (test (bn-string->number "-1000000000") ($ -1000000000))
-
-;; (test2 (bn-string->number "") #f)
 
 
 
@@ -1741,3 +1739,54 @@
 (test (var-bn-lcm ($ 18000) ($ -24000) ($ -6000)) ($ 72000))
 
 (test (var-bn-lcm ($ -18000) ($ -24000) ($ -36000)) ($ 72000))
+
+
+
+;; ;; number->string
+
+;; (display-rib (bn-number->string 300) 5)
+
+;; (display-rib (bn-number->string -300) 5)
+
+;; (display-rib (bn-number->string ($ 1234)) 5)
+
+;; (display-rib (bn-number->string ($ -1234)) 5)
+
+
+
+;; ;; string->number
+
+;; (display-rib (bn-string->number
+;; 	      (bn-number->string ($ 1234))) 5)
+
+;; ;; number->string
+
+;; (test2 (bn-number->string ($ 0)) "0")
+
+;; (test2 (bn-number->string ($ -1)) "-1")
+
+;; (test2 (bn-number->string ($ 100)) "100")
+
+;; (test2 (bn-number->string ($ -100)) "-100")
+
+;; (test2 (bn-number->string ($ 100000)) "100000")
+
+;; (test2 (bn-number->string ($ -100000)) "-100000")
+ 
+
+
+;; ;; string->number
+
+;; (test (bn-string->number "0") bn0)
+
+;; (test (bn-string->number "-1") bn-1)
+
+;; (test (bn-string->number "100") ($ 100))
+
+;; (test (bn-string->number "-100") ($ -100))
+
+;; (test (bn-string->number "1000000000") ($ 1000000000))
+
+;; (test (bn-string->number "-1000000000") ($ -1000000000))
+
+;; (test2 (bn-string->number "") #f)
