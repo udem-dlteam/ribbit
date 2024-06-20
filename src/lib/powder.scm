@@ -43,15 +43,23 @@
 (define %%scope #f)
 
 (define (node-cache-init! node)
-  (##field1-set! 
-   (##field0 node) 
-   (##rib 
-    0 ;; value
-    0 ;; thunk
-    (##rib 
-     eqv?  ;; eq?
-     '()  ;; sources
-     '())))) ;; targets
+  (let* ((nargs-rib (##field0 node))
+         (nargs (##field0 nargs-rib))
+         (code (##field2 nargs-rib)))
+    (##field0-set! 
+     node
+     (##rib ;; we need to recreate the "nargs-rib" because
+            ;; sometimes ribbit reuses it in different
+            ;; functions
+      nargs
+      (##rib 
+       0 ;; value
+       0 ;; thunk
+       (##rib 
+        eqv?  ;; eq?
+        '()  ;; sources
+        '())) ;; targets
+      code))))
 
 (define (node-cache node)
   (##field1 (##field0 node)))
@@ -149,10 +157,31 @@
       (node-value-set! __x (__thunk))
       __x))
 
-(define-macro (!! . exprs)
-  `(make-reactive-var! eqv? ,@exprs))
+(define !!debug-name "a")
+(define !!debug-count 0)
 
-(define-macro (!!! . exprs)
+(define (!!debug-set! name)
+  (set! !!debug-name name)
+  (set! !!debug-count 0))
+
+(define-macro (!! . exprs)
+  `(!!d 
+     (string-append 
+       !!debug-name 
+       (number->string 
+         (let ((__c !!debug-count)) 
+           (set! !!debug-count (+ 1 !!debug-count)) 
+           __c)))
+     ,@exprs))
+
+
+;(define-macro (!! . exprs)
+  ;`(make-reactive-var! eqv? ,@exprs))
+
+
+
+
+(define-macro (!!force . exprs)
   `(make-reactive-var! (lambda (x y) #f) ,@exprs))
 
 (define (error msg)
@@ -169,53 +198,58 @@
 
 (define-macro (!!d tag . exprs)
   `(let ((__debug (make-reactive-var! eqv? ,@exprs)))
-     (set! debug-vars (cons (cons __debug ',tag) debug-vars))
+     (set! debug-vars (cons (cons __debug ,tag) debug-vars))
      __debug))
 
-(define-macro (!!!d tag . exprs)
+(define-macro (!!dforce tag . exprs)
   `(let ((__debug (make-reactive-var! (lambda (x y) #f) ,@exprs)))
      (set! debug-vars (cons (cons __debug ',tag) debug-vars))
      __debug))
 
 (define debug-graph-count 0)
-(define (gen-graph node)
+(define (gen-graph node port)
   (define seen '())
+  (define disp (lambda (x) (display x port)))
   (define (dfs node)
     (if (not (memq node seen))
       (let ((targets (node-targets node))
             (sources (node-sources node)))
         (set! seen (cons node seen))
-        (display (get-debug-name node))
-        (display " [")
-        (display "label=\"")
-        (display (get-debug-name node))
-        (display " (")
-        (display (node-value node))
-        (display ")\"")
-        (display "];\n")
+        (disp (get-debug-name node))
+        (disp " [")
+        (disp "label=\"")
+        (disp (get-debug-name node))
+        (disp " (")
+        (disp (node-value node))
+        (disp ")\"")
+        (disp "];\n")
 
 
         (for-each 
           (lambda (x)
-            (display (get-debug-name node))
-            (display " -> ")
-            (display (get-debug-name x))
-            (display "[")
+            (disp (get-debug-name node))
+            (disp " -> ")
+            (disp (get-debug-name x))
+            (disp "[")
             (if (not (memq node (node-sources x)))
-              (display " color=red"))
-            (display "]")
-            (display ";")
-            (newline))
+              (disp " color=red"))
+            (disp "]")
+            (disp ";\n"))
           targets)
         (for-each dfs sources)
         (for-each dfs targets))))
 
-  (display "digraph G")
-  (display debug-graph-count)
+  (disp "digraph G")
+  (disp debug-graph-count)
   (set! debug-graph-count (+ debug-graph-count 1))
-  (display " {\n")
+  (disp " {\n")
   (dfs node)
-  (display "}"))
+  (disp "}"))
+
+
+(define (!!debug-graph name x)
+  (call-with-output-file (string-append "dot/" name)
+    (lambda (port) (gen-graph x port))))
 
 (define (debug-display x)
   (display "<")
@@ -258,9 +292,132 @@
 
 (define-macro (! var . exprs)
   `(let ((__thunk (%%update-closure ,var ,@exprs)))
+     (display "changing ")
+     (display ',var)
+     (display " to ")
+     (display ',exprs)
+     (newline)
      (node-thunk-set! ,var __thunk)
      (update! ,var)))
 
+(define-macro (!list . args)
+  (if (null? args)
+    `'()
+    `(!! (cons ,(car args) (!list . ,(cdr args))))))
+
+(define (!car v)
+  (car (v)))
+
+(define (!cdr v)
+  (cdr (v)))
+
+(define (!cons a b)
+  (!! (cons a b)))
+
+(define (!dcons id a b)
+  (!!d id (cons a b)))
+
+(define (!nil)
+  (!! '()))
+
+(define (!dnil tag)
+  (!!d tag '()))
+
+(define (foo x)
+  (let ((__foobar 0))
+    (display __foobar)
+    (set! __foobar 42)))
+
+(define x (!cons (!! 1) 
+                 (!cons (!! 2)
+                        (!cons (!! 3)
+                               (!nil)))))
+(!!debug-set! "b")
+
+(define (display-lst name lst n)
+  (if (null? (lst))
+    (newline)
+    (begin
+      (!!
+        (display name)
+        (display "[")
+        (display n)
+        (display "]=")
+        (display ((!car lst)))
+        (display " ")
+        (newline))
+      (display-lst name (!cdr lst) (+ n 1)))))
+
+
+(define (!map func lst)
+  (if (null? (lst))
+    (!nil)
+    (!! 
+      (cons
+        (func (!car lst))
+        (!map func (!cdr lst))))))
+
+(define y (!map (lambda (x) (!! (* (x) (x)))) x))
+
+
+(!!debug-set! "disp_x")
+(display-lst "x" x 0)
+
+(!! debug-set! "disp_y")
+(display-lst "y" y 0)
+
+(!!debug-graph "before" x)
+
+(! (!car x) 3)
+(! (!car (!cdr x)) 10)
+
+(!!debug-set! "c")
+(! (!cdr (!cdr (!cdr x))) (cons (!! 6) (!nil)))
+
+
+(!!debug-graph "after" x)
+
+;(display (!car (!cdr (!cdr (!cdr x)))))
+
+;(define _display display)
+; (define display ##id)
+; 
+; (define x (!dcons 'item1 1 (!dcons 'item2 2 (!dcons 'item3 3 (!dnil 'nil)))))
+; 
+; (define end-x 
+;   (!!d 'end 
+;     (let loop ((lst x))
+;       (if (null? (lst)) 
+;         lst 
+;         (loop (!cdr lst))))))
+; 
+; (!!d 'display_end
+;   (display "the end is:")
+;   (display ((end-x)))
+;   (display "\n"))
+; 
+; (!!d 'display_list
+;   (display "the list is : (")
+;   (let loop ((lst x))
+;     (if (null? (lst))
+;       (begin (display ")") (newline))
+;       (begin (display (!car lst)) (display " ") (loop (!cdr lst))))))
+; 
+; 
+; (define display _display)
+
+
+; (define display ##id)
+; (! (end-x) (cons 30 (!nil)))
+
+;(define (!add lst elem)
+;  )
+
+
+
+;(! (!cdr (!cdr x)) (cons 30 (!nil)))
+
+;(display (!cdr x))
 
 
 ;(define-macro (%%update-closure self node-eq? . exprs)
@@ -273,24 +430,26 @@
 ;            (for-each (node-dependencies ,self) 
 ;                      (lambda (x) ((node-thunk x))))
 ;        __return)))
-
-;(define x (!!d x 5))
-;(define y (!!d y 10))
-;(define z (!!d z (+ (x) (y))))
+;(define d ##id)
+;(define _display display)
+;(define display ##id)
 ;
-(define d display)
-(define d (lambda (x) #f))
+;(define x (!!d 'x 5))
+;(define y (!!d 'y 10))
+;(define z (!!d 'z (+ (x) (y))))
 ;
-;(!!!d display_z
-;  (d "The value of z is now :")
-;  (d (z))
-;  (d "\n"))
+;(!!d 'display_z  
+;  (display "The value of z is now :")
+;  (display (z))
+;  (display "\n"))
 ;
+;(define display _display)
+;(gen-graph x)
+;(define display ##id)
 ;
-;;(debug-display x)
-;;(debug-display y)
-;;(debug-display z)
 ;(! x 7)
+
+
 ;;(debug-display x)
 ;;(debug-display y)
 ;;(debug-display z)
@@ -302,7 +461,6 @@
 ;;;(! y 20)
 ;(! x 40)
 ;
-;(gen-graph x)
 ;(let loop ((i 1000))
 ;  (if (> i 0)
 ;    (begin 
@@ -310,15 +468,32 @@
 ;      (loop (- i 1)))))
 ;
 
-(let ((pi (!!d pi 1))
-      (foo (!!d foo 2)))
-  (! pi (display (pi)) (newline) (+ (pi) (pi)))
-  (debug-display pi))
+;(let ((foo (!! 1)))
+;  (! foo 
+;     (display (foo)) 
+;     (newline) 
+;     (+ (foo) (foo))))
 
-(gen-graph pi)
+;; Calcualting the square root of n
+;; using reactive programming and 
+;; newton series
+;(let* ((n 1000)
+;       (a (!! n)))
+;  (! a 
+;     (quotient 
+;       (+ (a) (quotient n (a)))
+;       2))
+;  (display (a)))
+
+
+
+
+
+;
+;(gen-graph pi)
 
 ;(define (pp x) #f)
-;;(define (pp x) (display x) (newline))
+;;;(define (pp x) (display x) (newline))
 ;(define on? (!!d is_on (pp "updating on?") #f))
 ;(define on  (!!d on (pp "updating on")  "The light is on!"))
 ;(define off (!!d off (pp "updating off") "It's dark ?!?"))
@@ -327,9 +502,11 @@
 ;(!!!d display_on_or_off 
 ;  (d (on/off))
 ;  (d "\n"))
+;;
+;;
+;;;(display (node-targets on))
 ;
-;
-;;(display (node-targets on))
+;(! on? #t)
 ;(gen-graph on/off)
 ;(! on "Wow! there is a lot of light here")
 ;(! on "Wow! here is a lot of light")
