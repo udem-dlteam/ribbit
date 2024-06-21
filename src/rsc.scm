@@ -1179,7 +1179,6 @@
 ;;       call-rib-ok?)))
 
 (define (is-call? ctx name cont)
-;;  (let ((xxx
   (and (rib? cont)
        (if (arity-check? ctx name)
            (and (eqv? (c-rib-oper cont) const-op)
@@ -1188,7 +1187,6 @@
                 (eqv? (c-rib-opnd (c-rib-next cont)) name))
            (and (eqv? (c-rib-oper cont) jump/call-op)
                 (eqv? (c-rib-opnd cont) name)))))
-;;) (pp (list xxx (arity-check? ctx name)(eqv? (c-rib-oper cont) jump/call-op) (eqv? (c-rib-opnd cont) name)cont)) xxx))
 
 (define (gen-noop ctx cont)
   (if (is-call? ctx '##arg1 cont)
@@ -2121,7 +2119,6 @@
 
 ;; Other usefull procedures
 
-
 (define (live-env-reset-defs live-env)
 
   (define (reset-defs lst)
@@ -2290,6 +2287,13 @@
                       (if (eval-feature feature-expr (live-env-features env))
                         (liveness (caddr expr) cte #f)
                         (liveness (cadddr expr) cte #f))))
+
+                   ;((eqv? first 'use-feature)
+                   ; (let ((feature-lst (cdr expr)))
+                   ;   (for-each 
+                   ;     (lambda (x) (live-env-add-feature! env x))
+
+
 
                    (else
                     (liveness-list expr cte)))))
@@ -2760,9 +2764,6 @@
                       (loop4 (cdr symbols*))
                       (cons syms symbols*)))))))))))
 
-                      ;; (encode-stream
-                      ;; proc
-                      ;; encoding)
 (define (get-maximal-encoding encodings stats encoding-size)
 
     (define encoding-size-counter encoding-size)
@@ -2825,7 +2826,10 @@
     (define (recalculate)
       (for-each
         (lambda (encoding)
-          (if (and (pair? encoding) (table-ref stats (car encoding) #f) (table-ref (table-ref stats (car encoding)) (cadr encoding) #f)) ;; FIXME: this check is needed because the instruction might be missing
+          (if (and (pair? encoding) 
+                   (table-ref stats (car encoding) #f) 
+                   ;; FIXME: this check is needed because the instruction might be missing
+                   (table-ref (table-ref stats (car encoding)) (cadr encoding) #f)) 
             (table-set!
               running-sums
               encoding
@@ -3043,73 +3047,6 @@
     (list (length stream) (length return) return)))
 
 
-
-
-
-;(define (encode-lzss-on-two-bytes stream bit-header length-header offset-header encoding-size host-config)
-;  ;; assuming tag is all 1
-;  (define header-tag (if (eqv? bit-header 2) 192 128))
-;
-;  ;(define encoding-size/2 (quotient encoding-size 2))
-;
-;  (define (encode encoded-stream tail)
-;    (if (pair? encoded-stream)
-;      (let ((code (car encoded-stream)))
-;        (encode
-;          (cdr encoded-stream)
-;          (cond
-;            ((pair? code)
-;             (let* ((offset (car code))
-;                    (len (cadr code))
-;                    (first-byte
-;                      (+
-;                        header-tag
-;                        (* (- len 3) (arithmetic-shift 1 (- offset-header 8)))
-;                        (arithmetic-shift offset -8)))
-;                    (second-byte
-;                      (bitwise-and offset 255)))
-;               ;(pp (list code first-byte second-byte))
-;               `(,first-byte
-;                 ,second-byte
-;                 .
-;                 ,tail)))
-;            (else
-;              (cons
-;                code
-;                tail)))))
-;      tail))
-;
-;  (if (not (eqv? (+ bit-header length-header offset-header) 16))
-;    (error "Bit header, length header and offset header must add up to 16"))
-;
-;  (let* ((encoded-stream
-;           (LZSS
-;             stream
-;             (- (arithmetic-shift 1 offset-header) 1)
-;             (- (arithmetic-shift 1 length-header) 1)
-;             encoding-size
-;             (lambda (x) (if (pair? x) 2 1))))
-;         (return (encode
-;                   encoded-stream
-;                   '()))
-;         (dec (decompress-lzss-2b
-;                return
-;                bit-header
-;                length-header
-;                offset-header)))
-;
-;;    (pp (map list dec encoded-stream))
-;;    (pp (length dec))
-;;    (pp (length encoded-stream))
-;;    (pp (filter (lambda (x) (not (equal? (car x) (cadr x)))) (map list dec encoded-stream)))
-;
-;    (if (equal? dec
-;                encoded-stream)
-;      (display "... ensuring that decompression works ...")
-;      (error "Decompression failed"))
-;    return))
-
-
 (define (encode-lzss-with-tag stream encoding-size host-config)
 
   (define encoding-size/2 (quotient encoding-size 2))
@@ -3201,12 +3138,6 @@
     (list tag 0))))
 
 
-
-
-
-
-
-
 ;; Inspired from the section 2.6.4 of https://ir.canterbury.ac.nz/bitstream/handle/10092/8411/bell_thesis.pdf?sequence=1&isAllowed=y
 ;;
 ;;   cost-func : function that calculates cost of encoding a value. A value can be a backward pointer
@@ -3266,7 +3197,6 @@
             (car matched-matching)
             (append
               (if (and (eqv? (car stream) (car match))
-                       ;(pair? (cdr match))
                        (< index already-encoded-size))
                 (list
                   (list
@@ -3398,14 +3328,9 @@
               (if (number? key)
                 (string-append " : " (number->string value))
                 "")
-
               " [ "
               (number->string int-value)
-              " bytes ]"
-
-
-              )
-            )
+              " bytes ]"))
           (newline)
           (if (table? value)
             (display-stats-aux
@@ -3494,8 +3419,7 @@
 
 (define (encoding-optimal-order encoding)
   (define order
-    '(
-      (jump int short)  ; 0
+    '((jump int short)  ; 0
       (jump int long)   ; 1
       (jump sym short)  ; 2
       (jump sym long)   ; 3
@@ -3530,8 +3454,6 @@
   (host-config-feature-add! host-config 'encoding/optimal/sizes (map caddr encoding))
   (host-config-feature-add! host-config 'encoding/optimal/start (map cadr encoding)))
 
-
-
 (define (encode-hyperbyte stream)
   (let loop ((stream stream) (result '()))
     (if (pair? stream)
@@ -3540,7 +3462,6 @@
               (cons (+ (* 16 (car stream)) (cadr stream)) result))
         (cons (car stream) result))
       result)))
-
 
 (define (encode proc exports host-config byte-stats encoding-name byte-base)
 
@@ -3554,7 +3475,8 @@
   (define size-base-min 7)
   (define size-base-max 13)
 
-  (define (ribn-base) (- byte-base compression-range-size))
+  (define (ribn-base) 
+    (- byte-base compression-range-size))
 
   ;; state
   (let ((encoding      #f) ;; chosen encoding
@@ -3707,30 +3629,6 @@
       ;; Dispatch logic
       (p/enc-const) ;; always encode constants
 
-#|
-      (if compression/2b?
-        (begin
-          (if (< (- encoding-size compression-range-size) 0)
-            (error "Too many codes reserved for 2b-compression"))
-          (set! encoding-size (- encoding-size compression-range-size))))
-
-
-          ;(if (not (eqv? encoding-size 256))
-          ;  (error "2b compression only works with 256 bytes encoding"))
-          ;(cond
-          ;  ((eqv? compression/2b/bits 1)
-          ;   (set! encoding-size 192))
-          ;  ((eqv? compression/2b/bits 2)
-          ;   (set! encoding-size 128))
-          ;  (else
-          ;    (error "2b compression only works with 1 or 2 bits")))))
-
-      (if hyperbyte?
-        (begin
-          (if (not (eqv? encoding-size 256))
-            (error "Hyperbyte only works with 256 bytes encoding"))
-          (set! encoding-size 16)))
-|#
       ;; Choose encoding
       (set! encoding
         (cond
@@ -4377,55 +4275,6 @@
       base
       parsed-file)))
 
-;; (define (next-line last-new-line)
-;;   (let loop ((cur last-new-line) (len 0))
-;;     (if (or (not (pair? cur)) (eqv? (car cur) 10)) ;; new line
-;;       (begin
-;;         ;(pp (list->string* last-new-line (+ 1 len)) )
-;;         (cons (and (pair? cur) (cdr cur))
-;;               (if (not (pair? cur))
-;;                 len
-;;                 (+ 1 len))))
-;;       (loop (cdr cur) (+ len 1)))))
-
-;; FIXME: Remove
-;; (define (detect-macro line len)
-;;   (let loop ((cur line) (len len) (start #f) (macro-len 0))
-;;     (if (<= len 2)
-;;       (if start  ;; NOTE: start is not the value '#t, it is the start of the macro
-;;         (cons
-;;           'start
-;;           (cons start
-;;                 (+ 1 macro-len)))
-;;         (cons 'none '()))
-;;       (cond
-;;         ((and (eqv? (car cur) 64)     ;; #\@
-;;               (eqv? (cadr cur) 64)    ;; #\@
-;;               (eqv? (caddr cur) 40))  ;; #\(
-;;          (if start
-;;            (error "cannot start 2 @@\\( on the same line")
-;;            (loop (cdddr cur)
-;;                  (- len 3)
-;;                  cur
-;;                  3)))
-;;         ((and (eqv? (car cur)  41)    ;; #\)
-;;               (eqv? (cadr cur) 64)    ;; #\@
-;;               (eqv? (cadr cur) 64))   ;; #\@
-;;          (if start
-;;            (cons
-;;       [2] === 3       'start-end ;; type
-;;              (cons
-;;                start
-;;                (+ 3 macro-len)))
-;;            (cons
-;;              'end ;; type
-;;              '())))
-;;         (else
-;;           (loop (cdr cur)
-;;                 (- len 1)
-;;                 start
-;;                 (if start (+ macro-len 1) macro-len)))))))
-
 (define (list-prefix? prefix lst)
   (if (pair? prefix)
     (if (pair? lst)
@@ -4436,12 +4285,11 @@
     #t))
 
 ;; detects a macro on a given line
-;; There are 3 types of macros :
+;; There are 4 types of macros :
 ;;   - start-outer    : @@( ...
 ;;   - end-outer      :   ... )@@
 ;;   - start-end-outer: @@( ... )@@
 ;;   - inner          : @.. ... ..@ or @.. ...
-;(define macro-prefix '("@@(" "@.." "..@" ")@@"))
 
 (define (detect-macro line)
   (let ((len (string-length line)))
@@ -4507,8 +4355,8 @@
              (next-section
                (if (equal? cur-section "")
                  cur-line
-                 (string-append cur-section "\n" cur-line)))
-             )
+                 (string-append cur-section "\n" cur-line))))
+        
         (case macro-type
           ((none)
            (loop (cdr lines) parsed-file next-section))
@@ -4539,75 +4387,6 @@
           (else
            (error "Unknown macro type" macro-type))))
       (reverse `((str ,cur-section) . ,parsed-file)))))
-
-
-
-
-
-;;
-;; (define (parse-host-file cur-line)
-;;   (let loop ((cur-line cur-line)
-;;              (parsed-file '())
-;;              (start-len 0)
-;;              (start-line cur-line))
-;;     (if (pair? cur-line)
-;;       (let* ((next-line-pair (next-line cur-line))
-;;              (cur-end (car next-line-pair))
-;;              (cur-len (cdr next-line-pair))
-;;              (macro-pair (detect-macro (list->string* cur-line (length cur-line))))
-;;              (macro-type (car macro-pair))
-;;              (macro-args (cdr macro-pair))
-;;              (parsed-file
-;;                (cond
-;;                  ((eqv? macro-type 'end) ;; include last line
-;;                   (cons `(str ,(list->string* start-line (+ cur-len start-len))) parsed-file))
-;;                  ((eqv? start-len 0)
-;;                   parsed-file)
-;;                  ((or (eqv? macro-type 'start)
-;;                       (eqv? macro-type 'start-end))
-;;                   (cons `(str ,(list->string* start-line start-len)) parsed-file))
-;;                  (else
-;;                    parsed-file))))
-;;
-;;         (pp (list->string* cur-line (length cur-line)))
-;;         (pp macro-pair)
-;;         (cond
-;;           ((eqv? macro-type 'end)
-;;            (cons cur-end
-;;                  (reverse parsed-file)))
-;;           ((eqv? macro-type 'none)
-;;            (loop cur-end parsed-file (+ cur-len start-len) start-line))
-;;           ((eqv? macro-type 'start)
-;;            (let* ((macro (car macro-args))
-;;                   (macro-len (cdr macro-args))
-;;                   (macro-string (list->string* (cddr macro) (- macro-len 2)))
-;;                   (macro-sexp (read (open-input-string (string-append macro-string ")"))))
-;;                   (body-pair (parse-host-file cur-end))
-;;                   (body-cur-end (car body-pair))
-;;                   (body-parsed  (cdr body-pair))
-;;                   (head `(@@head ,(list->string* cur-line cur-len)))
-;;                   (body `(@@body ,body-parsed)))
-;;              (loop body-cur-end
-;;                    (cons `(,@macro-sexp ,head ,body) parsed-file)
-;;                    0
-;;                    body-cur-end)))
-;;           ((eqv? macro-type 'start-end)
-;;            (let* ((macro (car macro-args))
-;;                   (macro-len (cdr macro-args))
-;;                   (macro-string (list->string* (cddr macro) (- macro-len 4)))
-;;                   (macro-sexp (read (open-input-string macro-string)))
-;;                   (head-parsed (list->string* cur-line cur-len))
-;;                   (body (cons '@@body `(((str ,head-parsed)))))
-;;                   (head (cons '@@head (list head-parsed))))
-;;              (loop
-;;                cur-end
-;;                (cons `(,@macro-sexp ,head ,body) parsed-file)
-;;                0
-;;                cur-end)))
-;;           (else (error "Unknown macro-type"))))
-;;
-;;       (reverse (cons `(str ,(list->string* start-line start-len)) parsed-file)))))
-;;
 
 (define (unique-aux lst1 lst2)
   (if (pair? lst1)
@@ -4901,7 +4680,6 @@
            (vector-ref proc-exports-and-features 1))
          (host-config
            (vector-ref proc-exports-and-features 2))
-
          (encode*
           (lambda (byte-base)
             (let ((input
@@ -5178,7 +4956,6 @@ EXAMPLE
 `rsc -t c -l r4rs source.scm -o output.c -x run-output.exe -m -v`
 This command compiles `source.scm` to C with verbosity set to 1 and minification enabled. 
 The output is written to output.c, with an executable compiled to run-output.exe (with gcc).")
-
 
   (let ((verbosity 0)
         (debug-info '())
