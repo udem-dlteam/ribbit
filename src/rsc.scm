@@ -682,6 +682,13 @@
 (define (ctx-live ctx) (field0 (field1 ctx)))
 (define (ctx-live-features ctx) (field1 (field1 ctx)))
 
+(define (assq-value element lst)
+  (let ((maybe-pair (assq element lst)))
+    (and maybe-pair (cdr maybe-pair))))
+
+(define (ctx-live-feature? ctx feature)
+  (assq-value feature (ctx-live-features ctx)))
+
 (define (ctx-exports ctx) (field2 ctx))
 
 (define (ctx-cte-set ctx x)
@@ -770,25 +777,16 @@
           (host-config-locations-set! host-config (cons (list location feature) (host-config-locations host-config)))
           #t)))))
 
-(define (get-feature-value features feature)
-  (let loop ((features features))
-    (if (null? features)
-      #f
-      (cond
-        ((and (pair? (car features)) (eqv? (caar features) feature))
-         (cdar features))
-        ((and (symbol? (car features)) (eqv? (car features) feature))
-         #t)
-        (else
-          (loop (cdr features)))))))
 
 (define (host-config-feature-live? host-config feature)
-  (get-feature-value (host-config-features host-config) feature))
+  (assq-value feature (host-config-features host-config)))
 
 (define (host-config-feature-add! host-config feature value)
   (if (host-config-feature-live? host-config feature)
     (error "Feature already defined" feature)
-    (host-config-features-set! host-config (cons (if (eqv? value #t) feature (cons feature value)) (host-config-features host-config)))))
+    (host-config-features-set! 
+      host-config 
+      (cons (cons feature value) (host-config-features host-config)))))
 
 (define (host-config-is-primitive? host-config name)
   (or (memq name forced-first-primitives)
@@ -1180,10 +1178,10 @@
   (c-rib set-op v (gen-noop ctx cont)))
 
 (define (arity-check? ctx name)
-  (and (memq 'arity-check (ctx-live-features ctx))
+  (and (ctx-live-feature? ctx 'arity-check)
        (not (and
-             (memq 'prim-no-arity (ctx-live-features ctx))
-             (host-config-is-primitive? host-config name)))))
+              (ctx-live-feature? ctx 'prim-no-arity)
+              (host-config-is-primitive? host-config name)))))
 
 ;; (define (is-call? ctx name cont)
 ;;   (let* ((arity-check (arity-check? ctx name))
@@ -1242,8 +1240,9 @@
                   cont)))
 
 (define (add-nb-args prim? ctx nb-args tail)
-  (if (and (memq 'arity-check (ctx-live-features ctx))
-           (not (and prim? (memq 'prim-no-arity (ctx-live-features ctx)))))
+  (if (and 
+        (ctx-live-feature? ctx 'arity-check)
+        (not (and prim? (ctx-live-feature? ctx 'prim-no-arity ))))
     (c-rib const-op
          nb-args
          tail)
@@ -1366,7 +1365,7 @@
 
 (define host-config #f)
 
-(define (compile-program verbosity debug-info parsed-vm features-enabled features-disabled program)
+(define (compile-program verbosity debug-info parsed-vm features program)
   (let* ((exprs-and-exports
            (extract-exports program))
          (exprs
@@ -1393,13 +1392,13 @@
          (exports
            (exports->alist (cdr exprs-and-exports)))
          (live-globals-and-features
-           (liveness-analysis expansion features-enabled features-disabled exports))
+           (liveness-analysis expansion features exports))
          (live-globals
            (car live-globals-and-features))
          (live-features
            (cdr live-globals-and-features))
          (exports
-           (or (and (not (memq 'debug live-features)) exports) ;; export everything when debug is activated
+           (or (and (not (assq 'debug live-features)) exports) ;; export everything when debug is activated
                (map (lambda (v)
                       (let ((var (car v)))
                         (cons var var)))
@@ -2107,11 +2106,11 @@
 
 ;; Global variable liveness analysis.
 
-(define (liveness-analysis expr features-enabled features-disabled exports)
-  (let* ((live-env (liveness-analysis-aux expr features-enabled features-disabled '()))
+(define (liveness-analysis expr features exports)
+  (let* ((live-env (liveness-analysis-aux expr features '()))
          (live-env-result
            (if (live-env-live? live-env 'symtbl)
-             (liveness-analysis-aux expr features-enabled features-disabled exports)
+             (liveness-analysis-aux expr features exports)
              live-env)))
     (cons (live-env-globals live-env-result)
           (live-env-features live-env-result))))
@@ -2119,8 +2118,8 @@
 
 ;; Environnement for liveness analysis.
 
-(define (make-live-env live-globals features features-disabled)
-  (rib live-globals (rib features features-disabled 0) #f)) ;; last one is a dirty bit
+(define (make-live-env live-globals features forced-features)
+  (rib live-globals (rib features forced-features 0) #f)) ;; last one is a dirty bit
 
 
 (define (live-env-globals live-env)
@@ -2129,7 +2128,7 @@
 (define (live-env-features live-env)
   (field0 (field1 live-env)))
 
-(define (live-env-features-disabled live-env)
+(define (live-env-forced-features live-env)
   (field1 (field1 live-env)))
 
 (define (live-env-dirty? live-env)
@@ -2167,8 +2166,8 @@
         #f)))
   (reset-defs (live-env-globals live-env)))
 
-(define (live-env-feature-disabled? live-env feature)
-  (memq feature (live-env-features-disabled live-env)))
+(define (live-env-forced-feature? live-env feature)
+  (assq feature (live-env-forced-features live-env)))
 
 (define (live-env-add-live! live-env var)
 
@@ -2184,14 +2183,18 @@
   (assq var (live-env-globals live-env)))
 
 (define (live-env-live-feature? live-env feature)
-  (memq feature (live-env-features live-env)))
+  (let ((feature-pair (assq feature (live-env-features live-env))))
+    (and feature-pair (cdr feature-pair))))
 
 (define (live-env-add-feature! live-env var)
+  (live-env-add-feature-value! live-env var #t))
+
+(define (live-env-add-feature-value! live-env var value)
   (if (live-env-live-feature? live-env var)
     var
     (and
-      (not (live-env-feature-disabled? live-env var)) ;; check not disabled
-      (live-env-set-features! live-env (cons var (live-env-features live-env))))))
+      (not (live-env-forced-feature? live-env var)) ;; check not forced
+      (live-env-set-features! live-env (cons (cons var value) (live-env-features live-env))))))
 
 
 (define (constant? g)
@@ -2206,8 +2209,8 @@
 
 
 
-(define (liveness-analysis-aux expr features-enabled features-disabled exports)
-  (let* ((env (make-live-env '() features-enabled features-disabled)))
+(define (liveness-analysis-aux expr forced-features exports)
+  (let* ((env (make-live-env '() forced-features forced-features)))
 
     ;; ##rib is always needed
     (live-env-add-live! env '##rib)
@@ -2220,10 +2223,6 @@
          (for-each
            (lambda (x) (live-env-add-live! env (car x)))
            exports))
-
-    (for-each
-      (lambda (x) (live-env-add-feature! env x))
-      features-enabled)
 
     (let loop ()
       (live-env-reset-defs env)
@@ -4690,7 +4689,7 @@
         ((and (pair? expr) (eqv? (car expr) 'or))
          (not (not (memv #t (map (lambda (x) (eval-feature x true-values)) (cdr expr))))))
         (else
-         (not (not (get-feature-value true-values expr))))))
+          (not (not (assq-value expr true-values))))))
 
 (define (filter-pair predicate lst)
   (let loop ((lst lst) (lst-true '()) (lst-false '()))
@@ -5093,8 +5092,7 @@
                         verbosity
                         debug-info
                         _progress-status
-                        features-enabled
-                        features-disabled
+                        features
                         encoding-name
                         byte-stats
                         call-stats?)
@@ -5132,11 +5130,13 @@
                                   (cadar encoding-order)
                                   (loop (cdr encoding-order)))))
                             encoding-name))
-         (features-enabled
+         (features
            (cons
-             (string->symbol
-               (string-append "encoding/" encoding-name))
-             features-enabled))
+             (cons
+               (string->symbol
+                 (string-append "encoding/" encoding-name))
+               #t)
+             features))
 
          (program-read
            (report-status
@@ -5150,8 +5150,7 @@
                verbosity
                debug-info
                host-file
-               features-enabled
-               features-disabled
+               features
                program-read))))
 
       (if call-stats?
@@ -5252,8 +5251,7 @@ The output is written to output.c, with an executable compiled to run-output.exe
         (lib-path '())
         (src-path #f)
         (minify? #f)
-        (features-enabled '())
-        (features-disabled '())
+        (features '())
         (rvm-path #f)
         (progress-status #f)
         (byte-stats #f)
@@ -5286,11 +5284,25 @@ The output is written to output.c, with an executable compiled to run-output.exe
                  (set! rvm-path (car rest))
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-f+" "--enable-feature")))
-                 (set! features-enabled (cons (string->symbol (car rest)) features-enabled))
+                 (set! features 
+                   (cons 
+                     (cons (string->symbol (car rest)) #t)
+                     features))
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-f-" "--disable-feature")))
-                 (set! features-disabled (cons (string->symbol (car rest)) features-disabled))
+                 (set! features 
+                   (cons 
+                     (cons (string->symbol (car rest)) #f)
+                     features))
                  (loop (cdr rest)))
+
+                ((and (pair? rest) (pair? (cdr rest)) (member arg '("-f=" "--set-feature")))
+                 (set! features 
+                   (cons 
+                     (cons (string->symbol (car rest)) 
+                           (read (open-input-string (cadr rest)))) ;; use reader to transform information
+                     features))
+                 (loop (cddr rest)))
 
                 ((and (pair? rest) (member arg '("-bs" "--byte-stats")))
                  (set! byte-stats (string->number (car rest)))
@@ -5379,8 +5391,7 @@ The output is written to output.c, with an executable compiled to run-output.exe
         verbosity
         debug-info
         progress-status
-        features-enabled
-        features-disabled
+        features
         encoding-name
         byte-stats
         call-stats))))
