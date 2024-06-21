@@ -1437,7 +1437,7 @@
         (display "*** Code expansion: \n")
         (pp expansion)))
 
-    (if (>= verbosity 3)
+    (if (or (>= verbosity 3) (memq 'hash-table debug-info))
       (begin
         (display "*** hash-consing table: \n")
         (pp
@@ -2248,7 +2248,6 @@
            (for-each add-val (vector->list val)))))
 
   (define (liveness expr cte top?)
-
 
     (cond ((symbol? expr)
            (if (in? expr cte) ;; local var?
@@ -5023,7 +5022,8 @@ DEBUGING OPTIONS
   Set verbosity level. Multiple 'v's increase verbosity.
 
   `-di`, `--debug-info INFO`
-  Add debug information. Info can be any of : `expansion`, `rvm-code`, `exports` and `host-config`.
+  Displays debug information to stdout.
+  Info can be any of : `expansion`, `rvm-code`, `hash-table`, `exports` and `host-config`.
 
   `-ps`, `--progress-status`
   Show progress status during compilation.
