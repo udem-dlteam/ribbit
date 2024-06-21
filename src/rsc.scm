@@ -1086,6 +1086,10 @@
                       (comp ctx then-expr cont)
                       (comp ctx else-expr cont))))
 
+                 ((eqv? first 'use-feature)
+                  ;; skip use-feature construct
+                  (gen-noop ctx cont))
+
                  ((eqv? first 'if)
                   (let ((cont-false (comp ctx (cadddr expr) cont)))
                     (let ((cont-true (comp ctx (caddr expr) cont)))
@@ -2334,12 +2338,33 @@
                         (liveness (caddr expr) cte #f)
                         (liveness (cadddr expr) cte #f))))
 
-                   ;((eqv? first 'use-feature)
-                   ; (let ((feature-lst (cdr expr)))
-                   ;   (for-each 
-                   ;     (lambda (x) (live-env-add-feature! env x))
+                   ((eqv? first 'use-feature)
+                    (for-each 
+                      (lambda (x)
+                        (cond
+                          ;; Just a symbol = (feature . #t)
+                          ((symbol? x)
+                           (live-env-add-feature! env x))
 
+                          ;; '(feature value)
+                          ((and 
+                             (pair? x)
+                             (symbol? (car x))
+                             (pair? (cdr x))
+                             (symbol? (cadr x)))
+                           (live-env-add-feature-value! env (car x) (cadr x)))
 
+                          ;; '(feature . value) unchanged
+                          ((and
+                             (pair? x)
+                             (symbol? (car x))
+                             (symbol? (cdr x)))
+                           (live-env-add-feature-value! env (car x) (cdr x)))
+                          (else
+                            (error 
+                              "Ill-formed use-feature construct. Expected feature or feature-value pair." 
+                              x))))
+                      (cdr expr)))
 
                    (else
                      ;; Calls in first position create a binding, thus needing ##arg2
