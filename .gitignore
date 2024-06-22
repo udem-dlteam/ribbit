@@ -107,3 +107,4 @@ src/.vscode/launch.json
 src/.vscode/tasks.json
 src/rvm-sizes.log
 **/tmp*
+src/scripts/minify
