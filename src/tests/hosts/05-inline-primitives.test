@@ -2,7 +2,7 @@
 
 //@@(primitives (gen body)
 hidden
-visible //@@(primitive (rib a b c))@@
+visible //@@(primitive (##rib a b c))@@
 hidden
 visible //@@(primitive (activated))@@
 hidden 

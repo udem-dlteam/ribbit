@@ -9,7 +9,7 @@ visible
 visible
 // @@(primitives (gen body)
 hidden
-// @@(primitive (rib a b c)
+// @@(primitive (##rib a b c)
 visible
 // )@@
 // @@(primitive (prim0 x y) (use not-used)
