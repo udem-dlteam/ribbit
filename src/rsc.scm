@@ -2458,7 +2458,7 @@
 
 (define (encode-constants proc host-config)
 
-  (define bignum-base 1024)
+  (define bignum-base 32768)
 
   (define bn0-symbol '##bn0)
 
