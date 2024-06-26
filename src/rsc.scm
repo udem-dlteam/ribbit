@@ -4969,6 +4969,12 @@
              (report-first-status
                "Parsing host file"
                (parse-host-file vm-source '()))))
+         (_ (if (memq 'host-expansion debug-info)
+              (begin
+                (display "*** HOST FILE EXPANSION: ")
+                (newline)
+                (pp host-file)
+                (exit))))
 
          (encoding-name (if (equal? encoding-name "auto")
                             (let* ((available-features (extract-feature-names host-file))
@@ -5070,7 +5076,7 @@ DEBUGING OPTIONS
 
   `-di`, `--debug-info INFO`
   Displays debug information to stdout.
-  Info can be any of : `expansion`, `rvm-code`, `hash-table`, `exports` and `host-config`.
+  Info can be any of : `host-expansion` `expansion`, `rvm-code`, `hash-table`, `exports` and `host-config`.
 
   `-ps`, `--progress-status`
   Show progress status during compilation.
