@@ -1,24 +1,24 @@
 #!/usr/bin/env gsi
-
 ;;!#;; satisfy guile
 
 ;;; Ribbit Scheme compiler.
 
 ;;;----------------------------------------------------------------------------
+;;;----------------------------------------------------------
+;;;================== COMPATIBILITY LAYER ===================
+;;;----------------------------------------------------------
 
-;; Compatibility layer.
-
-;; Tested with Gambit v4.7.5 and above, Others used to work, but need to be retested :
+;; Tested with Gambit v4.7.5 and above.
+;; Others used to work, but need to be retested :
 ;;  ->  Guile 3.0.7, Chicken 5.2.0 and Kawa 3.1
 
-;; Fix bug with R4RS symbols
+;; Fix bug with R4RS symbols with Gambit
 (cond-expand
   (gambit
    (|##meta-info| script-line "gsi -:r4rs")))
 
 
 (cond-expand
-
  ((and chicken compiling)
 
   (declare
@@ -623,16 +623,11 @@
 
 ;;;----------------------------------------------------------------------------
 
+;;; Ribs emulation as vectors for other implementations than Ribbit. 
 (cond-expand
 
   (ribbit
-
-    (define (fold func base lst)
-      (if (pair? lst)
-        (fold func (func (car lst) base) (cdr lst))
-        base))
-
-   (define (c-procedure? o) (and (c-rib? o) (eqv? (c-rib-next o) procedure-type))))
+    (define (c-procedure? o) (and (c-rib? o) (eqv? (c-rib-next o) procedure-type))))
 
   (else
 
@@ -672,30 +667,53 @@
 (define (c-procedure-env proc) (c-rib-opnd proc))
 
 
-;;;----------------------------------------------------------------------------
+;;; -----------------------------------------------
+;;; ==================== DEBUG ====================
+;;; -----------------------------------------------
 
-;; The compiler from Ribbit Scheme to RVM code.
+(define (display-return foo . x)
+  (let ((r (apply foo x)))
+    (display r)
+    (newline)
+    r))
 
-(define (make-ctx cte live exports live-features) (rib cte (rib live live-features #f) exports))
+;; Displays a rib to stdout given a depth
+(define (display-rib rib depth)
+  (if (> depth 0)
+    (begin
+      (display "[")
+      (cond ((not (rib? rib))
+             (display rib))
+            ((rib? (field0 rib))
+             (display-rib (field0 rib) (- depth 1)))
+            (else
+              (display (field0 rib))))
+      (display " ")
+      (cond ((not (rib? rib))
+             (display rib))
+            ((rib? (field1 rib))
+             (display-rib (field1 rib) (- depth 1)))
+            (else
+              (display (field1 rib))))
+      (display " ")
+      (cond ((not (rib? rib))
+             (display rib))
+            ((rib? (field2 rib))
+             (display-rib (field2 rib) (- depth 1)))
+            (else
+              (display (field2 rib))))
+      (display "]"))
+    (display "...")))
 
-(define (ctx-cte ctx) (field0 ctx))
-(define (ctx-live ctx) (field0 (field1 ctx)))
-(define (ctx-live-features ctx) (field1 (field1 ctx)))
 
+;;; -----------------------------------------------
+;;; ==================== UTILS ====================
+;;; -----------------------------------------------
+
+;; Return the value (or false) of a key in an association list
 (define (assq-value element lst)
   (let ((maybe-pair (assq element lst)))
     (and maybe-pair (cdr maybe-pair))))
-
-(define (ctx-live-feature? ctx feature)
-  (assq-value feature (ctx-live-features ctx)))
-
-(define (ctx-exports ctx) (field2 ctx))
-
-(define (ctx-cte-set ctx x)
-  (rib x (field1 ctx) (field2 ctx)))
-
-(define (ctx-live-set! ctx x)
-  (field0-set! (field1 ctx) x))
 
 (define (last-item lst)
   (if (pair? lst)
@@ -726,6 +744,30 @@
 
 (define forced-first-primitives (list '##- '##arg1))
 
+;;; --------------------------------------------------------
+
+;; Context definitions
+(define (make-ctx cte live exports live-features)
+  (rib cte (rib live live-features #f) exports))
+
+(define (ctx-cte ctx) (field0 ctx))
+(define (ctx-live ctx) (field0 (field1 ctx)))
+(define (ctx-live-features ctx) (field1 (field1 ctx)))
+
+
+(define (ctx-live-feature? ctx feature)
+  (assq-value feature (ctx-live-features ctx)))
+
+(define (ctx-exports ctx) (field2 ctx))
+
+(define (ctx-cte-set ctx x)
+  (rib x (field1 ctx) (field2 ctx)))
+
+(define (ctx-live-set! ctx x)
+  (field0-set! (field1 ctx) x))
+
+
+;; host config definitions
 (define (make-host-config live-features primitives feature-locations)
   (rib live-features (cons (list '##rib 0) primitives) feature-locations))
 
@@ -801,6 +843,7 @@
     (if prim-rib
       (cadr prim-rib)
       (error "Unknown primitive" prim))))
+
 
 
 ;; ====== hashable ribs (or c-ribs, for code ribs) =====
@@ -1002,6 +1045,19 @@
       " "
       (display-obj next)
       "]")))
+
+
+;;; --------------------------------------------------
+;;; ============== RIBBIT's COMPILER =================
+;;; --------------------------------------------------
+
+(define jump/call-op 'jump/call)
+(define set-op       'set)
+(define get-op       'get)
+(define const-op     'const)
+(define if-op        'if)
+
+(define tail (c-rib jump/call-op '##id 0)) ;; jump
 
 (define (comp ctx expr cont)
   ;; (cond-expand (ribbit (pp expr)) (else ""))
@@ -1314,7 +1370,7 @@
       (cons (car vars) (extend (cdr vars) cte))
       cte))
 
-(define tail (c-rib jump/call-op '##id 0)) ;; jump
+
 
 ;;;----------------------------------------------------------------------------
 
@@ -1341,9 +1397,6 @@
                  (cons (car x) (cadr x))))
            exports)
       exports))
-
-
-
 
 
 (define (host-feature->expansion-feature host-features)
@@ -2523,6 +2576,9 @@
 
 (define (encoding-size encoding)
   (fold + 0 (map cadr encoding)))
+
+
+(define predefined (list '##rib 'false 'true 'nil)) ;; predefined symbols
 
 (define (encode-constants proc host-config)
 
@@ -4343,15 +4399,6 @@
     '()))
 
 
-(define (extract walker parsed-file base)
-  (letrec ((func
-             (lambda (prim acc)
-               (let ((rec (lambda (base body) (fold func base body))))
-                 (walker prim acc rec)))))
-    (fold
-      func
-      base
-      parsed-file)))
 
 (define (list-prefix? prefix lst)
   (if (pair? prefix)
