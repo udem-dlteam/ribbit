@@ -1,9 +1,9 @@
 #!/usr/bin/env gsi
 ;;!#;; satisfy guile
 
-;;; Ribbit Scheme compiler.
+;;; The Ribbit Scheme Compiler (rsc). This file is distributed under the 
+;;; terms of the BSD 3-Clause License. See the file LICENSE for details.
 
-;;;----------------------------------------------------------------------------
 ;;;----------------------------------------------------------
 ;;;================== COMPATIBILITY LAYER ===================
 ;;;----------------------------------------------------------
