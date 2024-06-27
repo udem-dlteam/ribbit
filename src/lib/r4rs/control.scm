@@ -23,7 +23,7 @@
   ((host py)
    (define-feature
      ##apply
-     (decl
+     ((decl
 "def prim_apply():
  _arg = pop()
  f = pop()
@@ -35,7 +35,7 @@
  push(num_args) # @@(feature arity-check)@@
  return f
 
-"))
+")))
    (define-primitive
      (##apply f args)
      "prim_apply,"))
