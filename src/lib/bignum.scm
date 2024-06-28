@@ -440,20 +440,6 @@
         (bn-cons (bn-digit x) (bn-concatenate (bn-next x) y))))
 
 
-(define (##dummy-bn-quotient a b)
-
-  (define (_bn-quotient _a _b quo)
-    (if (##bn< _a _b)
-        quo
-        (_bn-quotient (##bn- _a _b) _b (##bn+ quo bn1))))
-
-  (let ((_a (##bn-abs a))
-        (_b (##bn-abs b)))
-    (if (##eqv? (##bn< bn0 a) (##bn< bn0 b))
-        (_bn-quotient _a _b bn0)
-        (##bn-neg (_bn-quotient _a _b bn0)))))
-
-
 (define (bn-quotient a b)
   (if (and (fixnum? a) (fixnum? b))
       (##quotient a b) ;; no need to normalize
@@ -464,6 +450,8 @@
          (_b (##bn-abs b)))
     (cond ((##eqv? b bn0) ;; division by 0
            (##quotient 0 0))
+          ((##eqv? b bn1)
+           a)
           ((##bn< _a _b) ;; abs(a) < abs(b) => 0
            bn0)
           ((##eqv? (##bn< bn0 a) (##bn< bn0 b)) ;; positive quotient? (same parity)
@@ -489,17 +477,28 @@
     ;; D3. first approximation of q-hat, returns a bignum
     
     (let* ((top2-a (bn-next top3-a)) ;; (a_j+n a_j+n-1)
-	   (a_j+n (bn-digit (bn-next top2-a)))
-	   (a_j+n-1 (bn-digit top2-a))
+           (a_j+n (bn-digit (bn-next top2-a)))
+           (a_j+n-1 (bn-digit top2-a))
            (a_j+n-2 (bn-cons (bn-digit top3-a) bn0))
-	   (fix-b_n-1 (bn-digit b_n-1))
-           (q-hat (##dummy-bn-quotient top2-a b_n-1)) ;; need to use dummy quotient for now
-	   ;; (r-hat (##bn-modulo top2-a b_n-1))) ;; avoid using bn-modulo 
-	   (_r-hat (##modulo (##+ (##* base (##modulo a_j+n fix-b_n-1)) ;; will be less than max fixnum
-				  (##modulo a_j+n-1 fix-b_n-1))
-			     fix-b_n-1))
-	   (r-hat (fixnum->bignum _r-hat)))
-				 
+           (fix-b_n-1 (bn-digit b_n-1))
+           
+           ;; (q-hat (##bn-quotient top2-a fix-b_n-1)) ;; need to use dummy quotient for now
+           (_q-hat (##quotient (##+ (##* base a_j+n) ;; < max-fixnum
+                                    a_j+n-1)
+                               fix-b_n-1))
+           (q-hat (fixnum->bignum _q-hat))
+           
+           ;; (r-hat (##bn-modulo top2-a b_n-1))) ;; avoid using bn-modulo
+           (_r-hat (##remainder (##+ (##* (##remainder a_j+n fix-b_n-1) ;; < max-fixnum
+                                          base)
+                                  (##remainder a_j+n-1 fix-b_n-1))
+                             fix-b_n-1))
+           ;; (_r-hat (##modulo (##+ (##* base (##modulo a_j+n fix-b_n-1))
+           ;;                        (##modulo a_j+n-1 fix-b_n-1))
+           ;;                   fix-b_n-1))
+           (r-hat (fixnum->bignum _r-hat)))
+
+                                 
       
       (if (or (##bn<= bn-base q-hat)
               (##bn< (##bn+ (##bn* bn-base r-hat) a_j+n-2) (##bn* q-hat b_n-2))) 
