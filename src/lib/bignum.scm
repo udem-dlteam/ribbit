@@ -185,11 +185,11 @@
 ;;               (if (##eqv? 0 (bn-digit n))  
 ;;                   (##- 0 base) ;; (0 $-1 $-1 ...) can be represented as a fixnum
 ;;                   (##- 0 (bn-neg n))))
-;; 	  (if (##bn< n max-fixnum) ;; n can be represented as a positive fixnum
-;; 	      (##+ (bn-digit n)
-;; 		   (##* base (bn-digit (bn-next n))))
-;; 	      (if (##bn< min-fixnum n)
-;; 		  (##- 0 (
+;;        (if (##bn< n max-fixnum) ;; n can be represented as a positive fixnum
+;;            (##+ (bn-digit n)
+;;                 (##* base (bn-digit (bn-next n))))
+;;            (if (##bn< min-fixnum n)
+;;                (##- 0 (
 ;;           #f) ;; conversion is not possible
 ;;       (if (and (fixnum? n) (##< n max-fixnum) (##< min-fixnum n))
 ;;           n
@@ -234,8 +234,8 @@
 (define (bn-length a)
   (define (_bn-length a counter)
     (if (end? a) 
-	counter
-	(_bn-length (##field1 a) (bn+ counter 1))))
+        counter
+        (_bn-length (bn-next a) (bn+ counter 1))))
   (if (fixnum? a)
       1
       (_bn-length a 0)))
@@ -243,8 +243,8 @@
 (define (bn-str-length a)
   (define (_bn-str-length a counter)
     (if (##eqv? '() a) 
-	counter
-	(_bn-str-length (##field1 a) (bn+ counter 1))))
+        counter
+        (_bn-str-length (##field1 a) (bn+ counter 1))))
   (if (and (##rib? n) (##eqv? (##field2 n) pair-type))
       (_bn-str-length a 0)
       #f))
@@ -415,30 +415,29 @@
   
   (define (_bn-get a n)
     (if (bn= bn0 n)
-	bn0
-	(let ((_a (fixnum->bignum a))) ;; FIXME ASAP
-	  (bn-cons (##field0 _a) (_bn-get (##field1 _a) (bn- n 1))))))
+        bn0
+        (let ((_a (fixnum->bignum a))) ;; FIXME ASAP
+          (bn-cons (bn-digit _a) (_bn-get (bn-next _a) (bn- n 1))))))
 
   (define (skip a j n)
     (if (bn<= j bn0)
-	(_bn-get a n)
-	(let ((_a (fixnum->bignum a))) ;; FIXME ASAP
-	  (skip (##field1 _a) (bn- j 1) n))))
+        (_bn-get a n)
+        (let ((_a (fixnum->bignum a))) ;; FIXME ASAP
+          (skip (bn-next _a) (bn- j 1) n))))
 
-  (define (msb a)
-    (let ((_a (fixnum->bignum a))) ;; FIXME ASAP
-      (cond ((end? _a) _a)
-	    ((end? (##field1 _a)) (bn-cons (##field0 _a) bn0))
-	    (else (msb (##field1 _a))))))
+  
+  (skip (fixnum->bignum a) j n))
 
-  (if (##eqv? n (##- 0 1)) ;; most significant digit?
-      (msb (fixnum->bignum a))
-      (skip (fixnum->bignum a) j n)))
+(define (msb a) ;; returns the most significant digit as a fixnum
+  (if (end? (bn-next a))
+      (bn-digit a)
+      (msb (bn-next a))))
+
 
 (define (bn-concatenate x y) ;; FIXME assumes both bignums are positive
     (if (##eqv? bn0 x)
-	y
-	(bn-cons (##field0 x) (bn-concatenate (##field1 x) y))))
+        y
+        (bn-cons (bn-digit x) (bn-concatenate (bn-next x) y))))
 
 
 (define (##dummy-bn-quotient a b)
@@ -462,23 +461,23 @@
 
 (define (##bn-quotient a b)
   (let* ((_a (##bn-abs a))
-	 (_b (##bn-abs b)))
+         (_b (##bn-abs b)))
     (cond ((##eqv? b bn0) ;; division by 0
            (##quotient 0 0))
-	  ((##bn< _a _b) ;; abs(a) < abs(b) => 0
-	   bn0)
-	  ((##eqv? (##bn< bn0 a) (##bn< bn0 b)) ;; positive quotient? (same parity)
-	   
-	   ;; if b is a fixnum, we need to pad both a and b with a 0 for the
-	   ;; algorithm to work since it requires a >= b >= bignum's base
-	   ;; (quotient will be the same since the ratio remains the same)	   
-	   (if (end? (##field1 _b)) ;; b was a fixnum?
-	       (##bn-quotient-aux (bn-cons 0 _a) (bn-cons 0 _b))
-	       (##bn-quotient-aux _a _b)))	  
-	  (else ;; negative quotient
-	   (if (end? (##field1 _b)) ;; b was a fixnum?
-	       (##bn-neg (##bn-quotient-aux (bn-cons 0 _a) (bn-cons 0 _b)))
-	       (##bn-neg (##bn-quotient-aux _a _b)))))))
+          ((##bn< _a _b) ;; abs(a) < abs(b) => 0
+           bn0)
+          ((##eqv? (##bn< bn0 a) (##bn< bn0 b)) ;; positive quotient? (same parity)
+           
+           ;; if b is a fixnum, we need to pad both a and b with a 0 for the
+           ;; algorithm to work since it requires a >= b >= bignum's base
+           ;; (quotient will be the same since the ratio remains the same)         
+           (if (end? (bn-next _b)) ;; b was a fixnum?
+               (##bn-quotient-aux (bn-cons 0 _a) (bn-cons 0 _b))
+               (##bn-quotient-aux _a _b)))        
+          (else ;; negative quotient
+           (if (end? (bn-next _b)) ;; b was a fixnum?
+               (##bn-neg (##bn-quotient-aux (bn-cons 0 _a) (bn-cons 0 _b)))
+               (##bn-neg (##bn-quotient-aux _a _b)))))))
 
 (define (##bn-quotient-aux a b)
 
@@ -489,22 +488,30 @@
     
     ;; D3. first approximation of q-hat, returns a bignum
     
-    (let* ((top2-a (##field1 top3-a)) ;; (a_j+n a_j+n-1)
-	   (a_j+n-2 (bn-cons (##field0 top3-a) bn0))
-	   (q-hat (##dummy-bn-quotient top2-a b_n-1)) ;; need to use dummy quotient for now
-	   (r-hat (##bn-modulo top2-a b_n-1))) ;; same, doesn't work for modulo without dummy quo
+    (let* ((top2-a (bn-next top3-a)) ;; (a_j+n a_j+n-1)
+	   (a_j+n (bn-digit (bn-next top2-a)))
+	   (a_j+n-1 (bn-digit top2-a))
+           (a_j+n-2 (bn-cons (bn-digit top3-a) bn0))
+	   (fix-b_n-1 (bn-digit b_n-1))
+           (q-hat (##dummy-bn-quotient top2-a b_n-1)) ;; need to use dummy quotient for now
+	   ;; (r-hat (##bn-modulo top2-a b_n-1))) ;; avoid using bn-modulo 
+	   (_r-hat (##modulo (##+ (##* base (##modulo a_j+n fix-b_n-1)) ;; will be less than max fixnum
+				  (##modulo a_j+n-1 fix-b_n-1))
+			     fix-b_n-1))
+	   (r-hat (fixnum->bignum _r-hat)))
+				 
       
       (if (or (##bn<= bn-base q-hat)
-	      (##bn< (##bn+ (##bn* bn-base r-hat) a_j+n-2) (##bn* q-hat b_n-2))) 
-	  (let ((q-hat (##bn- q-hat bn1))
-		(r-hat (##bn+ r-hat b_n-1)))
-	    (if (and (##bn< r-hat bn-base)
-		     (or (##bn<= bn-base q-hat)
-			 (##bn< (##bn+ (##bn* bn-base r-hat) a_j+n-2)
-				(##bn* q-hat b_n-2))))
-		(##bn- q-hat bn1)
-		q-hat))
-	  q-hat)))
+              (##bn< (##bn+ (##bn* bn-base r-hat) a_j+n-2) (##bn* q-hat b_n-2))) 
+          (let ((q-hat (##bn- q-hat bn1))
+                (r-hat (##bn+ r-hat b_n-1)))
+            (if (and (##bn< r-hat bn-base)
+                     (or (##bn<= bn-base q-hat)
+                         (##bn< (##bn+ (##bn* bn-base r-hat) a_j+n-2)
+                                (##bn* q-hat b_n-2))))
+                (##bn- q-hat bn1)
+                q-hat))
+          q-hat)))
 
   (define (add-back top-a b q-hat) 
     
@@ -512,47 +519,46 @@
     ;; is no longer negative, returns a fixnum
     
     (if (##bn< (##bn- top-a (##bn* q-hat b)) bn0)
-	(add-back top-a b (##bn- q-hat bn1))
-	(or (bignum->fixnum q-hat) (bn-norm q-hat)))) ;; FIXME
+        (add-back top-a b (##bn- q-hat bn1))
+        (or (bignum->fixnum q-hat) (bn-norm q-hat)))) ;; FIXME
+
   
-  ;; FIXME pick a power of 2 for d instead
-  
-  (let* ((d (##dummy-bn-quotient (##bn- bn-base bn1) (bn-get b 0 (##- 0 1)))) ;; normalize a and b
-	 (_a (##bn* a d)) 
-	 (_b (##bn* b d))       
-	 (a-bits (bn-length _a))  ;; |a| = m + n 
-	 (b-bits (bn-length _b))  ;; |b| = n
-	 (m (##- a-bits b-bits))  ;;  m = |a| - |b|	 
-	 (top2-b (bn-get _b (bn- b-bits 2) 2))
-	 (b_n-1 (bn-cons (##field0 (##field1 top2-b)) bn0))
-	 (b_n-2 (bn-cons (##field0 top2-b) bn0)))
+  (let* ((d (##quotient base (##+ (msb b) 1)))  ;; FIXME pick a power of 2 for d instead
+         (_a (##bn* a (bn-cons d bn0))) ;; normalize a and b
+         (_b (##bn* b (bn-cons d bn0)))       
+         (a-bits (bn-length _a))  ;; |a| = m + n 
+         (b-bits (bn-length _b))  ;; |b| = n
+         (m (##- a-bits b-bits))  ;;  m = |a| - |b|      
+         (top2-b (bn-get _b (bn- b-bits 2) 2))
+         (b_n-1 (bn-cons (bn-digit (bn-next top2-b)) bn0))
+         (b_n-2 (bn-cons (bn-digit top2-b) bn0)))
 
     (let loop ((j m) ;; probably never will be a bignum
-	       (q bn0)
-	       (a _a))
+               (q bn0)
+               (a _a))
       (if (##< j 0)
-	  q
-	  (let* ((top-a (bn-get a j (##+ b-bits 1))) ;; (a_j+n ... a_j) i.e. |n|+1 digits
-		 (lower-a (bn-get a 0 j)) ;; (a_j-1 ... a_0)		 
-		 (top3-a ;; top 3 bits from (a_j+n ... a_j), some could be 0s
-		  (bn-get top-a (##- (bn-length top-a) 3) 3)))
-	    
-	    (if (##bn< (##field1 top3-a) b_n-1) ;; quotient is 0?
-		(loop (##- j 1) (bn-cons 0 q) a)
-		(let* ((q-hat-estimate (calculate-q-hat top3-a b_n-1 b_n-2)) 
-		       (q-hat (add-back top-a _b q-hat-estimate)) 
-		       (new-top-a (##bn- top-a (##bn* (bn-cons q-hat bn0) _b))))
+          q
+          (let* ((top-a (bn-get a j (##+ b-bits 1))) ;; (a_j+n ... a_j) i.e. |n|+1 digits
+                 (lower-a (bn-get a 0 j)) ;; (a_j-1 ... a_0)             
+                 (top3-a ;; top 3 bits from (a_j+n ... a_j), some could be 0s
+                  (bn-get top-a (##- (bn-length top-a) 3) 3)))
+            
+            (if (##bn< (bn-next top3-a) b_n-1) ;; quotient is 0?
+                (loop (##- j 1) (bn-cons 0 q) a)
+                (let* ((q-hat-estimate (calculate-q-hat top3-a b_n-1 b_n-2)) 
+                       (q-hat (add-back top-a _b q-hat-estimate)) 
+                       (new-top-a (##bn- top-a (##bn* (bn-cons q-hat bn0) _b))))
 
-		       ;; FIXME, steps missing in the add-back part of the algorithm
-		       ;; (dif (bn- q-hat q-hat-estimate)) ;; number of add back iterations
-		       ;; (_top-a (if (bn= bn0 dif) ;; 
-		       ;; 		   __top-a
-		       ;; 		   (bn-concatenate __top-a dif)))
-				   ;; (bn-concatenate (no-carry-bn+ (bn* dif _b) __top-a) dif))) 
+                       ;; FIXME, steps missing in the add-back part of the algorithm
+                       ;; (dif (bn- q-hat q-hat-estimate)) ;; number of add back iterations
+                       ;; (_top-a (if (bn= bn0 dif) ;; 
+                       ;;                  __top-a
+                       ;;                  (bn-concatenate __top-a dif)))
+                                   ;; (bn-concatenate (no-carry-bn+ (bn* dif _b) __top-a) dif))) 
 
-		  (loop (##- j 1)
-			(bn-cons q-hat q)
-			(bn-concatenate lower-a new-top-a)))))))))
+                  (loop (##- j 1)
+                        (bn-cons q-hat q)
+                        (bn-concatenate lower-a new-top-a)))))))))
 
 
 ;; remainder
@@ -565,9 +571,6 @@
 (define (##bn-remainder a b)
   (##bn- a (##bn* b (##bn-quotient a b))))
 
-(define (##dummy-bn-remainder a b)
-  (##bn- a (##bn* b (##dummy-bn-quotient a b))))
-
 
 ;; modulo
 
@@ -577,7 +580,7 @@
       (bn-norm (##bn-modulo (fixnum->bignum a) (fixnum->bignum b)))))
 
 (define (##bn-modulo a b)
-  (let ((r (##dummy-bn-remainder a b)))
+  (let ((r (##bn-remainder a b)))
     (if (##eqv? r bn0)
         bn0
         (if (##eqv? (##bn< a bn0) (##bn< b bn0))
@@ -774,7 +777,7 @@
 (define (##bn-gcd-aux a b)
   (if (##bn= a bn0) 
       b
-      (##bn-gcd-aux (##dummy-bn-remainder b a) a)))
+      (##bn-gcd-aux (##bn-remainder b a) a)))
 
 (define (var-bn-gcd . args) ;; (var-bn-gcd) => 0, consistent with gambit's `gcd`
   (if (var-fixnum? args)
@@ -801,7 +804,7 @@
       bn0
       (let ((_a (##bn-abs a))
             (_b (##bn-abs b)))
-        (##bn* (##dummy-bn-quotient _a (##bn-gcd _a _b)) _b))))
+        (##bn* (##bn-quotient _a (##bn-gcd _a _b)) _b))))
 
 (define (var-bn-lcm . args) ;; (var-bn-lcm) => 1, consistent with gambit's `lcm`
   (if (var-fixnum? args)
@@ -888,10 +891,10 @@
           (##number->string-aux quo chars radix))))
 
   (let ((chars (if (##< a 0)
-		   (##rib 45
-			  (##number->string-aux (##- 0 a) '() 10)
-			  pair-type)
-		   (##number->string-aux a '() 10))))
+                   (##rib 45
+                          (##number->string-aux (##- 0 a) '() 10)
+                          pair-type)
+                   (##number->string-aux a '() 10))))
 
     (##rib chars (length chars) string-type))) ;; FIXME ##length?
 
@@ -908,17 +911,17 @@
   (define (##bn-number->string-aux _a tail radix)
     (let* ((quo (bn-quotient _a radix)) ;; FIXME redundant type check
            (rem (bn-remainder _a radix)) ;; FIXME redundant type check (should use dummy for now too)
-           (chars (##rib (##+ 48 rem) tail pair-type)))	
+           (chars (##rib (##+ 48 rem) tail pair-type))) 
       (if (bn= 0 quo) ;; FIXME (##eqv? bn0 quo)
           chars
           (##bn-number->string-aux quo chars radix))))
 
   (let* ((radix (fixnum->bignum 10))
-	 (chars (if (##bn< a bn0)
-		    (##rib 45
-			   (##bn-number->string-aux (##bn-abs a) '() radix)
-			   pair-type)
-		    (##bn-number->string-aux a '() radix))))
+         (chars (if (##bn< a bn0)
+                    (##rib 45
+                           (##bn-number->string-aux (##bn-abs a) '() radix)
+                           pair-type)
+                    (##bn-number->string-aux a '() radix))))
     
     (##rib chars (bn-str-length chars) string-type))) ;; FIXME ##length?
 
@@ -929,18 +932,18 @@
 
   (define (convert char)
     (if (and (##< 47 char) (##< char 58)) ;; 0-9
-	(##- char 48)   
-	#f))
+        (##- char 48)   
+        #f))
 
   (define (bn-string->number-aux lst number)
     (if (null? lst) ;; FIXME define null? ??
-	number
-	(let* ((char (##field0 lst))
-	       (digit (convert char)))
-	  (if digit
-	      (bn-string->number-aux (##field1 lst)
-				     (bn+ (bn* 10 number) digit)) ;; FIXME ##bn?
-	      #f))))
+        number
+        (let* ((char (##field0 lst))
+               (digit (convert char)))
+          (if digit
+              (bn-string->number-aux (##field1 lst)
+                                     (bn+ (bn* 10 number) digit)) ;; FIXME ##bn?
+              #f))))
 
   (let ((lst (##field0 str)))
     (if (null? lst)
@@ -1061,6 +1064,7 @@
         (display "b: ") (display b) (newline)
         )
       (display "test passed...\n")))
+
 
 
 ;;------------------------------------------------------------------------------
@@ -1958,20 +1962,8 @@
 
 
 
-;; number->string
-
-(display-rib (bn-number->string 300) 5)
-
-(display-rib (bn-number->string -300) 5)
-
-(display-rib (bn-number->string ($ 1234)) 5)
-
-(display-rib (bn-number->string ($ -1234)) 5)
-
-
-
 ;; number->string and string->number
 
 (test2 (= (bn-string->number (bn-number->string ($ 123456789)))
-	  ($ 123456789))
+          ($ 123456789))
        #t)
