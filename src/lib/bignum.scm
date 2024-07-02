@@ -67,7 +67,7 @@
 
 ;; TODO:
 ;;  - max-fixnum
-;;  - bignum->fixnum, end, bn-norm: (end? (0 bn0)) => #f so (bn->fn (fn 0 bn0)) =/=> fn
+;;  - bignum->fixnum 
 ;;  - tests
 ;;  - works with any libraries (shouldn't use anything else than primitives)
 ;;  - algorithms for quotient, multiplication, ...
@@ -143,9 +143,6 @@
       (if (bignum? n)
           n
           #f)))
-
-;; FIXME [32767 [0 [0 [0 ... 7] 7] 7] 7] can't be converted to a fixnum
-;; if n is not normalized
 
 (define (bignum->fixnum n) 
   (if (bignum? n)
@@ -350,7 +347,7 @@
 
 ;;  - Schönhage–Strassen based on fft O(n log(n) log(log(n)))
 
-;;  - Toom-Cook (or Tom-3)
+;;  - Toom-Cook 
 
 (define (bn* a b)
   (cond ((and (fixnum? a) (fixnum? b))
@@ -422,27 +419,30 @@
   (define (_bn-get a n)
     (if (##eqv? 0 n)
         bn0
-        (let ((_a (fixnum->bignum a))) ;; FIXME ASAP
-          (bn-cons (bn-digit _a) (_bn-get (bn-next _a) (##- n 1))))))
+        (bn-cons (bn-digit a) (_bn-get (bn-next a) (##- n 1)))))
 
   (define (skip a j n)
     (if (##< 0 j)
-        (let ((_a (fixnum->bignum a))) ;; FIXME ASAP
-          (skip (bn-next _a) (##- j 1) n))
+        (skip (bn-next a) (##- j 1) n)
         (_bn-get a n)))
 
-  (skip (fixnum->bignum a) j n))
+  (skip a j n))
 
 (define (msb a) ;; returns the most significant digit as a fixnum
   (if (end? (bn-next a))
       (bn-digit a)
       (msb (bn-next a))))
 
-
 (define (bn-concatenate x y) ;; FIXME assumes both bignums are positive
     (if (##eqv? bn0 x)
         y
         (bn-cons (bn-digit x) (bn-concatenate (bn-next x) y))))
+
+(define (bn-append a b i)
+  ;; should read "appends b to a at index a"
+  (if (##eqv? 0 i)
+      b
+      (bn-cons (bn-digit a) (bn-append (bn-next a) b (##- i 1)))))
 
 
 (define (bn-quotient a b)
@@ -458,7 +458,7 @@
          (_b (##bn-abs b)))
     (cond ((##eqv? b bn0) ;; division by 0
            (##quotient 0 0))
-          ((##eqv? b bn1)
+          ((##eqv? b bn1) ;; should probably do the same for bn-1
            a)
           ((##bn< _a _b) ;; abs(a) < abs(b) => 0
            bn0)
@@ -497,7 +497,7 @@
          (_b (if (##< b 0) (##- 0 b) b)))
     (cond ((##eqv? b 0) ;; division by 0
            (##quotient 0 0))
-          ((##eqv? b 1)
+          ((##eqv? b 1) ;; should probably do the same for -1
            a)
           ((##eqv? (##bn< bn0 a) (##< 0 b)) ;; positive quotient? (same parity)
            (##bn-fn-quotient-aux _a _b (##- (bn-length _a) 1) 0 bn0))
@@ -565,7 +565,7 @@
       (if (##< j 0)
           q
           (let* ((top-a (bn-get a j (##+ length-b 1))) ;; (a_j+n ... a_j) i.e. |n|+1 digits
-                 (lower-a (bn-get a 0 j)) ;; (a_j-1 ... a_0)
+                 ;; (lower-a (bn-get a 0 j)) ;; (a_j-1 ... a_0)
                  (top3-a ;; top 3 digits from (a_j+n ... a_j), some could be 0s
                   (bn-get top-a (##- (bn-length top-a) 3) 3)))
             
@@ -585,10 +585,12 @@
                           (new-top-a (##bn- top-a (##bn-fn* _b q-hat))))
                      (loop (##- j 1)
                            (bn-cons q-hat q)
-                           (bn-concatenate lower-a new-top-a)))
+                           ;; (bn-concatenate lower-a new-top-a)))
+                           (bn-append a new-top-a j)))
                    (loop (##- j 1)
                          (bn-cons q-hat-estimate q)
-                         (bn-concatenate lower-a _new-top-a)))))))))
+                         ;; (bn-concatenate lower-a _new-top-a)))))))))
+                         (bn-append a _new-top-a j)))))))))
 
 
 ;; remainder
@@ -732,8 +734,8 @@
 (define (bn~ a)
   (if (fixnum? a)
       ;; FIXME need to implement bitwise-not in ribbit
-      (bn-norm (##bn~ (fixnum->bignum a))) ;; (bn-norm (bitwise-not a))
-      (bn-norm (##bn~ a))))
+      (##bn~ (fixnum->bignum a)) ;; (bn-norm (bitwise-not a))
+      (##bn~ a)))
 
 (define (##bn~ a)
   (if (end? a)
@@ -958,7 +960,8 @@
 
   (define (##bn-number->string-aux _a tail radix)
     (let* ((quo (bn-quotient _a radix)) ;; FIXME redundant type check
-           (rem (bn-remainder _a radix)) ;; FIXME redundant type check 
+           ;;(rem (bn-remainder _a radix)) ;; FIXME redundant type check
+           (rem (bn- _a (bn* radix quo)))
            (chars (##rib (##+ 48 rem) tail pair-type)))
       (if (##eqv? 0 quo) ;; won't work if quo is not normalized 
           chars
@@ -1057,6 +1060,8 @@
 
 (define integer? number?)
 (define number->string bn-number->string)
+
+(define bitwise-not bn~)
 
 
 ;;------------------------------------------------------------------------------
