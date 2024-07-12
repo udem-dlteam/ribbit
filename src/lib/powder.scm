@@ -292,11 +292,6 @@
 
 (define-macro (! var . exprs)
   `(let ((__thunk (%%update-closure ,var ,@exprs)))
-     (display "changing ")
-     (display ',var)
-     (display " to ")
-     (display ',exprs)
-     (newline)
      (node-thunk-set! ,var __thunk)
      (update! ,var)))
 
@@ -333,6 +328,7 @@
                         (!cons (!! 3)
                                (!nil)))))
 (!!debug-set! "b")
+(display "hello")
 
 (define (display-lst name lst n)
   (if (null? (lst))
@@ -349,15 +345,30 @@
       (display-lst name (!cdr lst) (+ n 1)))))
 
 
-(define (!map func lst)
+;(define (!map func lst)
+;  (if (null? (lst))
+;    (!nil)
+;    (!! 
+;      (cons
+;        (func (!car lst))
+;        (!map func (!cdr lst))))))
+
+(define (!map activate deactivate lst)
   (if (null? (lst))
     (!nil)
-    (!! 
+    (begin
+      (!! (!map activate deactivate (!cdr lst)))
       (cons
-        (func (!car lst))
-        (!map func (!cdr lst))))))
+        (activate (car lst))
+        (!map activate deactivate (!cdr lst))))))
 
-(define y (!map (lambda (x) (!! (* (x) (x)))) x))
+
+
+(define y 
+  (!map 
+    (lambda (x) (!! (* (x) (x))))
+    (lambda (y) y)
+    x))
 
 
 (!!debug-set! "disp_x")
@@ -368,14 +379,14 @@
 
 (!!debug-graph "before" x)
 
-(! (!car x) 3)
-(! (!car (!cdr x)) 10)
-
-(!!debug-set! "c")
-(! (!cdr (!cdr (!cdr x))) (cons (!! 6) (!nil)))
-
-
-(!!debug-graph "after" x)
+;(! (!car x) 3)
+;(! (!car (!cdr x)) 10)
+;
+;(!!debug-set! "c")
+;(! (!cdr (!cdr (!cdr x))) (cons (!! 6) (!nil)))
+;
+;
+;(!!debug-graph "after" x)
 
 ;(display (!car (!cdr (!cdr (!cdr x)))))
 
@@ -434,20 +445,22 @@
 ;(define _display display)
 ;(define display ##id)
 ;
-;(define x (!!d 'x 5))
-;(define y (!!d 'y 10))
-;(define z (!!d 'z (+ (x) (y))))
-;
-;(!!d 'display_z  
-;  (display "The value of z is now :")
-;  (display (z))
-;  (display "\n"))
+(define x (!! 5))
+(define y (!! 10))
+(define z (!! (+ (x) (y))))
+
+(!! 
+  (display "The value of z is now :")
+  (display (z))
+  (display "\n"))
+
+
+(! x 7)
 ;
 ;(define display _display)
 ;(gen-graph x)
 ;(define display ##id)
 ;
-;(! x 7)
 
 
 ;;(debug-display x)
