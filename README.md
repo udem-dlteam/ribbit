@@ -1,32 +1,49 @@
 # Ribbit
 
-A small, portable and extensible Scheme implementation that supports closures, tail calls, first-class continuations, a REPL and AOT and incremental compilers. All that for a run time footprint around 4 KB!
+A portable, compact and extensible Scheme implementation that is **fully R4RS complient**. 
+This includes closures, I/O, tail calls, first-class continuations and a Read Eval Print Loop (REPL). 
 
-Ribbit currently supports 9 targets such as *JavaScript*, *Assembly (x86)*, *C*, *Python* and *POSIX Shell*, with more to come !
+ - **Compact**. Ribbit compresses the code and *only* includes the features you need. [Read about our R4RS complient REPL in 7KB](https://arxiv.org/abs/2310.13589)
+ - **Portable**. Ribbit can run on *almost* anything : *JavaScript*, *Assembly (x86)*, *C*, *Python*, *POSIX Shell* and more. [See all Targets](#supported-targets).
+ - **Extensible**. Ribbit let's you add new primitives easily and tailor the RVM to your needs. [Read about our markup system.](http://www.iro.umontreal.ca/~feeley/papers/OLearyFeeleyMOREVMS23.pdf)
 
-For more information about Ribbit, you can look at our papers in the [paper section](#research-and-papers) or check out [all supported targets](#supported-targets)
+For more information about Ribbit, you can look at our papers in the [paper section](#research-and-papers). 
 
 ## Try it now !
 
-You can [try the REPL with a minimal library here](https://udem-dlteam.github.io/ribbit/repl-min.html) or [try a more featureful version here](https://udem-dlteam.github.io/ribbit/repl-max.html).
-
-Please note that currently the incremental compiler used by the REPL only supports a subset of the Scheme special forms. In particular procedure definitions should use the syntax `(define name (lambda ...))` . The AOT compiler supports more features including the forms `quote`, `lambda`, `define`, `set!`, `if`, `cond`, `and`, `or`, `begin`, `let`, `let*`, `letrec`, and named `let`.
-
-<hr>
+You can [try the R4RS complient repl with types checks here](https://udem-dlteam.github.io/ribbit/repl-min.html) or the version [without types here](https://udem-dlteam.github.io/ribbit/repl-max.html). 
 
 ### Usage
 
-The Ribbit AOT compiler is written in Scheme and can be executed with Gambit, Guile, Chicken and Kawa. It has been tested with Gambit v4.7.5 and above. For the best experience install Gambit from https://github.com/gambit/gambit .
+The Ribbit AOT compiler is written in Scheme and can be executed with Gambit
+v4.7.5. For the best experience install Gambit from
+https://github.com/gambit/gambit.
 
+<!-- 
 There are also prebuilt versions of the Ribbit AOT compiler in the `prebuilt` directory, allowing the AOT compiler to be executed using another language interpreter, such as nodejs, CPython, and even just a POSIX shell.
+-->
+ 
+The AOT compiler's source code is in a single file: `src/rsc.scm`. This Scheme
+file can be executed as a program with the Gambit, Guile, Chicken or Kawa
+interpreters. Alternatively the AOT compiler can be executed using the
+`src/rsc` shell script, which has the additional `-c` option to select a
+specific build of the Ribbit AOT compiler which is useful for bootstrapping
+Ribbit or to execute one of the prebuilt versions.
 
-The AOT compiler's source code is in a single file: `src/rsc.scm` . This Scheme file can be executed as a program with the Gambit, Guile, Chicken or Kawa interpreters. Alternatively the AOT compiler can be executed using the `src/rsc` shell script, which has the additional `-c` option to select a specific build of the Ribbit AOT compiler which is useful for bootstrapping Ribbit or to execute one of the prebuilt versions.
+Ribbit currently supports the target languages C, JavaScript, Python, Scheme,
+Haskell, Lua, Assembly (x86), Ocaml and POSIX shell which are selectable with
+the compiler's `-t` option with `c`, `js`, `py`, `scm`, `hs`, `lua`, `asm`,
+`ml`, and `sh` respectively.  The compacted RVM code can be obtained with the
+target `rvm` which is the default.
 
-Ribbit currently supports the target languages C, JavaScript, Python, Scheme, Haskell, Lua, Assembly (x86), Ocaml and POSIX shell which are selectable with the compiler's `-t` option with `c`, `js`, `py`, `scm`, `hs`, `lua`, `asm`, `ml`, and `sh` respectively.  The compacted RVM code can be obtained with the target `rvm` which is the default.
+The `-m` option causes a minification of the generated program. This requires a
+recent version of Gambit.
 
-The `-m` option causes a minification of the generated program. This requires a recent version of Gambit.
-
-The `-l` option allows selecting the Scheme runtime library (located in the `lib` subdirectory). The `min` library has the fewest procedures and a REPL that supports the core Scheme forms only. The `max` library has most of the R4RS predefined procedures, except for file I/O. The `max-tc` library is like `max` but with run time type checking. The default is the `max-tc` library.
+The `-l` option allows selecting the Scheme runtime library (located in the
+`lib` subdirectory). The `min` library has the fewest procedures and a REPL
+that supports the core Scheme forms only. The `max` library has most of the
+R4RS predefined procedures, except for file I/O. The `max-tc` library is like
+`max` but with run time type checking. The default is the `max-tc` library.
 
 Here are a few examples (all assume that a `cd src` has been done first):
 
