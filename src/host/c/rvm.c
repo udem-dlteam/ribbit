@@ -556,6 +556,8 @@ obj list2scm(char **s, int length) {
 obj bool2scm(bool x) { return x ? CAR(FALSE) : FALSE; }
 // )@@
 
+// @@(location decl)@@
+
 obj prim(int no) {
   switch (no) { 
   // @@(primitives (gen "case " index ":" body) 
