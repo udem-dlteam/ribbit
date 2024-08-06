@@ -26,7 +26,7 @@
 (define-primitive
   (##write-char-fd ch fd)
   (use py/io)
-  "prim2(lambda fd, ch: fd.write(chr(ch))),")
+  "prim2(lambda fd, ch: [fd.write(chr(ch)), fd.flush()]),")
 
 (define-primitive
   (##close-input-fd fd)
