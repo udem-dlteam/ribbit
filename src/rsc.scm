@@ -1132,7 +1132,7 @@
                                                      ctx
                                                      (length args)
                                                      (gen-call
-                                                       (if (number? v)
+                                                       (if (and (number? v) (arity-check? ctx first))
                                                          (+ v 1)
                                                          v)
                                                        cont))))))
