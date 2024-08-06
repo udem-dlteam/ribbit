@@ -13,121 +13,105 @@ For more information about Ribbit, you can look at our papers in the [paper sect
 
 You can [try the R4RS complient repl with types checks here](https://udem-dlteam.github.io/ribbit/repl-min.html) or the version [without types here](https://udem-dlteam.github.io/ribbit/repl-max.html). 
 
+## Development
+
+Ribbit is a research project currently **under development**. A lot of enhancements have been made since the last release 
+(R4RS complience, I/O primitives, define-primitive/define-feature, etc.) and a new release is planned for the end of 2023.
+If you do enconter bugs, please report them in the issue section of Github.
+
+If you are interested in contributing, you can look at the [roadmap](#roadmap) 
+or reach out to @leo-ard or @feeley.
+
 ### Usage
 
+Currently, Ribbit has only been tested with Gambit v4.7.5, and may not work with other Scheme implementations.
+We are currently [working on this](#roadmap) for the release of Ribbit 2.0.
+
 The Ribbit AOT compiler is written in Scheme and can be executed with Gambit
-v4.7.5. For the best experience install Gambit from
-https://github.com/gambit/gambit.
+v4.7.5. For the best experience install Gambit from https://github.com/gambit/gambit.
+The compiler's source code is in a single file: `src/rsc.scm`.
 
-<!-- 
-There are also prebuilt versions of the Ribbit AOT compiler in the `prebuilt` directory, allowing the AOT compiler to be executed using another language interpreter, such as nodejs, CPython, and even just a POSIX shell.
--->
- 
-The AOT compiler's source code is in a single file: `src/rsc.scm`. This Scheme
-file can be executed as a program with the Gambit, Guile, Chicken or Kawa
-interpreters. Alternatively the AOT compiler can be executed using the
-`src/rsc` shell script, which has the additional `-c` option to select a
-specific build of the Ribbit AOT compiler which is useful for bootstrapping
-Ribbit or to execute one of the prebuilt versions.
-
-Ribbit currently supports the target languages C, JavaScript, Python, Scheme,
-Haskell, Lua, Assembly (x86), Ocaml and POSIX shell which are selectable with
-the compiler's `-t` option with `c`, `js`, `py`, `scm`, `hs`, `lua`, `asm`,
-`ml`, and `sh` respectively.  The compacted RVM code can be obtained with the
-target `rvm` which is the default.
+Ribbit currently supports the target among C, JavaScript, Python,
+Haskell, Assembly (x86) which are selectable with the compiler's `-t` 
+option with `c`, `js`, `py`, `hs` and `asm` respectively.
+See the [Supported targets](#supported-targets) table for all the targets.
 
 The `-m` option causes a minification of the generated program. This requires a
 recent version of Gambit.
 
 The `-l` option allows selecting the Scheme runtime library (located in the
-`lib` subdirectory). The `min` library has the fewest procedures and a REPL
-that supports the core Scheme forms only. The `max` library has most of the
-R4RS predefined procedures, except for file I/O. The `max-tc` library is like
-`max` but with run time type checking. The default is the `max-tc` library.
+`lib` subdirectory). Here are a list of libraries : 
+ - `r4rs` : Adds all essential R4RS procedures. Includes a REPL that is fully r4rs compliant.
+ - `r4rs-tc` : Like `r4rs` but with run time type checking.
+ - `min`, `max` : Minimal library for small scheme implementations, incliding a REPL.
+ - `min-tc`, `max-tc` : Like `min` and `max` but with run time type checking.
+ - `define-macro` : Necessary for using the `define-macro` construct.
+
+To compile an executable of the Ribbit Scheme Compiler (rsc.exe) with Gambit, you can use :
+
+```
+make rsc.exe
+```
 
 Here are a few examples (all assume that a `cd src` has been done first):
 
-    Use the Gambit interpreter to compile the minimal REPL to Python
-    and execute with python3:
+    Use RSC to compile an R4RS complient REPL to Python:
 
-      $ ./rsc -t py -l min repl-min.scm
-      $ echo "(define f (lambda (n) (if (< n 2) n (+ (f (- n 1)) (f (- n 2))))))(f 25)" | python3 repl-min.scm.py
-      > 0
-      > 75025
+      $ ./rsc.exe -t py -l r4rs lib/r4rs/repl.scm -o repl.py
+      $ python3 repl.py
+      > (+ 1 2)
+      3
+      > (define handle (open-output-file "test.txt"))
+      0
+      > (display "Hello Ribbit!" handle)
+      0
+      > ^D (Ctrl-D)
+      $ cat test.txt
+      Hello Ribbit!
+
+    Do the same but generating a JavaScript R4RS repl:
+
+      $ ./rsc.exe -t js -l r4rs lib/r4rs/repl.scm -o repl.js
+      $ node repl.js
+      > (+ 1 2)
+      3
+
+    Try it with different hosts : 
+
+      $ ./rsc.exe -t asm -l r4rs lib/r4rs/repl.scm -o repl.s (x86 assembly, need linux as it generates an ELF file)
+      $ ./rsc.exe -t c -l r4rs lib/r4rs/repl.scm -o repl.c
+      $ ./rsc.exe -t hs -l r4rs lib/r4rs/repl.scm -o repl.hs
+
+    Generate the world's smalest R4RS complient repl: 
+
+      $ make repl-asm.exe
+      $ ls -la repl-asm.exe (6.5KB)
+      -rwxr-xr-x  1 leonard  staff  6639  5 Aug 13:36 repl.exe
+      $ echo '(+ 1 2)' | ./repl-asm.exe
+      > 3
       >
 
-    Alternatively one of the prebuilt versions can be used to achieve the
-    same result:
+    Interact with the host language (js and C here):
 
-      $ ./rsc -t py -l min -c "node prebuilt/rsc.js"       repl-min.scm
-      $ ./rsc -t py -l min -c "python3 prebuilt/rsc.py"    repl-min.scm
-      $ ./rsc -t py -l min -c "runhaskell prebuilt/rsc.hs" repl-min.scm
-      $ ./rsc -t py -l min -c "lua prebuilt/rsc.lua"       repl-min.scm
-      $ ./rsc -t py -l min -c "scala prebuilt/rsc.scala"   repl-min.scm
-      $ ./rsc -t py -l min -c "ksh prebuilt/rsc.sh"        repl-min.scm
-      $ gcc -o rsc.exe prebuilt/rsc.c
-      $ ./rsc -t py -l min -c ./rsc.exe                    repl-min.scm
+      $ cat examples/square.scm
+      (cond-expand ((host py) ;; Python host
+                    (define-primitive (square x)
+                      "lambda: push(pop()**2),"))
+                   ((host c) ;; C host
+                    (define-primitive (square x)
+                      "{ 
+                        int x = NUM(pop());
+                        push2(TAG_NUM(x*x), PAIR_TAG); 
+                       }")))
+      
+      (##putchar (square 8)) ;; prints '@' as 64 is the ASCII value of '8'
+      (##putchar 10) ;; prints a newline
+     
+      $ ./rsc.exe -t py examples/square.scm -o square.py
+      $ python3 square.py
+      @
 
-    Do the same but generating a JavaScript program:
-
-      $ ./rsc -t js -l min repl-min.scm
-
-    Use Guile instead of Gambit to compile the REPL with type checking to C
-    and then compile RVM with gcc:
-
-      $ RSC_SCHEME_INTERPRETER=guile ./rsc -t c -l max-tc repl-max.scm
-      $ gcc repl-max.scm.c
-      $ echo "(+ 1 (* 2 3))(car 0)" | ./a.out
-      > 7
-      > *** type error ()
-      >
-
-    You can also use RSC_SCHEME_INTERPRETER=kawa to use Kawa Scheme or
-    RSC_SCHEME_INTERPRETER="csi -s" to use Chicken Scheme.
-
-    Use the Gambit compiler to compile the AOT compiler and then use it:
-
-      $ gsc -exe -o rsc-gambit.exe rsc.scm
-      $ ./rsc -t c -c ./rsc-gambit.exe repl-max.scm
-
-    Use the Chicken compiler to compile the AOT compiler and then use it:
-
-      $ csc -o rsc-chicken.exe -O2 rsc.scm
-      $ ./rsc -t c -c ./rsc-chicken.exe repl-max.scm
-
-    Use Ribbit as a pipeline compiler to compile the trivial program
-    `(putchar 65) (putchar 10)` to the corresponding compacted RVM code
-    (only 23 bytes of code):
-
-      $ echo "(putchar 65) (putchar 10)" | gsi rsc.scm
-      );'u?>vR6!(:lkm!':lkv6y
-
-    Use Ribbit as a pipeline compiler to compile the trivial program
-    `(putchar 65) (putchar 10)` to compacted RVM code and combine
-    it with the Python implementation of the RVM and execute it with python3:
-
-      $ echo "(putchar 65) (putchar 10)" | ./rsc -l empty -t py | python3
-      A
-
-    Compile the Ribbit AOT compiler using itself to get a JavaScript
-    version of the compiler and use it to compile a program:
-
-      $ ./rsc -t js -l max rsc.scm   # compile rsc.scm to rsc.scm.js
-      $ echo '(display "hello!\n")' > h.scm
-      $ ./rsc -t py -l max -c "node rsc.scm.js" h.scm # use bootstrapped compiler
-      $ python3 h.scm.py
-      hello!
-
-    Bootstrap the Ribbit AOT compiler using a POSIX shell (note
-    that with ksh this takes over 5 hours on a fast computer and it
-    can take substantially more with other POSIX shells):
-
-      $ ./rsc -t sh -l max -o rsc-bootstrap1.sh rsc.scm
-      $ ./rsc -t sh -l max -c "ksh rsc-bootstrap1.sh" -o rsc-bootstrap2.sh rsc.scm
-      $ echo '(display "hello!\n")' > h.scm
-      $ ./rsc -t sh -l max -m -c "ksh rsc-bootstrap2.sh" h.scm
-      $ ksh h.scm.sh
-      hello!
+    For other examples and tests, you can look at the `examples` and `tests` directories.
 
 The makefile in the `src` directory has these make targets:
 
