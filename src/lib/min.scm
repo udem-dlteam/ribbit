@@ -561,9 +561,9 @@
   (let ((c (read-char)))
     (set! buffer c)
     c))
-;;
-;; ;;;----------------------------------------------------------------------------
-;;
+
+;;;----------------------------------------------------------------------------
+
 ;; The read procedure.
 
 (define (read)
@@ -582,6 +582,15 @@
                    ((eqv? c 116) ;; #\t
                     (read-char) ;; skip "t"
                     #t)
+;#; \x and \X Support
+;;                   ((or (eqv? c 120) (eqv? c 88)) ;; #\x or #\X
+;;                    (read-char) ;; skip "x"
+;;                    (let ((c (peek-char)))
+;;                      (if (eqv? c 45)
+;;                          (begin
+;;                            (read-char)
+;;                            (read-hex 0))
+;;                          (- 0 (read-hex 0)))))
                    (else ;; assume it is #\(
                     (list->vector (read))))))
           ((eqv? c 39) ;; #\'
@@ -627,7 +636,16 @@
 ;;           (read-chars (cons (read-char) lst))
 ;;           ;#; ;; support for \n in strings
 ;;           (let ((c2 (read-char)))
-;;             (read-chars (cons (if (eqv? c2 110) 10 c2) lst))))
+;;             (read-chars
+;;              (cons (cond
+;;                     ;#; ;; support for \n in strings
+;;                     ((eqv? c2 110) 10) ;; #\n
+;;                     ;#; ;; support for \r in strings
+;;                     ((eqv? c2 114) 13) ;; #\r
+;;                     ;#; ;; support for \t in strings
+;;                     ((eqv? c2 116) 9)  ;; #\t
+;;                     (else          c2))
+;;                    lst))))
 ;;          (else
 ;;           (read-chars (cons c lst))))))
 
@@ -651,10 +669,10 @@
             (peek-char-non-whitespace)
             (skip-comment)))))
 
-;; ;;;----------------------------------------------------------------------------
-;;
-;; ;; The write procedure.
-;;
+;;;----------------------------------------------------------------------------
+
+;; The write procedure.
+
 (define (write o)
   (cond ((string? o)
          (putchar 34)
@@ -699,24 +717,33 @@
             #f)) ;; writing dotted pairs is not supported
       #f))
 
-(define (write-chars lst escape?)
- (if (pair? lst)
-     (let ((c (car lst)))
-       (putchar
-        (cond ((not escape?)
-               c)
-              ;#; ;; support for \n in strings
-              ((eqv? c 10) ;; #\newline
-               (putchar 92)
-               110)
-              ((or (eqv? c 34) ;; #\"
-                   (eqv? c 92)) ;; #\\
-               (putchar 92)
-               c)
-              (else
-               c)))
-       (write-chars (cdr lst) escape?))
-     #f))
+;;(define (write-chars lst escape?)
+;;  (if (pair? lst)
+;;      (let ((c (car lst)))
+;;        (putchar
+;;         (cond ((not escape?)
+;;                c)
+;;               ;#; ;; support for \n in strings
+;;               ((eqv? c 10) ;; #\newline
+;;                (putchar 92) ;; #\\
+;;                110)         ;; #\n
+;;               ;#; ;; support for \r in strings
+;;               ((eqv? c 13) ;; #\return
+;;                (putchar 92) ;; #\\
+;;                114)         ;; #\r
+;;               ;#; ;; support for \t in strings
+;;               ((eqv? c 9) ;; #\tab
+;;                (putchar 92) ;; #\\
+;;                116)         ;; #\t
+;;               ((or (eqv? c 34) ;; #\"
+;;                    (eqv? c 92)) ;; #\\
+;;                (putchar 92) ;; #\\
+;;                c)
+;;               (else
+;;                c)))
+;;        (write-chars (cdr lst) escape?))
+;;      #f))
+
 
 (define (write-chars lst)
   (if (pair? lst)
@@ -725,8 +752,7 @@
         (write-chars (cdr lst)))
       #f))
 
-(define (write-char c)
-  (putchar c))
+(define write-char putchar)
 
 (define (newline)
   (putchar 10))
@@ -779,47 +805,46 @@
                   (let ((params (cadr expr)))
                     (rib const-op
                          (make-procedure
-                          (rib (* (length params) 2)
+                          (rib (* 2 (length params))
                                0
-                               ;#; ;; support for single expression in body
+                               #; ;; support for single expression in body
                                (comp (extend params
                                              (cons #f
                                                    (cons #f
                                                          cte)))
                                      (caddr expr)
-                                     tail)
+                                     tail))
 ;;                               #; ;; support for multiple expressions in body
 ;;                               (comp-begin (extend params
 ;;                                                   (cons #f
 ;;                                                         (cons #f
 ;;                                                               cte)))
 ;;                                           (cddr expr)
-;;                                           tail)
-)
+;;                                           tail))
                           '())
                          (if (null? cte)
                              cont
                              (add-nb-args
                                1
-                               (gen-call 'close cont))))))
+                               (gen-call '##close cont))))))
 
-;;#; ;; support for begin special form
+;;;#; ;; support for begin special form
 ;;                 ((eqv? first 'begin)
 ;;                  (comp-begin cte (cdr expr) cont))
 ;;
-;;#; ;; support for single armed let special form
+;;;#; ;; support for single armed let special form
 ;;                 ((eqv? first 'let)
 ;;                  (let ((binding (car (cadr expr))))
 ;;                    (comp-bind cte
 ;;                               (car binding)
 ;;                               (cadr binding)
-;;                               ;#; ;; support for single expression in body
-;;                               (caddr expr)
-;;                               #; ;; support for multiple expressions in body
+;;;;                               #; ;; support for single expression in body
+;;;;                               (caddr expr)
+;;                               ;#; ;; support for multiple expressions in body
 ;;                               (cddr expr)
 ;;                               cont)))
 ;;
-;;#; ;; support for and special form
+;;;#; ;; support for and special form
 ;;                 ((eqv? first 'and)
 ;;                  (comp cte
 ;;                        (if (pair? (cdr expr))
@@ -832,7 +857,7 @@
 ;;                            #t)
 ;;                        cont))
 ;;
-;;#; ;; support for or special form
+;;;#; ;; support for or special form
 ;;                 ((eqv? first 'or)
 ;;                  (comp cte
 ;;                        (if (pair? (cdr expr))
@@ -847,7 +872,7 @@
 ;;                            #f)
 ;;                        cont))
 ;;
-;;#; ;; support for cond special form
+;;;#; ;; support for cond special form
 ;;                 ((eqv? first 'cond)
 ;;                  (comp cte
 ;;                        (if (pair? (cdr expr))
@@ -860,23 +885,24 @@
 ;;                        cont))
 
                  (else
-                  ;#; ;; support for calls with only variable in operator position
+                 ;#; ;; support for calls with only variable in operator position
                   (comp-call cte
                              (cdr expr)
-                             (length (cdr expr))
+                             (length args)
                              (cons first cont))
-;;                  #; ;; support for calls with any expression in operator position
+;;                  ;#; ;; support for calls with any expression in operator position
 ;;                  (let ((args (cdr expr)))
 ;;                    (if (symbol? first)
 ;;                        (comp-call cte
 ;;                                   args
+;;                                   (length args)
 ;;                                   (cons first cont))
 ;;                        (comp-bind cte
 ;;                                   '_
 ;;                                   first
-;;                                   ;#; ;; support for single expression in body
-;;                                   (cons '_ args)
-;;                                   #; ;; support for multiple expressions in body
+;;;;                                   #; ;; support for single expression in body
+;;;;                                   (cons '_ args)
+;;                                   ;#; ;; support for multiple expressions in body
 ;;                                   (cons (cons '_ args) '())
 ;;                                   cont)))
 ))))
@@ -890,35 +916,39 @@
 ;;(define (list3 a b c) (cons a (list2 b c)))
 ;;(define (list2 a b) (cons a (list1 b)))
 ;;(define (list1 a) (cons a '()))
+;;(define (list . args) args)
 
 (define (comp-bind cte var expr body cont)
   (comp cte
         expr
-        ;#; ;; support for single expression in body
-        (comp (cons var cte)
-              body
-              (if (eqv? cont tail)
-                  cont
-                  (rib jump/call-op ;; call
-                       'arg2
-                       cont)))
-;;        #; ;; support for multiple expressions in body
-;;        (comp-begin (cons var cte)
-;;                    body
-;;                    (if (eqv? cont tail)
-;;                        cont
-;;                        (rib jump/call-op ;; call
-;;                             'arg2
-;;                             cont)))
-))
+;;        #; ;; support for single expression in body
+;;        (comp (cons var cte)
+;;              body
+;;              (if (eqv? cont tail)
+;;                  cont
+;;                  (rib jump/call-op ;; call
+;;                       'arg2
+;;                       cont)))
+        ;#; ;; support for multiple expressions in body
+        (comp-begin (cons var cte)
+                    body
+                    (if (eqv? cont tail)
+                        cont
+                        (add-nb-args
+                          2
+                          (rib jump/call-op ;; call
+                               '##arg2
+                                cont))))))
 
 (define (comp-begin cte exprs cont)
   (comp cte
         (car exprs)
         (if (pair? (cdr exprs))
+          (add-nb-args
+            2
             (rib jump/call-op ;; call
-                 'arg1
-                 (comp-begin cte (cdr exprs) cont))
+                 '##arg1
+                 (comp-begin cte (cdr exprs) cont)))
             cont)))
 
 (define (gen-call v cont)
@@ -929,11 +959,18 @@
 (define (gen-assign v cont)
   (rib set-op v (gen-noop cont)))
 
+(define (is-call? name cont)
+  (and (rib? cont)
+       (if-feature arity-check
+           (and (eqv? (field0 cont) const-op)
+                (rib? (field2 cont))
+                (eqv? (field0 (field2 cont)) jump/call-op)
+                (eqv? (field1 (field2 cont)) name))
+           (and (eqv? (field0 cont) jump/call-op)
+                (eqv? (field1 cont) name)))))
+
 (define (gen-noop cont)
-  (if (and (rib? cont) ;; starts with pop?
-           (eqv? (field0 cont) jump/call-op) ;; call?
-           (eqv? (field1 cont) 'arg1)
-           (rib? (field2 cont)))
+  (if (is-call? '##arg1 cont)
       (field2 cont) ;; remove pop
       (rib const-op 0 cont))) ;; add dummy value for set!
 
@@ -954,9 +991,6 @@
                 (if-feature arity-check
                   (if (not (rib? v)) (+ v 1) v)
                   v)
-
-                ;(if (and (not (rib? v)) ##feature-arity-check) (+ v 1) v)
-
                 cont)))))))
 
 (define (lookup var cte i)
@@ -971,7 +1005,7 @@
       (cons (car vars) (extend (cdr vars) cte))
       cte))
 
-(define tail (rib jump/call-op 'id 0)) ;; jump
+(define tail (add-nb-args 1 (rib jump/call-op '##id 0))) ;; jump
 
 (define (compile expr) ;; converts an s-expression to a procedure
   (make-procedure (rib 0 0 (comp '() expr tail)) '()))
@@ -988,5 +1022,17 @@
           (write (eval expr))
           (newline)
           (repl)))))
+
+(define (fold func base lst)
+  (if (pair? lst)
+    (fold func (func (car lst) base) (cdr lst))
+    base))
+
+(define (error msg info)
+  (display msg)
+  (display " ")
+  (write info)
+  (newline)
+  (exit 1))
 
 ;;;----------------------------------------------------------------------------
