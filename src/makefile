@@ -104,3 +104,6 @@ clean:
 	  cd host/$$host; $(MAKE) clean; cd ../..; \
 	done
 	rm -f rsc-bootstrap*
+
+repl-asm.exe: rsc.exe
+	./rsc.exe -t asm -l r4rs lib/r4rs/repl.scm -e optimal -f+ compression/lzss/2b -f+ prim-no-arity -v -x repl-asm.exe
