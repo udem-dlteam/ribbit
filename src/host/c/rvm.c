@@ -735,20 +735,30 @@ obj prim(int no) {
 
 #ifdef DEBUG
 void show_rib(obj s, int depth){
-    if (depth > 3){
+    if (depth < 0){
         if (IS_RIB(s)){
-            printf("[Array]");
-            return;
+            printf("[...]");
         }
+        else{
+            printf("...");
+        }
+        return;
     }
     if (IS_RIB(s)){
-        printf("[ ");
-        show_rib(CAR(s), depth+1);
+      if (TAG(s) == SINGLETON_TAG){
+        if (s == NIL) { printf("'()"); }
+        if (s == TRUE) { printf("#t"); }
+        if (s == FALSE) { printf("#f"); }
+      }
+      else{
+        printf("[");
+        show_rib(CAR(s), depth-1);
         printf(", ");
-        show_rib(CDR(s), depth+1);
+        show_rib(CDR(s), depth-1);
         printf(", ");
-        show_rib(TAG(s), depth+1);
-        printf(" ]");
+        show_rib(TAG(s), depth-1);
+        printf("]");
+      }
     }
     else{
         printf("%d", NUM(s));
