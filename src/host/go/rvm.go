@@ -13,6 +13,41 @@ const DebugICall = false
 const Input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" // RVM code that prints HELLO!
 // )@@
 
+func ShowRib(rib Obj, depth int) {
+  if depth < 0 {
+    if rib.Number() {
+      fmt.Printf("...")
+    } else {
+      fmt.Printf("[...]")
+    }
+    return
+  }
+
+  if rib.Number() {
+    fmt.Printf("%d", rib.Value())
+    return
+  }
+  if (rib == TRUE) {
+    fmt.Printf("#t") 
+    return
+  }
+  if (rib == FALSE) {
+    fmt.Printf("#f")
+    return
+  }
+  if (rib == NIL) {
+    fmt.Printf("'()")
+    return
+  }
+  fmt.Printf("[")
+  ShowRib(rib.Field0(), depth - 1)
+  fmt.Printf(", ")
+  ShowRib(rib.Field1(), depth - 1)
+  fmt.Printf(", ")
+  ShowRib(rib.Field2(), depth - 1)
+  fmt.Printf("]")
+}
+
 const (
 	InstrCall  = 0
 	InstrSet   = 1
@@ -77,27 +112,27 @@ func (num *Num) Rib() bool {
 }
 
 func (num *Num) Field0() Obj {
-	panic("Not a ")
+	panic("Cannot call field0 on non-primitive")
 }
 
 func (num *Num) Field1() Obj {
-	panic("Not a ")
+	panic("Cannot call field1 on non-primitive")
 }
 
 func (num *Num) Field2() Obj {
-	panic("Not a ")
+	panic("Cannot call field2 on non-primitive")
 }
 
 func (num *Num) Field0Set(Obj) Obj {
-	panic("Not a ")
+	panic("Cannot call field0set on non-primitive")
 }
 
 func (num *Num) Field1Set(Obj) Obj {
-	panic("Not a ")
+	panic("Cannot call field1set on non-primitive")
 }
 
 func (num *Num) Field2Set(Obj) Obj {
-	panic("Not a ")
+	panic("Cannot call field2set on non-primitive")
 }
 
 func (num *Num) Value() int {
@@ -575,7 +610,7 @@ func run() {
 					fmt.Printf("Calling a symbol\n")
 				}
 
-				argC := code.Field0().Value()
+				argC := code.Field0().Value() >> 1
 
 				c2 := allocRib(tagNum(0), proc, tagNum(PairTag))
 				s2 := c2
