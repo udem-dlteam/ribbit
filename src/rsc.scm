@@ -582,30 +582,38 @@
 
 (define predefined (list '##rib 'false 'true 'nil)) ;; predefined symbols
 
+(define default-primitives-lst
+`((##rib         0  x  y  z)
+  (##id          1  x)
+  (##arg1        2  x  y)
+  (##arg2        3  x  y)
+  (##close       4  rib)
+  (##rib?        5  o)
+  (##field0      6  x)
+  (##field1      7  x)
+  (##field2      8  x)
+  (##field0-set! 9  x  v)
+  (##field1-set! 10 x  v)
+  (##field2-set! 11 x  v)
+  (##eqv?        12 o1 o2)
+  (##<           13 x  y)
+  (##+           14 x  y)
+  (##-           15 x  y)
+  (##*           16 x  y)
+  (##quotient    17 x  y)
+  (##getchar     18 )
+  (##putchar     19 c)
+  (##exit        20 code)))
+
+
+(define (default-primitive-index prim)
+  (cadr (assoc prim default-primitives-lst)))
+
 (define default-primitives
   (map
-    (lambda (p) `(primitive ,p (@@head "") (@@body (str ""))))
-    `((##rib x y z)
-      (##id x)
-      (##arg1 x y)
-      (##arg2 x y)
-      (##close rib)
-      (##rib? o)
-      (##field0 x)
-      (##field1 x)
-      (##field2 x)
-      (##field0-set! x v)
-      (##field1-set! x v)
-      (##field2-set! x v)
-      (##eqv? o1 o2)
-      (##< x y)
-      (##+ x y)
-      (##- x y)
-      (##* x y)
-      (##quotient x y)
-      (##getchar)
-      (##putchar c)
-      (##exit code))))
+    (lambda (p) `(primitive ,(cons (car p) (cddr p)) (@@index ,(cadr p)) (@@head "") (@@body (str ""))))
+    default-primitives-lst))
+
 
 (define jump/call-op 'jump/call)
 (define set-op       'set)
@@ -727,6 +735,17 @@
 (define (host-config-locations-set! host-config x)
   (field2-set! host-config x))
 
+(define next-prim-index 1)
+(define (host-config-add-primitive-index! host-config prim code index)
+  (let* ((primitives (host-config-primitives host-config))
+         (prim-ref (assq prim primitives)))
+    (if prim-ref
+      (cadr prim-ref)
+      (begin
+        (host-config-primitives-set! host-config (cons (list prim index code) primitives))
+        (set! next-prim-index (max next-prim-index index))
+        index))))
+
 (define (host-config-add-primitive! host-config prim code)
   (let* ((primitives (host-config-primitives host-config))
          (prim-ref (assq prim primitives)))
@@ -737,7 +756,8 @@
       (if prim-ref
         (cadr prim-ref)
         (begin
-          (host-config-primitives-set! host-config (cons (list prim (length primitives) code) primitives))
+          (host-config-primitives-set! host-config (cons (list prim next-prim-index code) primitives))
+          (set! next-prim-index (+ 1 next-prim-index))
           (length primitives))))))
 
 (define (host-config-add-location! host-config location feature)
@@ -1023,10 +1043,13 @@
                             (comp ctx val (gen-assign ctx v cont)))))))
 
                  ((eqv? first 'define-primitive)
-                  (let* ((name (caadr expr)))
+                  (let* ((name (caadr expr))
+                         (prim-index (soft-assoc '@@index (cdr expr))))
                     ;; (pp (list 'define-primitive name (host-config-feature-live? host-config name)))
                     (if (host-config-feature-live? host-config name)
-                      (let ((index (host-config-add-primitive! host-config name expr)))
+                      (let ((index (if prim-index
+                                     (host-config-add-primitive-index! host-config name expr (cadr prim-index))
+                                     (host-config-add-primitive! host-config name expr))))
                         (if (memq name forced-first-primitives)
                           (gen-noop ctx cont)
                           (comp ctx `(set! ,name (##rib ,index 0 ,procedure-type)) cont)))
@@ -1350,7 +1373,17 @@
            (car exprs-and-exports))
          (exprs
            (if (pair? exprs) exprs (list #f)))
-         (host-features (extract-features (or parsed-vm default-primitives)))
+
+         (host-defines-primitives?
+           (and parsed-vm (assoc 'primitives parsed-vm)))
+
+         (host-features
+           (extract-features
+             (if host-defines-primitives?
+               parsed-vm
+               (if parsed-vm
+                 (append default-primitives parsed-vm)
+                 default-primitives))))
 
          (expansion
            `(begin
