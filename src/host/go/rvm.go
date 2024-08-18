@@ -547,16 +547,17 @@ func prim(primNo int) {
 			buff := make([]byte, 1)
 			count, err := os.Stdin.Read(buff)
 
-			if err == io.EOF {
-				// we are done
-				os.Exit(0)
-			} else if nil != err {
+
+      if err == io.EOF {
+			  push(tagNum(int(-1)))
+      } else if nil != err {
 				panic(err)
 			} else if count != 1 {
 				panic("Failed to read 1char")
-			}
+			} else {
+			  push(tagNum(int(buff[0])))
+      }
 
-			push(tagNum(int(buff[0])))
 		}
 	case 19:
 		doPrim1(func(x Obj) Obj {
@@ -637,13 +638,14 @@ func run() {
 			if DebugICall {
 				fmt.Println("--- set")
 			}
-			x := pop()
+	    x := stack.Field0()
 
 			if pc.Field1().Number() {
 				listTail(stack, pc.Field1()).Field0Set(x)
 			} else {
 				pc.Field1().Field0Set(x)
 			}
+	    stack = stack.Field1()
 			pc = pc.Field2()
 		case InstrGet: // get
 			if DebugICall {
@@ -672,7 +674,6 @@ func run() {
 			fmt.Printf("Unknown instruction: %d\n", instr)
 			fallthrough
 		case InstrHalt:
-			fmt.Println("Bye bye!")
 			os.Exit(0)
 		}
 	}
