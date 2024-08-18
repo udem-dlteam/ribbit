@@ -1,6 +1,8 @@
 import Data.IORef
 import Control.Monad.State
 import Data.String
+import Data.Bits
+import Data.Bool.Xor
 
 import System
 
@@ -382,6 +384,18 @@ opRInt : (Int -> Int -> Int) -> Rib -> Rib -> Rib
 opRInt op (RInt n) (RInt m) = (RInt (op n m))
 opRInt _ _ _ = (RInt (0 - 999)) --lol
 
+opDiv : Int -> Int -> Int
+opDiv n m =
+  let abs_m : Int = abs m in
+  let abs_n : Int = abs n in
+  let n_gt_0 : Bool = n > 0 in
+  let m_gt_0 : Bool = m > 0 in
+  let sign_correction : Int = (if xor n_gt_0 m_gt_0 then -1 else 1) in
+  let result : Int = (div abs_n abs_m) * sign_correction in
+  result
+
+
+
 rEqv : State -> Rib -> Rib -> HasIO io => io Rib
 rEqv state x y = do isTrue <- (x == y)
                     if isTrue then do pure state.true else do pure state.false
@@ -415,6 +429,7 @@ writeAndReturn rib = case rib of
                       _ => do error "this is bad :/"
 
 primitive : State -> Int -> Rib -> HasIO io => io Rib
+
 primitive state 0 stack = do let globalCounter = state.globalCounter
                              ribCreator <- pure (MakeRib globalCounter)
                              prim3 state ribCreator stack
@@ -440,7 +455,7 @@ primitive state 13 stack = do foo <- pure (lessthan state)
 primitive state 14 stack = do prim2Pure state (opRInt (+)) stack
 primitive state 15 stack = do prim2Pure state (opRInt (-)) stack
 primitive state 16 stack = do prim2Pure state (opRInt (*)) stack
-primitive state 17 stack = do prim2Pure state (opRInt div) stack
+primitive state 17 stack = do prim2Pure state (opRInt opDiv) stack
 primitive state 18 stack = do pos <- readIORef state.pos
                               if pos < strLength input
                                 then do v <- getByte state.pos
@@ -542,7 +557,8 @@ mutual
                                newCont <- ribCreator (RInt 0) proc (RInt 0)
                                codeCar <- rCar code
                                codeCarInt <- rToInt codeCar
-                               lmdaCall state code next codeCarInt newCont newCont stack id
+                               let codeCarIntShifted = shiftR codeCarInt 1
+                               lmdaCall state code next codeCarIntShifted newCont newCont stack id
                        else do codeInt <- rToInt code
                                stack <- primitive state codeInt stack --primitive
                                nextIsRib <- pure (rIsRib next)

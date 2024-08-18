@@ -1,18 +1,6 @@
-all:
+HOST = idr
+HOST_COMPILER = $${IDR_HOST_COMPILER:-./host/idr/compile}
+TEST_TAGS=idr core
+TEST_FEATURES ?=
 
-check:
-	@echo "*** TESTING idr TARGET ***"; \
-	for prog in `ls ../../tests/*.scm tests/*.scm` ; do \
-	  options=`sed -n -e '/;;;options:/p' $$prog | sed -e 's/^;;;options://'`; \
-	  echo "---------------------- $$prog [options:$$options]"; \
-	  rm -rf test.idr*; \
-	  ../../rsc -t idr $$options -o test.idr $$prog; \
-	  idris2 -o test.idr.exe --output-dir . test.idr; \
-	  sed -n -e '/;;;input:/p' $$prog | sed -e 's/^;;;input://' | ./test.idr.exe > test.idr.out; \
-	  sleep 1 `# For some reason, idris2 takes time to write to file`;  \
-	  sed -e '1,/;;;expected:/d' -e 's/^;;;//' $$prog | diff - test.idr.out; \
-	done
-
-clean:
-	rm -f test.idr.exe 
-	rm -rf test.idr.exe_app
+include ../../makefile-common.mk
