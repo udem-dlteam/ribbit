@@ -1,0 +1,10 @@
+#!/bin/sh
+
+in="$2"
+out="$1"
+
+out_dir=$(dirname "$out")
+out_file=$(basename "$out")
+in_file="$in"
+
+idris2 --output-dir "$out_dir" -o "$out_file" "$in_file"
