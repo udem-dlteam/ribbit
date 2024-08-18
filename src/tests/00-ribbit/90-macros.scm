@@ -35,16 +35,14 @@
 (define-macro (add-positive x y)
    (if (> x 0)
      `(add-positive ,(- x 1) ,(+ y 1))
-     `,y))
+     y))
 
 (##putchar (add-positive 5 65))
 
 (##putchar 10)  
 
 
-    
-
-;;;run: -l define-macro -f+ arity-check
+;;;variadics-run: -l define-macro -f+ arity-check
 ;;;run: -l define-macro
 ;;;expected:
 ;;;ABCDEF

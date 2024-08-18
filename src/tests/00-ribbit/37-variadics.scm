@@ -40,8 +40,8 @@
 (foo6 65 66 67 68)
 (##putchar 10)
 
-;;;run: -l min
-;;;run: -l max
+;;;variadics-run: -l min
+;;;variadics-run: -l max
 ;;;r4rs-run: -l r4rs
 ;;;expected:
 ;;;()(A)(AB)A()A(B)A(BC)AB()AB(C)AB(CD)
