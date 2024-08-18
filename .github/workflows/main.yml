@@ -272,6 +272,34 @@ jobs:
         run: |
           cd src; HOST=clj make check RSC_COMPILER="./rsc.exe"
 
+  go_rvm:
+    runs-on: ubuntu-latest
+    needs: compile_RSC
+    steps:
+      - name: Checkout the ribbit repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+      - name: Download rsc.exe artifact into rsc-exe
+        uses: actions/download-artifact@v2
+        with:
+          name: rsc-exe
+          path: src
+      - name: Set up permissions on rsc.exe
+        run: |
+          chmod +x src/rsc.exe
+
+      # from https://docs.github.com/en/actions/use-cases-and-examples/building-and-testing/building-and-testing-go
+      - name: Setup Go 1.23.x
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+
+      - name: Run tests
+        run: |
+          cd src; HOST=go make check RSC_COMPILER="./rsc.exe"
+
 
           # Disabled for now, doesn't work
           # scm_rvm:
