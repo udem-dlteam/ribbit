@@ -51,7 +51,7 @@
 ; (foo 69) ; error
 ; (foo 69 69 69 69) ; error
 
-;;;run: -l empty
+;;;variadics-run: -l empty
 ;;;expected:
 ;;;EEE
 ;;;EEA
