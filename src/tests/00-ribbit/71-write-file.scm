@@ -21,7 +21,6 @@
 
 ;;;cleanup: rm tests/data/71-output-data.txt
 ;;;r4rs-run: -l r4rs/io 
-;;;fancy-compiler
 ;;;expected:
 ;;;output-port? #t
 ;;;File content: "bonjour"
