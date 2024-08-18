@@ -10,7 +10,6 @@
 (close-input-port data-file)
 
 ;;;r4rs-run: -l r4rs/io 
-;;;fancy-compiler
 ;;;expected:
 ;;;#t
 ;;;("abc" 1 (1 2 3) #f #t (list "xyz" 1 2))
