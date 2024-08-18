@@ -124,27 +124,27 @@ end
 
 local primitives = {
 -- @@(primitives (gen body)
-   prim3(rib),                                       -- @@(primitive (rib a b c))@@                 
-   prim1(function(x) return x end),                  -- @@(primitive (id x))@@                    
-   pop,                                              -- @@(primitive (arg1 x y))@@                
-   arg2,                                             -- @@(primitive (arg2 x y))@@                
-   close,                                            -- @@(primitive (close rib))@@               
-   prim1(function(x) return to_bool(is_rib(x)) end), -- @@(primitive (rib? rib) (use bool2scm))@@ 
-   prim1(function(x) return x[1] end),               -- @@(primitive (field0 rib))@@              
-   prim1(function(x) return x[2] end),               -- @@(primitive (field1 rib))@@              
-   prim1(function(x) return x[3] end),               -- @@(primitive (field2 rib))@@              
-   prim2(f0s),                                       -- @@(primitive (field0-set! rib))@@         
-   prim2(f1s),                                       -- @@(primitive (field1-set! rib))@@         
-   prim2(f2s),                                       -- @@(primitive (field2-set! rib))@@         
-   prim2(function(x,y) return to_bool(x == y) end),  -- @@(primitive (eqv? x y) (use bool2scm))@@ 
-   prim2(function(x,y) return to_bool(x<y) end),     -- @@(primitive (< x y) (use bool2scm))@@ 
-   prim2(function(x,y) return x + y end),            -- @@(primitive (+ x y))@@                
-   prim2(function(x,y) return x - y end),            -- @@(primitive (- x y))@@                
-   prim2(function(x,y) return x * y end),            -- @@(primitive (* x y))@@                
-   prim2(quotient),                                  -- @@(primitive (quotient x y))@@         
-   getchar,                                          -- @@(primitive (getchar))@@              
-   prim1(putchar),                                   -- @@(primitive (putchar c))@@            
-   prim1(os.exit)                                    -- @@(primitive (exit n))@@               
+   prim3(rib),                                       -- @@(primitive (##rib a b c))@@                 
+   prim1(function(x) return x end),                  -- @@(primitive (##id x))@@                    
+   pop,                                              -- @@(primitive (##arg1 x y))@@                
+   arg2,                                             -- @@(primitive (##arg2 x y))@@                
+   close,                                            -- @@(primitive (##close rib))@@               
+   prim1(function(x) return to_bool(is_rib(x)) end), -- @@(primitive (##rib? rib) (use bool2scm))@@ 
+   prim1(function(x) return x[1] end),               -- @@(primitive (##field0 rib))@@              
+   prim1(function(x) return x[2] end),               -- @@(primitive (##field1 rib))@@              
+   prim1(function(x) return x[3] end),               -- @@(primitive (##field2 rib))@@              
+   prim2(f0s),                                       -- @@(primitive (##field0-set! rib))@@         
+   prim2(f1s),                                       -- @@(primitive (##field1-set! rib))@@         
+   prim2(f2s),                                       -- @@(primitive (##field2-set! rib))@@         
+   prim2(function(x,y) return to_bool(x == y) end),  -- @@(primitive (##eqv? x y) (use bool2scm))@@ 
+   prim2(function(x,y) return to_bool(x<y) end),     -- @@(primitive (##< x y) (use bool2scm))@@ 
+   prim2(function(x,y) return x + y end),            -- @@(primitive (##+ x y))@@                
+   prim2(function(x,y) return x - y end),            -- @@(primitive (##- x y))@@                
+   prim2(function(x,y) return x * y end),            -- @@(primitive (##* x y))@@                
+   prim2(quotient),                                  -- @@(primitive (##quotient x y))@@         
+   getchar,                                          -- @@(primitive (##getchar))@@              
+   prim1(putchar),                                   -- @@(primitive (##putchar c))@@            
+   prim1(os.exit)                                    -- @@(primitive (##exit n))@@               
 -- )@@
 }
 
@@ -285,7 +285,7 @@ while true do
       if is_rib(c) then
          local c2=rib(0,o,0)
          local s2=c2
-         nargs=c[1]
+         nargs=c[1]>>1
          while nargs > 0 do
             s2=rib(pop(),s2,0)
             nargs=nargs-1
@@ -313,9 +313,10 @@ while true do
 
    elseif i<2 then -- set
       trace_instruction("set",o,stack) --debug--
-      x=pop()
+      x=stack[1]
       get_opnd(o)[1]=x
       pc=pc[3]
+      pop()
 
    elseif i<3 then -- get
       trace_instruction("get",o,stack) --debug--
