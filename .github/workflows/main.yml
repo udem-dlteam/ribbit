@@ -483,64 +483,64 @@ jobs:
           cd src; HOST=scala make check RSC_COMPILER="./rsc.exe"
 
 
-          # Disabled for now, doesn't work
-          # scm_rvm:
-          #   runs-on: ubuntu-latest
-          #   needs: compile_RSC
-          #   steps:
-          #     - name: Checkout the ribbit repository
-          #       uses: actions/checkout@v2
-          #       with:
-          #         repository: ${{ github.repository }}
-          #         ref: ${{ github.ref }}
-          #     - name: Cache gambit
-          #       id: cache-gambit
-          #       uses: actions/cache@v3
-          #       env:
-          #         cache-name: cache-gambit
-          #       with:
-          #         path: ./gambit
-          #         key: gambit-v4.9.5-${{ runner.os }}
+  scm_rvm:
+    runs-on: ubuntu-latest
+    needs: compile_RSC
+    steps:
+      - name: Checkout the ribbit repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+      - name: Cache gambit
+        id: cache-gambit
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-gambit
+        with:
+          path: ./gambit
+          key: gambit-v4.9.5-${{ runner.os }}
 
-          #     - if: ${{ steps.cache-gambit.outputs.cache-hit != 'true' }}
-          #       name: Install Gambit Dependencies
-          #       run: |
-          #         sudo apt-get update
-          #         sudo apt-get install texinfo autoconf2.69
-          #         sudo ln -s -f `which autoconf2.69` `which autoconf`
+      - if: ${{ steps.cache-gambit.outputs.cache-hit != 'true' }}
+        name: Install Gambit Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install texinfo autoconf2.69
+          sudo ln -s -f `which autoconf2.69` `which autoconf`
 
-          #     - if: ${{ steps.cache-gambit.outputs.cache-hit != 'true' }}
-          #       name: Checkout the gambit repository
-          #       uses: actions/checkout@v2
-          #       with:
-          #         repository: gambit/gambit
-          #         ref: v4.9.5
-          #         path: gambit-src
+      - if: ${{ steps.cache-gambit.outputs.cache-hit != 'true' }}
+        name: Checkout the gambit repository
+        uses: actions/checkout@v2
+        with:
+          repository: gambit/gambit
+          ref: v4.9.5
+          path: gambit-src
 
-          #     - if: ${{ steps.cache-gambit.outputs.cache-hit != 'true' }}
-          #       name: Build Gambit for Use 
-          #       run: |
-          #         mkdir gambit
-          #         cd gambit-src && ./configure --enable-single-host --enable-gambitdir=~~execdir/.. --prefix=$(pwd)/../gambit --enable-targets=""  && make clean && make -j`nproc` core && make modules && make install
+      - if: ${{ steps.cache-gambit.outputs.cache-hit != 'true' }}
+        name: Build Gambit for Use
+        run: |
+          mkdir gambit
+          cd gambit-src && ./configure --enable-single-host --enable-gambitdir=~~execdir/.. --prefix=$(pwd)/../gambit --enable-targets=""  && make clean && make -j`nproc` core && make modules && make install
 
-          #     - name: Make sure gsi and gsc are working
-          #       run: |
-          #         ./gambit/bin/gsi -v
-          #         ./gambit/bin/gsc -v
-          #   
-          #     - name: Download rsc.exe artifact into rsc-exe
-          #       uses: actions/download-artifact@v2
-          #       with:
-          #         name: rsc-exe
-          #         path: src
+      - name: Make sure gsi and gsc are working
+        run: |
+          ./gambit/bin/gsi -v
+          ./gambit/bin/gsc -v
 
-          #     - name: Set up permissions on rsc.exe
-          #       run: |
-          #         chmod +x src/rsc.exe
+      - name: Download rsc.exe artifact into rsc-exe
+        uses: actions/download-artifact@v2
+        with:
+          name: rsc-exe
+          path: src
 
-          #     - name: Run RVM tests
-          #       run: |
-          #         cd src; HOST=scm make check RSC_COMPILER="./rsc.exe" SCM_HOST_INTERPRETER="$(pwd)/../gambit/bin/gsi" SCM_HOST_COMPILER="$(pwd)/../gambit/bin/gsc -exe -o"
+      - name: Set up permissions on rsc.exe
+        run: |
+          chmod +x src/rsc.exe
+
+      - name: Run RVM tests
+        run: |
+          cd src; HOST=scm make check RSC_COMPILER="./rsc.exe" SCM_HOST_INTERPRETER="$(pwd)/../gambit/bin/gsi" SCM_HOST_COMPILER="$(pwd)/../gambit/bin/gsc -exe -o"
+
   hs_rvm:
     runs-on: ubuntu-latest
     needs: compile_RSC
