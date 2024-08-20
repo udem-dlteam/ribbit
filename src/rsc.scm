@@ -4468,14 +4468,14 @@
       #f)
     #t))
 
-;; detects a macro on a given line
-;; There are 3 types of macros :
-;;   - start-outer    : @@( ...
-;;   - end-outer      :   ... )@@
-;;   - start-end-outer: @@( ... )@@
-;;   - inner          : @.. ... ..@ or @.. ...
-;(define macro-prefix '("@@(" "@.." "..@" ")@@"))
-
+;; Detects a macro on a given line.
+;; In the following, assume "..." is any sexp. There are 3 types of macros :
+;;   - start-outer     : '@@( ...' or '@@( ... @@'
+;;   - end-outer       : '... )@@'
+;;   - start-end-outer : '@@( ... )@@'
+;;
+;; Note: @@ can force the end of the parsing on the same line. This is to support
+;;  hosts that have an ending comments symbols such as ML that needs comments inside (* ... *).
 (define (detect-macro line)
   (let ((len (string-length line)))
     (let loop ((cur (string->list line))
@@ -4491,37 +4491,45 @@
             (list macro-type (substring line start end))))
         (let* ((match-start-outer (list-prefix? (string->list "@@(") cur)) ;  ) (
                (match-end-outer   (list-prefix? (string->list ")@@") cur)) ;
-               (match-start-inner (list-prefix? (string->list "@..") cur))
-               (match-end-inner   (list-prefix? (string->list "..@") cur))
-               (match-start       (or match-start-outer match-start-inner))
-               (match-end         (or match-end-outer match-end-inner))
+               ;(match-start-inner (list-prefix? (string->list "@..") cur))
+               ;(match-end-inner   (list-prefix? (string->list "..@") cur))
+               (match-end-outer-same-line
+                 (and (list-prefix? (string->list "@@") cur)
+                      (not match-start-outer)
+                      (not match-end-outer)))
+               (match-start       match-start-outer)
+               (match-end         (or
+                                    match-end-outer
+                                    match-end-outer-same-line))
                (match-any         (or match-start match-end)))
-          (if (not match-any)
+          (if (or (not match-any) end) ;; no match or already found the end
             (loop (cdr cur) (+ i 1) start end macro-type)
             (begin
+
               (if (and start match-start)
-                (error "Cannot start two macros @@( or @.. on the same line")) ; )
+                (error "Cannot start two macros @@( on the same line")) ; )
 
-              (if (and (not start) match-end-inner)
-                (error "The ..@ macro must start with @.."))
+              ;(if (and (not start) match-end-inner)
+              ;  (error "The ..@ macro must start with @.."))
+              ;(if (and (eq? macro-type 'inner) (or match-start-outer match-end-outer))
+              ;  (error "Cannot mix and match outer and inner macros"))
+              ;(if (and (not (or (eq? macro-type 'inner) (eq? macro-type 'none)))
+              ;         (or match-start-inner match-end-inner))
+              ;  (error "Cannot mix and match inner or outer macros"))
 
-              (if (and (eq? macro-type 'inner) (or match-start-outer match-end-outer))
-                (error "Cannot mix and match outer and inner macros"))
-
-              (if (and (not (or (eq? macro-type 'inner) (eq? macro-type 'none)))
-                       (or match-start-inner match-end-inner))
-                (error "Cannot mix and match inner or outer macros macros"))
-
-              (loop
-                (cdddr cur)
-                (+ i 3)
-                (if match-start (+ i 3) start)
-                (if match-end i end)
-                (cond
-                  (match-start-outer 'start-outer)
-                  (match-end-outer   (if start 'start-end-outer 'end-outer))
-                  ((or match-start-inner match-end-inner) 'inner))))))))))
-
+              ;; Ignore lines with @@ at the beginning
+              (if (and (not start) match-end-outer-same-line)
+                (list 'none #f)
+                (loop
+                  (cdddr cur)
+                  (+ i 3)
+                  (if match-start (+ i 3) start)
+                  (if match-end i end)
+                  (cond
+                    (match-start-outer 'start-outer)
+                    (match-end-outer
+                      (if start 'start-end-outer 'end-outer))
+                    (else macro-type)))))))))))
 
 (define (parse-host-file file-content cur-macro)
   (define (to-str str)
