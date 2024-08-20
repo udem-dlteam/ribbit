@@ -394,7 +394,36 @@ jobs:
         run: |
           cd src; HOST=lua make check RSC_COMPILER="./rsc.exe"
 
+  ml_rvm:
+    runs-on: ubuntu-latest
+    needs: compile_RSC
+    steps:
+      - name: Checkout the ribbit repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+      - name: Download rsc.exe artifact into rsc-exe
+        uses: actions/download-artifact@v2
+        with:
+          name: rsc-exe
+          path: src
+      - name: Set up permissions on rsc.exe
+        run: |
+          chmod +x src/rsc.exe
 
+      # Setup Ocaml (https://github.com/ocaml/setup-ocaml) didn't seem to work for me
+      # ocaml and ocamlc were not found in path. I'm using homebrew instead to download ocaml
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Install Ocaml
+        run: brew install ocaml
+
+      - name: Run tests
+        run: |
+          cd src; HOST=ml make check RSC_COMPILER="./rsc.exe"
 
 
           # Disabled for now, doesn't work
@@ -455,7 +484,6 @@ jobs:
           #     - name: Run RVM tests
           #       run: |
           #         cd src; HOST=scm make check RSC_COMPILER="./rsc.exe" SCM_HOST_INTERPRETER="$(pwd)/../gambit/bin/gsi" SCM_HOST_COMPILER="$(pwd)/../gambit/bin/gsc -exe -o"
-  
   hs_rvm:
     runs-on: ubuntu-latest
     needs: compile_RSC

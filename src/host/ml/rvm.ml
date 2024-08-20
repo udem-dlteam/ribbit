@@ -3,7 +3,6 @@
 let input = ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"
 (* )@@ *)
 
-
 let debug = Sys.getenv_opt "RIBBIT_DEBUG" |> Option.is_some
 let tracing = ref false
 let step_count = ref 0
@@ -211,55 +210,58 @@ module Primitives : PRIMITIVES = struct
     c
 
   let primitives = [|
-  (* @@(primitives (gen body) *)
-      prim3 (fun z y x -> make_rib x y z);                                    (* @@(primitive (rib a b c))@@ *)
-      prim1 (function x -> x);                                                (* @@(primitive (id x))@@ *)
-      (function () -> pop () |> ignore);                                      (* @@(primitive (arg1 x y))@@ *)
-      prim2 (fun y x -> y);                                                   (* @@(primitive (arg2 x y))@@ *)
-      prim1 (function x -> make_rib (get_car x) !stack (Integer 1));          (* @@(primitive (close rib))@@ *)
-      prim1 (function Rib _ -> true_rib | _ -> false_rib);                    (* @@(primitive (rib? rib) (use bool2scm))@@ *)
-      prim1 get_car;                                                          (* @@(primitive (field0 rib))@@ *)
-      prim1 get_cdr;                                                          (* @@(primitive (field1 rib))@@ *)
-      prim1 get_tag;                                                          (* @@(primitive (field2 rib))@@ *)
-      prim2 (fun y x -> set_car x y; y);                                      (* @@(primitive (field0-set! rib))@@ *)
-      prim2 (fun y x -> set_cdr x y; y);                                      (* @@(primitive (field1-set! rib))@@ *)
-      prim2 (fun y x -> set_tag x y; y);                                      (* @@(primitive (field2-set! rib))@@ *)
-      prim2 (fun y x -> to_bool (rib_eq x y));                                (* @@(primitive (eqv? x y) (use bool2scm))@@ *)
-      (*  @@(primitive (< x y) @@ *)
+  (* @@(primitives (gen body) @@ *)
+      prim3 (fun z y x -> make_rib x y z);                                    (* @@(primitive (##rib a b c))@@ *)
+      prim1 (function x -> x);                                                (* @@(primitive (##id x))@@ *)
+      (function () -> pop () |> ignore);                                      (* @@(primitive (##arg1 x y))@@ *)
+      prim2 (fun y x -> y);                                                   (* @@(primitive (##arg2 x y))@@ *)
+      prim1 (function x -> make_rib (get_car x) !stack (Integer 1));          (* @@(primitive (##close rib))@@ *)
+      prim1 (function Rib _ -> true_rib | _ -> false_rib);                    (* @@(primitive (##rib? rib) (use bool2scm))@@ *)
+      prim1 get_car;                                                          (* @@(primitive (##field0 rib))@@ *)
+      prim1 get_cdr;                                                          (* @@(primitive (##field1 rib))@@ *)
+      prim1 get_tag;                                                          (* @@(primitive (##field2 rib))@@ *)
+      prim2 (fun y x -> set_car x y; y);                                      (* @@(primitive (##field0-set! rib))@@ *)
+      prim2 (fun y x -> set_cdr x y; y);                                      (* @@(primitive (##field1-set! rib))@@ *)
+      prim2 (fun y x -> set_tag x y; y);                                      (* @@(primitive (##field2-set! rib))@@ *)
+      prim2 (fun y x -> to_bool (rib_eq x y));                                (* @@(primitive (##eqv? x y) (use bool2scm))@@ *)
+      (*  @@(primitive (##< x y) @@ *)
       prim2 (fun y x -> match x, y with
                         | Integer a, Integer b -> to_bool (a < b)
                         | _ -> invalid_arg "< arguments must be Integers");
       (*  )@@ *)
-      (*  @@(primitive (+ x y) @@ *)
+      (*  @@(primitive (##+ x y) @@ *)
       prim2 (fun y x -> match x, y with
                         | Integer a, Integer b -> Integer (a + b)
                         | _ -> invalid_arg "+ arguments must be Integers");
       (*  )@@ *)
-      (*  @@(primitive (- x y) @@ *)
+      (*  @@(primitive (##- x y) @@ *)
       prim2 (fun y x -> match x, y with
                         | Integer a, Integer b -> Integer (a - b)
                         | _ -> invalid_arg "- arguments must be Integers");
       (*  )@@ *)
-      (*  @@(primitive ( * x y) @@ *)
+      (*  @@(primitive (##* x y) @@ *)
       prim2 (fun y x -> match x, y with
                         | Integer a, Integer b -> Integer (a * b)
                         | _ -> invalid_arg "* arguments must be Integers");
       (*  )@@ *)
-      (*  @@(primitive (quotient x y) @@ *)
+      (*  @@(primitive (##quotient x y) @@ *)
       prim2 (fun y x -> match x, y with
                         | Integer a, Integer b -> Integer (a / b)
                         | _ -> invalid_arg "quotient arguments must be Integers");
       (*  )@@ *)
-      prim0 (function () -> Integer (getchar ()));                                                                (* @@(primitive (getchar))@@ *)
-      prim1 (function Integer ch -> Integer (putchar ch) | _ -> invalid_arg "putchar argument must be Integer");  (* @@(primitive (putchar x))@@ *)
-      prim1 (function Integer status -> exit status | _ -> invalid_arg "exit argument must be Integer")           (* @@(primitive (exit x))@@ *)
+      prim0 (function () -> Integer (getchar ()));                                                                (* @@(primitive (##getchar))@@ *)
+      prim1 (function Integer ch -> Integer (putchar ch) | _ -> invalid_arg "putchar argument must be Integer");  (* @@(primitive (##putchar x))@@ *)
+      prim1 (function Integer status -> exit status | _ -> invalid_arg "exit argument must be Integer")           (* @@(primitive (##exit x))@@ *)
   (*  )@@ *)
     |]
 end
 
-let get_byte =
-  let input_stream = Stream.of_string input in
-  function () -> (Stream.next input_stream |> int_of_char)
+let byte_count = ref 0
+
+let get_byte = function () ->
+  let c = input.[!byte_count] in
+  incr byte_count;
+  int_of_char c
 
 let get_code () =
   let x = (get_byte ()) - 35 in if x < 0 then 57 else x
@@ -373,6 +375,8 @@ let set_global v =
   set_car (get_car !symtbl) v;
   symtbl := (get_cdr !symtbl)
 
+(* Needed for shift_right function *)
+open Int
 (* Execute the program *)
 let _ =
   set_global (make_rib (Integer 0) !symtbl (Integer 1));
@@ -395,7 +399,7 @@ let _ =
         if is_rib !c then begin
             let c2 = ref (make_rib (Integer 0) !o (Integer 0)) in
             let s2 = ref !c2
-            and nargs = int_val (get_car !c) in
+            and nargs = shift_right (int_val (get_car !c)) 1 in
             for narg = nargs downto 1 do
               s2 := make_rib (pop ()) !s2 (Integer 0)
             done;
