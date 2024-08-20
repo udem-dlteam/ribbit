@@ -284,7 +284,7 @@ object Rvm {
                 if( c.isRib ){
                     var c2 = Rib(0,o,0)
                     var s2 = c2
-                    var nargs = c.asRib.x.asInt
+                    var nargs = c.asRib.x.asInt >> 1
                     while(nargs > 0)
                         s2 = Rib( pop(), s2, 0)
                         nargs -= 1
