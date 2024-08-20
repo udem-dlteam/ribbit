@@ -886,10 +886,11 @@
 
                  (else
                  ;#; ;; support for calls with only variable in operator position
-                  (comp-call cte
-                             (cdr expr)
-                             (length args)
-                             (cons first cont))
+                 (let ((args (cdr expr)))
+                   (comp-call cte
+                              args
+                              (length args)
+                              (cons first cont)))
 ;;                  ;#; ;; support for calls with any expression in operator position
 ;;                  (let ((args (cdr expr)))
 ;;                    (if (symbol? first)
@@ -987,7 +988,7 @@
           (let ((v (lookup var cte 0)))
             (add-nb-args
               nb-args
-              (gen-call 
+              (gen-call
                 (if-feature arity-check
                   (if (not (rib? v)) (+ v 1) v)
                   v)
