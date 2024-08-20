@@ -1,2 +1,2 @@
 #!/bin/sh
-swipl minify.pro
+swipl host/pro/minify.pro

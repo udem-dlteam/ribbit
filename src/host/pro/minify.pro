@@ -35,7 +35,7 @@ get_or_create(Key, Value, Bindings, NewBindings) :-
   repeat,
   get_new_value(Value),
   reserved_atoms(_, F),
-  \+ memberchk(Value, F), 
+  \+ memberchk(Value, F),
   \+ predicate_property(Value, imported_from(_)), !,
   put_assoc(Key, Bindings, Value, NewBindings).
 
