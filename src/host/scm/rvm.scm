@@ -336,7 +336,7 @@
                        (- i 1)
                        (_cdr _stack)
                        )
-                     (begin 
+                     (begin
                        (set! stack (_cons rest _stack))
                        (set! nargs (+ 1 nargs))))
                    )
@@ -445,14 +445,14 @@
 
 (define primitives
 
-  (vector 
+  (vector
     ;; @@(primitives (gen body)
     (prim3 _rib)             ;; @@(primitive (##rib a b c))@@
     (prim1 (lambda (x) x))   ;; @@(primitive (##id x))@@
     _cdr                     ;; @@(primitive (##arg1 a b))@@
     (prim2 (lambda (y x) x)) ;; @@(primitive (##arg2 a b))@@
 
-    ;; @@(primitive (close ##rib)
+    ;; @@(primitive (##close rib)
     (lambda (stack) ;; 4
       (let* ((x (_car stack)) (stack (_cdr stack)))
         (_cons (_rib (_field0 x) stack procedure-type) stack)))
@@ -484,7 +484,7 @@
     (prim1 (lambda (x) ;; 19
              (write-char (integer->char x))
              x))
-    ;; )@@ 
+    ;; )@@
 
     ;; @@(primitive (##exit x)
     (prim1 (lambda (x) ;; 20
