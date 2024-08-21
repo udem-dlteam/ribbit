@@ -1,0 +1,8 @@
+#!/bin/sh
+# This file is needed because zig doesnt support directory in the output path
+# of an exe
+
+in="$2"
+out="$1"
+
+zig build-exe -femit-bin="$out" "$in"
