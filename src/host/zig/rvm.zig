@@ -18,7 +18,7 @@ const ObjectType = enum(i32) {
     special_value = 5,
 
     fn val(self: ObjectType) i32 {
-        return @enumToInt(self);
+        return @intFromEnum(self);
     }
 
     pub fn format(self: @This(), comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
@@ -45,7 +45,7 @@ const Opcode = enum(i32) {
     halt = 5,
 
     fn val(self: Opcode) i32 {
-        return @enumToInt(self);
+        return @intFromEnum(self);
     }
 };
 
@@ -90,7 +90,7 @@ const Rib = struct {
                 try writer.print("rib({},{},{})", .{ self.car, self.cdr, r });
             },
             .num => |n| {
-                const en = @intToEnum(ObjectType, n);
+                const en: ObjectType = @enumFromInt(n);
                 try writer.print("{}({},{})", .{ en, self.car, self.cdr });
             },
         }
@@ -185,14 +185,14 @@ const Reader = struct {
         var continue_: bool = true;
 
         while (continue_) {
-            var x: i32 = self.getCode();
+            const x: i32 = self.getCode();
             var n: i32 = x;
             var op: i32 = 0;
-            var d: i32 = short_encodings[@intCast(usize, op)];
+            var d: i32 = short_encodings[@intCast(op)];
 
             while (d + 2 < n) : ({
                 op += 1;
-                d = short_encodings[@intCast(usize, op)];
+                d = short_encodings[@intCast(op)];
             }) {
                 n -= d + 3;
             }
@@ -213,11 +213,11 @@ const Reader = struct {
                     m = num(self.getInt(0));
                 } else if (n > d) {
                     m = rib(ribbit.symbolRef(
-                        @intCast(usize, self.getInt(n - d - 1)),
+                        @intCast(self.getInt(n - d - 1)),
                     ));
                 } else if (op < 3) {
                     m = rib(ribbit.symbolRef(
-                        @intCast(usize, n),
+                        @intCast(n),
                     ));
                 } else {
                     m = num(n);
@@ -286,11 +286,11 @@ const Memory = struct {
     /// sa nouvelle addresse.
     fn move(self: *@This(), obj: *Rib) *Rib {
         if (obj.car.isRib()) {
-            const left = @ptrToInt(self.block_b.ptr);
+            const left = @intFromPtr(self.block_b.ptr);
             const right = left + self.block_b.len;
             const forward = obj.car.rib;
 
-            if (left <= @ptrToInt(forward) and @ptrToInt(forward) < right) {
+            if (left <= @intFromPtr(forward) and @intFromPtr(forward) < right) {
                 // un truc déjà bougé
                 return forward;
             }
@@ -382,9 +382,9 @@ test "very long linked list gc" {
     };
 
     while (i < block_size - 5) : (i += 1) {
-        var newTail = mem.alloc();
+        const newTail = mem.alloc();
         newTail.* = .{
-            .car = .{ .num = @intCast(i32, i) },
+            .car = .{ .num = @intCast(i) },
             .cdr = .{ .rib = tail },
             .tag = .{ .num = ObjectType.pair.val() },
         };
@@ -404,11 +404,11 @@ test "circular list" {
         .block_a = buf_a[0..],
         .block_b = buf_b[0..],
     };
-    var tail = mem.alloc();
+    const tail = mem.alloc();
     var head = tail;
     var i: usize = 0;
     while (i < block_size / 2) : (i += 1) {
-        var newHead = mem.alloc();
+        const newHead = mem.alloc();
         newHead.* = .{
             .car = num(0),
             .cdr = .{ .rib = head },
@@ -541,7 +541,7 @@ const Ribbit = struct {
         if (rf.isRib()) {
             return rf.rib;
         } else {
-            return listTail(self.top_of_stack.rib, @intCast(usize, rf.num));
+            return listTail(self.top_of_stack.rib, @intCast(rf.num));
         }
     }
 
@@ -564,26 +564,26 @@ const Ribbit = struct {
     fn primitiveOperation(self: *@This(), op: i32) !void {
         switch (op) {
             // @@(primitives (gen index " => {\n" body)
-            0 => { // @@(primitive (rib a b c)
+            0 => { // @@(primitive (##rib a b c)
                 const tag: RibField = self.stackPop();
                 const cdr: RibField = self.stackPop();
                 const car: RibField = self.stackPop();
                 const rf: RibField = rib(try self.newRib(car, cdr, tag));
                 try self.stackPush(rf);
             }, // )@@
-            1 => { // @@(primitive (id x)
+            1 => { // @@(primitive (##id x)
                 const val: RibField = self.stackPop();
                 try self.stackPush(val);
             }, // )@@
-            2 => { // @@(primitive (arg1 x y)
+            2 => { // @@(primitive (##arg1 x y)
                 _ = self.stackPop();
             }, // )@@
-            3 => { // @@(primitive (arg2 x y)
+            3 => { // @@(primitive (##arg2 x y)
                 const val = self.stackPop();
                 _ = self.stackPop();
                 try self.stackPush(val);
             }, // )@@
-            4 => { // @@(primitive (close rib)
+            4 => { // @@(primitive (##close rib)
                 const val = self.stackPop();
 
                 const rf: RibField = rib(try self.newRib(
@@ -594,41 +594,41 @@ const Ribbit = struct {
 
                 try self.stackPush(rf);
             }, // )@@
-            5 => { // @@(primitive (rib? rib) (use bool2scm)
+            5 => { // @@(primitive (##rib? rib) (use bool2scm)
                 const val: RibField = self.stackPop();
                 try self.stackPush(rib(self.bool2scm(val.isRib())));
             }, // )@@
-            6 => { // @@(primitive (field0 rib)
+            6 => { // @@(primitive (##field0 rib)
                 const val: RibField = self.stackPop();
                 try self.stackPush(val.rib.car);
             }, // )@@
-            7 => { // @@(primitive (field1 rib)
+            7 => { // @@(primitive (##field1 rib)
                 const val: RibField = self.stackPop();
                 try self.stackPush(val.rib.cdr);
             }, // )@@
-            8 => { // @@(primitive (field2 rib)
+            8 => { // @@(primitive (##field2 rib)
                 const val: RibField = self.stackPop();
                 try self.stackPush(val.rib.tag);
             }, // )@@
-            9 => { // @@(primitive (field0-set! rib x)
+            9 => { // @@(primitive (##field0-set! rib x)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 val2.rib.car = val1;
                 try self.stackPush(val1);
             }, // )@@
-            10 => { // @@(primitive (field1-set! rib x)
+            10 => { // @@(primitive (##field1-set! rib x)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 val2.rib.cdr = val1;
                 try self.stackPush(val1);
             }, // )@@
-            11 => { // @@(primitive (field2-set! rib x)
+            11 => { // @@(primitive (##field2-set! rib x)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 val2.rib.tag = val1;
                 try self.stackPush(val1);
             }, // )@@
-            12 => { // @@(primitive (eqv? rib1 rib2) (use bool2scm)
+            12 => { // @@(primitive (##eqv? rib1 rib2) (use bool2scm)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
 
@@ -645,27 +645,27 @@ const Ribbit = struct {
 
                 try self.stackPush(rib(val));
             }, // )@@
-            13 => { // @@(primitive (< x y) (use bool2scm)
+            13 => { // @@(primitive (##< x y) (use bool2scm)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 try self.stackPush(rib(self.bool2scm(val2.num < val1.num)));
             }, // )@@
-            14 => { // @@(primitive (+ x y)
+            14 => { // @@(primitive (##+ x y)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 try self.stackPush(num(val2.num + val1.num));
             }, // )@@
-            15 => { // @@(primitive (- x y)
+            15 => { // @@(primitive (##- x y)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 try self.stackPush(num(val2.num - val1.num));
             }, // )@@
-            16 => { // @@(primitive (* x y)
+            16 => { // @@(primitive (##* x y)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 try self.stackPush(num(val2.num * val1.num));
             }, // )@@
-            17 => { // @@(primitive (quotient x y)
+            17 => { // @@(primitive (##quotient x y)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 if (val1.num != 0) {
@@ -674,19 +674,19 @@ const Ribbit = struct {
                     try self.stackPush(num(0));
                 }
             }, // )@@
-            18 => { // @@(primitive (getchar)
+            18 => { // @@(primitive (##getchar)
                 const read: i32 = stdin.readByte() catch -1;
                 try self.stackPush(num(read));
             }, // )@@
-            19 => { // @@(primitive (putchar c)
+            19 => { // @@(primitive (##putchar c)
                 const val: RibField = self.stackPop();
-                const c: u8 = @intCast(u8, val.num);
+                const c: u8 = @intCast(val.num);
                 try stdout.writeByte(c);
                 try self.stackPush(val);
             }, // )@@
-            20 => { // @@(primitive (exit n)
+            20 => { // @@(primitive (##exit n)
                 const x: i32 = self.stackPop().num;
-                std.process.exit(@intCast(u8, x));
+                std.process.exit(@intCast(x));
             }, // )@@
             // )@@
             else => {
@@ -712,7 +712,7 @@ const Ribbit = struct {
             }
             var operand: RibField = self.pc.cdr;
             const instr: Opcode = switch (self.pc.car) {
-                .num => |n| @intToEnum(Opcode, n),
+                .num => |n| @enumFromInt(n),
                 .rib => |r| {
                     _ = r;
                     @panic("got rib as opcode");
@@ -739,7 +739,7 @@ const Ribbit = struct {
                     var c: RibField = operand.rib.car;
 
                     if (c.isRib()) {
-                        var nparams: i32 = c.rib.car.num >> 1;
+                        const nparams: i32 = c.rib.car.num >> 1;
 
                         var c2: *Rib = try self.newRib(num(0), operand, num(0));
                         var s2: *Rib = c2;
@@ -787,7 +787,7 @@ const Ribbit = struct {
 
                         nparams = nparams + vari; // @@(feature arity-check)@@
 
-                        c2 = listTail(s2, @intCast(usize, nparams));
+                        c2 = listTail(s2, @intCast(nparams));
 
                         if (self.pc.tag.isRib()) {
                             c2.car = self.top_of_stack;
@@ -873,7 +873,7 @@ const Ribbit = struct {
             self.pre_gc();
         }
 
-        var r = self.memory.alloc();
+        const r = self.memory.alloc();
 
         r.* = .{
             .car = carp,
