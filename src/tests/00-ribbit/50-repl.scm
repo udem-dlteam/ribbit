@@ -3,6 +3,7 @@
 (repl)
 
 ;;;run: -l max
+;;;run: -l max-tc
 ;;;variadics-run: -l max -f+ arity-check
 ;;;r4rs-run: -l r4rs
 ;;;input:(define fact (lambda (n) (if (< n 2) 1 (* n (fact (- n 1))))))(fact 10)

@@ -8,6 +8,7 @@
 (newline)
 
 ;;;run: -l max
+;;;run: -l max-tc
 ;;;expected:
 ;;;(x y)
 ;;;(a b c d)

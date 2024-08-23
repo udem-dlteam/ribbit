@@ -5,6 +5,28 @@
 
 ;;;----------------------------------------------------------------------------
 
+(define rib         ##rib         ) ;; predefined by RVM (must be first and 0)
+(define id          ##id          )
+(define arg1        ##arg1        )
+(define arg2        ##arg2        )
+(define close       ##close       )
+(define rib?        ##rib?        )
+(define field0      ##field0      )
+(define field1      ##field1      )
+(define field2      ##field2      )
+(define field0-set! ##field0-set! )
+(define field1-set! ##field1-set! )
+(define field2-set! ##field2-set! )
+(define eqv?        ##eqv?        )
+(define <           ##<           )
+(define +           ##+           )
+(define -           ##-           )
+(define *           ##*           )
+(define quotient    ##quotient    )
+(define getchar     ##getchar     )
+(define putchar     ##putchar     )
+(define exit        ##exit        )
+
 ;; Remember versions of primitives with no dynamic type checking.
 
 (define %< <)
@@ -868,14 +890,13 @@
 (define if-op        4)
 
 (define (add-nb-args nb tail)
-  (if ##feature-arity-check
+  (if-feature arity-check
     (rib const-op
          nb
          tail)
     tail))
 
 (define (comp cte expr cont)
-
   (cond ((symbol? expr)
          (rib get-op (lookup expr cte 0) cont))
 
@@ -901,7 +922,7 @@
                   (let ((params (cadr expr)))
                     (rib const-op
                          (make-procedure
-                          (rib (length params)
+                          (rib (* 2 (length params))
                                0
 ;;                               #; ;; support for single expression in body
 ;;                               (comp (extend params
@@ -922,7 +943,7 @@
                              cont
                              (add-nb-args
                                1
-                               (gen-call 'close cont))))))
+                               (gen-call '##close cont))))))
 
 ;#; ;; support for begin special form
                  ((eqv? first 'begin)
@@ -1010,6 +1031,7 @@
 (define (list3 a b c) (cons a (list2 b c)))
 (define (list2 a b) (cons a (list1 b)))
 (define (list1 a) (cons a '()))
+(define (list . args) args)
 
 (define (comp-bind cte var expr body cont)
   (comp cte
@@ -1030,8 +1052,8 @@
                         (add-nb-args
                           2
                           (rib jump/call-op ;; call
-                               'arg2
-                               cont))))))
+                               '##arg2
+                                cont))))))
 
 (define (comp-begin cte exprs cont)
   (comp cte
@@ -1040,9 +1062,9 @@
           (add-nb-args
             2
             (rib jump/call-op ;; call
-                 'arg1
+                 '##arg1
                  (comp-begin cte (cdr exprs) cont)))
-          cont)))
+            cont)))
 
 (define (gen-call v cont)
   (if (eqv? cont tail)
@@ -1052,11 +1074,18 @@
 (define (gen-assign v cont)
   (rib set-op v (gen-noop cont)))
 
+(define (is-call? name cont)
+  (and (rib? cont)
+       (if-feature arity-check
+           (and (eqv? (field0 cont) const-op)
+                (rib? (field2 cont))
+                (eqv? (field0 (field2 cont)) jump/call-op)
+                (eqv? (field1 (field2 cont)) name))
+           (and (eqv? (field0 cont) jump/call-op)
+                (eqv? (field1 cont) name)))))
+
 (define (gen-noop cont)
-  (if (and (rib? cont) ;; starts with pop?
-           (eqv? (field0 cont) jump/call-op) ;; call?
-           (eqv? (field1 cont) 'arg1)
-           (rib? (field2 cont)))
+  (if (is-call? '##arg1 cont)
       (field2 cont) ;; remove pop
       (rib const-op 0 cont))) ;; add dummy value for set!
 
@@ -1073,7 +1102,11 @@
           (let ((v (lookup var cte 0)))
             (add-nb-args
               nb-args
-              (gen-call v cont)))))))
+              (gen-call 
+                (if-feature arity-check
+                  (if (not (rib? v)) (%+ v 1) v)
+                  v)
+                cont)))))))
 
 (define (lookup var cte i)
   (if (pair? cte)
@@ -1087,7 +1120,7 @@
       (cons (car vars) (extend (cdr vars) cte))
       cte))
 
-(define tail (add-nb-args 1 (rib jump/call-op 'id 0))) ;; jump
+(define tail (add-nb-args 1 (rib jump/call-op '##id 0))) ;; jump
 
 (define (compile expr) ;; converts an s-expression to a procedure
   (make-procedure (rib 0 0 (comp '() expr tail)) '()))
@@ -1099,7 +1132,7 @@
   (putchar2 62 32) ;; #\> and space
   (let ((expr (read)))
     (if (eof-object? expr)
-        #f
+        (newline)
         (begin
           (write (eval expr))
           (newline)
@@ -1108,6 +1141,15 @@
 (define (type-error)
   (error "*** type error" '()))
 
+(define (fold func base lst)
+  (if (and (procedure? func) (list? lst))
+      (%fold func base lst)
+      (type-error)))
+
+(define (%fold func base lst)
+  (if (pair? lst)
+    (%fold func (func (car lst) base) (cdr lst))
+    base))
 (define (error msg info)
   (unwind-and-call
    (lambda ()
