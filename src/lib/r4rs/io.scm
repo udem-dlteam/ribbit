@@ -55,6 +55,9 @@
 
   ((host py)
 
+   (define-feature py/io 
+    (__start "import sys, os"))
+
    (define-primitive
      (##stdin-fd)
      (use py/io) 

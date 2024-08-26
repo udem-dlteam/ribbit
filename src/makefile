@@ -7,7 +7,7 @@ all:
 
 .PHONY: prebuilt
 
-check: rsc.exe
+check: 
 	@if [ "$$HOST" = "" ]; then \
 	  for host in $(HOSTS); do \
 	    echo "====================== TESTING HOST $$host"; \
@@ -33,7 +33,7 @@ tests/*: all
 rsc.exe: rsc.scm
 	@echo "====================== BUILDING RSC.EXE"
 	@echo "This process may take a while..."
-	gsc -:r4rs -exe -o rsc.exe rsc.scm
+	gsc -:r4rs -exe -o rsc.exe rsc.scm 
 
 
 check-repl: rsc.exe
@@ -52,7 +52,7 @@ check-all: check-pipeline check-fancy check-features check-bootstrap
 
 	
 
-check-features:
+check-features: rsc.exe
 	@host="$${HOST:-js}"; \
 	for host_path in ./tests/hosts/*; do \
 		options=`sed -n -e '/;;;options:/p' $$host_path | sed -e 's/^;;;options://'`; \
