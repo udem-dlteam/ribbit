@@ -717,7 +717,7 @@
 ;;     other code is executed. This is because the compiler uses them when
 ;;     generating code. It's a hack.
 
-(define forced-first-primitives (list '##rib '##- '##arg1))
+(define forced-first-primitives (list '##- '##arg1))
 
 (define (make-host-config live-features primitives feature-locations)
   (rib live-features (cons (list '##rib 0) primitives) feature-locations))
@@ -1050,7 +1050,7 @@
                       (let ((index (if prim-index
                                      (host-config-add-primitive-index! host-config name expr (cadr prim-index))
                                      (host-config-add-primitive! host-config name expr))))
-                        (if (memq name forced-first-primitives)
+                        (if (or (memq name forced-first-primitives) (eqv? name '##rib))
                           (gen-noop ctx cont)
                           (comp ctx `(set! ,name (##rib ,index 0 ,procedure-type)) cont)))
                       (gen-noop ctx cont))))
@@ -2209,12 +2209,12 @@
 (define (liveness-analysis-aux expr features-enabled features-disabled exports)
   (let* ((env (make-live-env '() features-enabled features-disabled)))
 
-    (live-env-add-live! env '##rib) ;; live by default
-    (live-env-add-live! env '##arg1)
-    (live-env-add-live! env '##arg2)
-    (live-env-add-live! env '##close)
+    ;; ##rib is always needed
+    (live-env-add-live! env '##rib)
+
+    ;; It's hard to detect in the liveness analysis if we need ##id or not.
+    ;; We will add it by default.
     (live-env-add-live! env '##id)
-    (live-env-add-live! env '##-)
 
     (and exports
          (for-each
@@ -2252,8 +2252,15 @@
 
     (cond ((symbol? expr)
            (if (in? expr cte) ;; local var?
-               #f
-               (live-env-add-live! env expr))) ;; mark the global variable as "live"
+             #f
+             (live-env-add-live! env expr))) ;; mark the global variable as "live"
+
+          ((integer? expr)
+           (if (< expr 0)
+             ;; If the integer is negative, we need to
+             ;;   use ##- to create a binding
+             (live-env-add-live! env '##-))
+           #f)
 
           ((pair? expr)
            (let ((first (car expr)))
@@ -2281,14 +2288,21 @@
                     (liveness (cadddr expr) cte #f))
 
                    ((eqv? first 'let)
+                    ;; Let uses ##arg2 for creating bindings
+                    (live-env-add-live! env '##arg2)
                     (let ((bindings (cadr expr)))
                       (liveness-list (map cadr bindings) cte)
                       (liveness (caddr expr) (append (map car bindings) cte) #f)))
 
                    ((eqv? first 'begin)
+                    ;; Begin uses ##arg1 to get rid of the value on the stack when
+                    ;;  chaining
+                    (live-env-add-live! env '##arg1)
                     (liveness-list (cdr expr) cte))
 
                    ((eqv? first 'lambda)
+                    ;; ##close is used by lambda constructs
+                    (live-env-add-live! env '##close)
                     (let ((params (cadr expr)))
                       (if (improper-list? params)
                         (begin
@@ -2325,7 +2339,10 @@
                         (liveness (cadddr expr) cte #f))))
 
                    (else
-                    (liveness-list expr cte)))))
+                     ;; Calls in first position create a binding, thus needing ##arg2
+                     (if (pair? first)
+                       (live-env-add-live! env '##arg2))
+                     (liveness-list expr cte)))))
 
           (else
            #f)))
@@ -2589,24 +2606,29 @@
   (define (add-init-primitives tail)
 
     (define (prim-code sym tail)
-      (let ((index (cadr (assq sym (host-config-primitives host-config)))))
-        (c-rib const-op
-               index
-               (c-rib const-op
-                      0
-                      (c-rib const-op
-                             procedure-type
-                             (add-nb-args
-                               #t
-                               3
-                               (c-rib jump/call-op
-                                      '##rib
-                                      (c-rib set-op
-                                             sym
-                                             tail))))))))
+      (let ((prim (assq sym (host-config-primitives host-config))))
+        (if (not prim)
+          (error "Error, primitive needed by the compiler was not found in host :" sym))
+        (let ((index (cadr prim)))
+          (c-rib const-op
+                 index
+                 (c-rib const-op
+                        0
+                        (c-rib const-op
+                               procedure-type
+                               (add-nb-args
+                                 #t
+                                 3
+                                 (c-rib jump/call-op
+                                        '##rib
+                                        (c-rib set-op
+                                               sym
+                                               tail)))))))))
 
     ;; skip rib primitive that is predefined
-    (let loop ((lst (filter (lambda (x) (not (eqv? x '##rib))) forced-first-primitives))
+    (let loop ((lst (filter
+                      (lambda (x) (host-config-feature-live? host-config x))
+                      forced-first-primitives))
                (tail tail))
       (if (pair? lst)
           (loop (cdr lst)
