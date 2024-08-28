@@ -1,121 +1,25 @@
-;;; bignum.scm
+;;; Bignum library
 
-;; bignums operations (two's complement, little endian representation)
+;;==============================================================================
 
-;; fixnum? and bignum? checks  [x] 
-;; fixnum->bignum              [x]
-;; bignum->fixnum              [ ]
-;; bn-encode                   [x]
-
-;; fold (bn-fold)              [x] 
-;; bn-scan-until-false         [x]
-;; map (bn-map)                [x]
-
-;; normalization (bn-norm)     [x] 
-
-;; addition (bn+)              [x]
-;; variadic addition           [x]
-;; substraction (bn-)          [x]
-;; variadic substraction?      [ ]
-;; unary substraction (bn-u)   [x]
-;; multiplication (bn*)        [x] need a better algorithm
-;; variadic multiplication     [x]
-;; quotient (bn-quotient)      [x] need a better algorithm
-;; fixnum remainder            [x]
-;; remainder (bn-remainder)    [x]
-;; fixnum modulo               [x]
-;; modulo (bn-modulo)          [x]
-
-;; equal (bn=)                 [x]
-;; variadic equal              [x]
-;; less (bn<)                  [x]
-;; variadic less               [x]
-;; less or equal (bn<=)        [x]
-;; variadic less or equal      [x]
-;; greater (bn>)               [x]
-;; variadic greater            [x]
-;; greater or equal (bn>=)     [x]
-;; variadic greater or equal   [x]
-
-;; bn bitwise not (bn~)        [x]
-;; ...other bitwise operators? [ ]
-
-;; negation (bn-neg)           [x]
-;; bn-abs                      [x]
-;; bn-max                      [x]
-;; variadic max                [x]
-;; bn-min                      [x]
-;; variadic min                [x]
-;; fixnum gcd (##gcd)          [x]
-;; bn-gcd                      [x]
-;; variadic gcd                [x]
-;; fixnum lcm (##lcm)          [x]
-;; bn-lcm                      [x]
-;; variadic lcm                [x]
-
-;; bn-zero?                    [x]
-;; bn-positive?                [x]
-;; bn-negative?                [x]
-;; bn-even?                    [x]
-;; bn-odd?                     [x]
-
-;; fixnum number->string       [x]
-;; bn-number->string           [x]
-;; bn-string->number           [x]
-
-
-
-;; TODO:
-;;  - max-fixnum
-;;  - bignum->fixnum 
-;;  - tests
-;;  - works with any libraries (shouldn't use anything else than primitives)
-;;  - algorithms for quotient, multiplication, ...
-
-
-;;------------------------------------------------------------------------------
-
-;; utilities
+;; Utilities
 
 ;;(define-feature _ (use scheme-bignum))
 
-
-(define pair-type      0)
-;; (define procedure-type 1)
-;; (define symbol-type    2)
-(define string-type    3)
-;; (define vector-type    4)
-;; (define singleton-type 5)
-;; (define char-type      6)
-(define bignum-type    7)
-(define flonum-type    8)
-
-
-(define (bn-cons car cdr)
-  (##rib car cdr bignum-type))
-
+(define (bn-cons car cdr) (##rib car cdr bignum-type))
 (define bn-digit ##field0)
-
 (define bn-next ##field1)
 
 (define base (##+ 32767 1)) ;; `base` represented as a fixnum
-
 (define bn-base 32768) ;; `base` represented as a bignum
-
 (define base-1 (##- base 1))
-
 (define max-fixnum (##* base base)) ;; FIXME
-
 (define min-fixnum (##- 0 max-fixnum)) ;; FIXME
-
 (define bn0 ##bn0)
-
 (define bn-1 ##bn-1)
-
 (define bn1 (bn-cons 1 bn0))
 
-(define (end? n)
-  (or (##eqv? n bn0) (##eqv? n bn-1)))
+(define (end? n) (or (##eqv? n bn0) (##eqv? n bn-1)))
 
 
 (define (fixnum? n)
@@ -130,9 +34,7 @@
 (define (bignum? n)
   (and (##rib? n) (##eqv? (##field2 n) bignum-type)))
 
-(define (number? n)
-  (or (fixnum? n) (bignum? n)))
-
+;;------------------------------------------------------------------------------
 
 (define (fixnum->bignum n)
   (if (fixnum? n)
@@ -159,24 +61,7 @@
           n
           #f)))
 
-;; (define (bignum->fixnum n)
-;;   (if (bignum? n)
-;;       (if (end? (bn-next n))
-;;           (if (##eqv? bn0 (bn-next n))
-;;               (bn-digit n)
-;;               (if (##eqv? 0 (bn-digit n))  
-;;                   (##- 0 base) ;; (0 $-1 $-1 ...) can be represented as a fixnum
-;;                   (##- 0 (bn-neg n))))
-;;        (if (##bn< n max-fixnum) ;; n can be represented as a positive fixnum
-;;            (##+ (bn-digit n)
-;;                 (##* base (bn-digit (bn-next n))))
-;;            (if (##bn< min-fixnum n)
-;;                (##- 0 (
-;;           #f) ;; conversion is not possible
-;;       (if (and (fixnum? n) (##< n max-fixnum) (##< min-fixnum n))
-;;           n
-;;           #f)))
-
+;;------------------------------------------------------------------------------
 
 (define (bn-encode n)
   
@@ -195,6 +80,22 @@
 (define $ bn-encode)
 
 
+(define (bn-decode n) ;; will overflow if n can't be represented as a fixnum
+
+  (define (_bn-decode n e)
+    (if (end? (bn-next n))
+        (##* (bn-digit n) e)
+        (##+ (##* (bn-digit n) e) (_bn-decode (bn-next n) (##* e base)))))
+
+  (if (bignum? n)
+      (if (##bn< n bn0)
+          (##- 0 (_bn-decode n 1))
+          (_bn-decode n 1))
+      n)) ;; assumes n is a fixnum
+
+
+;;------------------------------------------------------------------------------
+
 (define (bn-fold fn base lst)
   (if (null? lst)
       base
@@ -212,6 +113,7 @@
       '()
       (##rib (fn (##field0 lst)) (bn-map fn (##field1 lst)) 0)))
 
+;;------------------------------------------------------------------------------
 
 (define (bn-length a)
   (define (_bn-length a counter)
@@ -278,14 +180,96 @@
         (or (bignum->fixnum _n) _n)))) ;; return a fixnum if possible
 
 
+
+;;==============================================================================
+
+;; Numerical operations
+
+;; Not all procedures are equal. 
+
+
 ;;------------------------------------------------------------------------------
 
-;; addition
+;; Numerical predicates
 
-(define (bn+ a b)
-  (if (and (fixnum? a) (fixnum? b))
-      (bn-norm (##+ a b))
-      (bn-norm (##bn+ (fixnum->bignum a) (fixnum->bignum b)))))
+
+;; Comparison predicates
+
+
+(define (##bn= a b) 
+  (##eqv? (bn- a b) 0)) ;; FIXME tests won't work with (bn-norm (##bn- a b) bn0)
+
+(define (var-bn= a . rest) 
+  (if (and (fixnum? a) (var-fixnum? rest))
+      (bn-scan-until-false ##eqv? a #t rest)
+      (bn-scan-until-false
+       ##bn= (fixnum->bignum a) #t (bn-map fixnum->bignum rest))))
+
+
+(define (##bn< a b)
+  (##bn-negative? (##bn- a b)))
+
+(define (var-bn< a . rest) 
+  (if (and (fixnum? a) (var-fixnum? rest))
+      (bn-scan-until-false ##< a #t rest)
+      (bn-scan-until-false
+       ##bn< (fixnum->bignum a) #t (bn-map fixnum->bignum rest))))
+
+
+;; Numerical properties predicates
+
+(define (##bn-zero? a)
+  (##bn= a bn0))
+
+(define (##bn-positive? a)
+  (##bn< bn0 a))
+
+(define (bn-negative? a)
+  (if (fixnum? a)
+      (##< a 0)
+      (##bn-negative? a)))
+
+(define (##bn-negative? a)
+  (if (##eqv? a bn0)
+      #f
+      (or (##eqv? a bn-1) (##bn-negative? (bn-next a)))))
+
+
+(define (##bn-even? a)
+  (##eqv? 0 (##fx-modulo (bn-digit a) 2)))
+
+
+(define (##bn-odd? a)
+  (##eqv? 1 (##fx-modulo (bn-digit a) 2)))
+
+
+;;------------------------------------------------------------------------------
+
+;; Max and min
+
+(define (##bn-max a b)
+  (if (##bn< a b) b a))
+
+(define (var-bn-max a . rest) 
+  (if (and (fixnum? a) (var-fixnum? rest))
+      (bn-fold (lambda (x y) (if (##< x y) y x)) a rest)
+      (bn-norm (bn-fold
+                ##bn-max (fixnum->bignum a) (bn-map fixnum->bignum rest)))))
+
+(define (##bn-min a b)
+  (if (##bn< a b) a b))
+
+(define (var-bn-min a . rest) 
+  (if (and (fixnum? a) (var-fixnum? rest))
+      (bn-fold (lambda (x y) (if (##< x y) x y)) a rest)
+      (bn-norm (bn-fold
+                ##bn-min (fixnum->bignum a) (bn-map fixnum->bignum rest)))))
+
+
+;;------------------------------------------------------------------------------
+
+;; Arithmetic operations: +, *, -, and /
+
 
 (define (##bn+ a b) ;; no normalization, assumes a and b are bignums
   
@@ -315,51 +299,7 @@
       (bn-norm (bn-fold ##bn+ bn0 (bn-map fixnum->bignum args)))))
 
 
-;; substraction
-
-(define (bn- a b)
-  (if (and (fixnum? a) (fixnum? b))
-      (bn-norm (##- a b))
-      (bn-norm (##bn- (fixnum->bignum a) (fixnum->bignum b)))))
-
-(define (##bn- a b)
-  (##bn+ a (##bn-neg b)))
-
-
-;; unary substraction
-
-(define (bn-u a)
-  (if (fixnum? a)
-      (##- 0 a) ;; no need to normalize the result
-      (bn-norm (##bn-u a))))
-
-(define (##bn-u a)
-  (##bn- bn0 a))
-
-
-;;------------------------------------------------------------------------------
-
-;; multiplication (need a better algorithm)
-
-;; faster algorithms
-
-;;  - Booth's multiplication algorithm (specifically for two's complement)
-
-;;  - Karatsuba O(n^(ln 3)) ≈ O(n^1.585)
-
-;;  - Schönhage–Strassen based on fft O(n log(n) log(log(n)))
-
-;;  - Toom-Cook 
-
-(define (bn* a b)
-  (cond ((and (fixnum? a) (fixnum? b))
-         (bn-norm (##* a b)))
-        ((fixnum? b)
-         (bn-norm (##bn-fx* a b)))
-        ((fixnum? a)
-         (bn-norm (##bn-fx* b a)))
-        (else
-         (bn-norm (##bn* a b)))))
+;; Multiplication
 
 (define (##bn-fx* a b)
 
@@ -380,6 +320,7 @@
         (##bn-fx*-aux _a _b 0)
         (##bn-neg (##bn-fx*-aux _a _b 0)))))
   
+;; TODO booth's multiplication algorithm, karatsuba, strassen, toom-cook...
 
 (define (##bn* a b)
   
@@ -411,9 +352,34 @@
       (bn-norm (bn-fold ##bn* bn1 (bn-map fixnum->bignum args)))))
 
 
+;; substraction
+
+(define (##bn- a b)
+  (##bn+ a (##bn-neg b)))
+
+
+;; unary substraction
+
+(define (bn-u a)
+  (if (fixnum? a)
+      (##- 0 a) ;; no need to normalize the result
+      (bn-norm (##bn-u a))))
+
+(define (##bn-u a)
+  (##bn- bn0 a))
+
+
 ;;------------------------------------------------------------------------------
 
-;; quotient
+;; Absolute value
+
+(define (##bn-abs a)
+  (if (##bn< a bn0) (##bn- bn0 a) a))
+
+
+;;------------------------------------------------------------------------------
+
+;; Quotient, remainder, and modulo
 
 
 (define (bn-get a j n) ;; returns a bignum made of j up to n from a's digits
@@ -435,25 +401,12 @@
       (bn-digit a)
       (msb (bn-next a))))
 
-(define (bn-concatenate x y) ;; FIXME assumes both bignums are positive
-    (if (##eqv? bn0 x)
-        y
-        (bn-cons (bn-digit x) (bn-concatenate (bn-next x) y))))
-
 (define (bn-append a b i)
-  ;; should read "appends b to a at index a"
+  ;; should read "appends b to a at index i"
   (if (##eqv? 0 i)
       b
       (bn-cons (bn-digit a) (bn-append (bn-next a) b (##- i 1)))))
 
-
-(define (bn-quotient a b)
-  (cond ((and (fixnum? a) (fixnum? b))
-         (##quotient a b)) ;; no need to normalize
-        ((fixnum? b)
-         (bn-norm (##bn-fx-quotient a b)))
-        (else
-         (bn-norm (##bn-quotient (fixnum->bignum a) b)))))
 
 (define (##bn-quotient a b)
   (let* ((_a (##bn-abs a))
@@ -567,69 +520,31 @@
       (if (##< j 0)
           q
           (let* ((top-a (bn-get a j (##+ length-b 1))) ;; (a_j+n ... a_j) i.e. |n|+1 digits
-                 ;; (lower-a (bn-get a 0 j)) ;; (a_j-1 ... a_0)
                  (top3-a ;; top 3 digits from (a_j+n ... a_j), some could be 0s
                   (bn-get top-a (##- (bn-length top-a) 3) 3)))
             
             (let* ((q-hat-estimate (calculate-q-hat top3-a b_n-1 b_n-2))
                    (_new-top-a (##bn- top-a (##bn-fx* _b q-hat-estimate))))
-
-                    ;; FIXME, steps missing in the add-back part of the algorithm
-                       ;; (dif (bn- q-hat q-hat-estimate)) ;; number of add back iterations
-                       ;; (_top-a (if (bn= bn0 dif) ;; 
-                       ;;                  __top-a
-                       ;;                  (bn-concatenate __top-a dif)))
-                                   ;; (bn-concatenate (no-carry-bn+ (bn* dif _b) __top-a) dif))) 
-                   
-
+              
               (if (##bn< _new-top-a bn0) ;; need to adjust q-hat's estimate?
                    (let* ((q-hat (add-back top-a _b q-hat-estimate))
                           (new-top-a (##bn- top-a (##bn-fx* _b q-hat))))
                      (loop (##- j 1)
                            (bn-cons q-hat q)
-                           ;; (bn-concatenate lower-a new-top-a)))
                            (bn-append a new-top-a j)))
                    (loop (##- j 1)
                          (bn-cons q-hat-estimate q)
-                         ;; (bn-concatenate lower-a _new-top-a)))))))))
                          (bn-append a _new-top-a j)))))))))
 
 
-;; remainder
 
-(define (bn-remainder a b)
-  (cond ((and (fixnum? a) (fixnum? b))
-         (##fx-remainder a b)) ;; no need to normalize
-        ((fixnum? b)
-         (bn-norm (##bn-fx-remainder a b)))
-        (else
-         (bn-norm (##bn-remainder (fixnum->bignum a) b)))))
-
-(define (##fx-remainder x y)
-  (##- x (##* y (##quotient x y))))
 
 (define (##bn-fx-remainder a b)
   (##bn- a (##bn-fx* (##bn-fx-quotient a b) b)))
 
 (define (##bn-remainder a b)
-  (##bn- a (##bn* b (##bn-quotient a b))))
+  (##bn- a (##bn* (##bn-quotient a b) b)))
 
-
-;; modulo
-
-(define (bn-modulo a b)
-  (if (and (fixnum? a) (fixnum? b))
-      (##fx-modulo a b) ;; no need to normalize the result
-      (bn-norm (##bn-modulo (fixnum->bignum a) (fixnum->bignum b)))))
-
-(define (##fx-modulo x y)
-  (let ((q (##quotient x y)))
-    (let ((r (##- x (##* y q))))
-      (if (##eqv? r 0)
-          0
-          (if (##eqv? (##< x 0) (##< y 0))
-              r
-              (##+ r y))))))
 
 (define (##bn-modulo a b)
   (let ((r (##bn-remainder a b)))
@@ -642,91 +557,35 @@
 
 ;;------------------------------------------------------------------------------
 
-;; comparison
+;; Gcd and lcm
 
-;; equality
+(define (##bn-gcd a b)
+  (let ((_a (##bn-abs a))
+        (_b (##bn-abs b)))
+    (if (##bn< _a _b) (##bn-gcd-aux _a _b) (##bn-gcd-aux _b _a))))
 
-(define (bn= a b)
-  (if (and (fixnum? a) (fixnum? b))
-      (##eqv? a b)
-      (##bn= a b)))
+(define (##bn-gcd-aux a b)
+  (display a) (newline)
+  (if (##bn= a bn0) 
+      b
+      (##bn-gcd-aux (##bn-remainder b a) a)))
 
-(define (##bn= a b) 
-  (##eqv? (bn- a b) 0)) ;; FIXME tests won't work with (bn-norm (##bn- a b) bn0)
+(define (var-bn-gcd . args) ;; (var-bn-gcd) => 0, consistent with gambit's `gcd`
+  (if (var-fixnum? args)
+      (bn-fold ##gcd 0 args)
+      (bn-norm (bn-fold ##bn-gcd bn0 (bn-map fixnum->bignum args)))))
 
-(define (var-bn= a . rest) 
-  (if (and (fixnum? a) (var-fixnum? rest))
-      (bn-scan-until-false ##eqv? a #t rest)
-      (bn-scan-until-false
-       ##bn= (fixnum->bignum a) #t (bn-map fixnum->bignum rest))))
+(define (##bn-lcm a b)
+  (if (##bn= b bn0)
+      bn0
+      (let ((_a (##bn-abs a))
+            (_b (##bn-abs b)))
+        (##bn* (##bn-quotient _a (##bn-gcd _a _b)) _b))))
 
-
-;; less than
-
-(define (bn< a b)
-  (if (and (fixnum? a) (fixnum? b))
-      (##< a b)
-      (##bn< (fixnum->bignum a) (fixnum->bignum b))))
-
-(define (##bn< a b)
-  (##bn-negative? (##bn- a b)))
-
-(define (var-bn< a . rest) 
-  (if (and (fixnum? a) (var-fixnum? rest))
-      (bn-scan-until-false ##< a #t rest)
-      (bn-scan-until-false
-       ##bn< (fixnum->bignum a) #t (bn-map fixnum->bignum rest))))
-
-
-;; less or equal
-
-(define (bn<= a b)
-  (if (and (fixnum? a) (fixnum? b))
-      (or (##eqv? a b) (##< a b))
-      (##bn<= (fixnum->bignum a) (fixnum->bignum b))))
-
-(define (##bn<= a b)
-  (or (##bn= a b) (##bn< a b)))
-
-(define (var-bn<= a . rest) 
-  (if (and (fixnum? a) (var-fixnum? rest))
-      (bn-scan-until-false (lambda (x y) (or (##eqv? x y) (##< x y))) a #t rest)
-      (bn-scan-until-false
-       ##bn<= (fixnum->bignum a) #t (bn-map fixnum->bignum rest))))
-
-
-;; greater than
-
-(define (bn> a b)
-  (if (and (fixnum? a) (fixnum? b))
-      (##< b a)
-      (##bn> (fixnum->bignum a) (fixnum->bignum b))))
-
-(define (##bn> a b)
-  (##bn< b a))
-
-(define (var-bn> a . rest) 
-  (if (and (fixnum? a) (var-fixnum? rest))
-      (bn-scan-until-false (lambda (x y) (##< y x)) a #t rest)
-      (bn-scan-until-false
-       ##bn> (fixnum->bignum a) #t (bn-map fixnum->bignum rest))))
-
-
-;; greater or equal
-
-(define (bn>= a b)
-  (if (and (fixnum? a) (fixnum? b))
-      (or (##eqv? a b) (##< b a))
-      (##bn>= (fixnum->bignum a) (fixnum->bignum b))))
-
-(define (##bn>= a b)
-  (or (##bn= a b) (##bn< b a)))
-
-(define (var-bn>= a . rest) 
-  (if (and (fixnum? a) (var-fixnum? rest))
-      (bn-scan-until-false (lambda (x y) (or (##eqv? x y) (##< y x))) a #t rest)
-      (bn-scan-until-false
-       ##bn>= (fixnum->bignum a) #t (bn-map fixnum->bignum rest))))
+(define (var-bn-lcm . args) ;; (var-bn-lcm) => 1, consistent with gambit's `lcm`
+  (if (var-fixnum? args)
+      (bn-norm (bn-fold ##lcm 1 args))
+      (bn-norm (bn-fold ##bn-lcm bn1 (bn-map fixnum->bignum args)))))
 
 
 ;;------------------------------------------------------------------------------
@@ -746,8 +605,6 @@
         (bn-cons _a (##bn~ (bn-next a))))))
 
 
-;;------------------------------------------------------------------------------
-
 ;; negation
 
 (define (bn-neg a)
@@ -759,204 +616,44 @@
   (##bn+ (##bn~ a) bn1))
 
 
-;; absolute value
+;;==============================================================================
 
-(define (bn-abs a)
-  (if (fixnum? a)
-      (bn-norm (if (##< a 0) (##- 0 a) a))
-      (bn-norm (##bn-abs a))))
-
-(define (##bn-abs a)
-  (if (##bn< a bn0) (##bn- bn0 a) a))
-
-
-;; maximum
-
-(define (bn-max a b)
-  (if (and (fixnum? a) (fixnum? b))
-      (if (##< a b) b a)
-      (bn-norm (##bn-max (fixnum->bignum a) (fixnum->bignum b)))))
-
-(define (##bn-max a b)
-  (if (##bn< a b) b a))
-
-(define (var-bn-max a . rest) 
-  (if (and (fixnum? a) (var-fixnum? rest))
-      (bn-fold (lambda (x y) (if (##< x y) y x)) a rest)
-      (bn-norm (bn-fold
-                ##bn-max (fixnum->bignum a) (bn-map fixnum->bignum rest)))))
-
-
-;; mininum
-
-(define (bn-min a b)
-  (if (and (fixnum? a) (fixnum? b))
-      (if (##< a b) a b)
-      (bn-norm (##bn-min (fixnum->bignum a) (fixnum->bignum b)))))
-
-(define (##bn-min a b)
-  (if (##bn< a b) a b))
-
-(define (var-bn-min a . rest) 
-  (if (and (fixnum? a) (var-fixnum? rest))
-      (bn-fold (lambda (x y) (if (##< x y) x y)) a rest)
-      (bn-norm (bn-fold
-                ##bn-min (fixnum->bignum a) (bn-map fixnum->bignum rest)))))
-
-
-;; gcd
-
-(define (##gcd a b)
-  (let ((_a (abs a))
-        (_b (abs b)))
-    (if (##< _a _b) (##gcd-aux _a _b) (##gcd-aux _b _a))))
-
-(define (##gcd-aux a b)
-  (if (##eqv? a 0)
-      b
-      (##gcd-aux (##fx-remainder b a) a)))
-
-(define (bn-gcd a b)
-  (if (and (fixnum? a) (fixnum? b))
-      (##gcd a b)
-      (bn-norm (##bn-gcd (fixnum->bignum a) (fixnum->bignum b)))))
-
-(define (##bn-gcd a b)
-  (let ((_a (##bn-abs a))
-        (_b (##bn-abs b)))
-    (if (##bn< _a _b) (##bn-gcd-aux _a _b) (##bn-gcd-aux _b _a))))
-
-(define (##bn-gcd-aux a b)
-  (if (##bn= a bn0) 
-      b
-      (##bn-gcd-aux (##bn-remainder b a) a)))
-
-(define (var-bn-gcd . args) ;; (var-bn-gcd) => 0, consistent with gambit's `gcd`
-  (if (var-fixnum? args)
-      (bn-fold ##gcd 0 args)
-      (bn-norm (bn-fold ##bn-gcd bn0 (bn-map fixnum->bignum args)))))
-           
-
-;; lcm
-
-(define (##lcm a b)
-  (if (##eqv? b 0)
-      0
-      (let ((_a (abs a))
-            (_b (abs b)))
-        (##* (##quotient _a (##gcd _b)) _b))))
-
-(define (bn-lcm a b)
-  (if (and (fixnum? a) (fixnum? b))
-      (bn-norm (##lcm a b))
-      (bn-norm (##bn-lcm (fixnum->bignum a) (fixnum->bignum b)))))
-
-(define (##bn-lcm a b)
-  (if (##bn= b bn0)
-      bn0
-      (let ((_a (##bn-abs a))
-            (_b (##bn-abs b)))
-        (##bn* (##bn-quotient _a (##bn-gcd _a _b)) _b))))
-
-(define (var-bn-lcm . args) ;; (var-bn-lcm) => 1, consistent with gambit's `lcm`
-  (if (var-fixnum? args)
-      (bn-norm (bn-fold ##lcm 1 args))
-      (bn-norm (bn-fold ##bn-lcm bn1 (bn-map fixnum->bignum args)))))
-
-
-;;------------------------------------------------------------------------------
-
-;; predicates
-
-;; zero?
-
-(define (bn-zero? a)
-  (if (fixnum? a)
-      (##eqv? 0 a)
-      (##bn-zero? a)))
-
-(define (##bn-zero? a)
-  (##bn= a bn0))
-
-
-;; positive?
-
-(define (bn-positive? a)
-  (if (fixnum? a)
-      (##< 0 a)
-      (##bn-positive? a)))
-
-(define (##bn-positive? a)
-  (##bn< bn0 a))
-
-
-;; negative?
-
-(define (bn-negative? a)
-  (if (fixnum? a)
-      (##< a 0)
-      (##bn-negative? a)))
-
-(define (##bn-negative? a)
-  (if (##eqv? a bn0)
-      #f
-      (or (##eqv? a bn-1) (##bn-negative? (bn-next a)))))
-
-
-;; even?
-
-(define (bn-even? a)
-  (if (fixnum? a)
-      (##eqv? 0 (##fx-modulo a 2))
-      (##bn-even? a)))
-
-(define (##bn-even? a)
-  (##eqv? 0 (##fx-modulo (bn-digit a) 2)))
-
-
-;; odd?
-
-(define (bn-odd? a)
-  (if (fixnum? a)
-      (##eqv? 1 (##fx-modulo a 2))
-      (##bn-odd? a)))
-
-(define (##bn-odd? a)
-  (##eqv? 1 (##fx-modulo (bn-digit a) 2)))
-
-
-;;------------------------------------------------------------------------------
+;; Numerical input and output
 
 ;; FIXME incomplete and redundant type checks
 
+;; need these for now because I can't assume the type of some argument in io
+;; functions.... FIXME
 
-;; number->string
+(define (bn+ a b)
+  (if (and (fixnum? a) (fixnum? b))
+      (bn-norm (##+ a b))
+      (bn-norm (##bn+ (fixnum->bignum a) (fixnum->bignum b)))))
 
-(define (##number->string a)
+(define (bn* a b)
+  (cond ((and (fixnum? a) (fixnum? b))
+         (bn-norm (##* a b)))
+        ((fixnum? b)
+         (bn-norm (##bn-fx* a b)))
+        ((fixnum? a)
+         (bn-norm (##bn-fx* b a)))
+        (else
+         (bn-norm (##bn* a b)))))
 
-  (define (##number->string-aux _a tail radix)
-    (let* ((quo (##quotient _a radix))
-           (rem (##fx-remainder _a radix))
-           (chars (##rib (##+ 48 rem) tail pair-type)))
-      (if (##eqv? 0 quo)
-          chars
-          (##number->string-aux quo chars radix))))
-
-  (let ((chars (if (##< a 0)
-                   (##rib 45
-                          (##number->string-aux (##- 0 a) '() 10)
-                          pair-type)
-                   (##number->string-aux a '() 10))))
-
-    (##rib chars (length chars) string-type))) ;; FIXME ##length?
+(define (bn- a b)
+  (if (and (fixnum? a) (fixnum? b))
+      (bn-norm (##- a b))
+      (bn-norm (##bn- (fixnum->bignum a) (fixnum->bignum b)))))
 
 
-;; bignum's number->string
+(define (bn-quotient a b)
+  (cond ((and (fixnum? a) (fixnum? b))
+         (##quotient a b)) ;; no need to normalize
+        ((fixnum? b)
+         (bn-norm (##bn-fx-quotient a b)))
+        (else
+         (bn-norm (##bn-quotient (fixnum->bignum a) b)))))
 
-(define (bn-number->string a)
-  (if (fixnum? a)
-      (##number->string a)
-      (##bn-number->string a)))
 
 (define (##bn-number->string a)
 
@@ -989,7 +686,7 @@
         #f))
 
   (define (bn-string->number-aux lst number)
-    (if (null? lst) ;; FIXME define null? ??
+    (if (null? lst) 
         number
         (let* ((char (##field0 lst))
                (digit (convert char)))
@@ -1005,1029 +702,4 @@
             (let ((n (bn-string->number-aux (##field1 lst) 0)))
               (and n (bn-u n))) 
             (bn-string->number-aux lst 0))))) ;; FIXME normalize?
-
-
-;;------------------------------------------------------------------------------
-
-;; (if-feature no-variadics
-;;    (begin
-;;      (define +    bn+)
-;;      (define -    bn-)
-;;      (define *    bn*)
-;;      (define =    bn=)
-;;      (define <    bn<)
-;;      (define <=   bn<=)
-;;      (define >    bn>)
-;;      (define >=   bn>=)
-;;      (define max  bn-max)
-;;      (define min  bn-min)
-;;      (define gcd  bn-gcd) 
-;;      (define lcm  bn-lcm))
-;;    (begin
-;;      (define +    var-bn+)
-;;      (define -    var-bn-)
-;;      (define *    var-bn*)
-;;      (define =    var-bn=)
-;;      (define <    var-bn<)
-;;      (define <=   var-bn<=)
-;;      (define >    var-bn>)
-;;      (define >=   var-bn>=)
-;;      (define max  var-bn-max)
-;;      (define min  var-bn-min)
-;;      (define gcd  var-bn-gcd)
-;;      (define lcm  var-bn-lcm)))
-
-(define +    bn+)
-(define -    bn-)
-(define *    bn*)
-(define =    bn=)
-(define <    bn<)
-(define <=   bn<=)
-(define >    bn>)
-(define >=   bn>=)
-(define max  bn-max)
-(define min  bn-min)
-(define gcd  bn-gcd) 
-(define lcm  bn-lcm)
-
-(define quotient  bn-quotient) 
-(define remainder bn-remainder)
-(define modulo    bn-modulo)
-(define zero?     bn-zero?)
-(define positive? bn-positive?)
-(define negative? bn-negative?)
-(define even?     bn-even?)
-(define odd?      bn-odd?)
-(define abs       bn-abs)
-
-(define integer? number?)
-(define number->string bn-number->string)
-
-(define bitwise-not bn~)
-
-
-;;------------------------------------------------------------------------------
-
-(define (##display-rib rib depth)
-  (if (> depth 0)
-    (begin
-      (display "[")
-      (cond ((not (##rib? rib))
-             (display rib))
-            ((##rib? (##field0 rib))
-             (##display-rib (##field0 rib) (##- depth 1)))
-            (else
-              (display (##field0 rib))))
-      (display " ")
-      (cond ((not (##rib? rib))
-             (display rib))
-            ((##rib? (##field1 rib))
-             (##display-rib (##field1 rib) (##- depth 1)))
-            (else
-              (display (##field1 rib))))
-      (display " ")
-      (cond ((not (##rib? rib))
-             (display rib))
-            ((##rib? (##field2 rib))
-             (##display-rib (##field2 rib) (##- depth 1)))
-            (else
-              (display (##field2 rib))))
-      (display "]"))
-    (display "...")))
-
-(define (display-rib rib depth)
-  (##display-rib rib depth)
-  (newline))
-
-
-
-(define (test a b)
-  (if (not (bn= a b))
-      (begin
-        (display "results not matching: ") 
-        (display "a: ") (display-rib a 5)
-        (display "b: ") (display-rib b 5)
-        (newline))
-      ;;(_pp a)))
-      (display "test passed...\n")
-      ))
-
-(define (test2 a b)
-  (if (not (equal? a b))
-      (begin
-        (display "results not matching: ") (newline)
-        (display "a: ") (display a) (newline)
-        (display "b: ") (display b) (newline)
-        )
-      (display "test passed...\n")))
-
-
-;; ;;------------------------------------------------------------------------------
-
-;; ;; unit tests
-
-
-;; ;; normalization
-
-;; ;; excessive symbols at the end + list starts with repetition
-;; (test (bn-norm (bn-cons 0 (bn-cons 0 (bn-cons (- base 1) (bn-cons (- base 1) bn-1)))))
-;;       (bn-cons 0 (bn-cons 0 bn-1)))
-
-;; ;; no symbols to strip off
-;; (test (bn-norm (bn-cons (- base 1) (bn-cons (- base 1) bn0)))
-;;       (bn-cons (- base 1) (bn-cons (- base 1) bn0)))
-
-;; ;; positive fixnum
-;; (test (bn-norm (bn-cons (- base 1) (bn-cons 0 (bn-cons 0 bn0))))
-;;       (- base 1))
-
-;; ;; negative fixnum
-;; (if (< 2 base)
-;;     (test (bn-norm (bn-cons (- base 2) bn-1))
-;;           -2))
-
-;; ;; not a fixnum (should not return 0)
-;; (test (bn-norm (bn-cons 0 (bn-cons (- base 1) (bn-cons (- base 1) bn-1))))
-;;       (bn-cons 0 bn-1))
-
-;; ;; representation of 0
-;; (test (bn-norm bn0) 0)
-
-;; ;; representation of -1
-;; (test (bn-norm bn-1) -1)
-
-;; ;; already a fixnum
-;; (test (bn-norm (- base 1)) (- base 1))
-
-
-
-;; ;; conversions
-
-;; ;; fixnum->bignum: simple case positive
-;; (test (fixnum->bignum 0) bn0)
-
-;; ;; fixnum->bignum: simple case negative
-;; (test (fixnum->bignum -1) (bn-cons (- base 1) bn-1))
-
-;; ;; fixnum->bignum: already a bignum
-;; (test (fixnum->bignum (bn-cons (- base 1) bn0)) (bn-cons (- base 1) bn0))
-
-;; ;; fixnum->bignum: invalid conversion
-;; (test2 (fixnum->bignum #t) #f)
-
-;; ;; bignum->fixnum: simple case positive
-;; (test (bignum->fixnum (bn-cons (- base 1) bn-1)) -1)
-
-;; ;; bignum->fixnum: simple case negative
-;; (test (bignum->fixnum (bn-cons (- base 1) bn0)) (- base 1))
-
-;; ;; bignum->fixnum: already a fixnum
-;; (test (bignum->fixnum -1) -1)
-
-;; ;; bignum->fixnum: invalid conversion
-;; (test2 (bignum->fixnum base) #f)
-
-
-
-;; ;; addition
-
-;; ;; different parity, carry (pos res)
-;; (test (+ (bn-cons (- base 1) bn-1)
-;;            (bn-cons (- base 1) (bn-cons (- base 1) bn0)))
-;;       (bn-cons (- base 2) (bn-cons (- base 1) bn0)))
-
-;; ;; different parity, carry (res = 0)
-;; (test (+ (bn-cons (- base 1) bn-1)
-;;            (bn-cons (- base 1) bn0))
-;;       (- base 2))
-
-;; ;; different parity, no carry (neg res)
-;; (test (+ (bn-cons 0  bn-1)
-;;            (bn-cons (- base 1) bn0))
-;;       -1)
-
-;; ;; same parity (pos), carry
-;; (test (+ (bn-cons (- base 1) (bn-cons (- base 1) bn0))
-;;            (bn-cons (- base 1) (bn-cons (- base 1) bn0)))
-;;       (bn-cons (- base 2) (bn-cons (- base 1) (bn-cons 1 bn0))))
-
-;; ;; same parity (pos), no carry
-;; (test (+ (bn-cons (- base 1) (bn-cons 0 bn0))
-;;            (bn-cons 0 (bn-cons 0 bn0)))
-;;       (- base 1))
-;;       ;; (cons base-1 bn0))
-
-;; ;; same parity (neg), carry
-;; (test (+ (bn-cons (- base 1) (bn-cons (- base 1) bn-1))
-;;            (bn-cons (- base 1) (bn-cons (- base 1) bn-1)))
-;;       -2)
-
-;; ;; same parity (neg), no carry
-;; (test (+ (bn-cons (- base 1) (bn-cons 0 bn-1))
-;;            (bn-cons (- base 1) (bn-cons 0 bn-1)))
-;;       (bn-cons (- base 2) (bn-cons 1 (bn-cons (- base 2) bn-1))))
-
-;; (test (+ bn0 bn0) 0)
-
-;; (test (+ bn0 bn-1) -1) ;; bn-1)
-
-;; (test (+ bn-1 bn0) -1) ;; bn-1)
-
-;; (test (+ (bn-cons (- base 1) bn-1) (bn-cons (- base 1) bn-1)) -2)
-
-;; (test (+ ($ 1234) ($ 56789)) ($ 58023))
-
-;; (test (+ ($ -1234) ($ 56789)) ($ 55555))
-
-;; (test (+ ($ 1234) ($ -56789)) ($ -55555))
-
-;; (test (+ ($ -1234) ($ -56789)) ($ -58023))
-
-
-
-;; ;; variadic addition
-
-;; (test (var-bn+ ($ 10000) ($ 20000) ($ 30000) ($ 40000) ($ 50000)) ($ 150000))
-
-;; (test (var-bn+ ($ -10000) ($ -20000) ($ -30000) ($ -40000) ($ -50000))
-;;       ($ -150000))
-
-;; (test (var-bn+ ($ 1000000) 1 1) ($ 1000002))
-
-;; (test (var-bn+ ($ 0) ($ 0) ($ 0) ($ 0) ($ 0)) bn0)
-
-
-;; ;; substraction
-
-;; ;; logic for these tests is no longer relevant, but they should still work
-
-;; ;; same parity (positive), no n-carry 
-;; (test (- (bn-cons (- base 1) (bn-cons (- base 1) bn0))
-;;            (bn-cons 0 (bn-cons (- base 1) bn0)))
-;;       (- base 1))
-
-;; ;; same parity (negative), no n-carry 
-;; (test (- (bn-cons (- base 1) (bn-cons (- base 1) bn-1))
-;;            (bn-cons 0 (bn-cons (- base 1) bn-1)))
-;;       (- base 1))
-
-;; ;; same parity (positive), n-carry 
-;; (test (- (bn-cons (- base 1) (bn-cons 0 bn0))
-;;            (bn-cons (- base 1) (bn-cons (- base 1) bn0)))
-;;       (bn-cons 0 (bn-cons 1 bn-1)))
-      
-;; ;; same parity (negative), n-carry
-;; (test (- (bn-cons (- base 1) (bn-cons 0 bn-1))
-;;            (bn-cons (- base 1) (bn-cons (- base 1) bn-1)))
-;;       (bn-cons 0 (bn-cons 1 bn-1)))
-      
-;; ;; different parity (pos, neg), no n-carry
-;; (test (- (bn-cons (- base 1) (bn-cons (- base 1) bn0))
-;;            (bn-cons (- base 1) (bn-cons (- base 1) bn-1)))
-;;       (bn-cons 0 (bn-cons 0 (bn-cons 1 bn0))))
-      
-;; ;; different parity (neg, pos), no n-carry
-;; (test (- (bn-cons (- base 1) (bn-cons (- base 1) bn-1))
-;;            (bn-cons (- base 1) (bn-cons (- base 1) bn0)))
-;;       (bn-cons 0 (bn-cons 0 bn-1)))
-      
-;; ;; different parity (pos, neg), n-carry
-;; (test (- (bn-cons (- base 1) bn0)
-;;          (bn-cons (- base 1) (bn-cons (- base 1) (bn-cons 0 bn-1))))
-;;       (bn-cons 0 (bn-cons 1 (bn-cons (- base 1) bn0))))
-      
-;; (test (- bn0 bn0) 0) ;; bn0)
-
-;; (test (- bn0 bn-1) 1) ;; (bn-cons 1 bn0))
-
-;; (test (- bn-1 bn0) -1) ;; bn-1)
-
-;; (test (- bn-1 bn-1) 0) ;; bn0)
-
-;; (test (- ($ 1234) ($ 56789)) ($ -55555))
-
-;; (test (- ($ -1234) ($ 56789)) ($ -58023))
-
-;; (test (- ($ 1234) ($ -56789)) ($ 58023))
-
-;; (test (- ($ -1234) ($ -56789)) ($ 55555))
-
-
-
-;; ;; unary substraction
-
-;; (test (bn-u bn0) 0) ;; bn0)
-
-;; (test (bn-u (bn-cons (- base 1) bn-1)) 1) ;; (cons 1 bn0))
-
-;; (test (bn-u ($ 123456789)) ($ -123456789))
-
-;; (test (bn-u ($ -123456789)) ($ 123456789))
-
-
-
-;; ;; multiplication 
-
-;; ;; simple test, pos * pos => pos
-;; (test (* (bn-cons (- base 1) (bn-cons (- base 1) bn0))
-;;            (bn-cons (- base 1) (bn-cons (- base 1) bn0)))
-;;       (bn-cons 1 (bn-cons 0 (bn-cons (- base 2) (bn-cons (- base 1) bn0)))))
-
-;; ;; simple test, pos * neg => neg
-;; (test (* (bn-cons (- base 1) (bn-cons (- base 1) bn0))
-;;            (bn-cons (- base 1) (bn-cons (- base 1) bn-1)))
-;;       (bn-cons 1 (bn-cons 0 bn-1)))
-
-;; ;; simple test, neg * pos => neg     
-;; (test (* (bn-cons (- base 1) (bn-cons (- base 1) bn-1))
-;;            (bn-cons (- base 1) (bn-cons (- base 1) bn0)))
-;;       (bn-cons 1 (bn-cons 0 bn-1)))
-
-;; ;; simple test, neg * neg => neg
-;; (test (* (bn-cons 1 bn-1)
-;;            (bn-cons (- base 1) (bn-cons 0 bn-1)))
-;;       (bn-cons (- base 1) (bn-cons 1 (bn-cons (- base 2) bn0))))
-
-;; (test (* -1 -1) 1) ;; (bn-cons 1 bn0))
-
-;; ;; anything * 0 = 0
-;; (test (* bn0 -1) 0) ;; bn0)
- 
-;; (test (* -1 bn0) 0) ;; bn0)
-
-;; (test (* ($ 1234) ($ 56789)) ($ 70077626))
-
-;; (test (* ($ -1234) ($ 56789)) ($ -70077626))
-
-;; (test (* ($ 1234) ($ -56789)) ($ -70077626))
-
-;; (test (* ($ -1234) ($ -56789)) ($ 70077626))
-
-
-
-;; ;; variadic multiplication
-
-;; (test (var-bn* ($ 100) ($ 200) ($ 300) ($ 400)) ($ 2400000000))
-
-;; (test (var-bn* ($ -100) ($ -200) ($ -300)) ($ -6000000))
-
-;; (test (var-bn* ($ 0) ($ 0) ($ 0) ($ 0) ($ 0)) bn0)
-
-
-
-;; ;; quotient 
-
-;; ;; (quotient pos pos) => pos 
-;; (test (quotient (bn-cons (- base 1) (bn-cons (- base 1) bn0))
-;;                 (bn-cons 0 (bn-cons (- base 1) bn0)))
-;;       1)
-
-;; ;; (quotient neg pos) => neg
-;; (test (quotient (bn-cons (- base 1) (bn-cons 0 bn-1))
-;;                    (bn-cons 0 (bn-cons (- base 1) bn0)))
-;;       -1)
-
-;; ;; (quotient pos neg) => neg
-;; (test (quotient (bn-cons 0 (bn-cons (- base 1) bn0))
-;;                    (bn-cons 0 (bn-cons (- base 1) bn-1)))
-;;       (- 0 (- base 1)))
-
-;; ;; (quotient neg neg) => pos
-;; (test (quotient (bn-cons (- base 1) (bn-cons 0 bn-1))
-;;                    (bn-cons 0 bn-1))
-;;       (- base 1))
-
-;; ;; a and b equal => 1
-;; (test (quotient (bn-cons (- base 1) (bn-cons (- base 1) bn0))
-;;                    (bn-cons (- base 1) (bn-cons (- base 1) bn0)))
-;;       1)
-
-;; (test (quotient bn0 bn-1) 0)
-
-;; (test (quotient bn-1 bn-1) 1)
-
-;; (test (quotient (bn-cons (- base 1) (bn-cons (- base 1) (bn-cons (- base 1) bn0)))
-;;                    (bn-cons (- base 1) (bn-cons (- base 1) bn0)))
-;;       (bn-cons 0 (bn-cons 1 bn0)))
-
-;; (test (quotient (bn-cons (- base 1) (bn-cons (- base 1) (bn-cons (- base 1) bn0)))
-;;                    (bn-cons (- base 1) (bn-cons 0 bn-1)))
-;;       (bn-cons 0 (bn-cons (- base 1) bn-1)))
-
-;; (test (quotient (bn-cons (- base 1) (bn-cons 0 (bn-cons 0 bn-1)))
-;;                    (bn-cons (- base 1) (bn-cons (- base 1) bn0)))
-;;       (bn-cons 0 (bn-cons (- base 1) bn-1)))
-
-;; (test (quotient (bn-cons (- base 1) (bn-cons 0 (bn-cons 0 bn-1)))
-;;                    (bn-cons (- base 1) (bn-cons 0 bn-1)))
-;;       (bn-cons 0 (bn-cons 1 bn0)))
-
-;; (test (quotient ($ 123456) ($ 789)) ($ 156))
-
-;; (test (quotient ($ 123456) ($ -789)) ($ -156))
-
-;; (test (quotient ($ -123456) ($ 789)) ($ -156))
-
-;; (test (quotient ($ -123456) ($ -789)) ($ 156))
-
-;; (test (quotient ($ 437817401731048) ($ 542334)) ($ 807283706))
-;; (test (quotient ($ -437817401731048) ($ 542334)) ($ -807283706))
-;; (test (quotient ($ 437817401731048) ($ -542334)) ($ -807283706))
-;; (test (quotient ($ -437817401731048) ($ -542334)) ($ 807283706))
-
-;; (test (quotient ($ 123456789000000000) ($ 1234)) ($ 100046020259319))
-
-;; (test (quotient ($ 1234567890) ($ -789)) ($ -1564724))
-
-;; (test (quotient ($ 7438027230) ($ 43342)) ($ 171612)) ;; q-hat >= base in D3 test
-
-;; (test (quotient ($ 879868799) ($ 876)) ($ 1004416))
-
-;; (test (quotient ($ 1000000000) ($ 2000000000)) ($ 0))
-
-;; (test (quotient ($ 95033534) ($ 4820)) ($ 19716))
-;; (test (quotient ($ -95033534) ($ 4820)) ($ -19716))
-;; (test (quotient ($ 95033534) ($ -4820)) ($ -19716))
-;; (test (quotient ($ -95033534) ($ -4820)) ($ 19716))
-
-;; (test (quotient ($ 43728020) ($ 2020)) ($ 21647))
-;; (test (quotient ($ -43728020) ($ 2020)) ($ -21647))
-;; (test (quotient ($ 43728020) ($ -2020)) ($ -21647))
-;; (test (quotient ($ -43728020) ($ -2020)) ($ 21647))
-
-;; ;; following (4) are examples where a becomes negative so we enter D6
-;; ;; but where the computation ends afterwards, need one where there's
-;; ;; at least one iteration of j left to see how b should be handled
-
-;; (test (quotient ($ 4728095872) ($ 3421111)) ($ 1382))
-;; (test (quotient ($ -4728095872) ($ 3421111)) ($ -1382))
-;; (test (quotient ($ 4728095872) ($ -3421111)) ($ -1382))
-;; (test (quotient ($ -4728095872) ($ -3421111)) ($ 1382))
-
-;; (test (quotient ($ 3098584) ($ 742)) ($ 4175))
-;; (test (quotient ($ -3098584) ($ 742)) ($ -4175))
-;; (test (quotient ($ 3098584) ($ -742)) ($ -4175))
-;; (test (quotient ($ -3098584) ($ -742)) ($ 4175))
-
-;; (test (quotient ($ 1000000000) ($ 1000000000)) ($ 1))
-;; (test (quotient ($ -1000000000) ($ 1000000000)) ($ -1))
-;; (test (quotient ($ 1000000000) ($ -1000000000)) ($ -1))
-;; (test (quotient ($ -1000000000) ($ -1000000000)) ($ 1))
-
-;; (test (quotient ($ 9034810) ($ 43810)) ($ 206))
-
-;; (test (quotient ($ 574603029374) ($ 495726)) ($ 1159114))
-
-;; (test (quotient ($ 58047224507820) ($ 345679)) ($ 167922334))
-
-;; (test (quotient ($ 84372032705870240582) ($ 832040240482)) ($ 101403788))
-
-;; ;; bignum and fixnum
-;; (test (quotient ($ 1231387065365335664572905623901) ($ 10))
-;;       ($ 123138706536533566457290562390))
-;; (test (quotient ($ -1231387065365335664572905623901) ($ 10))
-;;       ($ -123138706536533566457290562390))
-;; (test (quotient ($ 1231387065365335664572905623901) ($ -10))
-;;       ($ -123138706536533566457290562390))
-;; (test (quotient ($ -1231387065365335664572905623901) ($ -10))
-;;       ($ 123138706536533566457290562390))
-
-;; ;; b > a
-;; (test (quotient ($ 123456780) ($ 123456789)) ($ 0))
-
-
-
-;; ;; remainder
-
-;; ;; (remainder pos pos) => pos
-;; (test (remainder (bn-cons (- base 1) (bn-cons 0 (bn-cons (- base 1) bn0)))
-;;                     (bn-cons (- base 1) (bn-cons (- base 1) bn0)))
-;;       (bn-cons (- base 2) (bn-cons 1 (bn-cons 0 bn0))))
-
-;; ;; (remainder pos neg) => pos
-;; (test (remainder (bn-cons (- base 1) (bn-cons (- base 1) bn0))
-;;                     (bn-cons 0 (bn-cons (- base 1) bn-1)))
-;;       (- base 1))
-
-;; ;; (remainder neg pos) => neg
-;; (test (remainder (bn-cons (- base 1) (bn-cons (- base 1) (bn-cons 0 bn-1)))
-;;                     (bn-cons (- base 1) (bn-cons (- base 1) bn0)))
-;;       (bn-cons 0 bn-1))
-
-;; ;; (remainder neg neg) => neg
-;; (test (remainder (bn-cons (- base 1) (bn-cons (- base 1) (bn-cons 0 bn-1)))
-;;                     (bn-cons (- base 1) (bn-cons 0 bn-1)))
-;;       (bn-cons (- base 2) (bn-cons 1 (bn-cons (- base 1) bn-1))))
-
-;; ;; (remainder a b) where |a| == |b| => 0
-;; (test (remainder (bn-cons (- base 1) bn0)
-;;                     (bn-cons (- base 1) bn-1))
-;;       0)
-
-;; (test (remainder ($ 123456) ($ 789)) ($ 372))
-
-;; (test (remainder ($ 123456) ($ -789)) ($ 372))
-
-;; (test (remainder ($ -123456) ($ 789)) ($ -372))
-
-;; (test (remainder ($ -123456) ($ -789)) ($ -372))
-
-;; ;; modulo 
-
-;; ;; (modulo pos pos) => pos
-;; (test (modulo (bn-cons (- base 1) (bn-cons 0 (bn-cons (- base 1) bn0)))
-;;                  (bn-cons (- base 1) (bn-cons (- base 1) bn0)))
-;;       (bn-cons (- base 2) (bn-cons 1 bn0)))
-
-;; ;; (modulo pos neg) => neg
-;; (test (modulo (bn-cons 1 (bn-cons (- base 2) bn0))
-;;                  (bn-cons 0 (bn-cons 1 bn-1)))
-;;       (bn-cons 1 (bn-cons (- base 1) bn-1)))
-
-;; ;; please ignore this
-;; (if (> base 2)
-;;     ;; (modulo neg pos) => pos
-;;     (test (modulo (bn-cons 0 (bn-cons 0 (bn-cons (- base 1) bn-1)))
-;;                      (bn-cons 0 (bn-cons 1 bn0)))
-;;           (bn-cons 0 (bn-cons 1 bn0))))
-
-;; ;; (modulo a b), a,b < 0, |a| > |b| => neg
-;; (test (modulo (bn-cons (- base 1) (bn-cons (- base 1) (bn-cons 0 bn-1)))
-;;                  (bn-cons (- base 1) (bn-cons 0 bn-1)))
-;;       (bn-cons (- base 2) (bn-cons 1 (bn-cons (- base 1) bn-1))))
-
-;; ;; (modulo a b), a,b < 0, |a| = |b| => 0
-;; (test (modulo bn-1 bn-1) 0)
-
-;; ;; division by 0
-;; ;; (test (modulo bn0 bn0) error)
-
-;; (test (modulo ($ 123456) ($ 789)) ($ 372))
-
-;; (test (modulo ($ 123456) ($ -789)) ($ -417))
-
-;; (test (modulo ($ -123456) ($ 789)) ($ 417))
-
-;; (test (modulo ($ -123456) ($ -789)) ($ -372))
-
-
-
-;; ;; equality
-
-;; (test2 (= bn0 bn0) #t) 
-
-;; (test2 (= (bn-cons (- base 1) bn-1) (bn-cons (- base 1) bn-1)) #t)
-
-;; (test2 (= bn0 (bn-cons (- base 1) bn-1)) #f)
-
-;; (test2 (= (bn-cons (- base 1) bn-1) bn0) #f)
-
-;; (test2 (= (bn-cons (- base 1) bn0)
-;;             (bn-cons (- base 1) bn0))
-;;        #t)
-
-;; (test2 (= (bn-cons (- base 1) bn0)
-;;             (bn-cons 0 bn0))
-;;        #f)
-
-;; (test2 (= ($ 100) ($ 100)) #t)
-
-;; (test2 (= ($ -100) ($ -100)) #t)
-
-;; (test2 (= ($ 100) ($ -100)) #f)
-
-
-
-;; ;; variadic equality
-
-;; (test2 (var-bn= ($ 500) ($ 500) ($ 500) ($ 300) ($ 500)) #f)
-
-;; (test2 (var-bn= ($ 3000) ($ 3000) ($ 3000)) #t)
-
-;; (test2 (var-bn= ($ 0) ($ 0) ($ 0) ($ 0) ($ 0)) #t)
-
-;; (test2 (var-bn= -1 (bn-norm (cons (- base 1) bn-1)) (bn-neg 1)) #t)
-
-;; (test2 (var-bn= ($ 500000) ($ 500000) ($ 300000)) #f)
-
-;; (test2 (var-bn= ($ 3000000) ($ 3000000) ($ 3000000)) #t)
-
-
-
-;; ;; less than
-
-;; (test2 (< bn0 bn0) #f)
-
-;; (test2 (< (bn-cons (- base 1) bn-1) (bn-cons (- base 1) bn-1)) #f)
-
-;; (test2 (< bn0 bn-1) #f)
-
-;; (test2 (< (bn-cons (- base 1) bn-1) bn0) #t)
-
-;; (test2 (< (bn-cons (- base 1) bn0) bn0) #f)
-
-;; (test2 (< bn0 (bn-cons (- base 1) bn0)) #t)
-
-;; (test2 (< (bn-cons 0 (bn-cons (- base 1) bn-1))
-;;             (bn-cons 0 (bn-cons (- base 1) bn0)))
-;;        #t)
-
-;; (test2 (< (bn-cons 0 (bn-cons (- base 1) bn0))
-;;             (bn-cons 0 (bn-cons (- base 1) bn-1)))
-;;        #f)
-
-;; (test2 (< (bn-cons 0 (bn-cons (- base 1) bn0))
-;;             (bn-cons (- base 1) (bn-cons (- base 1) bn0)))
-;;        #t)
-
-;; (test2 (< (bn-cons 1 bn-1) (bn-cons 2 bn-1)) #t)
-
-;; (test2 (< ($ 100) ($ 100)) #f)
-
-;; (test2 (< ($ -100) ($ 100)) #t)
-
-;; (test2 (< ($ 100) ($ -100)) #f)
-
-
-
-;; ;; variadic less than
-
-;; (test2 (var-bn< ($ 100) ($ 200) ($ 300) ($ 400)) #t)
-
-;; (test2 (var-bn< ($ -100) ($ -200) ($ -300) ($ -400)) #f)
-
-;; (test2 (var-bn< ($ 100000) ($ 200000) ($ 300000) ($ 400000)) #t)
-
-;; (test2 (var-bn< ($ -100000) ($ -200000) ($ -300000) ($ -400000)) #f)
-
-
-
-;; ;; less or equal
-
-;; (test2 (<= bn0 bn0) #t)
-
-;; (test2 (<= (bn-cons (- base 1) bn-1) (bn-cons (- base 1) bn-1)) #t)
-
-;; (test2 (<= bn0 (bn-cons (- base 1) bn-1)) #f)
-
-;; (test2 (<= (bn-cons (- base 1) bn-1) bn0) #t)
-
-;; (test2 (<= ($ -100) ($ 101)) #t)
-
-;; (test2 (<= ($ -100) 0) #t)
-
-;; (test2 (<= ($ -100) ($ 100)) #t)
-
-;; (test2 (<= ($ 100) ($ 100)) #t)
-
-;; (test2 (<= ($ 100) ($ -100)) #f)
-
-
-
-;; ;; variadic less or equal
-
-;; (test2 (var-bn<= ($ 100) ($ 200) ($ 300) ($ 400)) #t)
-
-;; (test2 (var-bn<= ($ -100) ($ -200) ($ -300) ($ -400)) #f)
-
-;; (test2 (var-bn<= ($ 0) ($ 0) ($ 0) ($ 0) ($ 0)) #t)
-
-;; (test2 (var-bn<= ($ 100000) ($ 200000) ($ 300000) ($ 400000)) #t)
-
-;; (test2 (var-bn<= ($ -100000) ($ -200000) ($ -300000) ($ -400000)) #f)
-
-
-
-;; ;; greater than
-
-;; (test2 (> bn0 bn0) #f)
-
-;; (test2 (> (bn-cons (- base 1) bn-1) (bn-cons (- base 1) bn-1)) #f)
-
-;; (test2 (> bn0 (bn-cons (- base 1) bn-1)) #t)
-
-;; (test2 (> (bn-cons (- base 1) bn-1) bn0) #f)
-
-;; (test2 (> ($ -100) ($ 101)) #f)
-
-;; (test2 (> ($ -100) 0) #f)
-
-;; (test2 (> ($ -100) ($ 100)) #f)
-
-;; (test2 (> ($ 100) ($ 100)) #f)
-
-;; (test2 (> ($ 101) ($ -100)) #t)
-
-
-
-;; ;; variadic greater than
-
-;; (test2 (var-bn> ($ 100) ($ 200) ($ 300) ($ 400)) #f)
-
-;; (test2 (var-bn> ($ -100) ($ -200) ($ -300) ($ -400)) #t)
-
-;; (test2 (var-bn> ($ 0) ($ 0) ($ 0) ($ 0) ($ 0)) #f)
-
-;; (test2 (var-bn> ($ 100000) ($ 200000) ($ 300000) ($ 400000)) #f)
-
-;; (test2 (var-bn> ($ -100000) ($ -200000) ($ -300000) ($ -400000)) #t)
-
-
-;; ;; greater or equal
-
-;; (test2 (>= bn0 bn0) #t)
-
-;; (test2 (>= (bn-cons (- base 1) bn-1) (bn-cons (- base 1) bn-1)) #t)
-
-;; (test2 (>= bn0 (bn-cons (- base 1) bn-1)) #t)
-
-;; (test2 (>= (bn-cons (- base 1) bn-1) bn0) #f)
-
-;; (test2 (>= ($ -100) ($ 101)) #f)
-
-;; (test2 (>= ($ -100) 0) #f)
-
-;; (test2 (>= ($ -100) ($ 100)) #f)
-
-;; (test2 (>= ($ 100) ($ 100)) #t)
-
-;; (test2 (>= ($ 101) ($ -100)) #t)
-
-
-
-;; ;; variadic greater than
-
-;; (test2 (var-bn>= ($ 100) ($ 200) ($ 300) ($ 400)) #f)
-
-;; (test2 (var-bn>= ($ -100) ($ -200) ($ -300) ($ -400)) #t)
-
-;; (test2 (var-bn>= ($ 0) ($ 0) ($ 0) ($ 0) ($ 0)) #t)
-
-;; (test2 (var-bn>= ($ 100000) ($ 200000) ($ 300000) ($ 400000)) #f)
-
-;; (test2 (var-bn>= ($ -100000) ($ -200000) ($ -300000) ($ -400000)) #t)
-
-
-
-;; ;; bitwise not
-
-;; (test (bn~ 0) -1)
-
-;; (test (bn~ ($ 10000000)) ($ -10000001))
-
-;; (test (bn~ ($ -10000000)) ($ 9999999))
-
-
-
-;; ;; negation
-
-;; (test (bn-neg bn0) 0)
-
-;; (test (bn-neg 0) 0)
-
-;; (test (bn-neg (bn-cons (- base 1) bn-1)) 1)
-
-;; (test (bn-neg (bn-cons 1 bn0)) -1)
-
-;; (test (bn-neg ($ 123456789)) ($ -123456789))
-
-;; (test (bn-neg ($ -123456789)) ($ 123456789))
-
-
-
-;; ;; bn-abs
-
-;; (test (abs bn0) 0)
-
-;; (test (abs ($ 100)) ($ 100))
-
-;; (test (abs ($ -100)) ($ 100))
-
-;; (test (abs ($ 1000000000)) ($ 1000000000))
-
-;; (test (abs ($ -1000000000)) ($ 1000000000))
-
-
-;; ;; bn-zero?
-
-;; (test2 (zero? ($ 0)) #t)
-
-;; (test2 (zero? (- 0 base)) #f)
-
-;; (test2 (zero? (+ 0 base)) #f)
-
-
-
-;; ;; bn-positive?
-
-;; (test2 (positive? 0) #f)
-
-;; (test2 (positive? ($ -10000000000000)) #f)
-
-;; (test2 (positive? ($ 10000000000000)) #t)
-
-
-
-;; ;; bn-negative?
-
-;; (test2 (negative? 0) #f)
-
-;; (test2 (negative? ($ -10000000000000)) #t)
-
-;; (test2 (negative? ($ 10000000000000)) #f)
-
-
-
-;; ;; bn-even?
-
-;; (test2 (even? ($ 100)) #t)
-
-;; (test2 (even? ($ -100)) #t)
-
-;; (test2 (even? ($ 101)) #f)
-
-;; (test2 (even? ($ -101)) #f)
-
-;; (test2 (even? ($ 1000000000)) #t)
-
-;; (test2 (even? ($ -1000000000)) #t)
-
-;; (test2 (even? ($ 1000000001)) #f)
-
-;; (test2 (even? ($ -1000000001)) #f)
-
-
-
-;; ;; bn-odd?
-
-;; (test2 (odd? ($ 100)) #f)
-
-;; (test2 (odd? ($ -100)) #f)
-
-;; (test2 (odd? ($ 101)) #t)
-
-;; (test2 (odd? ($ -101)) #t)
-
-;; (test2 (odd? ($ 1000000000)) #f)
-
-;; (test2 (odd? ($ -1000000000)) #f)
-
-;; (test2 (odd? ($ 1000000001)) #t)
-
-;; (test2 (odd? ($ -1000000001)) #t)
-
-
-
-;; ;; bn-max
-
-;; (test (max ($ 0) bn0) ($ 0))
-
-;; (test (max ($ 0) ($ 100)) ($ 100))
-
-;; (test (max ($ 0) ($ -100)) ($ 0))
-
-;; (test (max ($ 0) ($ 10000000)) ($ 10000000))
-
-;; (test (max ($ 0) ($ -10000000)) ($ 0))
-
-
-
-;; ;; variadic max
-
-;; (test (var-bn-max ($ 0) ($ 0) ($ 0) ($ 0)) ($ 0))
-
-;; (test (var-bn-max ($ 100) ($ 200) ($ 300) ($ 400) ($ 500)) ($ 500))
-
-;; (test (var-bn-max ($ -100) ($ -200) ($ -300) ($ -400) ($ -500)) ($ -100))
-
-;; (test (var-bn-max ($ 100000) ($ 200000) ($ 300000)) ($ 300000))
-
-;; (test (var-bn-max ($ -100000) ($ -200000) ($ -300000)) ($ -100000))
-
-
-
-;; ;; bn-min
-
-;; (test (min ($ 0) bn0) ($ 0))
-
-;; (test (min ($ 0) ($ 100)) ($ 0))
-
-;; (test (min ($ 0) ($ -100)) ($ -100))
-
-;; (test (min ($ 0) ($ 10000000)) ($ 0))
-
-;; (test (min ($ 0) ($ -10000000)) ($ -10000000))
-
-
-;; ;; variadic min
-
-;; (test (var-bn-min ($ 0) ($ 0) ($ 0) ($ 0) bn0) ($ 0))
-
-;; (test (var-bn-min ($ 100) ($ 200) ($ 300) ($ 400) ($ 500)) ($ 100))
-
-;; (test (var-bn-min ($ -100) ($ -200) ($ -300) ($ -400) ($ -500)) ($ -500))
-
-;; (test (var-bn-min ($ 100000) ($ 200000) ($ 300000)) ($ 100000))
-
-;; (test (var-bn-min ($ -100000) ($ -200000) ($ -300000)) ($ -300000))
-
-
-;; ;; bn-gcd
-
-;; (test (gcd 0 0) 0)
-
-;; (test (gcd ($ 18) ($ 24)) ($ 6))
-
-;; (test (gcd ($ -18) ($ 24)) ($ 6))
-
-;; (test (gcd ($ 18) ($ -24)) ($ 6))
-
-;; (test (gcd ($ -18) ($ -24)) ($ 6))
-
-;; (test (gcd ($ 7) ($ 11)) ($ 1))
-
-;; (test (gcd ($ 180000) ($ 240000)) ($ 60000))
-
-;; (test (gcd ($ -180000) ($ 240000)) ($ 60000))
-
-;; (test (gcd ($ 180000) ($ -240000)) ($ 60000))
-
-;; (test (gcd ($ -180000) ($ -240000)) ($ 60000))
-
-
-
-;; ;; variadic bn-gcd
-
-;; (test (var-bn-gcd 0 0 0 0 0 0) 0)
-
-;; (test (var-bn-gcd ($ 18) ($ 24) ($ 36)) ($ 6))
-
-;; (test (var-bn-gcd ($ -18) ($ 24) ($ -36)) ($ 6))
-
-;; (test (var-bn-gcd ($ 18) ($ -24) ($ -36)) ($ 6))
-
-;; (test (var-bn-gcd ($ -18) ($ -24) ($ -36)) ($ 6))
-
-;; (test (var-bn-gcd ($ 7) ($ 11) ($ 13)) ($ 1))
-
-;; (test (var-bn-gcd ($ 180000) ($ 240000) ($ 360000)) ($ 60000))
-
-;; (test (var-bn-gcd ($ -180000) ($ 240000) ($ -360000)) ($ 60000))
-
-;; (test (var-bn-gcd ($ 180000) ($ -240000) ($ -360000)) ($ 60000))
-
-;; (test (var-bn-gcd ($ -180000) ($ -240000) ($ 360000)) ($ 60000))
-
-
-
-;; ;; bn-lcm
-
-;; (test (lcm ($ 3) ($ 3)) ($ 3))
-
-;; (test (lcm ($ 18) ($ 24)) ($ 72))
-
-;; (test (lcm ($ -18) ($ 24)) ($ 72))
-
-;; (test (lcm ($ 18) ($ -24)) ($ 72))
-
-;; (test (lcm ($ -18) ($ -24)) ($ 72))
-
-;; (test (lcm ($ 300000) ($ 300000)) ($ 300000))
-
-;; (test (lcm ($ 180000) ($ 240000)) ($ 720000))
-
-;; (test (lcm ($ -180000) ($ 240000)) ($ 720000))
-
-;; (test (lcm ($ 180000) ($ -240000)) ($ 720000))
-
-;; (test (lcm ($ -180000) ($ -240000)) ($ 720000))
-
-
-
-;; ;; variadic bn-lcm
-
-;; (test (var-bn-lcm ($ 3) ($ 3) ($ 3) ($ 3) ($ 3)) ($ 3))
-
-;; (test (var-bn-lcm ($ 18) ($ 24) ($ 6)) ($ 72))
-
-;; (test (var-bn-lcm ($ -18) ($ 24) ($ 36)) ($ 72))
-
-;; (test (var-bn-lcm ($ 18) ($ -24) ($ -6)) ($ 72))
-
-;; (test (var-bn-lcm ($ -18) ($ -24) ($ -36)) ($ 72))
-
-;; (test (var-bn-lcm ($ 18000) ($ 24000) ($ 6000)) ($ 72000))
-
-;; (test (var-bn-lcm ($ -18000) ($ 24000) ($ 36000)) ($ 72000))
-
-;; (test (var-bn-lcm ($ 18000) ($ -24000) ($ -6000)) ($ 72000))
-
-;; (test (var-bn-lcm ($ -18000) ($ -24000) ($ -36000)) ($ 72000))
-
-
-;; ;; number->string and string->number
-
-;; (test2 (= (bn-string->number (bn-number->string ($ 123456789)))
-;;           ($ 123456789))
-;;        #t)
 
