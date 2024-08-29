@@ -1,3 +1,11 @@
+# Chainforge API for Ribbit
+
+This branch implements, inside of `src/ribbit`, a script to connect with
+[Chainforge](https://chainforge.ai/play/). We tried to automatically generate
+RVMs from LLMs such as ChatGPT and others without much success.
+
+This branch is deprecated and is kept for historical reasons.
+
 # Ribbit
 
 A small, portable and extensible Scheme implementation that supports closures, tail calls, first-class continuations, a REPL and AOT and incremental compilers. All that for a run time footprint around 4 KB!
