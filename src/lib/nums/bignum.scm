@@ -678,20 +678,20 @@
 
 ;; bignum's string->number
 
-(define (bn-string->number str)
+(define (##bn-string->number str)
 
   (define (convert char)
     (if (and (##< 47 char) (##< char 58)) ;; 0-9
-        (##- char 48)   
+        (##- char 48)
         #f))
 
-  (define (bn-string->number-aux lst number)
+  (define (##bn-string->number-aux lst number)
     (if (null? lst) 
         number
         (let* ((char (##field0 lst))
                (digit (convert char)))
           (if digit
-              (bn-string->number-aux (##field1 lst)
+              (##bn-string->number-aux (##field1 lst)
                                      (bn+ (bn* 10 number) digit)) ;; FIXME ##bn?
               #f))))
 
@@ -699,7 +699,7 @@
     (if (null? lst)
         #f
         (if (##eqv? (##field0 lst) 45) ;; negative?
-            (let ((n (bn-string->number-aux (##field1 lst) 0)))
+            (let ((n (##bn-string->number-aux (##field1 lst) 0)))
               (and n (bn-u n))) 
-            (bn-string->number-aux lst 0))))) ;; FIXME normalize?
+            (##bn-string->number-aux lst 0))))) ;; FIXME normalize?
 
