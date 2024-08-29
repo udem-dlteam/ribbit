@@ -127,6 +127,7 @@
 ;; works
 
 (define (num->flonum n)
+  (display "hey\n")
   (cond ((< n min-normal-val) ;; -inf.0?
          (##rib (##+ sign-value fl-max-e) 0 flonum-type))
         ((< max-normal-val n) ;; +inf.0?
@@ -154,7 +155,7 @@
 (define (err_int) (error "*** ERROR -- INTEGER expected"))
 (define (err_flo) (error "*** ERROR -- FINITE real expected"))
 
-(define (fixnum.0? a) (##fl= a (##fl-truncate a)))
+(define (fixnum.0? a) (and (flonum? a) (##fl= a (##fl-truncate a))))
 
 ;;------------------------------------------------------------------------------
 
@@ -324,12 +325,16 @@
 
 (define (##fl-floor a)
   (let ((_a (##fl-truncate a)))
-    (if (or (##fl<= _0.0 _a) (##fl= a _a))
+    (if (or (##fl<= _0.0 a) (##fl= a _a))
         _a
         (##fl- _a _1.0))))
       
   
-(define (##fl-ceiling a) (##fl+ (##fl-floor a) 1.0))
+(define (##fl-ceiling a)
+  (let ((_a (##fl-truncate a)))
+    (if (or (##fl< a _0.0) (##fl= a _a))
+        _a
+        (##fl+ _a _1.0))))
 
 ;; ##fl-truncate => prim.fl
 
