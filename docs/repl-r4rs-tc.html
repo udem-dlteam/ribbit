@@ -1,0 +1,177 @@
+<html>
+  <head>
+
+    <!-- The whole repl is contained in this file -->
+    <script src="./repl_r4rs_tc.js"></script>
+
+    <!-- Highlight.js -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/languages/scheme.min.js"></script>
+
+    <!-- Styles for REPL -->
+    <style>
+      * {
+        font-family: 'Menlo', monospace;
+      }
+      h1, h2{
+        text-align: center;
+        width: 100%;
+      }
+      #repl {
+        width: 100%;
+        height: 50vh;
+        font-size: large;
+        padding: 10px;
+        background-color: #f8f8f8;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      }
+      .examples {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .example{
+        position: relative;
+        min-width: 200px;
+        padding: 20px;
+        background-color: #f8f8f8;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        margin-left: 20px;
+        margin-right: 20px;
+        margin-top: 5px;
+        margin-bottom: 5px;
+      }
+      .example:hover::before{
+        content: "Click to run in REPL";
+        position: absolute;
+        background-color: #f8f8f8;
+        color: #000000;
+        font-size: 1.2em;
+        top: 10;
+        left: 10;
+      }
+      .example:hover{
+        background-color: #f0f0f0;
+        color: #00000030;
+      }
+      .text{
+        margin: 10px;
+      }
+      pre{
+        margin: 0;
+      }
+    </style>
+
+
+    <script>
+      hljs.highlightAll(); // Highlight.js initialization
+
+      document.addEventListener('DOMContentLoaded', function(){
+        // Insert the size of the repl
+        fetch("repl_r4rs_tc.js").then(r => r.text()).then(t => document.getElementById('size').innerText=(t.length/1024).toFixed(2));
+
+        // Add the examples
+        let examples = document.querySelectorAll('.example');
+        let repl = document.getElementById('repl');
+
+        // Logic to run the examples on click
+        examples.forEach(function(example){
+          let text = example.querySelector('pre').innerText;
+          example.addEventListener('click', function(){
+            repl.focus();
+            for (let i = 0; i < text.length; i++){
+              if(text.charCodeAt(i) == 10){
+                repl.dispatchEvent(new KeyboardEvent('keypress',{'keyCode': 13}));
+              }
+              else {
+                repl.value += text[i];
+              }
+            }
+          });
+        });
+      });
+
+
+    </script>
+    </head>
+    <body>
+      <h1> Ribbit's R4RS Repl with type checks </h1>
+
+      <div class="text">
+        This is the R4RS complient REPL in Javascript in <strong>only <span id="size"></span> KB</strong>.
+        The <strong>whole repl logic</strong> is contained inside the <a href="repl_r4rs_tc.js">repl_r4rs_tc.js</a> file.
+        Check out the examples below to see what it is capable of!<br>
+        <br>
+        If you are wondering how we acheived such a small size, <a href="https://github.com/udem-dlteam/ribbit#research-and-papers">see our papers here</a> <br>
+        <br>
+        If you want to see a smaller version without type checks, <a href="./repl-r4rs.html">click here.</a><br>
+        <br>
+        To interact with the REPL, type your scheme code below and press enter. You can also click on any of the examples,
+        and they will be run in the REPL.
+      </div>
+
+      <!-- The repl script will replace the div below with a textarea -->
+      <div id="repl"></div>
+
+      <h2> Examples (click to run in the REPL) </h2>
+
+      <!-- All the examples below -->
+      <div class="examples"> 
+        <div class="example">
+          <pre><code class="language-scheme">(define (fact n)
+  (if (= n 0)
+    1
+    (* n (fact (- n 1)))))
+(fact 10)
+</code></pre>
+        </div>
+        <div class="example">
+          <pre><code class="language-scheme">(define (fib x) 
+  (if (< x 2)
+    x 
+    (+ (fib (- x 1)) 
+       (fib (- x 2)))))
+(fib 10)
+</code></pre>
+        </div>
+        <div class="example">
+          <pre><code class="language-scheme">(apply
+  +
+  (map 
+    fib 
+    '(0 1 2 3 4 5 6 7 8 9 10)))
+</code></pre>
+        </div>
+
+        <div class="example">
+          <pre><code class="language-scheme">(define cont #f)
+(+ 2 
+  (call/cc 
+    (lambda (k) 
+      (set! cont k) 
+      4)))
+(cont 10)
+</code></pre>
+        </div>
+
+        <div class="example">
+          <pre><code class="language-scheme">(define x 42)
+(define 
+  favorite 
+  '(my favorite number is))
+`(,@favorite ,x)
+</code></pre>
+        </div>
+        <div class="example">
+          <pre><code class="language-scheme">;; Type checking included
+(+ "foo" 3)
+</code></pre>
+        </div>
+      </div>
+    </body>
+</html>

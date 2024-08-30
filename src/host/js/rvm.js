@@ -14,16 +14,16 @@ debug = true;
 lengthAttr = "length";
 // @@(feature (and js/node js/web)
 isNode = process?.versions?.node != null;
-if (isNode) { 
+if (isNode) {
 // )@@
 
 
 // @@(feature sym2str (use chars2str)
-sym2str = (s) => chars2str(s[1][0]); 
+sym2str = (s) => chars2str(s[1][0]);
 // )@@
 
 // @@(feature chars2str
-chars2str = (s) => (s===NIL) ? "" : (String.fromCharCode(s[0])+chars2str(s[1])); 
+chars2str = (s) => (s===NIL) ? "" : (String.fromCharCode(s[0])+chars2str(s[1]));
 // )@@
 
 // @@(feature (or debug debug-trace error-msg) (use sym2str chars2str)
@@ -108,19 +108,20 @@ addEventListenerAttr = "addEventListener";
 selectionStartAttr = "selectionStart";
 
 domdoc[addEventListenerAttr]("DOMContentLoaded", () => {
-    dombody = domdoc.body;
-    txtarea = dombody.appendChild(domdoc.createElement("textarea"));
-    txtarea.style = "width:100%;height:50vh;";
-    dombody[addEventListenerAttr]("keypress", (e) => {
-        let x = txtarea[selectionStartAttr];
-        if (x<selstart) selstart=x;
-        if (e.keyCode==13) {
-            e.preventDefault();
-            input += txtarea.value.slice(selstart,x)+"\n";
-            putchar(10);
-            run(); // wake up VM
-        }
-    });
+
+    txtarea = domdoc.createElement("textarea");
+    domdoc.getElementById("repl").replaceWith(txtarea);
+    txtarea.id = "repl";
+  txtarea[addEventListenerAttr]("keypress", (e) => {
+    let x = txtarea[selectionStartAttr];
+    if (x<selstart) selstart=x;
+    if (e.keyCode==13) {
+      e.preventDefault();
+      input += txtarea.value.slice(selstart,x)+"\n";
+      putchar(10);
+      run(); // wake up VM
+    }
+  });
     run();
 });
 
