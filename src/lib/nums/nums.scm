@@ -198,7 +198,7 @@
         (cond ((fixnum? a) (not (##fx-even? a)))
               ((flonum? a)
                (if (integer? a)
-                   (##fx-even? (##inexact-integer->exact-integer a))
+                   (##fx-odd? (##inexact-integer->exact-integer a))
                    (error "*** ERROR - INTEGER expected in procedure: odd?")))
               (else (not (##bn-even? a))))))))
 
