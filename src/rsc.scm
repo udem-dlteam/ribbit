@@ -2605,55 +2605,55 @@
            (c-rib const-op
                   o
                   tail))
-          ;; ((number? o)
-          ;;  (if (and (host-config-feature-live? host-config 'scheme-bignum)
-          ;;           (bignum-in-range? o))
-          ;;    (bignum-encode o)
-          ;;    (if (< o 0)
-          ;;      (begin
-
-          ;;        (if (not (host-config-feature-live? host-config '##-))
-          ;;          (host-config-feature-add! host-config '##- #t))
-
-          ;;        (c-rib const-op
-          ;;               0
-          ;;               (c-rib const-op
-          ;;                      (- o)
-          ;;                      (add-nb-args
-          ;;                        #t
-          ;;                        2
-          ;;                        (c-rib jump/call-op
-          ;;                               '##-
-          ;;                               tail)))))
-          ;;      (c-rib const-op
-          ;;             o
-          ;;             tail))))
           ((number? o)
-           (cond ((and (integer? o) (exact? o)) ;; fixnum or bignum 
-                  (if (and (host-config-feature-live? host-config 'scheme-bignum)
-                           (bignum-in-range? o))
-                      (bignum-encode o)
-                      (if (< o 0)
-                          (begin
-                            (if (not (host-config-feature-live? host-config '##-))
-                                (host-config-feature-add! host-config '##- #t))
-                            (c-rib const-op
-                                   0
-                                   (c-rib const-op
-                                          (- o)
-                                          (add-nb-args
-                                           #t
-                                           2
-                                           (c-rib jump/call-op
-                                                  '##-
-                                                  tail)))))
-                          (c-rib const-op
-                                 o
-                                 tail)))
-                  ((and (real? o) (inexact? o)) ;; flonum
-                   (flonum-encode o))
-                  (else
-                   (error "can't encode number constant: " o)))))
+           (if (and (host-config-feature-live? host-config 'scheme-bignum)
+                    (bignum-in-range? o))
+             (bignum-encode o)
+             (if (< o 0)
+               (begin
+
+                 (if (not (host-config-feature-live? host-config '##-))
+                   (host-config-feature-add! host-config '##- #t))
+
+                 (c-rib const-op
+                        0
+                        (c-rib const-op
+                               (- o)
+                               (add-nb-args
+                                 #t
+                                 2
+                                 (c-rib jump/call-op
+                                        '##-
+                                        tail)))))
+               (c-rib const-op
+                      o
+                      tail))))
+          ;; ((number? o)
+          ;;  (cond ((and (integer? o) (exact? o)) ;; fixnum or bignum 
+          ;;         (if (and (host-config-feature-live? host-config 'scheme-bignum)
+          ;;                  (bignum-in-range? o))
+          ;;             (bignum-encode o)
+          ;;             (if (< o 0)
+          ;;                 (begin
+          ;;                   (if (not (host-config-feature-live? host-config '##-))
+          ;;                       (host-config-feature-add! host-config '##- #t))
+          ;;                   (c-rib const-op
+          ;;                          0
+          ;;                          (c-rib const-op
+          ;;                                 (- o)
+          ;;                                 (add-nb-args
+          ;;                                  #t
+          ;;                                  2
+          ;;                                  (c-rib jump/call-op
+          ;;                                         '##-
+          ;;                                         tail)))))
+          ;;                 (c-rib const-op
+          ;;                        o
+          ;;                        tail))))
+          ;;         ((and (real? o) (inexact? o)) ;; flonum
+          ;;          (flonum-encode o))
+          ;;         (else
+          ;;          (error "can't encode number constant: " o))))
           ((char? o)
            (if (and (host-config-features host-config)
                     (memq 'no-chars (host-config-features host-config)))
