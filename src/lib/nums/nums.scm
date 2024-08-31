@@ -184,38 +184,19 @@
 
 (define (zero? a) (= a 0)) 
 (define (positive? a) (< 0 a)) 
-(define (negative? a) (< a 0)) 
-
-
-(define (odd? a)
-  (if-feature (and (not nums/bignum) (not nums/flonum))
-    (not (##fx-even? a))
-    (if-feature (and nums/bignum (not nums/flonum))
-      (if (fixnum? a)
-          (not (##fx-even? a))
-          (not (##bn-even? a)))
-      (if-feature nums/flonum
-        (cond ((fixnum? a) (not (##fx-even? a)))
-              ((flonum? a)
-               (if (integer? a)
-                   (##fx-odd? (##inexact-integer->exact-integer a))
-                   (error "*** ERROR - INTEGER expected in procedure: odd?")))
-              (else (not (##bn-even? a))))))))
+(define (negative? a) (< a 0))
+(define (odd? a) (not (even? a))) ;; FIXME will produce the wrong type error
 
 (define (even? a)
-  (if-feature (and (not nums/bignum) (not nums/flonum))
-    (##fx-even? a)
-    (if-feature (and nums/bignum (not nums/flonum))
-      (if (fixnum? a)
-          (##fx-even? a)
-          (##bn-even? a))
-      (if-feature nums/flonum
-        (cond ((fixnum? a) (##fx-even? a))
-              ((flonum? a)
-               (if (integer? a)
-                   (##fx-even? (##inexact-integer->exact-integer a))
-                   (error "*** ERROR - INTEGER expected in procedure: even?")))
-              (else (##bn-even? a)))))))
+  
+  (define (##even? a)
+    (eqv? a (* 2 (quotient a 2))))
+
+  (if-feature nums/flonum
+    (if (integer? a)
+        (##even? (if (flonum? a) (##inexact-integer->exact-integer a) a))
+        (error "*** ERROR - INTEGER expected in procedure: even?"))
+    (##even? a)))
 
 
 ;;------------------------------------------------------------------------------
@@ -354,18 +335,6 @@
 ;; Absolute value
 
 (define (abs a) (if (< a 0) (- 0 a) a))
-
-;; (define (abs a)
-;;   (if-feature (and (not nums/bignum) (not nums/flonum))
-;;     (##fx-abs a b)
-;;     (if-feature (and nums/bignum (not nums/flonum))
-;;       (if (fixnum? a)
-;;           (bn-norm (##fx-abs))
-;;           (bn-norm (##bn-abs a)))
-;;       (if-feature nums/flonum
-;;         (cond ((fixnum? a) (##fx-abs a))
-;;               ((flonum? a) (##fl-abs a))
-;;               (else (##bn-abs a)))))))
 
 
 ;;------------------------------------------------------------------------------
