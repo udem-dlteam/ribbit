@@ -121,13 +121,27 @@
 
 ;;------------------------------------------------------------------------------
 
-;; conversion between numeric types... this is NOT an efficient way to do it
-;; and I just did it like that for now to have something that works without
-;; having to modify else but this needs to be fixed as soon as everything else
-;; works
+;; unsafe conversions
 
-(define (num->flonum n)
-  (display "hey\n")
+(define 2^23 8388608)
+
+(define (##exact-integer->inexact-integer n)
+
+  ;; fails as soon as two consecutive numbers have the same representation
+  ;; e.g. 16777217 and 16777218
+
+  ;; (define (extract-exponent n e)
+  ;;   (if (< n 2)
+  ;;    e
+  ;;    (extract-exponent (quotient n 2) (+ e 1))))
+
+  ;; (let* ((s (if (< n 0) 1 0))
+  ;;     (e (extract-exponent (abs n) 127))
+  ;;     (2^e-bias (expt 2 (- e 127)))
+  ;;     (f (bn-norm (* (- n 2^e-bias) (quotient 2^23 2^e-bias)))))
+  ;;   (scm2flonum-32 s e f))) ;; host-specific encoding (primitive)
+
+  ;; FIXME
   (cond ((< n min-normal-val) ;; -inf.0?
          (##rib (##+ sign-value fl-max-e) 0 flonum-type))
         ((< max-normal-val n) ;; +inf.0?
@@ -141,21 +155,34 @@
              (##string-append flostr (##rib 46 (##rib 48 '() pair-type) pair-type))
              (##+ flolen 2)
              string-type))))))
+  
 
+(define (##inexact-integer->exact-integer n)
+  ;; Unsafe conversion of an integer represented as a flonum to an integer
+  ;; represented as a fixnum/bignum. The conversion is assumed to be possible,
+  ;; meaning that n is normalized and so we always use the normal equation to
+  ;; find the value represented by the flonum. The equation is adapted so that
+  ;; we get an exact integer directly from the operations without having to do
+  ;; a conversion.
+  
+  (let* ((s (fl-extract-sign n))
+         (e (fl-extract-exponent n))
+         (f (fl-extract-mantissa n)))
+
+    (if (and (eqv? e 0) (eqv? f 0)) ;; FIXME (-)0.0 => (-)1.7014119e+38
+        0
+        (bn-norm (* (expt -1 s) ;; FIXME would branching be faster?
+                    (quotient (* (+ 2^23 f) (expt 2 (- e 127))) 2^23))))))
+ 
 ;;------------------------------------------------------------------------------
 
 ;; Operation check
 
-;; Not sure how to handle this but ideally we want to be able to perform some
-;; operations even if they're not technically defined for flonums when we have
-;; a flonum of the form fixnum.0
-
-;; odd?  even?  quotient  remainder  modulo  gcd  lcm
-
 (define (err_int) (error "*** ERROR -- INTEGER expected"))
 (define (err_flo) (error "*** ERROR -- FINITE real expected"))
 
-(define (fixnum.0? a) (and (flonum? a) (##fl= a (##fl-truncate a))))
+(define (inexact-integer? a)
+  (and (flonum? a) (##fl= a (##fl-truncate a))))
 
 ;;------------------------------------------------------------------------------
 
@@ -216,7 +243,7 @@
 
 ;; Flonum predicates
 
-(define (finite? a) (not (infinite? a)))
+(define (finite? a) (and (not (infinite? a)) (not (nan? a))))
 
 (define (infinite? a)
   (and (##eqv? (fl-extract-exponent a) fl-max-e)
@@ -231,6 +258,7 @@
 
 ;; ##fl= => prim-fl
 ;; ##fl< => prim-fl
+
 (define (##fl> a b) (##fl< b a))
 (define (##fl<= a b) (or (##fl= a b) (##fl< a b)))
 (define (##fl>= a b) (or (##fl= a b) (##fl< b a)))
@@ -329,14 +357,20 @@
         _a
         (##fl- _a _1.0))))
       
-  
 (define (##fl-ceiling a)
   (let ((_a (##fl-truncate a)))
     (if (or (##fl< a _0.0) (##fl= a _a))
         _a
         (##fl+ _a _1.0))))
 
-;; ##fl-truncate => prim.fl
+(define (##fl-truncate a)
+  ;; Can't use the host to truncate by doing a type cast. Could result in an
+  ;; overflow: e.g. in C (float) (int) 1e+10 => 2147483700.0
+
+  (if (or (infinite? a) (nan? a)) ;; FIXME
+      #f
+      (##exact-integer->inexact-integer
+       (##inexact-integer->exact-integer a))))
 
 (define (##fl-round a)
   (let* ((_floor (##fl-floor a))
@@ -344,6 +378,7 @@
     (if (##fl< dif _0.5)
         _floor
         (##fl+ _floor 1.0))))
+
 
 
 ;;==============================================================================
