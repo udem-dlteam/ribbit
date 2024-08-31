@@ -10,14 +10,11 @@ This includes closures, I/O, tail calls, first-class continuations and a Read Ev
  - **Extensible**. Ribbit can easily define new **primitives that interact with any of the 16 host languages**.
    [Read about our markup system.](http://www.iro.umontreal.ca/~feeley/papers/OLearyFeeleyMOREVMS23.pdf)
 
-For more information about Ribbit, you can look at our papers in the [paper section](#research-and-papers).
+For more information about Ribbit, you can look at our papers in the [paper section](#research-and-papers) or try the R4RS repl below !
 
-## Try it now !
-
-You can try Ribbit's R4RS scheme repl by clicking on the link below. It supports all the R4RS standard.
-
-[:frog: Try the R4RS REPL here ! :frog:](https://udem-dlteam.github.io/ribbit/repl-r4rs-tc.html)
-
+<p align="center" font-size="2em">
+ <h3 align="center"><a href="https://udem-dlteam.github.io/ribbit/repl-r4rs-tc.html">🐸 Try the R4RS REPL here 🐸</a></h3>
+</p>
 
 ## Development
 
