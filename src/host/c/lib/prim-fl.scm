@@ -31,7 +31,7 @@
   (##scm2flonum-32 sign exponent (bn-decode mantissa)))
 
 (define-primitive (##scm2flonum-32 sign exp mantissa)
-  ;; builds a florib, just for testing
+  ;; builds a florib with the host specific encoding
   "{
     obj mantissa = pop();
     obj exp = pop();
@@ -85,26 +85,6 @@
 ;; ##fl*
 ;; ##fl-
 ;; ##fl/ (instead of quotient)
-
-;; Could also be easier to use the host to implement floor and ceiling when
-;; possible to type cast
-
-
-
-(define-primitive (##fl-truncate a)
-  (use float_union florib2ieee ieee2florib)
-  "{
-    obj a = pop();
-
-    float_a.ieee = florib2ieee(RIB(a));
-
-    float_a.f = (float) (int) float_a.f;
-
-    obj florib = ieee2florib(float_a.ieee);
-
-    push2(florib, PAIR_TAG);
-    break;
-  }")
 
 
 (define-primitive (##fl= a b)
