@@ -107,3 +107,9 @@ clean:
 
 repl-asm.exe: rsc.exe
 	./rsc.exe -t asm -l r4rs lib/r4rs/repl.scm -e optimal -f+ compression/lzss/2b -f+ prim-no-arity -v -x repl-asm.exe
+
+repl_r4rs.js: rsc.exe
+	./rsc.exe -t js -f+ js/web -l r4rs -f+ compression/lzss/tag -e optimal lib/r4rs/repl.scm -m -f+ prim-no-arity -f+ die -o repl_r4rs.js
+
+repl_r4rs_tc.js: rsc.exe
+	./rsc.exe -t js -f+ js/web -l r4rs/tc -f+ compression/lzss/tag -e optimal lib/r4rs/repl.scm -m -f+ prim-no-arity -f+ die -o repl_r4rs_tc.js
