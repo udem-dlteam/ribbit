@@ -6,6 +6,7 @@
 ;;    - cond-expand macro (for dispatch)
 ;;    - variadics macro
 ;;    - typecheck macro
+;;    - inexact integer dispatch macro
 ;;    - compact feature
 ;;    - new logic for overflow
 ;;    - support all RnRS procedures
@@ -27,6 +28,15 @@
 ;;    - support for reference hosts: asm, c, hs, js, py (ieee32 and ieee64)
 ;; * Documentation
 ;;    - Cleanup readme and include new changes
+
+
+;; Note: odd?, even?, quotient, remainder, modulo, gcd, and lcm can be used
+;;  with inexact integers (integers that are represented as flonums) but the
+;;  result might differ from performing the operation with exact integers.
+
+;; Example in Gambit:
+;;  (##flonum->fixnum 574260754862354341.0) evaluates to 574260754862354368
+;;    => (odd? 574260754862354341.0) evaluates to #f
 
 
 ;;==============================================================================
@@ -91,7 +101,6 @@
   `(define ,signature
      (num-dispatch
       ,binding)))
-
 
 
 ;;------------------------------------------------------------------------------
@@ -183,20 +192,27 @@
 ;; Numerical properties predicates
 
 (define (zero? a) (= a 0)) 
-(define (positive? a) (< 0 a)) 
+(define (positive? a) (< 0 a))
 (define (negative? a) (< a 0))
-(define (odd? a) (not (even? a))) ;; FIXME will produce the wrong type error
+
+(define (odd? a)
+  (if-feature nums/flonum
+    (if (integer? a)
+        (##odd? (if (flonum? a) (##inexact-integer->exact-integer a) a))
+        (error "*** ERROR - INTEGER expected in procedure: odd?"))
+    (##odd? a)))
+
+(define (##odd? a) (eqv? 1 (remainder a 2)))
+
 
 (define (even? a)
-  
-  (define (##even? a)
-    (eqv? a (* 2 (quotient a 2))))
-
   (if-feature nums/flonum
     (if (integer? a)
         (##even? (if (flonum? a) (##inexact-integer->exact-integer a) a))
         (error "*** ERROR - INTEGER expected in procedure: even?"))
     (##even? a)))
+
+(define (##even? a) (eqv? 0 (remainder a 2)))
 
 
 ;;------------------------------------------------------------------------------
@@ -224,25 +240,6 @@
 ;;        (bn-norm
 ;;         (##bn+ (if (bignum? a) a (fixnum->bignum a))
 ;;                (if (bignum? b) b (fixnum->bignum b))))))))
-
-
-;; Other possible format:
-;; (define (+ a b)
-;;   (if-feature (and (not nums/bignum) (not nums/flonum))
-;;     (##+ a b)
-;;     (cond ((and (fixnum? a) (fixnum? b))
-;;         (bn-norm (##+ a b)))
-;;        (if-feature nums/flonum ;; <-- if-feature here instead
-;;          ((or (flonum? a) (flonum? b))
-;;           (##fl+ (cond ((fixnum? a) (##exact-integer->inexact-integer a))
-;;                        ((bignum? a) (##exact-integer->inexact-integer a))
-;;                        (else a))
-;;                  (cond ((fixnum? b) (##exact-integer->inexact-integer b))
-;;                        ((bignum? b) (##exact-integer->inexact-integer b))
-;;                        (else b)))))
-;;        (else
-;;         (bn-norm (##bn+ (if (bignum? a) a (fixnum->bignum a))
-;;                         (if (bignum? b) b (fixnum->bignum b))))))))))
 
 
 (define (+ a b)
@@ -362,12 +359,8 @@
                    ;; Not sure for this one, makes sense if the host supports
                    ;; returns a floating-point number result and if the host
                    ;; allows for division between fixnums and flonums
-                   (##exact-integer->inexact-integer
-                    (##fx-remainder
-                     (if (flonum? a) (##inexact-integer->exact-integer a) a)
-                     (if (flonum? b) (##inexact-integer->exact-integer b) b)))
-                   (error
-                    "*** ERROR - INTEGER expected in procedure: quotient")))
+                   (##fl/ a b)
+                   (error "*** ERROR - INTEGER expected in procedure: quotient")))
               ((fixnum? b)
                (bn-norm (##bn-fx-quotient a b)))
               (else
@@ -404,20 +397,9 @@
                 (##bn-remainder (if (bignum? a) a (fixnum->bignum a)) b))))))))
 
 
-;; (if-feature compact
-  
-;;   (define (modulo x y)
-;;     (let ((q (quotient x y)))
-;;       (let ((r (- x (* y q))))
-;;      (if (eqv? r 0)
-;;             0
-;;             (if (eqv? (< x 0) (< y 0))
-;;              r
-;;              (+ r y))))))
-
 (define (modulo a b)
   (if-feature (and (not nums/bignum) (not nums/flonum))
-    (##fx- modulo a b) 
+    (##fx-modulo a b) 
     (if-feature (and nums/bignum (not nums/flonum))
       (if (and (fixnum? a) (fixnum? b))
           (##fx-modulo a b) ;; no need to normalize
@@ -440,48 +422,57 @@
                 (##bn-modulo (if (bignum? a) a (fixnum->bignum a))
                              (if (bignum? b) b (fixnum->bignum b))))))))))
 
+;; (define (##modulo x y)
+;;   (let ((q (quotient x y)))
+;;     (let ((r (- x (* y q))))
+;;       (if (eqv? r 0)
+;;           0
+;;           (if (eqv? (< x 0) (< y 0))
+;;               r
+;;               (+ r y))))))
+
 
 ;;------------------------------------------------------------------------------
 
 ;; Gcd and lcm
 
 (define (gcd x y)
-
-  (define (##gcd x y)
-    (let* ((ax (abs x))
-           (ay (abs y)))
-        (if (< ax ay) (##gcd-aux ax ay) (##gcd-aux ay ax))))
-
-  (define (##gcd-aux x y)
-    (if (eqv? x 0) y (##gcd-aux (remainder y x) x)))
-
   (if-feature nums/flonum
-    (if (and (integer? x) (integer? y))
-        (##exact-integer->inexact-integer
-         (##gcd (if (flonum? x) (##inexact-integer->exact-integer x) x)
-                (if (flonum? y) (##inexact-integer->exact-integer y) y)))
-        (error "*** ERROR - INTEGER expected in procedure: gcd"))
-    
+    (if (or (flonum? x) (flonum? y))
+        (if (and (integer? x) (integer? y))
+            (##exact-integer->inexact-integer
+             (##gcd (if (flonum? x) (##inexact-integer->exact-integer x) x)
+                    (if (flonum? y) (##inexact-integer->exact-integer y) y)))
+            (error "*** ERROR - INTEGER expected in procedure: gcd"))
+        (##gcd x y))
     (##gcd x y)))
+
+(define (##gcd x y)
+  (let* ((ax (abs x))
+         (ay (abs y)))
+    (if (< ax ay) (##gcd-aux ax ay) (##gcd-aux ay ax))))
+
+(define (##gcd-aux x y)
+  (if (eqv? x 0) y (##gcd-aux (remainder y x) x)))
 
 
 (define (lcm x y)
-  
-  (define (##lcm x y)
-    (if (eqv? y 0)
-        0
-        (let* ((ax (abs x))
-               (ay (abs y)))
-          (* (quotient ax (gcd ax ay)) ay))))
-
   (if-feature nums/flonum
-    (if (and (integer? x) (integer? y))
-        (##exact-integer->inexact-integer
-         (##lcm (if (flonum? x) (##inexact-integer->exact-integer x) x)
-                (if (flonum? y) (##inexact-integer->exact-integer y) y)))
-        (error "*** ERROR - INTEGER expected in procedure: gcd"))
-    
+    (if (or (flonum? x) (flonum? y))
+        (if (and (integer? x) (integer? y))
+            (##exact-integer->inexact-integer
+             (##lcm (if (flonum? x) (##inexact-integer->exact-integer x) x)
+                    (if (flonum? y) (##inexact-integer->exact-integer y) y)))
+            (error "*** ERROR - INTEGER expected in procedure: lcm"))
+        (##lcm x y))
     (##lcm x y)))
+
+(define (##lcm x y)
+  (if (eqv? y 0)
+      0
+      (let* ((ax (abs x))
+             (ay (abs y)))
+        (* (quotient ax (##gcd ax ay)) ay))))
 
 
 ;;------------------------------------------------------------------------------
@@ -507,6 +498,19 @@
   (if-feature nums/flonum
     (if (flonum? a) (##fl-round a) (##id a))
     (##id a)))
+
+
+;;------------------------------------------------------------------------------
+
+;; Exponent
+
+(define (expt x y)
+  (if (eqv? y 0)
+      1
+      (let ((t (expt (* x x) (quotient y 2))))
+        (if (odd? y)
+            (* x t)
+            t))))
 
 
 ;;==============================================================================
@@ -535,6 +539,7 @@
                (##bn-number->string a))
               ((flonum? a)
                (##fl-number->string a)))))))
+
 
 ;; used for tests
 
