@@ -98,8 +98,8 @@
 ;; (define fl-extract-mantissa ##fl-mantissa) ;; simple-fl-extract-mantissa) ;; FIXME
 
 
-
-(define max-normal-val 340282356779733642748000000000000000000) ;; FIXME should have a different value for ieee32 and ieee64
+;; FIXME should have a different value for ieee32 and ieee64
+(define max-normal-val 340282356779733642748000000000000000000) 
 (define min-normal-val -340282356779733642748000000000000000000)
 
 ;;------------------------------------------------------------------------------
@@ -117,6 +117,8 @@
 (define _0.5 (##rib 126 0 flonum-type))
 (define _1.0 (##rib 127 0 flonum-type))
 (define _2.0 (##rib 128 0 flonum-type))
+(define _-0.0 (##rib sign-value 0 flonum-type))
+(define _-1.0 (##rib (##+ sign-value 127) 0 flonum-type))
 
 
 ;;------------------------------------------------------------------------------
@@ -171,18 +173,10 @@
 
     (if (and (eqv? e 0) (eqv? f 0)) ;; FIXME (-)0.0 => (-)1.7014119e+38
         0
-        (bn-norm (* (expt -1 s) ;; FIXME would branching be faster?
-                    (quotient (* (+ 2^23 f) (expt 2 (- e 127))) 2^23))))))
- 
-;;------------------------------------------------------------------------------
+        (let ((res (quotient (* (+ 2^23 f) (expt 2 (- e 127))) 2^23)))
+              ;; (res (* (quotient (+ 2^23 f) 2^23) (expt 2 (- e (- 127 23))))))
+          (bn-norm (if (##eqv? 1 s) (- 0 res) res))))))
 
-;; Operation check
-
-(define (err_int) (error "*** ERROR -- INTEGER expected"))
-(define (err_flo) (error "*** ERROR -- FINITE real expected"))
-
-(define (inexact-integer? a)
-  (and (flonum? a) (##fl= a (##fl-truncate a))))
 
 ;;------------------------------------------------------------------------------
 
@@ -211,15 +205,6 @@
       (##rib (##field0 str1) (##string-append (##field1 str1) str2) pair-type)))
 
 
-(define (expt x y)
-  (if (eqv? y 0)
-      1
-      (let ((t (expt (* x x) (quotient y 2))))
-        (if (odd? y)
-            (* x t)
-            t))))
-
-
 ;;==============================================================================
 
 ;; Numerical operations
@@ -239,6 +224,14 @@
 
 ;; exact? => nums.scm
 ;; inexact? => nums.scm
+;; exact-integer? => nums.scm
+
+(define (inexact-integer? a)
+  (if (flonum? a)
+      (if (and (not (nan? a)) (not (infinite? a)))
+          (##fl= a (##fl-truncate a))
+          #f)
+      #f))
 
 
 ;; Flonum predicates
@@ -254,99 +247,80 @@
        (not (##eqv? (fl-extract-mantissa a) 0))))
 
 
-;; Comparison predicates
+;; ;; Comparison predicates
 
-;; ##fl= => prim-fl
-;; ##fl< => prim-fl
+;; ;; ##fl= => prim-fl
+;; ;; ##fl< => prim-fl
 
-(define (##fl> a b) (##fl< b a))
+;; (define (##fl> a b) (##fl< b a))
 (define (##fl<= a b) (or (##fl= a b) (##fl< a b)))
-(define (##fl>= a b) (or (##fl= a b) (##fl< b a)))
+;; (define (##fl>= a b) (or (##fl= a b) (##fl< b a)))
 
 
-;; Numerical properties predicates
+;; ;; Numerical properties predicates
 
-(define (##fl-zero? a) (##fl= a _0.0))
-(define (##fl-positive? a) (##fl< _0.0 a))
-(define (##fl-negative? a) (##fl< a _0.0))
-
-(define (##fl-even? a)
-  (if (fixnum.0? a)
-      (##fl= _0.0 (##fl-modulo a _2.0))
-      (err_int)))
-
-(define (##fl-odd? a)
-  (if (fixnum.0? a)
-      (##fl= _1.0 (##fl-modulo a _2.0))
-      (err_int)))
+;; (define (##fl-zero? a) (##fl= a _0.0))
+;; (define (##fl-positive? a) (##fl< _0.0 a))
+;; (define (##fl-negative? a) (##fl< a _0.0))
+;; (define (##fl-odd? a) (##fl= _1.0 (##fl-modulo a _2.0)))
+;; (define (##fl-even? a) (##fl= _0.0 (##fl-modulo a _2.0)))
 
 
-;; Max and min
+;; ;; Max and min
 
-(define (##fl-max a b) (if (##fl< a b) b a))
-(define (##fl-min a b) (if (##fl< a b) a b))
-
-
-;; Arithmetic operations: +, *, -, /
-
-;; ##fl+ => prim-fl
-;; ##fl* => prim-fl
-;; ##fl- => prim-fl
-;; ##fl/ => prim-fl
+;; (define (##fl-max a b) (if (##fl< a b) b a))
+;; (define (##fl-min a b) (if (##fl< a b) a b))
 
 
-;; Absolute value
+;; ;; Arithmetic operations: +, *, -, /
 
-(define (##fl-abs a)
-  (if (##fl< a _0.0) (##fl- _0.0 a) a))
-
-
-;; Quotient, remainder and modulo
-
-(define (##fl-quotient a b)
-  (if (and (fixnum.0? a) (fixnum.0? b))
-      (##fl/ a b)
-      (err_int)))
-
-(define (##fl-remainder a b)
-  (if (and (fixnum.0? a) (fixnum.0? b))
-      (##fl- a (##fl* b (##fl/ a b)))
-      (err_int)))
-
-(define (##fl-modulo a b)
-  (if (and (fixnum.0? a) (fixnum.0? b))
-      (let ((q (##fl/ a b)))
-        (let ((r (##fl- a (##fl* b q))))
-          (if (##fl= r _0.0)
-              _0.0
-              (if (##fl= (##fl< a _0.0) (##fl< b _0.0))
-                  r
-                  (##fl+ r b)))))
-      (err_int)))
+;; ;; ##fl+ => prim-fl
+;; ;; ##fl* => prim-fl
+;; ;; ##fl- => prim-fl
+;; ;; ##fl/ => prim-fl
 
 
-;; Gcd and lcm
+;; ;; Absolute value
 
-(define (##fl-gcd a b)
+;; ;; (define (##fl-abs a) (if (##fl< a _0.0) (##fl- _0.0 a) a))
 
-  (define (##fl-gcd-aux a b)
-    (if (##fl=? a _0.0)
-        b
-        (##fl-gcd-aux (##fl-remainder b a) a)))
+
+;; ;; Quotient, remainder and modulo
+
+;; (define (##fl-quotient a b) (##fl/ a b))
+
+;; (define (##fl-remainder a b) (##fl- a (##fl* b (##fl/ a b))))
+
+;; (define (##fl-modulo a b)
+;;   (let ((q (##fl/ a b)))
+;;     (let ((r (##fl- a (##fl* b q))))
+;;       (if (##fl= r _0.0)
+;;           _0.0
+;;           (if (##fl= (##fl< a _0.0) (##fl< b _0.0))
+;;               r
+;;               (##fl+ r b))))))
+
+
+;; ;; Gcd and lcm
+
+;; (define (##fl-gcd a b)
+
+;;   (define (##fl-gcd-aux a b)
+;;     (if (##fl=? a _0.0)
+;;         b
+;;         (##fl-gcd-aux (##fl-remainder b a) a)))
   
-  (if (and (fixnum.0? a) (fixnum.0? b))
-      (let ((_a (##fl-abs a))
-            (_b (##fl-abs b)))
-        (if (##fl< _a _b) (##fl-gcd-aux _a _b) (##fl-gcd-aux _b _a)))
-      (err_int)))
+;;   (let ((_a (##fl-abs a))
+;;         (_b (##fl-abs b)))
+;;     (if (##fl< _a _b) (##fl-gcd-aux _a _b) (##fl-gcd-aux _b _a))))
 
 
-(define (##fl-lcm a b)
-  (if (##fl= b _0.0)
-      _0.0
-      (let ((_a (##fl-abs a))
-            (_b (##fl-abs b)))
-        (##fl* (##fl/ _a (##fl-gcd _b)) _b))))
+;; (define (##fl-lcm a b)
+;;   (if (##fl= b _0.0)
+;;       _0.0
+;;       (let ((_a (##fl-abs a))
+;;             (_b (##fl-abs b)))
+;;         (##fl* (##fl/ _a (##fl-gcd _b)) _b))))
 
 
 ;; Floor, ceiling, truncate, and round
@@ -367,18 +341,31 @@
   ;; Can't use the host to truncate by doing a type cast. Could result in an
   ;; overflow: e.g. in C (float) (int) 1e+10 => 2147483700.0
 
-  (if (or (infinite? a) (nan? a)) ;; FIXME
-      #f
-      (##exact-integer->inexact-integer
-       (##inexact-integer->exact-integer a))))
+  ;; FIXME could be much more efficient
+  (cond ((or (infinite? a) (nan? a)) ;; FIXME
+         a)
+        ((or (##fl= _0.0 a) (##fl= _-0.0 a))
+         a)
+        ((and (##fl< a _1.0) (##fl< _0.0 a))
+         (##rib 0 0 flonum-type))
+        ((and (##fl< a _0.0) (##fl< _-1.0 a))
+         (##rib sign-value 0 flonum-type))
+        (else
+         (##exact-integer->inexact-integer
+          (##inexact-integer->exact-integer a)))))
 
 (define (##fl-round a)
-  (let* ((_floor (##fl-floor a))
-         (dif (##fl- a _floor)))
-    (if (##fl< dif _0.5)
-        _floor
-        (##fl+ _floor 1.0))))
-
+  (if (##fl< a _0.0)
+      (let* ((_a (##fl-ceiling a))
+             (diff (##fl- _a a)))
+        (if (##fl< diff _0.5)
+            _a
+            (##fl- _a _1.0)))
+      (let* ((_a (##fl-floor a))
+             (diff (##fl- a _a)))
+        (if (##fl< diff _0.5)
+            _a
+            (##fl+ _a _1.0)))))
 
 
 ;;==============================================================================
