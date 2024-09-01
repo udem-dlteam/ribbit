@@ -356,11 +356,12 @@
                (##quotient a b)) ;; no need to normalize
               ((or (flonum? a) (flonum? b))
                (if (and (integer? a) (integer? b))
-                   ;; Not sure for this one, makes sense if the host supports
-                   ;; returns a floating-point number result and if the host
-                   ;; allows for division between fixnums and flonums
-                   (##fl/ a b)
-                   (error "*** ERROR - INTEGER expected in procedure: quotient")))
+                   (##exact-integer->inexact-integer
+                    (quotient
+                     (if (flonum? a) (##inexact-integer->exact-integer a) a)
+                     (if (flonum? b) (##inexact-integer->exact-integer b) b)))
+                   (error
+                    "*** ERROR - INTEGER expected in procedure: quotient")))
               ((fixnum? b)
                (bn-norm (##bn-fx-quotient a b)))
               (else
@@ -385,7 +386,7 @@
               ((or (flonum? a) (flonum? b))
                (if (and (integer? a) (integer? b))
                    (##exact-integer->inexact-integer
-                    (##fx-remainder
+                    (remainder
                      (if (flonum? a) (##inexact-integer->exact-integer a) a)
                      (if (flonum? b) (##inexact-integer->exact-integer b) b)))
                    (error
@@ -412,7 +413,7 @@
               ((or (flonum? a) (flonum? b))
                (if (and (integer? a) (integer? b))
                    (##exact-integer->inexact-integer
-                    (##fx-modulo
+                    (modulo
                      (if (flonum? a) (##inexact-integer->exact-integer a) a)
                      (if (flonum? b) (##inexact-integer->exact-integer b) b)))
                    (error
@@ -421,15 +422,6 @@
                (bn-norm
                 (##bn-modulo (if (bignum? a) a (fixnum->bignum a))
                              (if (bignum? b) b (fixnum->bignum b))))))))))
-
-;; (define (##modulo x y)
-;;   (let ((q (quotient x y)))
-;;     (let ((r (- x (* y q))))
-;;       (if (eqv? r 0)
-;;           0
-;;           (if (eqv? (< x 0) (< y 0))
-;;               r
-;;               (+ r y))))))
 
 
 ;;------------------------------------------------------------------------------
