@@ -229,7 +229,8 @@
 (define (inexact-integer? a)
   (if (flonum? a)
       (if (and (not (nan? a)) (not (infinite? a)))
-          (##fl= a (##fl-truncate a))
+          ;;(##fl= a (##fl-truncate a))
+          (##fl= _0.0 (##fl- (##fl-truncate a) a))
           #f)
       #f))
 
@@ -718,7 +719,7 @@
                                 0
                                 (expt 10 (+ dec (abs _exp)))))
                            (calculate-exponent
-                            (* intnum (expt 10 _exp))
+                            _num ;; (* intnum (expt 10 _exp)) 
                             0
                             1
                             2))))
