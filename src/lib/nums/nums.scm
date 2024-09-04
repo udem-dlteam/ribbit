@@ -20,7 +20,6 @@
 ;;    - vector implementation
 ;; * Flonums
 ;;    - conversions between numeric types 
-;;    - support for odd?, even?, quotient, remainder, modulo, gcd, lcm
 ;;    - subnormal numbers (minor bug)
 ;;    - double-precision support
 ;;    - parsing algorithms (optimize)
@@ -151,7 +150,7 @@
         (cond ((and (fixnum? a) (fixnum? b))
                (##eqv? a b))
               ((or (flonum? a) (flonum? b))
-               (##fl= (if (exact-integer? a)
+               (##fl= (if (exact-integer? a) ;; fixnum or bignum
                           (##exact-integer->inexact-integer a)
                           a)
                       (if (exact-integer? b)
@@ -173,7 +172,7 @@
         (cond ((and (fixnum? a) (fixnum? b))
                (##< a b))
               ((or (flonum? a) (flonum? b))
-               (##fl< (if (exact-integer? a)
+               (##fl< (if (exact-integer? a) 
                           (##exact-integer->inexact-integer a)
                           a)
                       (if (exact-integer? b)
@@ -228,56 +227,54 @@
 
 ;; Arithmetic operators: +, *, -, and /
 
-
-;; Leaving this here just to show how easy it'll be to integrate the
-;; optimization once it's done
-
-;; (define (+ a b)
-;;   (if-feature (and (not nums/bignum) (not nums/flonum))
-;;     (##+ a b)
-;;     (if-feature (and nums/bignum (not nums/flonum))
-;;       (or (##+? a b)
-;;        (bn-norm
-;;         (##bn+ (if (bignum? a) a (fixnum->bignum a))
-;;                (if (bignum? b) b (fixnum->bignum b))))))))
-
-
 (define (+ a b)
   (if-feature (and (not nums/bignum) (not nums/flonum))
     (##+ a b)
-    (if-feature (and nums/bignum (not nums/flonum))
-      (if (and (fixnum? a) (fixnum? b))
-          (bn-norm (##+ a b))
-          (bn-norm (##bn+ (if (bignum? a) a (fixnum->bignum a))
-                          (if (bignum? b) b (fixnum->bignum b)))))
+    (if-feature (and nums/bignum (not nums/flonum)) 
+      (or (##+? a b) 
+          (bn-norm
+           (##bn+ (if (bignum? a) a (fixnum->bignum a))
+                  (if (bignum? b) b (fixnum->bignum b)))))
       (if-feature nums/flonum
-        (cond ((and (fixnum? a) (fixnum? b))
-               (bn-norm (##+ a b)))
-              ((or (flonum? a) (flonum? b))
-               (##fl+ (if (exact-integer? a)
-                          (##exact-integer->inexact-integer a)
-                          a)
-                      (if (exact-integer? b)
-                          (##exact-integer->inexact-integer b)
-                          b)))
-              (else
-               (bn-norm (##bn+ (if (bignum? a) a (fixnum->bignum a))
-                               (if (bignum? b) b (fixnum->bignum b))))))))))
+        (or (##+? a b) ;; #f if a or b is not a fixnum or if there's an oveflow
+            (if (or (flonum? a) (flonum? b)) 
+                (##fl+ (if (exact-integer? a)
+                           (##exact-integer->inexact-integer a)
+                           a)
+                       (if (exact-integer? b)
+                           (##exact-integer->inexact-integer b)
+                           b))
+                (bn-norm ;; fixnums with overflow or either a or b is a bignum 
+                 (##bn+ (if (bignum? a) a (fixnum->bignum a))
+                        (if (bignum? b) b (fixnum->bignum b))))))))))
 
 
 (define (* a b)
   (if-feature (and (not nums/bignum) (not nums/flonum))
     (##* a b)
     (if-feature (and nums/bignum (not nums/flonum))           
-      (cond ((and (fixnum? a) (fixnum? b))
-             (bn-norm (##* a b)))
-            ((fixnum? b)
-             (bn-norm (##bn-fx* a b)))
-            ((fixnum? a)
-             (bn-norm (##bn-fx* b a)))
-            (else
-             (bn-norm (##bn* a b))))
-      (if-feature nums/flonum
+      (or (##*? a b)
+          (cond ((fixnum? b) 
+                 (bn-norm (##bn-fx* (if (fixnum? a) (fixnum->bignum a) a) b)))
+                ((fixnum? a)
+                 (bn-norm (##bn-fx* b a)))
+                (else
+                 (bn-norm (##bn* a b)))))
+      (if-feature nums/flonum ;; FIXME
+;;         (or (##*? a b)
+;;          (cond ((or (flonum? a) (flonum? b))
+;;                 (##fl* (if (exact-integer? a)
+;;                               (##exact-integer->inexact-integer a)
+;;                               a)
+;;                        (if (exact-integer? b)
+;;                               (##exact-integer->inexact-integer b)
+;;                               b)))
+;;                ((fixnum? b) 
+;;                 (bn-norm (##bn-fx* (if (fixnum? a) (fixnum->bignum a) a) b)))
+;;                ((fixnum? a)
+;;                 (bn-norm (##bn-fx* b a)))
+;;                (else
+;;                 (bn-norm (##bn* a b)))))))))
         (cond ((and (fixnum? a) (fixnum? b))
                (bn-norm (##* a b)))
               ((or (flonum? a) (flonum? b))
@@ -299,30 +296,33 @@
   (if-feature (and (not nums/bignum) (not nums/flonum))
     (##- a b)
     (if-feature (and nums/bignum (not nums/flonum))
-      (if (and (fixnum? a) (fixnum? b))
-          (bn-norm (##- a b)) ;; could overflow: (- 0 -MAX_FIXNUM)
-          (bn-norm (##bn- (if (bignum? a) a (fixnum->bignum a))
-                          (if (bignum? b) b (fixnum->bignum b)))))
+      (or (##-? a b) 
+          (bn-norm
+           (##bn- (if (bignum? a) a (fixnum->bignum a))
+                  (if (bignum? b) b (fixnum->bignum b)))))
       (if-feature nums/flonum
-        (cond ((and (fixnum? a) (fixnum? b))
-               (bn-norm (##- a b)))
-              ((or (flonum? a) (flonum? b))
-               (##fl- (if (exact-integer? a)
-                          (##exact-integer->inexact-integer a)
-                          a)
-                      (if (exact-integer? b)
-                          (##exact-integer->inexact-integer b)
-                          b)))
-              (else
-               (bn-norm (##bn- (if (bignum? a) a (fixnum->bignum a))
-                               (if (bignum? b) b (fixnum->bignum b))))))))))
+        (or (##-? a b) ;; #f if a or b is not a fixnum or if there's an oveflow
+            (if (or (flonum? a) (flonum? b)) 
+                (##fl- (if (exact-integer? a)
+                           (##exact-integer->inexact-integer a)
+                           a)
+                       (if (exact-integer? b)
+                           (##exact-integer->inexact-integer b)
+                           b))
+                (bn-norm ;; fixnums with overflow or either a or b is a bignum 
+                 (##bn- (if (bignum? a) a (fixnum->bignum a))
+                        (if (bignum? b) b (fixnum->bignum b))))))))))
 
 
 (define (/ a b)
   (if-feature nums/flonum
     (if (or (flonum? a) (flonum? b))
-        (##fl/ (if (exact-integer? a) (##exact-integer->inexact-integer a) a)
-               (if (exact-integer? b) (##exact-integer->inexact-integer b) b))
+        (##fl/ (if (exact-integer? a)
+                   (##exact-integer->inexact-integer a)
+                   a)
+               (if (exact-integer? b)
+                   (##exact-integer->inexact-integer b)
+                   b))
         (quotient a b))
     (quotient a b)))
 
@@ -338,35 +338,30 @@
 
 ;; Quotient, remainder, and modulo
 
-;; FIXME more compact logic for these
-
 (define (quotient a b)
   (if-feature (and (not nums/bignum) (not nums/flonum))
     (##quotient a b)
     (if-feature (and nums/bignum (not nums/flonum))
-      (cond ((and (fixnum? a) (fixnum? b))
-             (##quotient a b)) ;; no need to normalize
-            ((fixnum? b)
-             (bn-norm (##bn-fx-quotient a b)))
-            (else
-             (bn-norm
-              (##bn-quotient (if (bignum? a) a (fixnum->bignum a)) b))))
+      (or (##quotient? a b)
+          (let ((_a (if (fixnum? a) (fixnum->bignum a) a)))
+            (if (fixnum? b) 
+                (bn-norm (##bn-fx-quotient _a b))
+                (bn-norm (##bn-quotient _a b)))))
       (if-feature nums/flonum
-        (cond ((and (fixnum? a) (fixnum? b))
-               (##quotient a b)) ;; no need to normalize
-              ((or (flonum? a) (flonum? b))
-               (if (and (integer? a) (integer? b))
-                   (##exact-integer->inexact-integer
-                    (quotient
-                     (if (flonum? a) (##inexact-integer->exact-integer a) a)
-                     (if (flonum? b) (##inexact-integer->exact-integer b) b)))
-                   (error
-                    "*** ERROR - INTEGER expected in procedure: quotient")))
-              ((fixnum? b)
-               (bn-norm (##bn-fx-quotient a b)))
-              (else
-               (bn-norm
-                (##bn-quotient (if (bignum? a) a (fixnum->bignum a)) b))))))))
+        (or (##quotient? a b)
+            (if (or (flonum? a) (flonum? b))
+                (if (and (integer? a) (integer? b))
+                    (##exact-integer->inexact-integer
+                     (quotient
+                      (if (flonum? a) (##inexact-integer->exact-integer a) a)
+                      (if (flonum? b) (##inexact-integer->exact-integer b) b)))
+                    (error
+                     "*** ERROR - INTEGER expected in procedure: quotient"))
+                ;; fixnums with overflow or a or b is a bignum
+                (let ((_a (if (fixnum? a) (fixnum->bignum a) a)))
+                  (if (fixnum? b) 
+                      (bn-norm (##bn-fx-quotient _a b))
+                      (bn-norm (##bn-quotient _a b))))))))))
 
         
 (define (remainder a b)
