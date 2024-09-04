@@ -89,7 +89,7 @@
 
   (if (bignum? n)
       (if (##bn< n bn0)
-          (##- 0 (_bn-decode n 1))
+          (##- 0 (_bn-decode (##bn-abs n) 1))
           (_bn-decode n 1))
       n)) ;; assumes n is a fixnum
 
@@ -184,8 +184,6 @@
 ;;==============================================================================
 
 ;; Numerical operations
-
-;; Not all procedures are equal. 
 
 
 ;;------------------------------------------------------------------------------
