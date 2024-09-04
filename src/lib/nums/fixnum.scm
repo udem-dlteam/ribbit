@@ -1,6 +1,6 @@
 ;;; File: fixnum.scm
 
-;; (##include-once (ribbit "prim-fx"))
+(##include-once (ribbit "prim-fx"))
 
 ;;==============================================================================
 
@@ -70,7 +70,7 @@
 
 ;; Quotient, remainder and modulo
 
-(define ##fx-quotient ##quotient)
+;; quotient
 
 (define (##fx-remainder x y)
   (##- x (##* y (##quotient x y))))

@@ -229,8 +229,8 @@
 (define (inexact-integer? a)
   (if (flonum? a)
       (if (and (not (nan? a)) (not (infinite? a)))
-          ;;(##fl= a (##fl-truncate a))
-          (##fl= _0.0 (##fl- (##fl-truncate a) a))
+          (##fl= a (##fl-truncate a))
+          ;; (##fl= _0.0 (##fl- (##fl-truncate a) a))
           #f)
       #f))
 
@@ -743,7 +743,7 @@
                
   (define (##string->flonum-aux-1 lst num sign) ;; integer part
     (if (null? lst) ;; number was an integer FIXME need to deal with bignums as well
-        num
+        (if (eqv? 0 sign) num (- 0 num))
         (let ((char (##field0 lst)))
           (cond ((##eqv? char 46) ;; dot?
                  (##string->flonum-aux-2 (##field1 lst)
