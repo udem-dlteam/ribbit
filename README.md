@@ -3,8 +3,8 @@
 A portable, compact and extensible Scheme implementation that is **fully R4RS compliant**.
 This includes closures, I/O, tail calls, first-class continuations and a Read Eval Print Loop (REPL).
 
- - **Extremely compact**. Ribbit **removes unused code** and performs a specialized compression according to the
-    source code. [Read about how we managed to fit a whole Scheme interpreter (REPL) inside 7KB](https://arxiv.org/abs/2310.13589)
+ - **Very Compact**. Ribbit **removes unused code** and performs a specialized compression according to the
+    source code. [Read about our Scheme interpreter implementation (REPL) inside 7KB](https://arxiv.org/abs/2310.13589)
  - **Portable**. Ribbit currently runs on **16 different hosts**, including : *JavaScript*, *Assembly (x86)*,
   *C*, *Python*, *POSIX Shell*, *Prolog* and more. [See all targets](#supported-targets).
  - **Extensible**. Ribbit can easily define new **primitives that interact with any of the 16 host languages**.
@@ -27,7 +27,7 @@ reach out in the issues section of Github.
 
 <!-- If you are interested in contributing, you can look at [how to contribute](#how-to-contribute) -->
 
-### Usage
+## Usage
 
 Currently, Ribbit has only been tested with Gambit v4.7.5, and may not work with other
 Scheme implementations.
@@ -36,16 +36,16 @@ The Ribbit AOT compiler is written in Scheme and can be executed with [Gambit v4
 The compiler's source code is in a single file: `src/rsc.scm`.
 
 Ribbit currently compiles Scheme code to **more than 15 different host languages**. To select
-a language, use the `-t` option of the compiler with the extension of the target. Here are some selected
-examples `js` (JavaScript), `asm` (x86 Assembly), `c` (C), `py` (Python), `hs` (Haskell), `pro` (Prolog)
-or [more](#supported-targets).
+a language, use the `-t` compiler option followed by the extension of the **target** language. For example, the option
+can be followed by `js` (JavaScript), `asm` (x86 Assembly), `c` (C), `py` (Python), `hs` (Haskell), `pro` (Prolog) 
+or [any of the supported targets](#supported-targets).
 
 The `-m` option causes a minification of the generated program. This requires a
-recent version of Gambit and may need additionnal dependencies depending on the minifed target.
-See the `host/<host>/minify` script to see what is used.
+recent version of Gambit and may need aditionnal dependencies depending on the target under minification.
+See the `host/<host>/minify` script of a specific host for details.
 
 The `-l` option allows selecting the Scheme runtime library (located in the
-`lib` subdirectory). Here are a list of libraries :
+`lib` subdirectory). Here is a list of libraries :
  - `r4rs` : Adds all essential R4RS procedures. Includes a REPL that is fully R4RS compliant.
  - `r4rs-tc` : Like `r4rs` but with run time type checking.
  - `min`, `max` : Minimal library for small scheme implementations, including a minimal REPL.
@@ -58,7 +58,9 @@ To compile an executable of the Ribbit Scheme Compiler (rsc.exe) with Gambit, yo
 make rsc.exe
 ```
 
-Here are a few examples (all assume that a `cd src` has been done first):
+## Usage Examples
+
+Here are a few examples, all assume that a `cd src` and `make rsc.exe` has been done first :
 
 ### Use RSC to compile an R4RS compliant REPL to Python
 
@@ -76,7 +78,7 @@ $ cat test.txt
 Hello Ribbit!
 ```
 
-Do the same but generating a JavaScript R4RS repl:
+Do the same but generating a JavaScript R4RS REPL:
 
 ```
 $ ./rsc.exe -t js -l r4rs lib/r4rs/repl.scm -o repl.js
@@ -93,7 +95,7 @@ $ ./rsc.exe -t c -l r4rs lib/r4rs/repl.scm -o repl.c
 $ ./rsc.exe -t hs -l r4rs lib/r4rs/repl.scm -o repl.hs
 ```
 
-### Generate the world's smalest R4RS compliant repl (takes 1 minutes)
+### Generate the world's smallest R4RS compliant REPL (takes 1 minute)
 
 ```
 $ make repl-asm.exe
@@ -161,7 +163,7 @@ $ ./square
 @
 ```
 
-### Generate a simple typed-checked max repl in any of the hosts
+### Generate a simple typed-checked max REPL in any of the hosts
 Note that the incremental compiler used by the repl-max.scm only supports a subset
 of the Scheme special forms. In particular procedure definitions should use
 `(define f (lambda (x) ...))` instead of `(define (f x) ...)`.
@@ -174,7 +176,7 @@ $ swipl repl-max.pro
 ^D
 ```
 
-Choose any language that support the core features in the supported targets table and compile it by
+Choose any language that supports the core features in the supported targets table and compile it by
 replacing `pro` with the target language.
 
 ### Other examples and tests
@@ -195,9 +197,9 @@ The makefile in the `src` directory has these make targets:
 
 Here :
  - `core` means a traditional RVM implementation. These support minimal I/O (putchar, getchar only), and min/max/max-tc repls.
- - `variadics` means that the target supports functions with any numbers of parameter, for example, the `(define (f . rest) ...)` form.
+ - `variadics` means that the target supports functions with any numbers of parameters, for example, the `(define (f . rest) ...)` form.
  - `I/O` means that the target supports the full I/O primitives defined by R4RS (open-input-file, open-output-file, etc.).
- - `r4rs` means that the target supports the full R4RS `essential` standard. This relies on all above features.
+ - `r4rs` means that the target supports the full R4RS `essential` standard. This relies on all the above features.
 
 | Language             | Core | variadics | I/O  | R4RS |
 |----------------------|------|-----------|------|------|
