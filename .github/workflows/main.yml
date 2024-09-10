@@ -1,14 +1,12 @@
-name: Test
-run-name: Test RVMs
+name: RVM tests
+run-name: RVM tests
 on: 
   push:
     branches:
       - main
-      - dev
   pull_request:
     branches:
       - main
-      - dev
 jobs:
   compile_RSC:
     runs-on: ubuntu-latest
