@@ -125,7 +125,7 @@ domdoc[addEventListenerAttr]("DOMContentLoaded", () => {
     run();
 });
 
-putchar = (c) => (selstart=txtarea[selectionStartAttr]=(txtarea.value += String.fromCharCode(c))[lengthAttr], c);
+putchar = (c) => (selstart=txtarea[selectionStartAttr]=(txtarea.value += String.fromCharCode(c))[lengthAttr],txtarea.scrollTo(0,txtarea.scrollHeight), c);
 
 getchar = () => pos<input[lengthAttr] && push(get_byte());
 // )@@
