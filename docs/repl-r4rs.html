@@ -74,7 +74,10 @@
 
       document.addEventListener('DOMContentLoaded', function(){
         // Insert the size of the repl
-        fetch("repl_r4rs.js").then(r => r.text()).then(t => document.getElementById('size').innerText=(t.length/1024).toFixed(2));
+        fetch("repl_r4rs.js")
+          .then(r => r.text())
+          .then(t => document.getElementById('size')
+          .innerText = (t.length/1024).toFixed(2));
 
         // Add the examples
         let examples = document.querySelectorAll('.example');
@@ -84,10 +87,11 @@
         examples.forEach(function(example){
           let text = example.querySelector('pre').innerText;
           example.addEventListener('click', function(){
-            repl.focus();
             for (let i = 0; i < text.length; i++){
               if(text.charCodeAt(i) == 10){
-                repl.dispatchEvent(new KeyboardEvent('keypress',{'keyCode': 13}));
+                repl.dispatchEvent(
+                  new KeyboardEvent('keypress',{'keyCode': 13})
+                );
               }
               else {
                 repl.value += text[i];
@@ -95,6 +99,9 @@
             }
           });
         });
+
+        // Focus on the repl
+        repl.focus();
       });
 
 
