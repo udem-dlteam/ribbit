@@ -98,7 +98,7 @@ check-repl:
 	    echo "Could not build repl"; \
 			exit 1; \
 	  else \
-	    for prog in `ls $$TEST_DIR/01-r4rs/$$TEST_FILTER.scm host/$$HOST/tests/$$TEST_FILTER.scm`; do \
+	    for prog in `ls $$TEST_DIR/01-r4rs/$$TEST_FILTER.scm`; do \
 	      echo "     testing in repl: $$prog"; \
 	      if [ "$$INTERPRETER" != "" ]; then \
 	        echo "(load \"$$prog\")" | $$INTERPRETER repl.$$host > repl.$$host.out; \
