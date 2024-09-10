@@ -18,12 +18,15 @@ check: rsc.exe
 	  for host in $(HOSTS); do \
 	    echo "====================== TESTING HOST $$host"; \
 	    cd host/$$host; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check; cd ../..; \
+	    if [ "$$?" != "0" ]; then \
+	      exit 1; \
+	    fi; \
 	  done; \
 	else \
 	  cd host/$$HOST; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check; \
-		if [ "$$?" != "0" ]; then \
-			exit 1; \
-		fi; \
+	  if [ "$$?" != "0" ]; then \
+	    exit 1; \
+	  fi; \
 	fi
 
 prebuilt:
@@ -50,10 +53,16 @@ check-repl: rsc.exe
 	if [ "$$HOST" = "" ]; then \
 	  for host in $(HOSTS); do \
 	    echo "====================== TESTING HOST $$host"; \
-		cd host/$$host; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check-repl; cd ../..; \
+	  cd host/$$host; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check-repl; cd ../..; \
+	  if [ "$$?" != "0" ]; then \
+	    exit 1; \
+	  fi; \
 	  done; \
 	else \
 	  cd host/$$HOST; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check-repl; cd ../..; \
+	  if [ "$$?" != "0" ]; then \
+	    exit 1; \
+	  fi; \
 	fi
 
 check-pipeline: check
@@ -92,10 +101,16 @@ check-bootstrap: rsc.exe
 	if [ "$$HOST" = "" ]; then \
 	  for host in $(HOSTS); do \
 	    echo "====================== TESTING HOST $$host"; \
-		cd host/$$host; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check-bootstrap; cd ../..; \
+	    cd host/$$host; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check-bootstrap; cd ../..; \
+	    if [ "$$?" != "0" ]; then \
+	      exit 1; \
+	    fi; \
 	  done; \
 	else \
 	  cd host/$$HOST; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check-bootstrap; cd ../..; \
+	  if [ "$$?" != "0" ]; then \
+	    exit 1; \
+	  fi; \
 	fi
 
 clean:

@@ -132,7 +132,7 @@ check-repl:
 	  rm -f test.$$host*; \
 	  fi; \
 	done; \
-	if [ "$$error" == "1" ]; then \
+	if [ "$$error" = "1" ]; then \
 	  exit 1; \
 	fi
 
