@@ -130,6 +130,11 @@
       <!-- All the examples below -->
       <div class="examples"> 
         <div class="example">
+          <pre><code class="language-scheme">;; Type checking included
+(+ "foo" 3)
+</code></pre>
+        </div>
+        <div class="example">
           <pre><code class="language-scheme">(define (fact n)
   (if (= n 0)
     1
@@ -150,7 +155,7 @@
           <pre><code class="language-scheme">(apply
   +
   (map 
-    fib 
+    (lambda (x) (* x x))
     '(0 1 2 3 4 5 6 7 8 9 10)))
 </code></pre>
         </div>
@@ -172,11 +177,6 @@
   favorite 
   '(my favorite number is))
 `(,@favorite ,x)
-</code></pre>
-        </div>
-        <div class="example">
-          <pre><code class="language-scheme">;; Type checking included
-(+ "foo" 3)
 </code></pre>
         </div>
       </div>
