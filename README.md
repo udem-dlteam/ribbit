@@ -208,7 +208,7 @@ Here :
 | Haskell (`hs`)       | ✅   |   ✅      |  ✅  |  ✅  |
 | JavaScript (`js`)    | ✅   |   ✅      |  ✅  |  ✅  |
 | Python (`py`)        | ✅   |   ✅      |  ✅  |  ✅  |
-| Closure (`clj`)      | ✅   |   ✅      |  ❌  |  ❌  |
+| Clojure (`clj`)      | ✅   |   ✅      |  ❌  |  ❌  |
 | Lisp (`lisp`)        | ✅   |   ✅      |  ❌  |  ❌  |
 | Prolog (`pro`)       | ✅   |   ✅      |  ❌  |  ❌  |
 | Scheme (`scm`)       | ✅   |   ✅      |  ❌  |  ❌  |
