@@ -8,20 +8,23 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.10.0/build/languages/scheme.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <!-- Styles for REPL -->
     <style>
       * {
         font-family: 'Menlo', monospace;
       }
-      h1, h2{
+      h1, h2, h3{
         text-align: center;
         width: 100%;
+      }
+      div{
+        font-size: 14px;
       }
       #repl {
         width: 100%;
         height: 50vh;
-        font-size: large;
         padding: 10px;
         background-color: #f8f8f8;
         border: 1px solid #ccc;
@@ -36,15 +39,12 @@
       .example{
         position: relative;
         min-width: 200px;
-        padding: 20px;
-        background-color: #f8f8f8;
+        background-color: rgb(243, 243, 243);
+        padding: 2px;
         border: 1px solid #ccc;
         border-radius: 5px;
         box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        margin-left: 20px;
-        margin-right: 20px;
-        margin-top: 5px;
-        margin-bottom: 5px;
+        margin: 20px;
       }
       .example:hover::before{
         content: "Click to run in REPL";
@@ -73,7 +73,7 @@
 
       document.addEventListener('DOMContentLoaded', function(){
         // Insert the size of the repl
-        fetch("repl_r4rs.js")
+        fetch("repl_r4rs_tc.js")
           .then(r => r.text())
           .then(t => document.getElementById('size')
           .innerText = (t.length/1024).toFixed(2));
@@ -96,11 +96,12 @@
                 repl.value += text[i];
               }
             }
+
+            // Focus on the repl
+            repl.focus();
+            repl.scrollIntoView();
           });
         });
-
-        // Focus on the repl
-        repl.focus();
       });
 
 
@@ -125,7 +126,8 @@
       <!-- The repl script will replace the div below with a textarea -->
       <div id="repl"></div>
 
-      <h2> Examples (click to run in the REPL) </h2>
+      <h2> Examples</h2>
+      <h3> Click on any example to run it in the REPL </h3>
 
       <!-- All the examples below -->
       <div class="examples"> 
