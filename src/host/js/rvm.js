@@ -102,30 +102,32 @@ show_stack = () => {  //debug
 // @@(feature js/web
 
 // Implement a simple console as a textarea in the web page
-domdoc = document;
-selstart = 0;
-addEventListenerAttr = "addEventListener";
-selectionStartAttr = "selectionStart";
+//domdoc = document;
+//selstart = 0;
+//addEventListenerAttr = "addEventListener";
+//selectionStartAttr = "selectionStart";
 
-domdoc[addEventListenerAttr]("DOMContentLoaded", () => {
+// domdoc[addEventListenerAttr]("DOMContentLoaded", () => {
+// 
+//     txtarea = domdoc.createElement("textarea");
+//     domdoc.getElementById("repl").replaceWith(txtarea);
+//     txtarea.id = "repl";
+//     txtarea[addEventListenerAttr]("keypress", (e) => {
+//         let x = txtarea[selectionStartAttr];
+//         if (x<selstart) selstart=x;
+//         if (e.keyCode==13) {
+//             e.preventDefault();
+//             input += txtarea.value.slice(selstart,x)+"\n";
+//             putchar(10);
+//             run(); // wake up VM
+//         }
+//     });
+//     run();
+// });
 
-    txtarea = domdoc.createElement("textarea");
-    domdoc.getElementById("repl").replaceWith(txtarea);
-    txtarea.id = "repl";
-  txtarea[addEventListenerAttr]("keypress", (e) => {
-    let x = txtarea[selectionStartAttr];
-    if (x<selstart) selstart=x;
-    if (e.keyCode==13) {
-      e.preventDefault();
-      input += txtarea.value.slice(selstart,x)+"\n";
-      putchar(10);
-      run(); // wake up VM
-    }
-  });
-    run();
-});
-
-putchar = (c) => (selstart=txtarea[selectionStartAttr]=(txtarea.value += String.fromCharCode(c))[lengthAttr],txtarea.scrollTo(0,txtarea.scrollHeight), c);
+//putchar = (c) => (selstart=txtarea[selectionStartAttr]=(txtarea.value += String.fromCharCode(c))[lengthAttr], c);
+ribbit = {};
+putchar=(c)=>ribbit['putchar'](c);
 
 getchar = () => pos<input[lengthAttr] && push(get_byte());
 // )@@
@@ -537,7 +539,10 @@ primitives = [
 ];
 
 run = () => {
+  console.log("running run");
+  let count = 10_000; // @@(feature js/web)@@
   while (1) {
+    if (count-- === 0){ setTimeout(run, 0); return; }// @@(feature js/web)@@
     let o = pc[1];
     switch (pc[0]) {
     case 5: // halt
@@ -646,6 +651,14 @@ run = () => {
 
 if (isNode)  // @@(feature (and js/node js/web))@@
   run(); // @@(feature (not js/web))@@
+
+// @@(feature js/web
+// interface to the web page
+//ribbit['putchar']=putchar;
+ribbit['run']=run;
+ribbit['input']=input;
+ribbit['pos']=pos;
+// )@@
 
 
 // @@(location end)@@
