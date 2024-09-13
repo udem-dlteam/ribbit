@@ -699,36 +699,17 @@
     (reverse (cons lst1 lst2))))
 
 
-;; ====== Host language context ======
+;;; -----------------------------------
+;;; ====== HOST LANGUAGE CONTEXT ======
+;;; -----------------------------------
+;;; The host config is a data structure that holds any of the host-specific
+;;; information. This includes the primitives, the features, and the locations.
 
 ;; these primitives are "forced first" meaning that they must exist before any
 ;;     other code is executed. This is because the compiler uses them when
 ;;     generating code. It's a hack.
 
 (define forced-first-primitives (list '##- '##arg1))
-
-;;; --------------------------------------------------------
-
-;; Context definitions
-(define (make-ctx cte live exports live-features)
-  (rib cte (rib live live-features #f) exports))
-
-(define (ctx-cte ctx) (field0 ctx))
-(define (ctx-live ctx) (field0 (field1 ctx)))
-(define (ctx-live-features ctx) (field1 (field1 ctx)))
-
-
-(define (ctx-live-feature? ctx feature)
-  (assq-value feature (ctx-live-features ctx)))
-
-(define (ctx-exports ctx) (field2 ctx))
-
-(define (ctx-cte-set ctx x)
-  (rib x (field1 ctx) (field2 ctx)))
-
-(define (ctx-live-set! ctx x)
-  (field0-set! (field1 ctx) x))
-
 
 ;; host config definitions
 (define (make-host-config live-features primitives feature-locations)
@@ -807,7 +788,10 @@
 
 
 
-;; ====== hashable ribs (or c-ribs, for code ribs) =====
+;;; ------------------------------
+;;; ======= HASHABLE RIBs ========
+;;; ------------------------------
+
 
 (cond-expand
 
@@ -1012,6 +996,46 @@
 ;;; ============== RIBBIT's COMPILER =================
 ;;; --------------------------------------------------
 
+
+;;; CONTEXT DEFINITIONS
+;;; The ctx object contains information while compiling. This include the 
+;;; variables that are in scope, the live features, the exports, and the
+;;; live variables.
+(define (make-ctx cte live exports live-features)
+  (rib cte (rib live live-features #f) exports))
+
+(define (ctx-cte ctx) (field0 ctx))
+(define (ctx-live ctx) (field0 (field1 ctx)))
+(define (ctx-live-features ctx) (field1 (field1 ctx)))
+
+
+(define (ctx-live-feature? ctx feature)
+  (assq-value feature (ctx-live-features ctx)))
+
+(define (ctx-exports ctx) (field2 ctx))
+
+(define (ctx-cte-set ctx x)
+  (rib x (field1 ctx) (field2 ctx)))
+
+(define (ctx-live-set! ctx x)
+  (field0-set! (field1 ctx) x))
+
+(define (use-symbol ctx sym)
+  (ctx-live-set! ctx (add-live sym (ctx-live ctx)))
+  sym)
+
+(define (lookup var cte i)
+  (if (pair? cte)
+      (if (eqv? (car cte) var)
+          i
+          (lookup var (cdr cte) (+ i 1)))
+      var))
+
+(define (extend vars cte)
+  (if (pair? vars)
+      (cons (car vars) (extend (cdr vars) cte))
+      cte))
+
 (define jump/call-op 'jump/call)
 (define set-op       'set)
 (define get-op       'get)
@@ -1019,6 +1043,7 @@
 (define if-op        'if)
 
 (define tail (c-rib jump/call-op '##id 0)) ;; jump
+
 
 (define (comp ctx expr cont)
   ;; (cond-expand (ribbit (pp expr)) (else ""))
@@ -1193,24 +1218,6 @@
               (ctx-live-feature? ctx 'prim-no-arity)
               (host-config-is-primitive? host-config name)))))
 
-;; (define (is-call? ctx name cont)
-;;   (let* ((arity-check (arity-check? ctx name))
-;;          (call-rib
-;;            (if arity-check
-;;              (and (rib? cont) (c-rib-next cont))
-;;              (and (rib? cont) cont)))
-;;          (call-rib-ok?
-;;            (and call-rib
-;;                 (eqv? (c-rib-oper call-rib) jump/call-op) ;; call?
-;;                 (eqv? (c-rib-opnd call-rib) name)
-;;                 (rib? (c-rib-next call-rib)))))
-;;     (if arity-check
-;;       (and call-rib-ok?
-;;            (rib? cont)
-;;            (eqv? (c-rib-oper cont) const-op)
-;;            (not (rib? (c-rib-opnd cont)))) ;; push a number
-;;       call-rib-ok?)))
-
 (define (is-call? ctx name cont)
   (and (rib? cont)
        (if (arity-check? ctx name)
@@ -1281,9 +1288,6 @@
         (live? var (cdr lst))))
     #f))
 
-(define (use-symbol ctx sym)
-  (ctx-live-set! ctx (add-live sym (ctx-live ctx)))
-  sym)
 
 (define (comp-begin ctx exprs cont)
   (comp ctx
@@ -1308,21 +1312,11 @@
                        k))
       (k ctx)))
 
-(define (lookup var cte i)
-  (if (pair? cte)
-      (if (eqv? (car cte) var)
-          i
-          (lookup var (cdr cte) (+ i 1)))
-      var))
-
-(define (extend vars cte)
-  (if (pair? vars)
-      (cons (car vars) (extend (cdr vars) cte))
-      cte))
-
 
 
 ;;;----------------------------------------------------------------------------
+
+
 
 (define (extract-exports program)
   ;; By default all symbols are exported when the program contains
@@ -2144,9 +2138,9 @@
       result)))
 
 
-;;;----------------------------------------------------------------------------
-
-;; Global variable liveness analysis.
+;;; =========================================
+;;; ---------- LIVENESS ANALYSIS ------------
+;;; =========================================
 
 (define (liveness-analysis expr features exports)
   (let* ((live-env (liveness-analysis-aux expr features '()))
@@ -2247,7 +2241,6 @@
 
 (define (in? var cte)
   (not (eqv? var (lookup var cte 0))))
-
 
 
 (define (liveness-analysis-aux expr forced-features exports)
@@ -2554,9 +2547,6 @@
       (if 1)
 
       )))
-
-;(pp encoding-skip-92)
-
 
 
 (define (encoding-inst-size encoding entry)
@@ -3810,129 +3800,6 @@
 
       stream)))
 
-;      (if (string=? encoding-name "test")
-;        (let loop2 ((lst-len (iota 10 3 1)))
-;          (when (pair? lst-len)
-;            (display (string-append "*** Testing length :" (number->string (car lst-len)) "\n"))
-;            (let loop ((lst (iota 20 16 4)))
-;              (when (pair? lst)
-;
-;                (set! encoding-size (car lst))
-;                (set! encoding (optimal-encoding))
-;
-;                (p/enc-symtbl)
-;                (p/enc-prog)
-;                (p/merge-prog-sym)
-;
-;                (let* ((rest-bits (max 0 (- 92 (car lst))))
-;                       (len (car lst-len))
-;                       (entropy-on-2-bits (* rest-bits 92))
-;                       (max-offset (floor (/ entropy-on-2-bits (- len 2))))
-;                       (lzss-comp
-;                         (LZSS
-;                           stream
-;                           max-offset
-;                           len ;; hard-coded
-;                           encoding-size
-;                           (lambda (x) (if (pair? x) 2 1))))
-;                       (total-length (fold (lambda (x acc) (+ acc (if (pair? x) 2 1))) 0 lzss-comp)))
-;
-;                  (display
-;                    (string-append
-;                      "Codes : "
-;                      (number->string (car lst))
-;                      "\n"
-;                      "Program size (without compression) : "
-;                      (number->string (length stream))
-;                      "\n"
-;                      "Compression with 1-bit backpointers : "
-;                      (number->string (length lzss-comp))
-;                      "\n"
-;                      "Compression on " (number->string entropy-on-2-bits) " codes (size-base " (number->string len) ", max-offset " (number->string max-offset) ") : "
-;                      (number->string total-length)
-;                      "\n\n"
-;                      )))
-;
-;                (table-set! t (cons (car lst) (car lst-len)) (length stream))
-;                (loop (cdr lst))))
-;            (loop2 (cdr lst-len)))))
-
-
-
-
-
-
-
-
-
-;(define (encode proc exports host-config byte-stats encoding-name encoding-size)
-;  (let* ((prog (encode-constants proc host-config))
-;
-;         (hyperbyte? (host-config-feature-live? host-config 'encoding/hyperbyte))
-;         (encoding-size
-;           (if hyperbyte?
-;             (if (not (eqv? encoding-size 256))
-;               (error "Hyperbyte encoding only supports 256 byte encoding")
-;               16)
-;             encoding-size))
-;
-;
-;         (encoding (cond
-;                      ((and (string=? "original" encoding-name)
-;                            (eqv? encoding-size 92))
-;                       encoding-original-92)
-;                      ((and (string=? "skip" encoding-name)
-;                            (eqv? encoding-size 92))
-;                       encoding-skip-92)
-;
-;                      ((string=? "optimal" encoding-name)
-;                       (let* ((symtbl-and-symbols* (encode-symtbl prog exports host-config 20)) ;; we assume 20 shorts, will be re-evaluated
-;                              (raw-stream (encode-program prog (car symtbl-and-symbols*) 'raw #t encoding-size))
-;                              (stats (get-stat-from-raw (make-table) raw-stream))
-;                              (encoding
-;                                (calculate-start
-;                                  (encoding-optimal-order
-;                                    (encoding-table->encoding-list
-;                                      (get-maximal-encoding
-;                                        (map car encoding-skip-92)
-;                                        stats
-;                                        encoding-size))))))
-;                         (encoding-optimal-add-variables encoding host-config)
-;                         encoding))
-;
-;                      (else
-;                        (error "Cannot find encoding :" encoding-name))))
-;
-;         (symtbl-and-symbols* (encode-symtbl prog exports host-config (encoding-inst-size encoding '(call sym short))))
-;         (symtbl (car symtbl-and-symbols*))
-;         (symbols* (cdr symtbl-and-symbols*))
-;         (stream (encode-program prog symtbl encoding (encoding-inst-get encoding '(skip int long)) encoding-size))
-;
-;         (symtbl-stream (symtbl->stream symtbl symbols* (if hyperbyte? 256 encoding-size)))
-;         (stream
-;           (if hyperbyte?
-;             stream
-;             (append symtbl-stream stream)))
-;
-;         (compression? (host-config-feature-live? host-config 'compression/lzss))
-;         (stream (if compression?
-;                   (encode-lzss
-;                     stream
-;                     encoding-size
-;                     host-config)
-;                   stream)))
-;
-;    (if hyperbyte?
-;      (append
-;        (if compression?
-;          (encode-lzss
-;            symtbl-stream
-;            256
-;            host-config)
-;          symtbl-stream)
-;        (encode-hyperbyte stream))
-;      stream)))
-
 (define (encode-n n stream encoding-size/2)
   (encode-n-aux n stream stream encoding-size/2))
 
@@ -4127,177 +3994,6 @@
               (error "Cannot encode instruction" code)))))))
 
   (enc-proc proc encoding #f '()))
-
-
-
-
-
-
-
-  ;(define (encode-to-stream proc encoding)
-  ;  (set! skip-optimization #t)
-
-  ;  (let* ((raw-stream (enc-proc proc 'raw #f '()))
-  ;         (stats (get-stat-from-raw (make-table) raw-stream)))
-  ;    ;(display-stats stats 2 encoding-skip-92)
-  ;    (define size-92 (sum-byte-count stats '() (encoding-list->encoding-table encoding-skip-92) 92))
-
-  ;    ;(pp "Size on 92 codes : ")
-  ;    ;(pp size-92)
-
-  ;    ; #;(let ((lst '(256 128 92 85 64 51 42 36 32 28 26 24 22 21 20 19 18 17 16 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1)))
-  ;    ; (for-each
-  ;    ;   (lambda (v)
-  ;    ;     (let* ((solution
-  ;    ;              (get-maximal-encoding
-  ;    ;                (map car encoding-skip-92)
-  ;    ;                stats
-  ;    ;                v))
-  ;    ;            (optimal-encoding-size
-  ;    ;              (sum-byte-count stats '() solution v))
-  ;    ;            (multiplicator (quotient 256 v)))
-
-  ;    ;       (write
-  ;    ;         (string-append
-  ;    ;           "Optimal "
-  ;    ;           (number->string v)
-  ;    ;           " code encoding: "
-  ;    ;           (number->string optimal-encoding-size)))
-  ;    ;       (newline)
-  ;    ;       (pp (table->list solution))))
-  ;    ;   lst))
-  ;    (define best-encoding-16 (calculate-start
-  ;                               (encoding-table->encoding-list
-  ;                                 (get-maximal-encoding
-  ;                                   (map car encoding-skip-92)
-  ;                                   stats
-  ;                                   256))))
-
-  ;    (let* ((sizee 16)
-  ;           (encoded-proc
-  ;             (enc-proc
-  ;               proc
-  ;               #;encoding-skip-92
-  ;               best-encoding-16
-  ;               #f
-  ;               '()))
-
-  ;           ;     #;(test
-  ;           ;     (LZ77
-  ;           ;       ;(map random-integer (make-list 10000 16))
-  ;           ;       encoded-proc
-  ;           ;       9999999999999999999999999999;(* sizee sizee)
-  ;           ;       9999999999999999999999999
-  ;           ;       ;(* sizee sizee)
-  ;           ;       ;sizee
-  ;           ;       sizee))
-  ;           )
-
-  ;      (define (bit-in-num x)
-  ;        (if (eqv? x 0)
-  ;          1
-  ;          (ceiling (log (+ x 1) (quotient sizee 2)))))
-
-  ;      (define cost
-  ;        (lambda (x acc)
-  ;          (if (pair? x)
-  ;            (+
-  ;              (bit-in-num (car x))
-  ;              ;2
-
-  ;              (bit-in-num (cadr x))
-  ;              ;1
-  ;              1
-  ;              acc)
-  ;            (+ 1 acc)
-  ;            )))
-
-  ;      (define costc
-  ;        (lambda (x acc) (pp (list acc (cost x 0) x)) (cost x acc)))
-
-  ;      (define (decode stream tail)
-  ;        (if (pair? stream)
-  ;          (if (pair? (car stream))
-  ;            (let ((elem (car stream)))
-  ;              (decode
-  ;                (if (> (cadr elem) 1)
-  ;                  (cons
-  ;                    (list
-  ;                      (car elem)
-  ;                      (- (cadr elem) 1))
-  ;                    (cdr stream))
-  ;                  (cdr stream))
-  ;                (cons (car (list-tail tail (- (car elem) 1))) tail)))
-  ;            (decode (cdr stream) (cons (car stream) tail)))
-  ;          tail))
-
-  ;      (define (16bit->256bits stream)
-  ;        (let loop ((stream encoded-proc) (result '()))
-  ;          (if (pair? stream)
-  ;            (if (pair? (cdr stream))
-  ;              (loop (cddr stream)
-  ;                    (cons (+ (* 16 (car stream)) (cadr stream)) result))
-  ;              (cons (car stream) result))
-  ;            result)))
-
-  ;      (define (output-to-file filename stream)
-  ;        (let ((out (open-output-file filename)))
-  ;          (for-each
-  ;            (lambda (x)
-  ;              (write-u8 x out))
-  ;            stream)
-  ;          (close-output-port out)))
-
-  ;      (output-to-file "ribn-256.txt" encoded-proc)
-
-
-
-  ;      (pp (length encoded-proc))
-  ;      (pp
-  ;        (length test))
-  ;      (pp
-  ;        (fold
-  ;          cost
-  ;          0
-  ;          test))
-  ;      (pp (equal? (decode (reverse test) '()) (reverse encoded-proc)))
-  ;      ; #;(pp
-  ;      ; (fold costc 0 test))
-
-  ;      encoded-proc)))
-
-
-
-
-
-
-  ;; (let ((stream (encode-to-stream proc encoding)))
-  ;;
-  ;;   (if byte-stats
-  ;;     (display-stats stats byte-stats encoding))
-  ;;
-  ;;   ;(pp (cons 'stream stream))
-  ;;   (string-append
-  ;;     (stream->string
-  ;;       (encode-n (- (length symbols)
-  ;;                    (length symbols*))
-  ;;                 '()
-  ;;                 (* eb/2 2)))
-  ;;     (string-append
-  ;;       (string-concatenate
-  ;;         (map (lambda (s)
-  ;;                (let ((str (symbol->str s)))
-  ;;                  (list->string
-  ;;                    (reverse (string->list str)))))
-  ;;              symbols*)
-  ;;         ",")
-  ;;       (string-append
-  ;;         ";"
-  ;;         (stream->string stream)))))
-
-
-
-;(define )
 
 
 
