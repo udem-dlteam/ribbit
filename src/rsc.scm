@@ -611,7 +611,7 @@
 
 (define default-primitives
   (map
-    (lambda (p) `(primitive () ,(cons (car p) (cddr p)) (@@index ,(cadr p))))
+    (lambda (p) `(primitive () ,(cons (car p) (cddr p)) (use) (@@index ,(cadr p))))
     default-primitives-lst))
 
 
