@@ -16,11 +16,11 @@ visible
 hidden
 // )@@
 hidden
-// @@(primitive (prim1) (other prop)
+// @@(primitive (prim1)
 visible
 // )@@
 hidden
-// @@(primitive (prim2) (hey there) (use used)
+// @@(primitive (prim2) (use used)
 visible
 // )@@
 hidden
