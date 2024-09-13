@@ -2,7 +2,7 @@
       "\tdd   prim_square\n")
 
 (define-feature square
-      (prims "
+  ((prims "
 prim_square: 
 %if FIX_TAG != 0
 \tdec LAST_ARG
@@ -14,8 +14,7 @@ prim_square:
 \tinc LAST_ARG
 %endif
 \tNBARGS(1)
-\tret"))
-
+\tret")))
 
 (##putchar (square 6))
 (##putchar 10)

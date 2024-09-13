@@ -1,4 +1,6 @@
-(define-feature hs/io-handle (hs/foreign-type "    | RibHandle !Handle"))
+(define-feature 
+  hs/io-handle 
+  ((hs/foreign-type "    | RibHandle !Handle")))
 
 (define-primitive
   (##stdin-fd)

@@ -1,24 +1,24 @@
 #!/usr/bin/env gsi
-
 ;;!#;; satisfy guile
 
-;;; Ribbit Scheme compiler.
+;;; The Ribbit Scheme Compiler (rsc). This file is distributed under the 
+;;; terms of the BSD 3-Clause License. See the file LICENSE for details.
 
-;;;----------------------------------------------------------------------------
+;;;----------------------------------------------------------
+;;;================== COMPATIBILITY LAYER ===================
+;;;----------------------------------------------------------
 
-;; Compatibility layer.
-
-;; Tested with Gambit v4.7.5 and above, Others used to work, but need to be retested :
+;; Tested with Gambit v4.7.5 and above.
+;; Others used to work, but need to be retested :
 ;;  ->  Guile 3.0.7, Chicken 5.2.0 and Kawa 3.1
 
-;; Fix bug with R4RS symbols
+;; Fix bug with R4RS symbols with Gambit
 (cond-expand
   (gambit
    (|##meta-info| script-line "gsi -:r4rs")))
 
 
 (cond-expand
-
  ((and chicken compiling)
 
   (declare
@@ -161,7 +161,7 @@
      (call-with-output-string
       (lambda (port)
         (parameterize ((current-output-port port))
-                      (thunk))))))
+          (thunk))))))
 
   (else
 
@@ -536,103 +536,14 @@
           (string->list str))
         (reverse final)))
 
-    (define (pp-return foo . x)
-      (let ((r (apply foo x)))
-        (pp r)
-        r))))
+    ))
 
 
-
-(define (display-return foo . x)
-  (let ((r (apply foo x)))
-    (display r)
-    (newline)
-    r))
-;;;----------------------------------------------------------------------------
-
-(define (display-rib rib depth)
-  (if (> depth 0)
-    (begin
-      (display "[")
-      (cond ((not (rib? rib))
-             (display rib))
-            ((rib? (field0 rib))
-             (display-rib (field0 rib) (- depth 1)))
-            (else
-              (display (field0 rib))))
-      (display " ")
-      (cond ((not (rib? rib))
-             (display rib))
-            ((rib? (field1 rib))
-             (display-rib (field1 rib) (- depth 1)))
-            (else
-              (display (field1 rib))))
-      (display " ")
-      (cond ((not (rib? rib))
-             (display rib))
-            ((rib? (field2 rib))
-             (display-rib (field2 rib) (- depth 1)))
-            (else
-              (display (field2 rib))))
-      (display "]"))
-    (display "...")))
-
-
-;;;------------------------------------------------------------------------------
-
-(define predefined (list '##rib 'false 'true 'nil)) ;; predefined symbols
-
-(define default-primitives-lst
-`((##rib         0  x  y  z)
-  (##id          1  x)
-  (##arg1        2  x  y)
-  (##arg2        3  x  y)
-  (##close       4  rib)
-  (##rib?        5  o)
-  (##field0      6  x)
-  (##field1      7  x)
-  (##field2      8  x)
-  (##field0-set! 9  x  v)
-  (##field1-set! 10 x  v)
-  (##field2-set! 11 x  v)
-  (##eqv?        12 o1 o2)
-  (##<           13 x  y)
-  (##+           14 x  y)
-  (##-           15 x  y)
-  (##*           16 x  y)
-  (##quotient    17 x  y)
-  (##getchar     18 )
-  (##putchar     19 c)
-  (##exit        20 code)))
-
-
-(define (default-primitive-index prim)
-  (cadr (assoc prim default-primitives-lst)))
-
-(define default-primitives
-  (map
-    (lambda (p) `(primitive ,(cons (car p) (cddr p)) (@@index ,(cadr p)) (@@head "") (@@body (str ""))))
-    default-primitives-lst))
-
-
-(define jump/call-op 'jump/call)
-(define set-op       'set)
-(define get-op       'get)
-(define const-op     'const)
-(define if-op        'if)
-
-;;;----------------------------------------------------------------------------
-
+;;; Ribs emulation as vectors for other implementations than Ribbit. 
 (cond-expand
 
   (ribbit
-
-    (define (fold func base lst)
-      (if (pair? lst)
-        (fold func (func (car lst) base) (cdr lst))
-        base))
-
-   (define (c-procedure? o) (and (c-rib? o) (eqv? (c-rib-next o) procedure-type))))
+    (define (c-procedure? o) (and (c-rib? o) (eqv? (c-rib-next o) procedure-type))))
 
   (else
 
@@ -671,24 +582,101 @@
 (define (c-procedure-code proc) (c-rib-oper proc))
 (define (c-procedure-env proc) (c-rib-opnd proc))
 
+;;;------------------------------------------------------------------------------
+
+(define predefined (list '##rib 'false 'true 'nil)) ;; predefined symbols
+
+(define default-primitives-lst
+`((##rib         0  x  y  z)
+  (##id          1  x)
+  (##arg1        2  x  y)
+  (##arg2        3  x  y)
+  (##close       4  rib)
+  (##rib?        5  o)
+  (##field0      6  x)
+  (##field1      7  x)
+  (##field2      8  x)
+  (##field0-set! 9  x  v)
+  (##field1-set! 10 x  v)
+  (##field2-set! 11 x  v)
+  (##eqv?        12 o1 o2)
+  (##<           13 x  y)
+  (##+           14 x  y)
+  (##-           15 x  y)
+  (##*           16 x  y)
+  (##quotient    17 x  y)
+  (##getchar     18 )
+  (##putchar     19 c)
+  (##exit        20 code)))
+
+(define default-primitives
+  (map
+    (lambda (p) `(define-primitive ,(cons (car p) (cddr p)) (use) (index ,(cadr p)) ()))
+    default-primitives-lst))
+
+
+(define jump/call-op 'jump/call)
+(define set-op       'set)
+(define get-op       'get)
+(define const-op     'const)
+(define if-op        'if)
 
 ;;;----------------------------------------------------------------------------
 
-;; The compiler from Ribbit Scheme to RVM code.
 
-(define (make-ctx cte live exports live-features) (rib cte (rib live live-features #f) exports))
 
-(define (ctx-cte ctx) (field0 ctx))
-(define (ctx-live ctx) (field0 (field1 ctx)))
-(define (ctx-live-features ctx) (field1 (field1 ctx)))
+;;; -----------------------------------------------
+;;; ==================== DEBUG ====================
+;;; -----------------------------------------------
 
-(define (ctx-exports ctx) (field2 ctx))
+;; Displays a rib to stdout given a depth
+(define (display-rib rib depth)
+  (if (> depth 0)
+    (begin
+      (display "[")
+      (cond ((not (rib? rib))
+             (display rib))
+            ((rib? (field0 rib))
+             (display-rib (field0 rib) (- depth 1)))
+            (else
+              (display (field0 rib))))
+      (display " ")
+      (cond ((not (rib? rib))
+             (display rib))
+            ((rib? (field1 rib))
+             (display-rib (field1 rib) (- depth 1)))
+            (else
+              (display (field1 rib))))
+      (display " ")
+      (cond ((not (rib? rib))
+             (display rib))
+            ((rib? (field2 rib))
+             (display-rib (field2 rib) (- depth 1)))
+            (else
+              (display (field2 rib))))
+      (display "]"))
+    (display "...")))
 
-(define (ctx-cte-set ctx x)
-  (rib x (field1 ctx) (field2 ctx)))
 
-(define (ctx-live-set! ctx x)
-  (field0-set! (field1 ctx) x))
+(define (pp-return foo . x)
+  (let ((r (apply foo x)))
+    (pp r)
+    r))
+
+(define (display-return foo . x)
+  (let ((r (apply foo x)))
+    (display r)
+    (newline)
+    r))
+
+;;; -----------------------------------------------
+;;; ==================== UTILS ====================
+;;; -----------------------------------------------
+
+;; Return the value (or false) of a key in an association list
+(define (assq-value element lst)
+  (let ((maybe-pair (assq element lst)))
+    (and maybe-pair (cdr maybe-pair))))
 
 (define (last-item lst)
   (if (pair? lst)
@@ -711,7 +699,11 @@
     (reverse (cons lst1 lst2))))
 
 
-;; ====== Host language context ======
+;;; -----------------------------------
+;;; ====== HOST LANGUAGE CONTEXT ======
+;;; -----------------------------------
+;;; The host config is a data structure that holds any of the host-specific
+;;; information. This includes the primitives, the features, and the locations.
 
 ;; these primitives are "forced first" meaning that they must exist before any
 ;;     other code is executed. This is because the compiler uses them when
@@ -719,6 +711,7 @@
 
 (define forced-first-primitives (list '##- '##arg1))
 
+;; host config definitions
 (define (make-host-config live-features primitives feature-locations)
   (rib live-features (cons (list '##rib 0) primitives) feature-locations))
 
@@ -762,33 +755,22 @@
 
 (define (host-config-add-location! host-config location feature)
   (let ((location-ref (assoc location (host-config-locations host-config))))
-    (if (eqv? location '@@inline)
-      #f
-      (if location-ref
-        (set-cdr! location-ref (append (cdr location-ref) (list feature)))
-        (begin
-          (host-config-locations-set! host-config (cons (list location feature) (host-config-locations host-config)))
-          #t)))))
+    (if location-ref
+      (set-cdr! location-ref (append (cdr location-ref) feature))
+      (begin
+        (host-config-locations-set! host-config (cons (list location feature) (host-config-locations host-config)))
+        #t))))
 
-(define (get-feature-value features feature)
-  (let loop ((features features))
-    (if (null? features)
-      #f
-      (cond
-        ((and (pair? (car features)) (eqv? (caar features) feature))
-         (cdar features))
-        ((and (symbol? (car features)) (eqv? (car features) feature))
-         #t)
-        (else
-          (loop (cdr features)))))))
 
 (define (host-config-feature-live? host-config feature)
-  (get-feature-value (host-config-features host-config) feature))
+  (assq-value feature (host-config-features host-config)))
 
 (define (host-config-feature-add! host-config feature value)
   (if (host-config-feature-live? host-config feature)
     (error "Feature already defined" feature)
-    (host-config-features-set! host-config (cons (if (eqv? value #t) feature (cons feature value)) (host-config-features host-config)))))
+    (host-config-features-set! 
+      host-config 
+      (cons (cons feature value) (host-config-features host-config)))))
 
 (define (host-config-is-primitive? host-config name)
   (or (memq name forced-first-primitives)
@@ -805,7 +787,11 @@
       (error "Unknown primitive" prim))))
 
 
-;; ====== hashable ribs (or c-ribs, for code ribs) =====
+
+;;; ------------------------------
+;;; ======= HASHABLE RIBs ========
+;;; ------------------------------
+
 
 (cond-expand
 
@@ -1005,6 +991,60 @@
       (display-obj next)
       "]")))
 
+
+;;; --------------------------------------------------
+;;; ============== RIBBIT's COMPILER =================
+;;; --------------------------------------------------
+
+
+;;; CONTEXT DEFINITIONS
+;;; The ctx object contains information while compiling. This include the 
+;;; variables that are in scope, the live features, the exports, and the
+;;; live variables.
+(define (make-ctx cte live exports live-features)
+  (rib cte (rib live live-features #f) exports))
+
+(define (ctx-cte ctx) (field0 ctx))
+(define (ctx-live ctx) (field0 (field1 ctx)))
+(define (ctx-live-features ctx) (field1 (field1 ctx)))
+
+
+(define (ctx-live-feature? ctx feature)
+  (assq-value feature (ctx-live-features ctx)))
+
+(define (ctx-exports ctx) (field2 ctx))
+
+(define (ctx-cte-set ctx x)
+  (rib x (field1 ctx) (field2 ctx)))
+
+(define (ctx-live-set! ctx x)
+  (field0-set! (field1 ctx) x))
+
+(define (use-symbol ctx sym)
+  (ctx-live-set! ctx (add-live sym (ctx-live ctx)))
+  sym)
+
+(define (lookup var cte i)
+  (if (pair? cte)
+      (if (eqv? (car cte) var)
+          i
+          (lookup var (cdr cte) (+ i 1)))
+      var))
+
+(define (extend vars cte)
+  (if (pair? vars)
+      (cons (car vars) (extend (cdr vars) cte))
+      cte))
+
+(define jump/call-op 'jump/call)
+(define set-op       'set)
+(define get-op       'get)
+(define const-op     'const)
+(define if-op        'if)
+
+(define tail (c-rib jump/call-op '##id 0)) ;; jump
+
+
 (define (comp ctx expr cont)
   ;; (cond-expand (ribbit (pp expr)) (else ""))
   (cond ((symbol? expr)
@@ -1044,40 +1084,37 @@
 
                  ((eqv? first 'define-primitive)
                   (let* ((name (caadr expr))
-                         (prim-index (soft-assoc '@@index (cdr expr))))
+                         (index-pair (cadddr expr))
+                         (prim-index
+                           (if (and
+                                 (pair? (caddr expr))
+                                 (eqv? (length index-pair) 2)
+                                 (eqv? (car index-pair) 'index))
+                             (cadr index-pair)
+                             #f)))
                     ;; (pp (list 'define-primitive name (host-config-feature-live? host-config name)))
                     (if (host-config-feature-live? host-config name)
-                      (let ((index (if prim-index
-                                     (host-config-add-primitive-index! host-config name expr (cadr prim-index))
-                                     (host-config-add-primitive! host-config name expr))))
+                      (let ((index
+                              (if prim-index
+                                (host-config-add-primitive-index! host-config name expr prim-index)
+                                (host-config-add-primitive! host-config name expr))))
                         (if (or (memq name forced-first-primitives) (eqv? name '##rib))
                           (gen-noop ctx cont)
                           (comp ctx `(set! ,name (##rib ,index 0 ,procedure-type)) cont)))
                       (gen-noop ctx cont))))
 
                  ((eqv? first 'define-feature)
-                  (let* ((feature-expr (cadr expr)))
+                  (let* ((feature-expr (cadr expr))
+                         (locations (cadddr expr)))
                     (begin
                       (if (eval-feature feature-expr (host-config-features host-config))
-                        (let ((locations
-                                (filter
-                                  (lambda (x)
-                                    (and
-                                      (not (eqv? (car x) 'use))
-                                      (not (eqv? (car x) 'str))))
-                                  (cddr expr))))
-
-                          (for-each
-                            (lambda (location)
-
-                              (for-each
-                                (lambda (loc)
-                                  (host-config-add-location!
-                                    host-config
-                                    (car location)
-                                    loc))
-                                (cadr location)))
-                            locations)))
+                        (for-each
+                          (lambda (location)
+                            (host-config-add-location!
+                              host-config
+                              (car location)
+                              (cadr location)))
+                          locations))
                       (gen-noop ctx cont))))
 
                  ((eqv? first 'if-feature)
@@ -1087,6 +1124,10 @@
                     (if (eval-feature feature-expr (host-config-features host-config))
                       (comp ctx then-expr cont)
                       (comp ctx else-expr cont))))
+
+                 ((eqv? first 'use-feature)
+                  ;; skip use-feature construct
+                  (gen-noop ctx cont))
 
                  ((eqv? first 'if)
                   (let ((cont-false (comp ctx (cadddr expr) cont)))
@@ -1180,31 +1221,12 @@
   (c-rib set-op v (gen-noop ctx cont)))
 
 (define (arity-check? ctx name)
-  (and (memq 'arity-check (ctx-live-features ctx))
+  (and (ctx-live-feature? ctx 'arity-check)
        (not (and
-             (memq 'prim-no-arity (ctx-live-features ctx))
-             (host-config-is-primitive? host-config name)))))
-
-;; (define (is-call? ctx name cont)
-;;   (let* ((arity-check (arity-check? ctx name))
-;;          (call-rib
-;;            (if arity-check
-;;              (and (rib? cont) (c-rib-next cont))
-;;              (and (rib? cont) cont)))
-;;          (call-rib-ok?
-;;            (and call-rib
-;;                 (eqv? (c-rib-oper call-rib) jump/call-op) ;; call?
-;;                 (eqv? (c-rib-opnd call-rib) name)
-;;                 (rib? (c-rib-next call-rib)))))
-;;     (if arity-check
-;;       (and call-rib-ok?
-;;            (rib? cont)
-;;            (eqv? (c-rib-oper cont) const-op)
-;;            (not (rib? (c-rib-opnd cont)))) ;; push a number
-;;       call-rib-ok?)))
+              (ctx-live-feature? ctx 'prim-no-arity)
+              (host-config-is-primitive? host-config name)))))
 
 (define (is-call? ctx name cont)
-;;  (let ((xxx
   (and (rib? cont)
        (if (arity-check? ctx name)
            (and (eqv? (c-rib-oper cont) const-op)
@@ -1213,7 +1235,6 @@
                 (eqv? (c-rib-opnd (c-rib-next cont)) name))
            (and (eqv? (c-rib-oper cont) jump/call-op)
                 (eqv? (c-rib-opnd cont) name)))))
-;;) (pp (list xxx (arity-check? ctx name)(eqv? (c-rib-oper cont) jump/call-op) (eqv? (c-rib-opnd cont) name)cont)) xxx))
 
 (define (gen-noop ctx cont)
   (if (is-call? ctx '##arg1 cont)
@@ -1242,8 +1263,9 @@
                   cont)))
 
 (define (add-nb-args prim? ctx nb-args tail)
-  (if (and (memq 'arity-check (ctx-live-features ctx))
-           (not (and prim? (memq 'prim-no-arity (ctx-live-features ctx)))))
+  (if (and 
+        (ctx-live-feature? ctx 'arity-check)
+        (not (and prim? (ctx-live-feature? ctx 'prim-no-arity ))))
     (c-rib const-op
          nb-args
          tail)
@@ -1274,9 +1296,6 @@
         (live? var (cdr lst))))
     #f))
 
-(define (use-symbol ctx sym)
-  (ctx-live-set! ctx (add-live sym (ctx-live ctx)))
-  sym)
 
 (define (comp-begin ctx exprs cont)
   (comp ctx
@@ -1301,21 +1320,11 @@
                        k))
       (k ctx)))
 
-(define (lookup var cte i)
-  (if (pair? cte)
-      (if (eqv? (car cte) var)
-          i
-          (lookup var (cdr cte) (+ i 1)))
-      var))
 
-(define (extend vars cte)
-  (if (pair? vars)
-      (cons (car vars) (extend (cdr vars) cte))
-      cte))
-
-(define tail (c-rib jump/call-op '##id 0)) ;; jump
 
 ;;;----------------------------------------------------------------------------
+
+
 
 (define (extract-exports program)
   ;; By default all symbols are exported when the program contains
@@ -1342,31 +1351,36 @@
       exports))
 
 
+(define (host-feature->scheme host-features)
+  (fold 
+    (lambda (prim acc)
+      (let ((recursive-parse (cadr prim))
+            (name (caddr prim))
+            (use-clause (if (pair? (cdddr prim))
+                          (cadddr prim)
+                          '(use))))
+        (case (car prim)
+          ((primitive)
+           `((define-primitive 
+               ,name
+               ,use-clause
+               (index)
+               ,recursive-parse)
+             . 
+             ,acc))
+          ((feature)
+           (if (pair? (cdr use-clause))
+             `((define-feature ,name ,use-clause ()) . ,acc)
+             acc))
+          (else
+            (error "Cannot handle host feature " prim)))))
 
-
-
-(define (host-feature->expansion-feature host-features)
-  (map (lambda (x)
-         (cond
-          ((eqv? (car x) 'primitive)
-            `(define-primitive ,@(cdr x)))
-           ((eqv? (car x) 'feature)
-            (let* ((features   (cadr x))
-                   (maybe-use  (caddr x))
-                   (use/rest
-                     (if (eq? (car maybe-use) 'use)
-                       (cons (list maybe-use) (cdddr x))
-                       (cons '() (cddr x))))
-                   (use  (car use/rest))
-                   (rest (cdr use/rest)))
-              `(define-feature ,features ,@use (@@inline ,@rest))))
-           (else
-             (error "Cannot handle host feature " x))))
-       host-features))
+    '()
+    host-features))
 
 (define host-config #f)
 
-(define (compile-program verbosity debug-info parsed-vm features-enabled features-disabled program)
+(define (compile-program verbosity debug-info parsed-vm features program)
   (let* ((exprs-and-exports
            (extract-exports program))
          (exprs
@@ -1375,31 +1389,34 @@
            (if (pair? exprs) exprs (list #f)))
 
          (host-defines-primitives?
-           (and parsed-vm (assoc 'primitives parsed-vm)))
+           (and parsed-vm (soft-assoc 'primitives parsed-vm)))
 
-         (host-features
-           (extract-features
-             (if host-defines-primitives?
-               parsed-vm
-               (if parsed-vm
-                 (append default-primitives parsed-vm)
-                 default-primitives))))
+         (vm-features (and parsed-vm (extract-features parsed-vm)))
 
          (expansion
            `(begin
-              ,@(host-feature->expansion-feature host-features) ;; add host features
+              ,@(host-feature->scheme vm-features) ;; add vm features
               ,(expand-begin exprs (make-mtx '() '()))))
+
+         (expansion
+           (if host-defines-primitives?
+             expansion
+             `(begin ,@default-primitives ,expansion)))
 
          (exports
            (exports->alist (cdr exprs-and-exports)))
+
          (live-globals-and-features
-           (liveness-analysis expansion features-enabled features-disabled exports))
+           (liveness-analysis expansion features exports))
+
          (live-globals
            (car live-globals-and-features))
+
          (live-features
            (cdr live-globals-and-features))
+
          (exports
-           (or (and (not (memq 'debug live-features)) exports) ;; export everything when debug is activated
+           (or (and (not (assq 'debug live-features)) exports) ;; export everything when debug is activated
                (map (lambda (v)
                       (let ((var (car v)))
                         (cons var var)))
@@ -1436,7 +1453,7 @@
         (display "*** Code expansion: \n")
         (pp expansion)))
 
-    (if (>= verbosity 3)
+    (if (or (>= verbosity 3) (memq 'hash-table debug-info))
       (begin
         (display "*** hash-consing table: \n")
         (pp
@@ -1688,23 +1705,51 @@
 
 
              ((eqv? (car expr) 'define-primitive) ;; parse arguments as source file
-              (let ((code (filter string? (cdr expr)))
-                    (rest (filter (lambda (x) (not (string? x))) (cdr expr))))
-                (parse-host-file
-                  (fold string-append "" code)
-                  (append (list 'define-primitive) rest))))
+              (let* ((primitive (cadr expr))
+                     (use-clause (if (and (pair? (cddr expr))
+                                          (pair? (caddr expr))
+                                          (eqv? 'use (caaddr expr)))
+                                   (caddr expr)
+                                   '(use)))
+                     (code (filter string? (cdr expr)))
+                     (index (soft-assoc 'index (cdr expr)))
+                     (parsed-code
+                       (cons "" ;; Add empty head for defined-primitives
+                             (parse-host-file
+                               (fold
+                                 (lambda (x acc)
+                                   (append acc (string-split x #\newline)))
+                                 '()
+                                 code)))))
+                `(define-primitive
+                   ,primitive
+                   ,use-clause
+                   ,(if index index '(index)) ;; retrives the index, or #f
+                   ,parsed-code)))
 
              ((eqv? (car expr) 'define-feature) ;; parse arguments as a source file
-              (let* ((bindings (cddr expr))
-                     (use-statement (soft-assoc 'use bindings))
-                     (rest (filter (lambda (x) (not (eqv? (car x) 'use))) bindings)))
+              (let* ((feature-condition (cadr expr))
+                     (use-clause (and (pair? (cddr expr))
+                                      (pair? (caddr expr))
+                                      (eqv? 'use (caaddr expr))
+                                      (caddr expr)))
+                     (bindings 
+                       (if use-clause 
+                         (if (null? (cdddr expr))
+                           '()
+                           (cadddr expr))
+                         (caddr expr)))
+
+                     (bindings 
+                       (map
+                         (lambda (x)
+                           `(,(car x) ,(parse-host-file (string-concatenate (cdr x) "\n"))))
+                         bindings)))
                 `(define-feature
-                   ,(cadr expr)
-                   ,@(if use-statement (list use-statement) '())
-                   ,@(map
-                       (lambda (x)
-                         `(,(car x) ,(parse-host-file (fold string-append "" (cdr x)) '())))
-                       rest))))
+                   ,feature-condition
+                   ,(or use-clause '(use))
+                   ,bindings)
+                ))
 
              ((eqv? first 'and)
               (expand-expr
@@ -2103,15 +2148,15 @@
       result)))
 
 
-;;;----------------------------------------------------------------------------
+;;; =========================================
+;;; ---------- LIVENESS ANALYSIS ------------
+;;; =========================================
 
-;; Global variable liveness analysis.
-
-(define (liveness-analysis expr features-enabled features-disabled exports)
-  (let* ((live-env (liveness-analysis-aux expr features-enabled features-disabled '()))
+(define (liveness-analysis expr features exports)
+  (let* ((live-env (liveness-analysis-aux expr features '()))
          (live-env-result
            (if (live-env-live? live-env 'symtbl)
-             (liveness-analysis-aux expr features-enabled features-disabled exports)
+             (liveness-analysis-aux expr features exports)
              live-env)))
     (cons (live-env-globals live-env-result)
           (live-env-features live-env-result))))
@@ -2119,8 +2164,8 @@
 
 ;; Environnement for liveness analysis.
 
-(define (make-live-env live-globals features features-disabled)
-  (rib live-globals (rib features features-disabled 0) #f)) ;; last one is a dirty bit
+(define (make-live-env live-globals features forced-features)
+  (rib live-globals (rib features forced-features 0) #f)) ;; last one is a dirty bit
 
 
 (define (live-env-globals live-env)
@@ -2129,7 +2174,7 @@
 (define (live-env-features live-env)
   (field0 (field1 live-env)))
 
-(define (live-env-features-disabled live-env)
+(define (live-env-forced-features live-env)
   (field1 (field1 live-env)))
 
 (define (live-env-dirty? live-env)
@@ -2154,7 +2199,6 @@
 
 ;; Other usefull procedures
 
-
 (define (live-env-reset-defs live-env)
 
   (define (reset-defs lst)
@@ -2167,8 +2211,8 @@
         #f)))
   (reset-defs (live-env-globals live-env)))
 
-(define (live-env-feature-disabled? live-env feature)
-  (memq feature (live-env-features-disabled live-env)))
+(define (live-env-forced-feature? live-env feature)
+  (assq feature (live-env-forced-features live-env)))
 
 (define (live-env-add-live! live-env var)
 
@@ -2184,14 +2228,18 @@
   (assq var (live-env-globals live-env)))
 
 (define (live-env-live-feature? live-env feature)
-  (memq feature (live-env-features live-env)))
+  (let ((feature-pair (assq feature (live-env-features live-env))))
+    (and feature-pair (cdr feature-pair))))
 
 (define (live-env-add-feature! live-env var)
+  (live-env-add-feature-value! live-env var #t))
+
+(define (live-env-add-feature-value! live-env var value)
   (if (live-env-live-feature? live-env var)
     var
     (and
-      (not (live-env-feature-disabled? live-env var)) ;; check not disabled
-      (live-env-set-features! live-env (cons var (live-env-features live-env))))))
+      (not (live-env-forced-feature? live-env var)) ;; check not forced
+      (live-env-set-features! live-env (cons (cons var value) (live-env-features live-env))))))
 
 
 (define (constant? g)
@@ -2205,9 +2253,8 @@
   (not (eqv? var (lookup var cte 0))))
 
 
-
-(define (liveness-analysis-aux expr features-enabled features-disabled exports)
-  (let* ((env (make-live-env '() features-enabled features-disabled)))
+(define (liveness-analysis-aux expr forced-features exports)
+  (let* ((env (make-live-env '() forced-features forced-features)))
 
     ;; ##rib is always needed
     (live-env-add-live! env '##rib)
@@ -2220,10 +2267,6 @@
          (for-each
            (lambda (x) (live-env-add-live! env (car x)))
            exports))
-
-    (for-each
-      (lambda (x) (live-env-add-feature! env x))
-      features-enabled)
 
     (let loop ()
       (live-env-reset-defs env)
@@ -2248,7 +2291,6 @@
            (for-each add-val (vector->list val)))))
 
   (define (liveness expr cte top?)
-
 
     (cond ((symbol? expr)
            (if (in? expr cte) ;; local var?
@@ -2318,18 +2360,25 @@
 
                    ((eqv? first 'define-feature)
                     (let ((feature-expr (cadr expr))
-                          (use  (soft-assoc 'use (cddr expr))))
+                          (use  (caddr expr)))
+                      (if (not (eq? (car use) 'use))
+                        (error "Ill-formed define-feature construct. Expected 'use' keyword." use))
+
                       (if (eval-feature feature-expr (live-env-features env))
-                        (and use (for-each (lambda (x) (live-env-add-feature! env x)) use))
+                        (for-each (lambda (x) (live-env-add-feature! env x)) (cdr use))
                         #f)))
 
                    ((eqv? first 'define-primitive)
                     (let ((name (caadr expr))
-                          (use  (assoc 'use (cddr expr))))
+                          (use  (caddr expr)))
+
+                      (if (not (eq? (car use) 'use))
+                        (error "Ill-formed define-primitive construct. Expected 'use' keyword." use))
+
                       (if (or (live-env-live-feature? env name) (live-env-live? env name))
                         (begin
                           (live-env-add-feature! env name)
-                          (and use (for-each (lambda (x) (live-env-add-feature! env x)) use)))
+                          (for-each (lambda (x) (live-env-add-feature! env x)) (cdr use)))
                         #f)))
 
                    ((eqv? first 'if-feature)
@@ -2337,6 +2386,34 @@
                       (if (eval-feature feature-expr (live-env-features env))
                         (liveness (caddr expr) cte #f)
                         (liveness (cadddr expr) cte #f))))
+
+                   ((eqv? first 'use-feature)
+                    (for-each 
+                      (lambda (x)
+                        (cond
+                          ;; Just a symbol = (feature . #t)
+                          ((symbol? x)
+                           (live-env-add-feature! env x))
+
+                          ;; '(feature value)
+                          ((and 
+                             (pair? x)
+                             (symbol? (car x))
+                             (pair? (cdr x))
+                             (symbol? (cadr x)))
+                           (live-env-add-feature-value! env (car x) (cadr x)))
+
+                          ;; '(feature . value) unchanged
+                          ((and
+                             (pair? x)
+                             (symbol? (car x))
+                             (symbol? (cdr x)))
+                           (live-env-add-feature-value! env (car x) (cdr x)))
+                          (else
+                            (error 
+                              "Ill-formed use-feature construct. Expected feature or feature-value pair." 
+                              x))))
+                      (cdr expr)))
 
                    (else
                      ;; Calls in first position create a binding, thus needing ##arg2
@@ -2481,9 +2558,6 @@
 
       )))
 
-;(pp encoding-skip-92)
-
-
 
 (define (encoding-inst-size encoding entry)
   (cadr (encoding-inst-get encoding entry)))
@@ -2496,6 +2570,9 @@
 
 (define (encoding-size encoding)
   (fold + 0 (map cadr encoding)))
+
+
+(define predefined (list '##rib 'false 'true 'nil)) ;; predefined symbols
 
 (define (encode-constants proc host-config)
 
@@ -2815,9 +2892,6 @@
                       (loop4 (cdr symbols*))
                       (cons syms symbols*)))))))))))
 
-                      ;; (encode-stream
-                      ;; proc
-                      ;; encoding)
 (define (get-maximal-encoding encodings stats encoding-size)
 
     (define encoding-size-counter encoding-size)
@@ -2880,7 +2954,10 @@
     (define (recalculate)
       (for-each
         (lambda (encoding)
-          (if (and (pair? encoding) (table-ref stats (car encoding) #f) (table-ref (table-ref stats (car encoding)) (cadr encoding) #f)) ;; FIXME: this check is needed because the instruction might be missing
+          (if (and (pair? encoding) 
+                   (table-ref stats (car encoding) #f) 
+                   ;; FIXME: this check is needed because the instruction might be missing
+                   (table-ref (table-ref stats (car encoding)) (cadr encoding) #f)) 
             (table-set!
               running-sums
               encoding
@@ -3098,73 +3175,6 @@
     (list (length stream) (length return) return)))
 
 
-
-
-
-;(define (encode-lzss-on-two-bytes stream bit-header length-header offset-header encoding-size host-config)
-;  ;; assuming tag is all 1
-;  (define header-tag (if (eqv? bit-header 2) 192 128))
-;
-;  ;(define encoding-size/2 (quotient encoding-size 2))
-;
-;  (define (encode encoded-stream tail)
-;    (if (pair? encoded-stream)
-;      (let ((code (car encoded-stream)))
-;        (encode
-;          (cdr encoded-stream)
-;          (cond
-;            ((pair? code)
-;             (let* ((offset (car code))
-;                    (len (cadr code))
-;                    (first-byte
-;                      (+
-;                        header-tag
-;                        (* (- len 3) (arithmetic-shift 1 (- offset-header 8)))
-;                        (arithmetic-shift offset -8)))
-;                    (second-byte
-;                      (bitwise-and offset 255)))
-;               ;(pp (list code first-byte second-byte))
-;               `(,first-byte
-;                 ,second-byte
-;                 .
-;                 ,tail)))
-;            (else
-;              (cons
-;                code
-;                tail)))))
-;      tail))
-;
-;  (if (not (eqv? (+ bit-header length-header offset-header) 16))
-;    (error "Bit header, length header and offset header must add up to 16"))
-;
-;  (let* ((encoded-stream
-;           (LZSS
-;             stream
-;             (- (arithmetic-shift 1 offset-header) 1)
-;             (- (arithmetic-shift 1 length-header) 1)
-;             encoding-size
-;             (lambda (x) (if (pair? x) 2 1))))
-;         (return (encode
-;                   encoded-stream
-;                   '()))
-;         (dec (decompress-lzss-2b
-;                return
-;                bit-header
-;                length-header
-;                offset-header)))
-;
-;;    (pp (map list dec encoded-stream))
-;;    (pp (length dec))
-;;    (pp (length encoded-stream))
-;;    (pp (filter (lambda (x) (not (equal? (car x) (cadr x)))) (map list dec encoded-stream)))
-;
-;    (if (equal? dec
-;                encoded-stream)
-;      (display "... ensuring that decompression works ...")
-;      (error "Decompression failed"))
-;    return))
-
-
 (define (encode-lzss-with-tag stream encoding-size host-config)
 
   (define encoding-size/2 (quotient encoding-size 2))
@@ -3256,12 +3266,6 @@
     (list tag 0))))
 
 
-
-
-
-
-
-
 ;; Inspired from the section 2.6.4 of https://ir.canterbury.ac.nz/bitstream/handle/10092/8411/bell_thesis.pdf?sequence=1&isAllowed=y
 ;;
 ;;   cost-func : function that calculates cost of encoding a value. A value can be a backward pointer
@@ -3321,7 +3325,6 @@
             (car matched-matching)
             (append
               (if (and (eqv? (car stream) (car match))
-                       ;(pair? (cdr match))
                        (< index already-encoded-size))
                 (list
                   (list
@@ -3453,14 +3456,9 @@
               (if (number? key)
                 (string-append " : " (number->string value))
                 "")
-
               " [ "
               (number->string int-value)
-              " bytes ]"
-
-
-              )
-            )
+              " bytes ]"))
           (newline)
           (if (table? value)
             (display-stats-aux
@@ -3549,8 +3547,7 @@
 
 (define (encoding-optimal-order encoding)
   (define order
-    '(
-      (jump int short)  ; 0
+    '((jump int short)  ; 0
       (jump int long)   ; 1
       (jump sym short)  ; 2
       (jump sym long)   ; 3
@@ -3585,8 +3582,6 @@
   (host-config-feature-add! host-config 'encoding/optimal/sizes (map caddr encoding))
   (host-config-feature-add! host-config 'encoding/optimal/start (map cadr encoding)))
 
-
-
 (define (encode-hyperbyte stream)
   (let loop ((stream stream) (result '()))
     (if (pair? stream)
@@ -3595,7 +3590,6 @@
               (cons (+ (* 16 (car stream)) (cadr stream)) result))
         (cons (car stream) result))
       result)))
-
 
 (define (encode proc exports host-config byte-stats encoding-name byte-base)
 
@@ -3609,7 +3603,8 @@
   (define size-base-min 7)
   (define size-base-max 13)
 
-  (define (ribn-base) (- byte-base compression-range-size))
+  (define (ribn-base) 
+    (- byte-base compression-range-size))
 
   ;; state
   (let ((encoding      #f) ;; chosen encoding
@@ -3762,30 +3757,6 @@
       ;; Dispatch logic
       (p/enc-const) ;; always encode constants
 
-#|
-      (if compression/2b?
-        (begin
-          (if (< (- encoding-size compression-range-size) 0)
-            (error "Too many codes reserved for 2b-compression"))
-          (set! encoding-size (- encoding-size compression-range-size))))
-
-
-          ;(if (not (eqv? encoding-size 256))
-          ;  (error "2b compression only works with 256 bytes encoding"))
-          ;(cond
-          ;  ((eqv? compression/2b/bits 1)
-          ;   (set! encoding-size 192))
-          ;  ((eqv? compression/2b/bits 2)
-          ;   (set! encoding-size 128))
-          ;  (else
-          ;    (error "2b compression only works with 1 or 2 bits")))))
-
-      (if hyperbyte?
-        (begin
-          (if (not (eqv? encoding-size 256))
-            (error "Hyperbyte only works with 256 bytes encoding"))
-          (set! encoding-size 16)))
-|#
       ;; Choose encoding
       (set! encoding
         (cond
@@ -3795,8 +3766,6 @@
           ((and (string=? "skip" encoding-name)
                 (eqv? (ribn-base) 92))
            encoding-skip-92)
-          ((string=? "test" encoding-name)
-           #f)
           ((string=? "optimal" encoding-name)
            (optimal-encoding))
           (else
@@ -3840,129 +3809,6 @@
         (encoding-optimal-add-variables encoding host-config))
 
       stream)))
-
-;      (if (string=? encoding-name "test")
-;        (let loop2 ((lst-len (iota 10 3 1)))
-;          (when (pair? lst-len)
-;            (display (string-append "*** Testing length :" (number->string (car lst-len)) "\n"))
-;            (let loop ((lst (iota 20 16 4)))
-;              (when (pair? lst)
-;
-;                (set! encoding-size (car lst))
-;                (set! encoding (optimal-encoding))
-;
-;                (p/enc-symtbl)
-;                (p/enc-prog)
-;                (p/merge-prog-sym)
-;
-;                (let* ((rest-bits (max 0 (- 92 (car lst))))
-;                       (len (car lst-len))
-;                       (entropy-on-2-bits (* rest-bits 92))
-;                       (max-offset (floor (/ entropy-on-2-bits (- len 2))))
-;                       (lzss-comp
-;                         (LZSS
-;                           stream
-;                           max-offset
-;                           len ;; hard-coded
-;                           encoding-size
-;                           (lambda (x) (if (pair? x) 2 1))))
-;                       (total-length (fold (lambda (x acc) (+ acc (if (pair? x) 2 1))) 0 lzss-comp)))
-;
-;                  (display
-;                    (string-append
-;                      "Codes : "
-;                      (number->string (car lst))
-;                      "\n"
-;                      "Program size (without compression) : "
-;                      (number->string (length stream))
-;                      "\n"
-;                      "Compression with 1-bit backpointers : "
-;                      (number->string (length lzss-comp))
-;                      "\n"
-;                      "Compression on " (number->string entropy-on-2-bits) " codes (size-base " (number->string len) ", max-offset " (number->string max-offset) ") : "
-;                      (number->string total-length)
-;                      "\n\n"
-;                      )))
-;
-;                (table-set! t (cons (car lst) (car lst-len)) (length stream))
-;                (loop (cdr lst))))
-;            (loop2 (cdr lst-len)))))
-
-
-
-
-
-
-
-
-
-;(define (encode proc exports host-config byte-stats encoding-name encoding-size)
-;  (let* ((prog (encode-constants proc host-config))
-;
-;         (hyperbyte? (host-config-feature-live? host-config 'encoding/hyperbyte))
-;         (encoding-size
-;           (if hyperbyte?
-;             (if (not (eqv? encoding-size 256))
-;               (error "Hyperbyte encoding only supports 256 byte encoding")
-;               16)
-;             encoding-size))
-;
-;
-;         (encoding (cond
-;                      ((and (string=? "original" encoding-name)
-;                            (eqv? encoding-size 92))
-;                       encoding-original-92)
-;                      ((and (string=? "skip" encoding-name)
-;                            (eqv? encoding-size 92))
-;                       encoding-skip-92)
-;
-;                      ((string=? "optimal" encoding-name)
-;                       (let* ((symtbl-and-symbols* (encode-symtbl prog exports host-config 20)) ;; we assume 20 shorts, will be re-evaluated
-;                              (raw-stream (encode-program prog (car symtbl-and-symbols*) 'raw #t encoding-size))
-;                              (stats (get-stat-from-raw (make-table) raw-stream))
-;                              (encoding
-;                                (calculate-start
-;                                  (encoding-optimal-order
-;                                    (encoding-table->encoding-list
-;                                      (get-maximal-encoding
-;                                        (map car encoding-skip-92)
-;                                        stats
-;                                        encoding-size))))))
-;                         (encoding-optimal-add-variables encoding host-config)
-;                         encoding))
-;
-;                      (else
-;                        (error "Cannot find encoding :" encoding-name))))
-;
-;         (symtbl-and-symbols* (encode-symtbl prog exports host-config (encoding-inst-size encoding '(call sym short))))
-;         (symtbl (car symtbl-and-symbols*))
-;         (symbols* (cdr symtbl-and-symbols*))
-;         (stream (encode-program prog symtbl encoding (encoding-inst-get encoding '(skip int long)) encoding-size))
-;
-;         (symtbl-stream (symtbl->stream symtbl symbols* (if hyperbyte? 256 encoding-size)))
-;         (stream
-;           (if hyperbyte?
-;             stream
-;             (append symtbl-stream stream)))
-;
-;         (compression? (host-config-feature-live? host-config 'compression/lzss))
-;         (stream (if compression?
-;                   (encode-lzss
-;                     stream
-;                     encoding-size
-;                     host-config)
-;                   stream)))
-;
-;    (if hyperbyte?
-;      (append
-;        (if compression?
-;          (encode-lzss
-;            symtbl-stream
-;            256
-;            host-config)
-;          symtbl-stream)
-;        (encode-hyperbyte stream))
-;      stream)))
 
 (define (encode-n n stream encoding-size/2)
   (encode-n-aux n stream stream encoding-size/2))
@@ -4161,177 +4007,6 @@
 
 
 
-
-
-
-
-  ;(define (encode-to-stream proc encoding)
-  ;  (set! skip-optimization #t)
-
-  ;  (let* ((raw-stream (enc-proc proc 'raw #f '()))
-  ;         (stats (get-stat-from-raw (make-table) raw-stream)))
-  ;    ;(display-stats stats 2 encoding-skip-92)
-  ;    (define size-92 (sum-byte-count stats '() (encoding-list->encoding-table encoding-skip-92) 92))
-
-  ;    ;(pp "Size on 92 codes : ")
-  ;    ;(pp size-92)
-
-  ;    ; #;(let ((lst '(256 128 92 85 64 51 42 36 32 28 26 24 22 21 20 19 18 17 16 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1)))
-  ;    ; (for-each
-  ;    ;   (lambda (v)
-  ;    ;     (let* ((solution
-  ;    ;              (get-maximal-encoding
-  ;    ;                (map car encoding-skip-92)
-  ;    ;                stats
-  ;    ;                v))
-  ;    ;            (optimal-encoding-size
-  ;    ;              (sum-byte-count stats '() solution v))
-  ;    ;            (multiplicator (quotient 256 v)))
-
-  ;    ;       (write
-  ;    ;         (string-append
-  ;    ;           "Optimal "
-  ;    ;           (number->string v)
-  ;    ;           " code encoding: "
-  ;    ;           (number->string optimal-encoding-size)))
-  ;    ;       (newline)
-  ;    ;       (pp (table->list solution))))
-  ;    ;   lst))
-  ;    (define best-encoding-16 (calculate-start
-  ;                               (encoding-table->encoding-list
-  ;                                 (get-maximal-encoding
-  ;                                   (map car encoding-skip-92)
-  ;                                   stats
-  ;                                   256))))
-
-  ;    (let* ((sizee 16)
-  ;           (encoded-proc
-  ;             (enc-proc
-  ;               proc
-  ;               #;encoding-skip-92
-  ;               best-encoding-16
-  ;               #f
-  ;               '()))
-
-  ;           ;     #;(test
-  ;           ;     (LZ77
-  ;           ;       ;(map random-integer (make-list 10000 16))
-  ;           ;       encoded-proc
-  ;           ;       9999999999999999999999999999;(* sizee sizee)
-  ;           ;       9999999999999999999999999
-  ;           ;       ;(* sizee sizee)
-  ;           ;       ;sizee
-  ;           ;       sizee))
-  ;           )
-
-  ;      (define (bit-in-num x)
-  ;        (if (eqv? x 0)
-  ;          1
-  ;          (ceiling (log (+ x 1) (quotient sizee 2)))))
-
-  ;      (define cost
-  ;        (lambda (x acc)
-  ;          (if (pair? x)
-  ;            (+
-  ;              (bit-in-num (car x))
-  ;              ;2
-
-  ;              (bit-in-num (cadr x))
-  ;              ;1
-  ;              1
-  ;              acc)
-  ;            (+ 1 acc)
-  ;            )))
-
-  ;      (define costc
-  ;        (lambda (x acc) (pp (list acc (cost x 0) x)) (cost x acc)))
-
-  ;      (define (decode stream tail)
-  ;        (if (pair? stream)
-  ;          (if (pair? (car stream))
-  ;            (let ((elem (car stream)))
-  ;              (decode
-  ;                (if (> (cadr elem) 1)
-  ;                  (cons
-  ;                    (list
-  ;                      (car elem)
-  ;                      (- (cadr elem) 1))
-  ;                    (cdr stream))
-  ;                  (cdr stream))
-  ;                (cons (car (list-tail tail (- (car elem) 1))) tail)))
-  ;            (decode (cdr stream) (cons (car stream) tail)))
-  ;          tail))
-
-  ;      (define (16bit->256bits stream)
-  ;        (let loop ((stream encoded-proc) (result '()))
-  ;          (if (pair? stream)
-  ;            (if (pair? (cdr stream))
-  ;              (loop (cddr stream)
-  ;                    (cons (+ (* 16 (car stream)) (cadr stream)) result))
-  ;              (cons (car stream) result))
-  ;            result)))
-
-  ;      (define (output-to-file filename stream)
-  ;        (let ((out (open-output-file filename)))
-  ;          (for-each
-  ;            (lambda (x)
-  ;              (write-u8 x out))
-  ;            stream)
-  ;          (close-output-port out)))
-
-  ;      (output-to-file "ribn-256.txt" encoded-proc)
-
-
-
-  ;      (pp (length encoded-proc))
-  ;      (pp
-  ;        (length test))
-  ;      (pp
-  ;        (fold
-  ;          cost
-  ;          0
-  ;          test))
-  ;      (pp (equal? (decode (reverse test) '()) (reverse encoded-proc)))
-  ;      ; #;(pp
-  ;      ; (fold costc 0 test))
-
-  ;      encoded-proc)))
-
-
-
-
-
-
-  ;; (let ((stream (encode-to-stream proc encoding)))
-  ;;
-  ;;   (if byte-stats
-  ;;     (display-stats stats byte-stats encoding))
-  ;;
-  ;;   ;(pp (cons 'stream stream))
-  ;;   (string-append
-  ;;     (stream->string
-  ;;       (encode-n (- (length symbols)
-  ;;                    (length symbols*))
-  ;;                 '()
-  ;;                 (* eb/2 2)))
-  ;;     (string-append
-  ;;       (string-concatenate
-  ;;         (map (lambda (s)
-  ;;                (let ((str (symbol->str s)))
-  ;;                  (list->string
-  ;;                    (reverse (string->list str)))))
-  ;;              symbols*)
-  ;;         ",")
-  ;;       (string-append
-  ;;         ";"
-  ;;         (stream->string stream)))))
-
-
-
-;(define )
-
-
-
 (define (string->codes string)
   (map char->integer (string->list string)))
 
@@ -4371,124 +4046,83 @@
               (read-all)
               (read-from-file src-path))))
 
-;;;----------------------------------------------------------------------------
+;;;----------------------------------------------------------
+;;;=================== HOST FILE PARSING ====================
+;;;----------------------------------------------------------
 
+;; PARSE_HOST_FILE
+;; inputs: a string that represents a host-file
+;; outputs: a pair (lines-left-to-parse .  parsed-host-file)
+;; 
+;; The returned parsed-host file follows this grammar:
+;;   <HOST_FILE> ::= (<HOST_FILE_STATEMENT>*)
+;;   <HOST_FILE_STATEMENT> ::= <CONTENT> | <MACRO>
+;;   <CONTENT> ::= "string"
+;;   <MACRO> ::= (<MACRO_NAME> <HOST_FILE> . <MACRO_ARGUMENTS>)
+;;   <MACRO_NAME> ::= 'symbol
+;;   <MACRO_ARGUMENTS> ::= any sexp list, ex: ('I < 3 "scheme")
+;;
+;; Look at host-tests under tests/hosts/* for examples.
+;; 
+;; Note that the embedded macros can be nested. For example, 
+;; 
+;; // @@(feature a
+;; //   @@(feature b
+;; some_statement
+;; //   )@@
+;; // )@@
+
+(define (parse-host-file file-content)
+  (let loop ((lines 
+               (if (pair? file-content) 
+                 file-content 
+                 (string-split file-content #\newline)))
+             (parsed-file '())
+             (cur-section '()))
+
+    (if (pair? lines)
+      (let* ((cur-line (car lines))
+             (macro (detect-macro cur-line))
+             (macro-type  (car macro))
+             (macro-value (cadr macro))
+             (next-section
+               (cons cur-line cur-section)))
+        
+        (case macro-type
+          ((none)
+           (loop (cdr lines) parsed-file next-section))
+
+          ((end-outer)
+           (let ((body (reverse `(,@next-section . ,parsed-file))))
+             (cons (cdr lines)
+                   body)))
+          ((inner)
+           (let* ((macro-value (string-append "(" macro-value ")"))
+                  (macro-sexp  (read (open-input-string macro-value))))
+             (loop (cdr lines)
+                   `(,@macro-sexp ,@cur-section . ,parsed-file)
+                   '())))
+
+          ((start-outer start-end-outer)
+           (let* ((macro-value (string-append "(" macro-value ")"))
+                  (macro-sexp (read (open-input-string macro-value)))
+                  (body-pair (if (eqv? macro-type 'start-outer)
+                               (parse-host-file (cdr lines)) ; recursive call
+                               (cons (cdr lines) '())))
+                  (lines-after-body (car body-pair))
+                  (parsed-subfile  (cons (car lines) (cdr body-pair))))
+             (loop lines-after-body
+                   `((,(car macro-sexp) ,parsed-subfile ,@(cdr macro-sexp))
+                     ,@cur-section
+                     . 
+                     ,parsed-file)
+                   '())))
+          (else
+           (error "Unknown macro type" macro-type))))
+      (reverse `(,@cur-section . ,parsed-file)))))
+
+;; DETECT-MACRO
 ;; Host file expression parsing, evalutation and substitution
-
-(define (find predicate lst)
-  (if (pair? lst)
-    (if (predicate (car lst))
-      (car lst)
-      (find predicate (cdr lst)))
-    #f))
-
-(define (soft-assoc sym lst)
-  (find (lambda (e) (and (pair? e) (eq? (car e) sym)))
-        lst))
-
-(define (all predicate lst)
-  (not (find (lambda (x) (not (predicate x))) lst)))
-
-(define (extract-feature-names parsed-file)
-  (define (extract-name name)
-    (if (pair? name)
-      (let ((first (car name)))
-        (case first
-          ((and or not) (apply append (map extract-name (cdr name))))
-          (else name)))
-      (list name)))
-
-  (let ((features (extract-features parsed-file)))
-    (fold
-      (lambda (prim acc)
-        (if (eqv? (car prim) 'feature)
-         (unique (append acc (extract-name (cadr prim))))
-         acc))
-      '()
-      features)))
-
-(define (extract-features parsed-file)
-  (extract
-    (lambda (prim acc rec)
-      (case (car prim)
-        ((primitives)
-         (let ((primitives (rec '() (cdr prim))))
-           (append primitives acc)))
-        ((primitive feature)
-         (cons prim (append (rec '() (cddr prim)) acc)))
-        (else
-          acc)))
-    parsed-file
-    '()))
-
-
-(define (extract walker parsed-file base)
-  (letrec ((func
-             (lambda (prim acc)
-               (let ((rec (lambda (base body) (fold func base body))))
-                 (walker prim acc rec)))))
-    (fold
-      func
-      base
-      parsed-file)))
-
-;; (define (next-line last-new-line)
-;;   (let loop ((cur last-new-line) (len 0))
-;;     (if (or (not (pair? cur)) (eqv? (car cur) 10)) ;; new line
-;;       (begin
-;;         ;(pp (list->string* last-new-line (+ 1 len)) )
-;;         (cons (and (pair? cur) (cdr cur))
-;;               (if (not (pair? cur))
-;;                 len
-;;                 (+ 1 len))))
-;;       (loop (cdr cur) (+ len 1)))))
-
-;; FIXME: Remove
-;; (define (detect-macro line len)
-;;   (let loop ((cur line) (len len) (start #f) (macro-len 0))
-;;     (if (<= len 2)
-;;       (if start  ;; NOTE: start is not the value '#t, it is the start of the macro
-;;         (cons
-;;           'start
-;;           (cons start
-;;                 (+ 1 macro-len)))
-;;         (cons 'none '()))
-;;       (cond
-;;         ((and (eqv? (car cur) 64)     ;; #\@
-;;               (eqv? (cadr cur) 64)    ;; #\@
-;;               (eqv? (caddr cur) 40))  ;; #\(
-;;          (if start
-;;            (error "cannot start 2 @@\\( on the same line")
-;;            (loop (cdddr cur)
-;;                  (- len 3)
-;;                  cur
-;;                  3)))
-;;         ((and (eqv? (car cur)  41)    ;; #\)
-;;               (eqv? (cadr cur) 64)    ;; #\@
-;;               (eqv? (cadr cur) 64))   ;; #\@
-;;          (if start
-;;            (cons
-;;       [2] === 3       'start-end ;; type
-;;              (cons
-;;                start
-;;                (+ 3 macro-len)))
-;;            (cons
-;;              'end ;; type
-;;              '())))
-;;         (else
-;;           (loop (cdr cur)
-;;                 (- len 1)
-;;                 start
-;;                 (if start (+ macro-len 1) macro-len)))))))
-
-(define (list-prefix? prefix lst)
-  (if (pair? prefix)
-    (if (pair? lst)
-      (if (eqv? (car prefix) (car lst))
-        (list-prefix? (cdr prefix) (cdr lst))
-        #f)
-      #f)
-    #t))
 
 ;; Detects a macro on a given line.
 ;; In the following, assume "..." is any sexp. There are 3 types of macros :
@@ -4533,144 +4167,110 @@
 
               ;(if (and (not start) match-end-inner)
               ;  (error "The ..@ macro must start with @.."))
+
               ;(if (and (eq? macro-type 'inner) (or match-start-outer match-end-outer))
               ;  (error "Cannot mix and match outer and inner macros"))
+
               ;(if (and (not (or (eq? macro-type 'inner) (eq? macro-type 'none)))
               ;         (or match-start-inner match-end-inner))
-              ;  (error "Cannot mix and match inner or outer macros"))
+              ;  (error "Cannot mix and match inner or outer macros macros"))
 
-              ;; Ignore lines with @@ at the beginning
-              (if (and (not start) match-end-outer-same-line)
-                (list 'none #f)
-                (loop
-                  (cdddr cur)
-                  (+ i 3)
-                  (if match-start (+ i 3) start)
-                  (if match-end i end)
-                  (cond
-                    (match-start-outer 'start-outer)
-                    (match-end-outer
-                      (if start 'start-end-outer 'end-outer))
-                    (else macro-type)))))))))))
+              (loop
+                (cdddr cur)
+                (+ i 3)
+                (if match-start (+ i 3) start)
+                (if match-end i end)
+                (cond
+                  (match-start-outer 'start-outer)
+                  (match-end-outer   (if start 'start-end-outer 'end-outer))
+                  (else macro-type))))))))))
 
-(define (parse-host-file file-content cur-macro)
-  (define (to-str str)
-    (if (string=? "" str)
+;; EXTRACT
+;; inputs: a walker function, a parsed file, and a base value
+;; outputs: the result of the walker function
+;;
+;; This is a healper similar to fold, but that can be called recursively
+;;   easily. This is usefull for parsing recursive structures, such as the
+;;   parsed host file.
+(define (extract walker parsed-file base)
+  (letrec ((func
+             (lambda (prim acc)
+               (let ((rec (lambda (base body) (fold func base body))))
+                 (walker prim acc rec)))))
+    (fold
+      func
+      base
+      parsed-file)))
+
+(define (find predicate lst)
+  (if (pair? lst)
+    (if (predicate (car lst))
+      (car lst)
+      (find predicate (cdr lst)))
+    #f))
+
+(define (soft-assoc sym lst)
+  (find (lambda (e) (and (pair? e) (eq? (car e) sym)))
+        lst))
+
+(define (all predicate lst)
+  (not (find (lambda (x) (not (predicate x))) lst)))
+
+(define (extract-feature-names parsed-file)
+  (define (extract-name name)
+    (if (pair? name)
+      (let ((first (car name)))
+        (case first
+          ((and or not) (apply append (map extract-name (cdr name))))
+          (else name)))
+      (list name)))
+
+  (let ((features (extract-features parsed-file)))
+    (fold
+      (lambda (prim acc)
+        (if (eqv? (car prim) 'feature)
+         (unique (append acc (extract-name (caddr prim))))
+         acc))
       '()
-      `((str ,str))))
+      features)))
 
-  (let loop ((lines (if (pair? file-content) file-content (string-split file-content #\newline)))
-             (parsed-file (reverse cur-macro))
-             (cur-section ""))
-    (if (pair? lines)
-      (let* ((cur-line (car lines))
-             (macro (detect-macro cur-line))
-             (macro-type  (car macro))
-             (macro-value (cadr macro))
-             (next-section
-               (if (equal? cur-section "")
-                 cur-line
-                 (string-append cur-section "\n" cur-line)))
-             )
-        (case macro-type
-          ((none)
-           (loop (cdr lines) parsed-file next-section))
+(define (extract-features parsed-file)
+  (extract
+    (lambda (prim acc rec)
+      (if (pair? prim)
+        (case (car prim)
+          ((primitives)
+           (let ((primitives (rec '() (cadr prim))))
+             (append primitives acc)))
 
-          ((end-outer)
-           (let ((body (reverse `(,@(to-str next-section) . ,parsed-file))))
-             (cons (cdr lines)
-                   body)))
-
-          ((inner)
-           (let* ((macro-value (string-append "(" macro-value ")"))
-                  (macro-sexp  (read (open-input-string macro-value))))
-             (loop (cdr lines)
-                   `(,@macro-sexp ,@(to-str cur-section) . ,parsed-file)
-                   "")))
-
-          ((start-outer start-end-outer)
-           (let* ((macro-value (string-append "(" macro-value ")"))
-                  (macro-sexp (read (open-input-string macro-value)))
-                  (body-pair (if (eqv? macro-type 'start-outer)
-                               (parse-host-file (cdr lines) `(,@macro-sexp (@@head ,cur-line))) ; recursive call
-                               (cons (cdr lines) `(,@macro-sexp (str ,cur-line)))))
-                  (lines-after-body (car body-pair))
-                  (full-macro  (cdr body-pair)))
-             (loop lines-after-body
-                   `(,full-macro ,@(to-str cur-section) . ,parsed-file)
-                   "")))
+          ((primitive feature)
+           (let* ((inner-features (rec '() (cadr prim)))
+                  (inner-features ;; add `and` conditions on inner features
+                    (map
+                      (lambda (x) 
+                        `(,(car x)  ;; primitive or feature
+                          ,(cadr x) ;; recursive 
+                          (and ,(caddr prim) ,(caddr x))
+                           .
+                           ,(cdddr x)))
+                      inner-features)))
+             `(,prim ,@inner-features . ,acc)))
           (else
-           (error "Unknown macro type" macro-type))))
-      (reverse `((str ,cur-section) . ,parsed-file)))))
+            acc))
+        acc))
+    parsed-file
+    '()))
 
 
+(define (list-prefix? prefix lst)
+  (if (pair? prefix)
+    (if (pair? lst)
+      (if (eqv? (car prefix) (car lst))
+        (list-prefix? (cdr prefix) (cdr lst))
+        #f)
+      #f)
+    #t))
 
-
-
-;;
-;; (define (parse-host-file cur-line)
-;;   (let loop ((cur-line cur-line)
-;;              (parsed-file '())
-;;              (start-len 0)
-;;              (start-line cur-line))
-;;     (if (pair? cur-line)
-;;       (let* ((next-line-pair (next-line cur-line))
-;;              (cur-end (car next-line-pair))
-;;              (cur-len (cdr next-line-pair))
-;;              (macro-pair (detect-macro (list->string* cur-line (length cur-line))))
-;;              (macro-type (car macro-pair))
-;;              (macro-args (cdr macro-pair))
-;;              (parsed-file
-;;                (cond
-;;                  ((eqv? macro-type 'end) ;; include last line
-;;                   (cons `(str ,(list->string* start-line (+ cur-len start-len))) parsed-file))
-;;                  ((eqv? start-len 0)
-;;                   parsed-file)
-;;                  ((or (eqv? macro-type 'start)
-;;                       (eqv? macro-type 'start-end))
-;;                   (cons `(str ,(list->string* start-line start-len)) parsed-file))
-;;                  (else
-;;                    parsed-file))))
-;;
-;;         (pp (list->string* cur-line (length cur-line)))
-;;         (pp macro-pair)
-;;         (cond
-;;           ((eqv? macro-type 'end)
-;;            (cons cur-end
-;;                  (reverse parsed-file)))
-;;           ((eqv? macro-type 'none)
-;;            (loop cur-end parsed-file (+ cur-len start-len) start-line))
-;;           ((eqv? macro-type 'start)
-;;            (let* ((macro (car macro-args))
-;;                   (macro-len (cdr macro-args))
-;;                   (macro-string (list->string* (cddr macro) (- macro-len 2)))
-;;                   (macro-sexp (read (open-input-string (string-append macro-string ")"))))
-;;                   (body-pair (parse-host-file cur-end))
-;;                   (body-cur-end (car body-pair))
-;;                   (body-parsed  (cdr body-pair))
-;;                   (head `(@@head ,(list->string* cur-line cur-len)))
-;;                   (body `(@@body ,body-parsed)))
-;;              (loop body-cur-end
-;;                    (cons `(,@macro-sexp ,head ,body) parsed-file)
-;;                    0
-;;                    body-cur-end)))
-;;           ((eqv? macro-type 'start-end)
-;;            (let* ((macro (car macro-args))
-;;                   (macro-len (cdr macro-args))
-;;                   (macro-string (list->string* (cddr macro) (- macro-len 4)))
-;;                   (macro-sexp (read (open-input-string macro-string)))
-;;                   (head-parsed (list->string* cur-line cur-len))
-;;                   (body (cons '@@body `(((str ,head-parsed)))))
-;;                   (head (cons '@@head (list head-parsed))))
-;;              (loop
-;;                cur-end
-;;                (cons `(,@macro-sexp ,head ,body) parsed-file)
-;;                0
-;;                cur-end)))
-;;           (else (error "Unknown macro-type"))))
-;;
-;;       (reverse (cons `(str ,(list->string* start-line start-len)) parsed-file)))))
-;;
 
 (define (unique-aux lst1 lst2)
   (if (pair? lst1)
@@ -4690,7 +4290,7 @@
         ((and (pair? expr) (eqv? (car expr) 'or))
          (not (not (memv #t (map (lambda (x) (eval-feature x true-values)) (cdr expr))))))
         (else
-         (not (not (get-feature-value true-values expr))))))
+          (not (not (assq-value expr true-values))))))
 
 (define (filter-pair predicate lst)
   (let loop ((lst lst) (lst-true '()) (lst-false '()))
@@ -4849,102 +4449,137 @@
   (extract
     (lambda (prim acc rec)
 
-      (case (car prim)
+      (if (pair? prim)
 
-        ((feature define-primitive)
-         (let ((condition (cadr prim)))
-           (if (eval-feature condition live-features)
-             (rec "" (cddr prim))
-             acc)))
+        (case (car prim)
+          ((feature)
+           (let ((condition (caddr prim)))
+             (if (eval-feature condition live-features)
+               (rec "" (cadr prim))
+               acc)))
 
-        ((replace)
-         (let ((expr (caddr prim)))
-           (if (and (pair? expr)
-                    (memq (car expr) cached-functions)
-                    (not (table-ref cache expr #f)))
-             (table-set! cache expr (replace-eval expr encode host-config)))))
+          ((replace)
+           (let ((expr (cadddr prim)))
+             (if (and (pair? expr)
+                      (memq (car expr) cached-functions)
+                      (not (table-ref cache expr #f)))
+               (table-set! cache expr (replace-eval expr encode host-config)))))
 
-        (else acc)))
+          (else acc))
+        acc))
     parsed-file
     "")
 
 
   (letrec ((extract-func
             (lambda (prim acc rec)
-             (case (car prim)
-              ((str)
-               (string-append acc "\n" (cadr prim)))
-              ((feature define-feature)
-               (let ((condition (cadr prim)))
-                 (if (eval-feature condition live-features)
-                   (string-append acc (string-append (rec "" (cddr prim))))
-                   acc)))
-              ((primitives)
-               (let* ((gen (cdr (soft-assoc 'gen prim)))
-                      (bin (soft-assoc 'bind prim))
-                      (generate-one
-                        (lambda (prim)
-                          (let* ((name (car prim))
-                                 (index (cadr prim))
-                                 (primitive (caddr prim))
-                                 (body (rec "" (cddr primitive)))
-                                 (head (soft-assoc '@@head (cddr primitive)))
-                                 (head (if head (cadr head) body)))
-                            (let loop ((gen gen))
-                              (if (pair? gen)
-                                (string-append
-                                  (cond ((string? (car gen)) (car gen))
-                                        ((eq? (car gen) 'index)
-                                         (if (pair? index) (number->string (car index)) (number->string index)))
-                                        ((eq? (car gen) 'body) body)
-                                        ((eq? (car gen) 'head) head))
-                                  (loop (cdr gen)))
-                                "\n"))))))
-                 (string-append
-                   acc
-                   (string-concatenate (map generate-one primitives)))))
+              (if (string? prim)
+                (cons prim acc)
+                
+                (case (car prim)
+                  ((feature)
+                   (let ((condition (caddr prim)))
+                     (if (eval-feature condition live-features)
+                       (append (rec '() (cadr prim)) acc)
+                       acc)))
 
-              ((use-feature)
-               (string-append acc (rec "" (cddr prim))))
+                  ((primitives)
+                   (let* ((gen-pair 
+                            (if (and 
+                                  (pair? (cdr prim)) 
+                                  (pair? (cddr prim)) 
+                                  (pair? (caddr prim)) 
+                                  (eq? (caaddr prim) 'gen))
+                              (caddr prim)
+                              (error 
+                                "Ill-formed @@(primitives ...)@@ macro inside host file. Cannot find 'gen' clause"
+                                prim)))
+                          (gen-pattern (cdr gen-pair))
+                          (generate-one
+                            (lambda (prim acc)
+                              (let* ((name (car prim))
+                                     (index (cadr prim))
+                                     (primitive (caddr prim))
+                                     (primitive-signature (cadr primitive))
+                                     (primitive-use (caddr primitive))
+                                     (primitive-index (cadddr primitive))
+                                     (primitive-body (car (cddddr primitive)))
+                                     (whole-body (reverse (rec '() primitive-body)))
+                                     (head (car whole-body))
+                                     (body (cdr whole-body))
+                                     (body (if (null? body) (list head) body))
+                                     (body-str (string-concatenate body "\n")))
 
-              ((primitive define-primitive)
-               (string-append acc (rec "" (cddr prim))))
+                                (cons
+                                  (let loop ((gen gen-pattern)
+                                             (return ""))
+                                    (if (pair? gen)
+                                      (loop
+                                        (cdr gen)
+                                        (cond 
+                                          ((string? (car gen)) 
+                                           (string-append return (car gen)))
+                                          ((eq? (car gen) 'index)
+                                           (string-append 
+                                             return
+                                             (if (pair? index)
+                                               (number->string (car index))
+                                               (number->string index))
+                                             ))
+                                          ((eq? (car gen) 'body) 
+                                           (string-append return body-str ))
+                                          ((eq? (car gen) 'head) 
+                                           (string-append return head))))
+                                      return))
+                                  acc)))))
+                     (append
+                       (fold generate-one '() primitives)
+                       acc)))
 
-              ((location)
-               (let* ((name (cadr prim))
-                      (feature-pair (assoc name locations))
-                      (matched-features (if feature-pair (cdr feature-pair) '())))
-                 (string-append
-                   acc
-                   (extract extract-func matched-features ""))))
+                  ((use)
+                   (append (rec '() (cadr prim)) acc))
 
-              ((replace)
-               (let* ((pattern     (cadr prim))
-                      (pattern     (if (symbol? pattern)
+                  ((location)
+                   (let* ((name (caddr prim))
+                          (feature-pair (assoc name locations))
+                          (matched-features (if feature-pair (cadr feature-pair) '())))
+                     (extract extract-func matched-features acc)))
+
+                  ((replace)
+                   (let* ((pattern (caddr prim))
+                          (pattern (if (symbol? pattern)
                                      (symbol->string pattern)
                                      pattern))
-                      (replacement-text
-                        (or
-                          (table-ref cache (caddr prim) #f)
-                          (replace-eval (caddr prim) encode host-config)))
-                      (replacement-text
-                        (cond ((symbol? replacement-text)
-                               (symbol->string replacement-text))
-                              ((number? replacement-text)
-                               (number->string replacement-text))
-                              ((string? replacement-text)
-                               replacement-text)
-                              (else
-                                (error "Error while replacing doesn't support the type : " replacement-text)))))
-                 (string-append acc (string-replace (rec "" (cdddr prim)) pattern replacement-text))))
+                          (replace-expr (cadddr prim))
+                          (replacement-text
+                            (or
+                              (table-ref cache replace-expr #f)
+                              (replace-eval replace-expr encode host-config)))
+                          (replacement-text
+                            (cond ((symbol? replacement-text)
+                                   (symbol->string replacement-text))
+                                  ((number? replacement-text)
+                                   (number->string replacement-text))
+                                  ((string? replacement-text)
+                                   replacement-text)
+                                  (else
+                                    (error "Error while replacing doesn't support the type : " replacement-text)))))
+                     (append
+                       (map 
+                         (lambda (line) (string-replace line pattern replacement-text))
+                         (rec '() (cadr prim)))
+                       acc)))
 
-              (else
-                acc)))))
+                  (else
+                    (error "Unhandled expression in file parsing" prim)))))))
 
-    (extract
-      extract-func
-      parsed-file
-      "")))
+    (string-concatenate
+      (reverse
+        (extract
+          extract-func
+          parsed-file
+          '()))
+      "\n")))
 
 
 
@@ -4957,14 +4592,25 @@
   (let ((file-content (call-with-input-file path (lambda (port) (read-line port #f)))))
        (if (eof-object? file-content) "" file-content)))
 
-(define (generate-code target verbosity debug-info input-path rvm-path exe-output-path output-path minify? host-file encoding-name byte-stats proc-exports-and-features) ;features-enabled features-disabled source-vm
+(define (generate-code 
+          target
+          verbosity
+          debug-info
+          input-path
+          rvm-path
+          exe-output-path
+          output-path minify?
+          host-file
+          encoding-name
+          byte-stats
+          proc-exports-and-features)
+
   (let* ((proc
            (vector-ref proc-exports-and-features 0))
          (exports
            (vector-ref proc-exports-and-features 1))
          (host-config
            (vector-ref proc-exports-and-features 2))
-
          (encode*
           (lambda (byte-base)
             (let ((input
@@ -5093,15 +4739,16 @@
                         verbosity
                         debug-info
                         _progress-status
-                        features-enabled
-                        features-disabled
+                        features
                         encoding-name
                         byte-stats
                         call-stats?)
 
 
-  (set! target _target) ;; hack to propagate the target to the expension phase
+  (set! target _target) ;; hack to propagate the target to the expansion phase
+
   (set! progress-status _progress-status)
+
   (set! ribbit-path 
     (cons
       (path-expand 
@@ -5120,7 +4767,13 @@
              #f
              (report-first-status
                "Parsing host file"
-               (parse-host-file vm-source '()))))
+               (parse-host-file vm-source))))
+
+         (_ (if (memq 'host-expansion debug-info)
+              (begin
+                (display "*** HOST FILE EXPANSION: ")
+                (newline)
+                (pp host-file))))
 
          (encoding-name (if (equal? encoding-name "auto")
                             (let* ((available-features (extract-feature-names host-file))
@@ -5132,11 +4785,13 @@
                                   (cadar encoding-order)
                                   (loop (cdr encoding-order)))))
                             encoding-name))
-         (features-enabled
+         (features
            (cons
-             (string->symbol
-               (string-append "encoding/" encoding-name))
-             features-enabled))
+             (cons
+               (string->symbol
+                 (string-append "encoding/" encoding-name))
+               #t)
+             features))
 
          (program-read
            (report-status
@@ -5150,8 +4805,7 @@
                verbosity
                debug-info
                host-file
-               features-enabled
-               features-disabled
+               features
                program-read))))
 
       (if call-stats?
@@ -5220,7 +4874,8 @@ DEBUGING OPTIONS
   Set verbosity level. Multiple 'v's increase verbosity.
 
   `-di`, `--debug-info INFO`
-  Add debug information. Info can be any of : `expansion`, `rvm-code`, `exports` and `host-config`.
+  Displays debug information to stdout.
+  Info can be any of : `host-expansion` `expansion`, `rvm-code`, `hash-table`, `exports` and `host-config`.
 
   `-ps`, `--progress-status`
   Show progress status during compilation.
@@ -5242,7 +4897,6 @@ EXAMPLE
 This command compiles `source.scm` to C with verbosity set to 1 and minification enabled. 
 The output is written to output.c, with an executable compiled to run-output.exe (with gcc).")
 
-
   (let ((verbosity 0)
         (debug-info '())
         (target "rvm")
@@ -5252,8 +4906,7 @@ The output is written to output.c, with an executable compiled to run-output.exe
         (lib-path '())
         (src-path #f)
         (minify? #f)
-        (features-enabled '())
-        (features-disabled '())
+        (features '())
         (rvm-path #f)
         (progress-status #f)
         (byte-stats #f)
@@ -5286,11 +4939,25 @@ The output is written to output.c, with an executable compiled to run-output.exe
                  (set! rvm-path (car rest))
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-f+" "--enable-feature")))
-                 (set! features-enabled (cons (string->symbol (car rest)) features-enabled))
+                 (set! features 
+                   (cons 
+                     (cons (string->symbol (car rest)) #t)
+                     features))
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-f-" "--disable-feature")))
-                 (set! features-disabled (cons (string->symbol (car rest)) features-disabled))
+                 (set! features 
+                   (cons 
+                     (cons (string->symbol (car rest)) #f)
+                     features))
                  (loop (cdr rest)))
+
+                ((and (pair? rest) (pair? (cdr rest)) (member arg '("-f=" "--set-feature")))
+                 (set! features 
+                   (cons 
+                     (cons (string->symbol (car rest)) 
+                           (read (open-input-string (cadr rest)))) ;; use reader to transform information
+                     features))
+                 (loop (cddr rest)))
 
                 ((and (pair? rest) (member arg '("-bs" "--byte-stats")))
                  (set! byte-stats (string->number (car rest)))
@@ -5379,8 +5046,7 @@ The output is written to output.c, with an executable compiled to run-output.exe
         verbosity
         debug-info
         progress-status
-        features-enabled
-        features-disabled
+        features
         encoding-name
         byte-stats
         call-stats))))

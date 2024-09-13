@@ -1,7 +1,7 @@
 (cond-expand
   ((host js)
 
-   ;; (define-feature js/node/child-process (use) (decl "const child_p = require('child_process');\n"))
+   ;; (define-feature js/node/child-process (use) ((decl "const child_p = require('child_process');\n")))
 
    (define-primitive 
      (##cmd-line)
@@ -28,7 +28,7 @@
 
   ((host py)
 
-   (define-feature py/sys (use) (import "import os,sys"))
+   (define-feature py/sys (use) ((import "import os,sys")))
 
    (define-primitive 
      (##cmd-line)

@@ -9,18 +9,18 @@ visible
 visible
 // @@(primitives (gen body)
 hidden
-// @@(primitive (rib a b c)
+// @@(primitive (##rib a b c)
 visible
 // )@@
 // @@(primitive (prim0 x y) (use not-used)
 hidden
 // )@@
 hidden
-// @@(primitive (prim1) (other prop)
+// @@(primitive (prim1)
 visible
 // )@@
 hidden
-// @@(primitive (prim2) (hey there) (use used)
+// @@(primitive (prim2) (use used)
 visible
 // )@@
 hidden

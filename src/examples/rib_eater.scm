@@ -7,10 +7,10 @@
 (define-feature 
   rib_eater
   (use scm2host)
-  (decl "collected_ribs = [];
-         function eat_rib(r) { collected_ribs.push(scm2host(r)); }")
-  (start "console.log('Rib eater is activated');")
-  (end "console.log('Here are my lovely eaten ribs (miam) : ', collected_ribs)"))
+  ((decl "collected_ribs = [];"
+         "function eat_rib(r) { collected_ribs.push(scm2host(r)); }")
+   (start "console.log('Rib eater is activated');")
+   (end "console.log('Here are my lovely eaten ribs (miam) : ', collected_ribs)")))
 
 (define-primitive 
   (eat rib)
