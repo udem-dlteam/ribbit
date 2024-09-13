@@ -161,7 +161,7 @@
      (call-with-output-string
       (lambda (port)
         (parameterize ((current-output-port port))
-                      (thunk))))))
+          (thunk))))))
 
   (else
 
@@ -536,92 +536,8 @@
           (string->list str))
         (reverse final)))
 
-    (define (pp-return foo . x)
-      (let ((r (apply foo x)))
-        (pp r)
-        r))))
+    ))
 
-
-
-(define (display-return foo . x)
-  (let ((r (apply foo x)))
-    (display r)
-    (newline)
-    r))
-;;;----------------------------------------------------------------------------
-
-(define (display-rib rib depth)
-  (if (> depth 0)
-    (begin
-      (display "[")
-      (cond ((not (rib? rib))
-             (display rib))
-            ((rib? (field0 rib))
-             (display-rib (field0 rib) (- depth 1)))
-            (else
-              (display (field0 rib))))
-      (display " ")
-      (cond ((not (rib? rib))
-             (display rib))
-            ((rib? (field1 rib))
-             (display-rib (field1 rib) (- depth 1)))
-            (else
-              (display (field1 rib))))
-      (display " ")
-      (cond ((not (rib? rib))
-             (display rib))
-            ((rib? (field2 rib))
-             (display-rib (field2 rib) (- depth 1)))
-            (else
-              (display (field2 rib))))
-      (display "]"))
-    (display "...")))
-
-
-;;;------------------------------------------------------------------------------
-
-(define predefined (list '##rib 'false 'true 'nil)) ;; predefined symbols
-
-(define default-primitives-lst
-`((##rib         0  x  y  z)
-  (##id          1  x)
-  (##arg1        2  x  y)
-  (##arg2        3  x  y)
-  (##close       4  rib)
-  (##rib?        5  o)
-  (##field0      6  x)
-  (##field1      7  x)
-  (##field2      8  x)
-  (##field0-set! 9  x  v)
-  (##field1-set! 10 x  v)
-  (##field2-set! 11 x  v)
-  (##eqv?        12 o1 o2)
-  (##<           13 x  y)
-  (##+           14 x  y)
-  (##-           15 x  y)
-  (##*           16 x  y)
-  (##quotient    17 x  y)
-  (##getchar     18 )
-  (##putchar     19 c)
-  (##exit        20 code)))
-
-
-(define (default-primitive-index prim)
-  (cadr (assoc prim default-primitives-lst)))
-
-(define default-primitives
-  (map
-    (lambda (p) `(primitive () ,(cons (car p) (cddr p)) (@@index ,(cadr p))))
-    default-primitives-lst))
-
-
-(define jump/call-op 'jump/call)
-(define set-op       'set)
-(define get-op       'get)
-(define const-op     'const)
-(define if-op        'if)
-
-;;;----------------------------------------------------------------------------
 
 ;;; Ribs emulation as vectors for other implementations than Ribbit. 
 (cond-expand
@@ -666,16 +582,52 @@
 (define (c-procedure-code proc) (c-rib-oper proc))
 (define (c-procedure-env proc) (c-rib-opnd proc))
 
+;;;------------------------------------------------------------------------------
+
+(define predefined (list '##rib 'false 'true 'nil)) ;; predefined symbols
+
+(define default-primitives-lst
+`((##rib         0  x  y  z)
+  (##id          1  x)
+  (##arg1        2  x  y)
+  (##arg2        3  x  y)
+  (##close       4  rib)
+  (##rib?        5  o)
+  (##field0      6  x)
+  (##field1      7  x)
+  (##field2      8  x)
+  (##field0-set! 9  x  v)
+  (##field1-set! 10 x  v)
+  (##field2-set! 11 x  v)
+  (##eqv?        12 o1 o2)
+  (##<           13 x  y)
+  (##+           14 x  y)
+  (##-           15 x  y)
+  (##*           16 x  y)
+  (##quotient    17 x  y)
+  (##getchar     18 )
+  (##putchar     19 c)
+  (##exit        20 code)))
+
+(define default-primitives
+  (map
+    (lambda (p) `(primitive () ,(cons (car p) (cddr p)) (@@index ,(cadr p))))
+    default-primitives-lst))
+
+
+(define jump/call-op 'jump/call)
+(define set-op       'set)
+(define get-op       'get)
+(define const-op     'const)
+(define if-op        'if)
+
+;;;----------------------------------------------------------------------------
+
+
 
 ;;; -----------------------------------------------
 ;;; ==================== DEBUG ====================
 ;;; -----------------------------------------------
-
-(define (display-return foo . x)
-  (let ((r (apply foo x)))
-    (display r)
-    (newline)
-    r))
 
 ;; Displays a rib to stdout given a depth
 (define (display-rib rib depth)
@@ -705,6 +657,17 @@
       (display "]"))
     (display "...")))
 
+
+(define (pp-return foo . x)
+  (let ((r (apply foo x)))
+    (pp r)
+    r))
+
+(define (display-return foo . x)
+  (let ((r (apply foo x)))
+    (display r)
+    (newline)
+    r))
 
 ;;; -----------------------------------------------
 ;;; ==================== UTILS ====================
@@ -2407,7 +2370,7 @@
                           (use  (caddr expr)))
 
                       (if (not (eq? (car use) 'use))
-                        (error "Ill-formed define-feature construct. Expected 'use' keyword." use))
+                        (error "Ill-formed define-primitive construct. Expected 'use' keyword." use))
 
                       (if (or (live-env-live-feature? env name) (live-env-live? env name))
                         (begin
