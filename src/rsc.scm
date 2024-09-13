@@ -611,7 +611,7 @@
 
 (define default-primitives
   (map
-    (lambda (p) `(primitive () ,(cons (car p) (cddr p)) (use) (@@index ,(cadr p))))
+    (lambda (p) `(define-primitive ,(cons (car p) (cddr p)) (use) (index ,(cadr p)) ()))
     default-primitives-lst))
 
 
@@ -1084,12 +1084,20 @@
 
                  ((eqv? first 'define-primitive)
                   (let* ((name (caadr expr))
-                         (prim-index (soft-assoc '@@index (cdr expr))))
+                         (index-pair (cadddr expr))
+                         (prim-index
+                           (if (and
+                                 (pair? (caddr expr))
+                                 (eqv? (length index-pair) 2)
+                                 (eqv? (car index-pair) 'index))
+                             (cadr index-pair)
+                             #f)))
                     ;; (pp (list 'define-primitive name (host-config-feature-live? host-config name)))
                     (if (host-config-feature-live? host-config name)
-                      (let ((index (if prim-index
-                                     (host-config-add-primitive-index! host-config name expr (cadr prim-index))
-                                     (host-config-add-primitive! host-config name expr))))
+                      (let ((index
+                              (if prim-index
+                                (host-config-add-primitive-index! host-config name expr prim-index)
+                                (host-config-add-primitive! host-config name expr))))
                         (if (or (memq name forced-first-primitives) (eqv? name '##rib))
                           (gen-noop ctx cont)
                           (comp ctx `(set! ,name (##rib ,index 0 ,procedure-type)) cont)))
@@ -1356,6 +1364,7 @@
            `((define-primitive 
                ,name
                ,use-clause
+               (index)
                ,recursive-parse)
              . 
              ,acc))
@@ -1382,18 +1391,17 @@
          (host-defines-primitives?
            (and parsed-vm (soft-assoc 'primitives parsed-vm)))
 
-         (host-features
-           (extract-features
-             (if host-defines-primitives?
-               parsed-vm
-               (if parsed-vm
-                 (append default-primitives parsed-vm)
-                 default-primitives))))
+         (vm-features (and parsed-vm (extract-features parsed-vm)))
 
          (expansion
            `(begin
-              ,@(host-feature->scheme host-features) ;; add host features
+              ,@(host-feature->scheme vm-features) ;; add vm features
               ,(expand-begin exprs (make-mtx '() '()))))
+
+         (expansion
+           (if host-defines-primitives?
+             expansion
+             `(begin ,@default-primitives ,expansion)))
 
          (exports
            (exports->alist (cdr exprs-and-exports)))
@@ -1704,6 +1712,7 @@
                                    (caddr expr)
                                    '(use)))
                      (code (filter string? (cdr expr)))
+                     (index (soft-assoc 'index (cdr expr)))
                      (parsed-code
                        (cons "" ;; Add empty head for defined-primitives
                              (parse-host-file
@@ -1715,6 +1724,7 @@
                 `(define-primitive
                    ,primitive
                    ,use-clause
+                   ,(if index index '(index)) ;; retrives the index, or #f
                    ,parsed-code)))
 
              ((eqv? (car expr) 'define-feature) ;; parse arguments as a source file
@@ -4492,7 +4502,8 @@
                                      (primitive (caddr prim))
                                      (primitive-signature (cadr primitive))
                                      (primitive-use (caddr primitive))
-                                     (primitive-body (cadddr primitive))
+                                     (primitive-index (cadddr primitive))
+                                     (primitive-body (car (cddddr primitive)))
                                      (whole-body (reverse (rec '() primitive-body)))
                                      (head (car whole-body))
                                      (body (cdr whole-body))
@@ -4735,7 +4746,9 @@
 
 
   (set! target _target) ;; hack to propagate the target to the expansion phase
+
   (set! progress-status _progress-status)
+
   (set! ribbit-path 
     (cons
       (path-expand 
