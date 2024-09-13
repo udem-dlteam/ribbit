@@ -144,7 +144,7 @@ local primitives = {
    prim2(quotient),                                  -- @@(primitive (##quotient x y))@@         
    getchar,                                          -- @@(primitive (##getchar))@@              
    prim1(putchar),                                   -- @@(primitive (##putchar c))@@            
-   prim1(os.exit)                                    -- @@(primitive (##exit n))@@               
+   prim1(os.exit),                                   -- @@(primitive (##exit n))@@
 -- )@@
 }
 

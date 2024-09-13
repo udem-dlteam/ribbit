@@ -251,7 +251,7 @@ module Primitives : PRIMITIVES = struct
       (*  )@@ *)
       prim0 (function () -> Integer (getchar ()));                                                                (* @@(primitive (##getchar))@@ *)
       prim1 (function Integer ch -> Integer (putchar ch) | _ -> invalid_arg "putchar argument must be Integer");  (* @@(primitive (##putchar x))@@ *)
-      prim1 (function Integer status -> exit status | _ -> invalid_arg "exit argument must be Integer")           (* @@(primitive (##exit x))@@ *)
+      prim1 (function Integer status -> exit status | _ -> invalid_arg "exit argument must be Integer");          (* @@(primitive (##exit x))@@ *)
   (*  )@@ *)
     |]
 end
