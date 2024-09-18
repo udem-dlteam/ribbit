@@ -2,8 +2,6 @@
  * The Ribbit VM implementation in C
  */
 
-// TODO move GC algorithms to their own respective files
-
 // @@(feature debug
 #define DEBUG_I_CALL
 // )@@
@@ -13,7 +11,7 @@
 // )@@
 
 // @@(feature mark-sweep-gc
-#define MAKE_SWEEP
+#define MARK_SWEEP
 // )@@
 
 #ifdef DEBUG_I_CALL
@@ -338,7 +336,9 @@ void init_heap() {
 }
 
 // GC algorithms
-#ifdef MARK_SWEEP 
+
+#ifdef MARK_SWEEP
+
 void mark(obj o) {
   
   // TODO Deutsch-Schorr-Waite marking scheme
