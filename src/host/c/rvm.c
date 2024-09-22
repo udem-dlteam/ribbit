@@ -14,6 +14,10 @@
 #define MARK_SWEEP
 // )@@
 
+// @@(feature dsw
+#define DSW // Deutsch-Schorr-Waite graph marking algorithm for mark & sweep
+// )@@
+
 #ifdef DEBUG_I_CALL
 #define DEBUG
 #endif
@@ -179,14 +183,14 @@ obj *alloc_limit;
 #define EXIT_NO_MEMORY 7
 
 #ifdef MARK_SWEEP
-// if the mark and sweep GC is used, the third field of a rib uses 2 bits: one
-// to mark the rib during the marking phase of the GC and the other one to
-// distinguish between rib pointers and integers
+// If the mark and sweep GC is used, we need 2 bits: one to mark a live object
+// and one to tag integers and ribs
 #define UNTAG(x) ((x) >> 2)
 #define TAG_NUM(num) ((((obj)(num)) << 2) | 1)
 #define MARK(x) ((x)|2) // assumes x is a tagged obj (ul)
 #define UNMARK(x) ((x)^2)
 #define IS_MARKED(x) ((x)&2)
+#define GET_MARK(o) (IS_MARKED(CDR(o)) + (IS_MARKED(TAG(o)) >> 1))
 #else
 #define UNTAG(x) ((x) >> 1)
 #define TAG_NUM(num) ((((obj)(num)) << 1) | 1)
@@ -336,25 +340,89 @@ void init_heap() {
 }
 
 // GC algorithms
-
 #ifdef MARK_SWEEP
 
-void mark(obj o) {
+void mark(obj *o) { 
   
-  // TODO Deutsch-Schorr-Waite marking scheme
+  if (IS_RIB(*o)) {
 
-  if (IS_RIB(o)) { 
-    obj *ptr = RIB(o)->fields;
+#ifdef DSW
 
+    // FIXME no gain in terms of performance... remove it?
+    
+    obj curr = *o;
+    obj tmp;
+    obj prev = _NULL;
+
+    if (curr == stack) { // initialize descend for TOS
+      prev = curr;
+      curr = CDR(prev);
+      CDR(prev) = _NULL;
+      CDR(prev) = MARK(CDR(prev));
+    }
+
+  foward:
+    if (curr == _NULL) {
+      TAG(prev) = MARK(TAG(prev));
+      goto backward;
+    }
+    if (IS_RIB(curr) && (GET_MARK(curr) == 0)) { // car descend
+      TAG(curr) = MARK(TAG(curr)); // mark = 01
+      tmp = curr;
+      curr = CAR(curr);
+      CAR(tmp) = prev;
+      prev = tmp;
+      goto foward;
+    }
+    
+  backward:
+    if (prev != _NULL) {
+     
+      switch(GET_MARK(prev)) {
+
+        // cdr decend
+        case 1:
+          TAG(prev) = UNMARK(TAG(prev)); // mark will be 10 so unmark tag
+          tmp = CAR(prev); 
+          CAR(prev) = curr; 
+          curr = CDR(prev); 
+          CDR(prev) = tmp; 
+          CDR(prev) = MARK(CDR(prev)); // mark = 10
+          goto foward;
+          
+        // tag descend
+        case 2:
+          tmp = UNMARK(CDR(prev)); 
+          CDR(prev) = curr; 
+          CDR(prev) = MARK(CDR(prev)); // mark will be 11
+          curr = TAG(prev); // shouldn't be marked so no need to unmark
+          TAG(prev) = tmp;
+          TAG(prev) = MARK(TAG(prev)); // mark = 11
+          goto foward;
+
+        // retreat... only 3rd field will remain marked (01) so that we can
+        // re-use the same logic in the GC function as with the recursive version
+        case 3:
+          tmp = UNMARK(TAG(prev));
+          TAG(prev) = curr; 
+          TAG(prev) = MARK(TAG(prev)); // want for 3rd field to stay tagged
+          CDR(prev) = UNMARK(CDR(prev)); // mark = 01
+          curr = prev;
+          prev = tmp;
+          goto backward;
+      } 
+    }
+#else
+    obj *ptr = RIB(*o)->fields;
     if (!IS_MARKED(ptr[2])) { 
-      // third field could be an address
       obj tmp = ptr[2]; 
       ptr[2] = MARK(ptr[2]);
       
-      mark(ptr[0]);
-      mark(ptr[1]);
-      mark(tmp);
+      mark(&ptr[0]);
+      mark(&ptr[1]);
+      mark(&tmp);
     }
+#endif
   }
 }
 
@@ -363,9 +431,9 @@ void gc() {
   printf("\t--GC called \n ");
 #endif
   // Mark (only 3 possible roots)
-  mark(stack);
-  mark(pc);
-  mark(FALSE);
+  mark(&stack);
+  mark(&pc);
+  mark(&FALSE);
   
   // Sweep
   scan=heap_bot;
