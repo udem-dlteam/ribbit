@@ -37,17 +37,17 @@ rib *heap_start;
 obj *alloc; 
 obj *scan;
 
-#define UNTAG(x) ((x) >> 2)
+#define UNTAG(x) ((x) >> 1)
 #define RIB(x) ((rib *)(x))
 #define NUM(x) ((num)(UNTAG((num)(x))))
 #define IS_NUM(x) ((x)&1)
 #define IS_RIB(x) (!IS_NUM(x))
 #define TAG_RIB(c_ptr) (((obj)(c_ptr)))
-#define TAG_NUM(num) ((((obj)(num)) << 2) | 1)
+#define TAG_NUM(num) ((((obj)(num)) << 1) | 1)
 
-#define IS_CHILD(x) ((x)&2)
-#define TAG_CHILD(x) ((x)|2) // assumes x is a tagged obj (ul)
-#define UNTAG_CHILD(x) ((x)^2)
+/* #define IS_CHILD(x) ((x)&2) */
+/* #define TAG_CHILD(x) ((x)|2) // assumes x is a tagged obj (ul) */
+/* #define UNTAG_CHILD(x) ((x)^2) */
 
 #define CAR(x) RIB(x)->fields[0]
 #define CDR(x) RIB(x)->fields[1]
