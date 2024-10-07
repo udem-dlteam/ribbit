@@ -10,6 +10,18 @@
 #define DEBUG_GC
 // )@@
 
+// @@(feature c/gc/mark-sweep
+#define MARK_SWEEP
+// )@@
+
+// @@(feature c/gc/mark-sweep-dsw
+#define MARK_SWEEP_DSW // Deutsch-Schorr-Waite graph marking algorithm version
+// )@@
+
+#ifdef MARK_SWEEP_DSW
+#define MARK_SWEEP
+#endif
+
 #ifdef DEBUG_I_CALL
 #define DEBUG
 #endif
@@ -125,7 +137,6 @@ void decompress(){
   }
 }
 
-
 // )@@
 
 #endif
@@ -157,27 +168,42 @@ typedef struct {
   obj fields[RIB_NB_FIELDS];
 } rib;
 
-
 // GC constants
 rib *heap_start;
-obj *alloc_limit;
 #define MAX_NB_OBJS 100000000 // 48000 is minimum for bootstrap
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
+#ifdef MARK_SWEEP
+#define heap_top (heap_bot + (SPACE_SZ))
+#define _NULL ((obj) NULL)
+#else
+obj *alloc_limit;
 #define heap_mid (heap_bot + (SPACE_SZ))
 #define heap_top (heap_bot + (SPACE_SZ << 1))
+#endif
 // end GC constants
 
 #define EXIT_ILLEGAL_INSTR 6
 #define EXIT_NO_MEMORY 7
 
+#ifdef MARK_SWEEP
+// If the mark and sweep GC is used, we need 2 bits: one to mark a live object
+// and one to tag integers and ribs
+#define UNTAG(x) ((x) >> 2)
+#define TAG_NUM(num) ((((obj)(num)) << 2) | 1)
+#define MARK(x) ((x)|2) // assumes x is a tagged obj (ul)
+#define UNMARK(x) ((x)^2)
+#define IS_MARKED(x) ((x)&2)
+#define GET_MARK(o) (IS_MARKED(CDR(o)) + (IS_MARKED(TAG(o)) >> 1))
+#else
 #define UNTAG(x) ((x) >> 1)
+#define TAG_NUM(num) ((((obj)(num)) << 1) | 1)
+#endif
 #define RIB(x) ((rib *)(x))
 #define NUM(x) ((num)(UNTAG((num)(x))))
 #define IS_NUM(x) ((x)&1)
 #define IS_RIB(x) (!IS_NUM(x))
 #define TAG_RIB(c_ptr) (((obj)(c_ptr)))
-#define TAG_NUM(num) ((((obj)(num)) << 1) | 1)
 
 #define PRIM1() obj x = pop()
 #define PRIM2()                                                                \
@@ -187,8 +213,9 @@ obj *alloc_limit;
   obj z = pop();                                                               \
   PRIM2()
 
+// WARNING : the CHECK_ACCESS macro should only be used with stop and copy GC
 // CHECK_ACCESS will check if pointers are in the right space range when 
-//  accessing them with CAR, CDR or TAG
+// accessing them with CAR, CDR or TAG
 // #define CHECK_ACCESS
 #ifdef CHECK_ACCESS
 obj check_access(obj x){
@@ -201,8 +228,6 @@ obj check_access(obj x){
   if (to_space_start < x && x < to_space_end){
     printf("ERROR ACCESSING OUTSIDE SPACE %ld\n", NUM(x));
   }
-  
-
   return x;
 }
 
@@ -240,7 +265,6 @@ obj FALSE = NUM_0;
 obj symbol_table = NUM_0;
 
 size_t pos = 0;
-
 
 
 #ifdef NO_STD
@@ -290,17 +314,157 @@ void init_heap() {
   }
 
 #else
-  heap_start = malloc(sizeof(obj) * (SPACE_SZ << 1));
 
+#ifdef MARK_SWEEP
+  heap_start = malloc(sizeof(obj) * SPACE_SZ);
+#else
+  heap_start = malloc(sizeof(obj) * (SPACE_SZ << 1));
+#endif
+  
   if (!heap_start) {
     vm_exit(EXIT_NO_MEMORY);
   }
 #endif
 
+#ifdef MARK_SWEEP
+  // initialize freelist
+  scan = heap_bot;
+  *scan = _NULL; 
+  
+  while (scan != heap_top) {
+    alloc = scan; // alloc <- address of previous slot
+    scan += 3; // scan <- address of next rib slot
+    *scan = alloc; // CAR(next rib) <- address of previous slot
+  }
+  alloc = scan; 
+#else
   alloc = heap_bot;
   alloc_limit = heap_mid;
+#endif
   stack = NUM_0;
 }
+
+// GC algorithms
+#ifdef MARK_SWEEP
+
+#ifdef MARK_SWEEP_DSW
+void mark(obj *o) {
+  // Deutsch-Schorr-Waite algorithm for marking phase
+  if (IS_RIB(*o)) {
+    
+    obj curr = *o;
+    obj tmp;
+    obj prev = _NULL;
+
+    if (curr == stack) { // initialize descend for TOS
+      prev = curr;
+      curr = CDR(prev);
+      CDR(prev) = _NULL;
+      CDR(prev) = MARK(CDR(prev));
+    }
+
+  forward:
+    if (curr == _NULL) {
+      TAG(prev) = MARK(TAG(prev));
+      goto backward;
+    }
+    if (IS_RIB(curr) && (GET_MARK(curr) == 0)) { // car descend
+      TAG(curr) = MARK(TAG(curr)); // mark = 01
+      tmp = curr;
+      curr = CAR(curr);
+      CAR(tmp) = prev;
+      prev = tmp;
+      goto forward;
+    }
+    
+  backward:
+    if (prev != _NULL) {
+     
+      switch(GET_MARK(prev)) {
+
+        // cdr descend
+        case 1:
+          TAG(prev) = UNMARK(TAG(prev)); // mark will be 10 so unmark tag
+          tmp = CAR(prev); 
+          CAR(prev) = curr; 
+          curr = CDR(prev); 
+          CDR(prev) = tmp; 
+          CDR(prev) = MARK(CDR(prev)); // mark = 10
+          goto forward;
+          
+        // tag descend
+        case 2:
+          tmp = UNMARK(CDR(prev)); 
+          CDR(prev) = curr; 
+          CDR(prev) = MARK(CDR(prev)); // mark will be 11
+          curr = TAG(prev); // shouldn't be marked so no need to unmark
+          TAG(prev) = tmp;
+          TAG(prev) = MARK(TAG(prev)); // mark = 11
+          goto forward;
+
+        // retreat... only 3rd field will remain marked (01) so that we can
+        // re-use the same logic in the GC function as with the recursive version
+        case 3:
+          tmp = UNMARK(TAG(prev));
+          TAG(prev) = curr; 
+          TAG(prev) = MARK(TAG(prev)); // want for 3rd field to stay tagged
+          CDR(prev) = UNMARK(CDR(prev)); // mark = 01
+          curr = prev;
+          prev = tmp;
+          goto backward;
+      } 
+    }
+  }
+}
+
+#else
+
+void mark(obj *o) { // Recursive version of marking phase
+  if (IS_RIB(*o)) {    
+    obj *ptr = RIB(*o)->fields;
+    if (!IS_MARKED(ptr[2])) { 
+      obj tmp = ptr[2]; 
+      ptr[2] = MARK(ptr[2]);      
+      mark(&ptr[0]);
+      mark(&ptr[1]);
+      mark(&tmp);
+    }
+  }
+}
+
+#endif
+
+void gc() {
+#ifdef DEBUG_GC
+  printf("\t--GC called \n ");
+#endif
+  // Mark (only 3 possible roots)
+  mark(&stack);
+  mark(&pc);
+  mark(&FALSE);
+  
+  // Sweep
+  scan=heap_bot;
+  scan+=3; // first rib is always the NULL rib
+
+  while (scan != heap_top) {
+    obj tag = *(scan+2);
+    if (IS_MARKED(tag)) {
+      *(scan+2) = UNMARK(tag);
+    } else {
+      *scan = alloc;
+      alloc = scan;
+    }
+    scan += 3; // next rib object
+  }
+  if (*alloc == _NULL){
+    printf("Heap is full\n");
+  }
+}
+
+#else
+
+// Cheney style stop & copy GC
 
 // NULL is a pointer (0) but would represent NULL
 // so it is never present in an obj field, and
@@ -374,6 +538,7 @@ void gc() {
 
 #endif
 }
+#endif // end of GC algorithms
 
 obj pop() {
   obj x = CAR(stack);
@@ -382,16 +547,27 @@ obj pop() {
 }
 
 void push2(obj car, obj tag) {
+#ifdef MARK_SWEEP
+  obj tmp = *alloc; // next available slot in freelist
+#endif
+  
   // default stack frame is (value, ->, NUM_0)
   *alloc++ = car;
   *alloc++ = stack;
   *alloc++ = tag;
 
   stack = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
-
+  
+#ifdef MARK_SWEEP
+  alloc = tmp; 
+  if (*alloc == _NULL) { // empty freelist?
+    gc(); 
+  } 
+#else
   if (alloc == alloc_limit) {
     gc();
   }
+#endif
 }
 
 /**
