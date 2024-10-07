@@ -10,13 +10,17 @@
 #define DEBUG_GC
 // )@@
 
-// @@(feature mark-sweep-gc
+// @@(feature c/gc/mark-sweep
 #define MARK_SWEEP
 // )@@
 
-// @@(feature dsw
-#define DSW // Deutsch-Schorr-Waite graph marking algorithm for mark & sweep
+// @@(feature c/gc/mark-sweep-dsw
+#define MARK_SWEEP_DSW // Deutsch-Schorr-Waite graph marking algorithm version
 // )@@
+
+#ifdef MARK_SWEEP_DSW
+#define MARK_SWEEP
+#endif
 
 #ifdef DEBUG_I_CALL
 #define DEBUG
@@ -209,8 +213,9 @@ obj *alloc_limit;
   obj z = pop();                                                               \
   PRIM2()
 
+// WARNING : the CHECK_ACCESS macro should only be used with stop and copy GC
 // CHECK_ACCESS will check if pointers are in the right space range when 
-// accessing them with CAR, CDR or TAG -- should only be used with stop and copy
+// accessing them with CAR, CDR or TAG
 // #define CHECK_ACCESS
 #ifdef CHECK_ACCESS
 obj check_access(obj x){
@@ -277,7 +282,7 @@ size_t pos = 0;
 #if defined(NO_STD) && !defined(NO_REG)
 register obj *alloc asm("edi");
 #else
-obj *alloc; 
+obj *alloc;
 #endif
 obj *alloc_limit;
 obj *scan;
@@ -342,13 +347,10 @@ void init_heap() {
 // GC algorithms
 #ifdef MARK_SWEEP
 
-void mark(obj *o) { 
-  
+#ifdef MARK_SWEEP_DSW
+void mark(obj *o) {
+  // Deutsch-Schorr-Waite algorithm for marking phase
   if (IS_RIB(*o)) {
-
-#ifdef DSW
-
-    // FIXME no gain in terms of performance... remove it?
     
     obj curr = *o;
     obj tmp;
@@ -361,7 +363,7 @@ void mark(obj *o) {
       CDR(prev) = MARK(CDR(prev));
     }
 
-  foward:
+  forward:
     if (curr == _NULL) {
       TAG(prev) = MARK(TAG(prev));
       goto backward;
@@ -372,7 +374,7 @@ void mark(obj *o) {
       curr = CAR(curr);
       CAR(tmp) = prev;
       prev = tmp;
-      goto foward;
+      goto forward;
     }
     
   backward:
@@ -380,7 +382,7 @@ void mark(obj *o) {
      
       switch(GET_MARK(prev)) {
 
-        // cdr decend
+        // cdr descend
         case 1:
           TAG(prev) = UNMARK(TAG(prev)); // mark will be 10 so unmark tag
           tmp = CAR(prev); 
@@ -388,7 +390,7 @@ void mark(obj *o) {
           curr = CDR(prev); 
           CDR(prev) = tmp; 
           CDR(prev) = MARK(CDR(prev)); // mark = 10
-          goto foward;
+          goto forward;
           
         // tag descend
         case 2:
@@ -398,7 +400,7 @@ void mark(obj *o) {
           curr = TAG(prev); // shouldn't be marked so no need to unmark
           TAG(prev) = tmp;
           TAG(prev) = MARK(TAG(prev)); // mark = 11
-          goto foward;
+          goto forward;
 
         // retreat... only 3rd field will remain marked (01) so that we can
         // re-use the same logic in the GC function as with the recursive version
@@ -412,19 +414,25 @@ void mark(obj *o) {
           goto backward;
       } 
     }
+  }
+}
+
 #else
+
+void mark(obj *o) { // Recursive version of marking phase
+  if (IS_RIB(*o)) {    
     obj *ptr = RIB(*o)->fields;
     if (!IS_MARKED(ptr[2])) { 
       obj tmp = ptr[2]; 
-      ptr[2] = MARK(ptr[2]);
-      
+      ptr[2] = MARK(ptr[2]);      
       mark(&ptr[0]);
       mark(&ptr[1]);
       mark(&tmp);
     }
-#endif
   }
 }
+
+#endif
 
 void gc() {
 #ifdef DEBUG_GC
@@ -455,6 +463,8 @@ void gc() {
 }
 
 #else
+
+// Cheney style stop & copy GC
 
 // NULL is a pointer (0) but would represent NULL
 // so it is never present in an obj field, and
@@ -721,9 +731,6 @@ obj list2scm(char **s, int length) {
 // @@(feature bool2scm 
 obj bool2scm(bool x) { return x ? CAR(FALSE) : FALSE; }
 // )@@
-
-// used for nums library
-// @@(location decl)@@
 
 obj prim(int no) {
   switch (no) { 
