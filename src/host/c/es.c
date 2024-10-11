@@ -395,30 +395,9 @@ void remove_cofriend(obj x, obj cfr) {
 
 // Edge addition (i.e. add a reference to a rib)
 
-// My implementation does a DFS instead of a BFS. This works because only the
-// ribs accessible via their parents can potentially have their rank modified
-// and since the `to` rib is the root of the subtree of the "rank update
-// traversal", we can safely assume that the ranks will always be updated in the
-// right order (or else a rib could have more than one parent). This means that
-// we don't need to use a queue and that, given the similarity of this procedure
-// with the marking phase of a mark-and-sweep GC, we can probably use a graph
-// marking algorithm (like the Deutsch-Schorr-Waite algorithm) to avoid the
-// recursive function calls
-
-void update_rank(obj x){
-  // update rank of x's children recursively
-  set_rank(x, get_rank(get_parent(x))+1);
-  obj *_x = RIB(x)->fields;
-  for (int i = 0; i < 3; i++) {
-    // FIXME? not sure if the is_parent check is slower than tagging the child
-    if (IS_RIB(_x[i]) && is_parent(_x[i], x)) {
-      update_rank(_x[i]);
-    }
-  }
-}
+// Intuition: TODO
 
 void add_edge(obj from, obj to) {
-  // FIXME duplicate edges (refs) are allowed for now, could be problematic
   if (IS_RIB(from) && IS_RIB(to)) {
     add_cofriend(to, from);
     if (is_dirty(from, to)) {
@@ -427,15 +406,29 @@ void add_edge(obj from, obj to) {
     // The reference from a new root to an existing rib is not considered dirty
     // so we need to have the `is_parent` check to account for that situation
     // (the check passes if the edge was dirty as well)... this shouldn't be a
-    // problem for ribbit but I'll leave it there for now 
-    if (is_parent(to, from)) { 
-      set_rank(to, get_rank(from)+1);
-      obj *_to = RIB(to)->fields;
-      for (int i = 0; i < 3; i++) {
-        if (IS_RIB(_to[i]) && is_parent(_to[i], to)) {
-          update_rank(_to[i]);
+    // problem for ribbit but I'll leave it there for now
+    if (is_parent(to, from)) {
+      q_init(); 
+      q_enqueue(to);
+      int r = get_rank(from)+1;
+      set_rank(to, r);
+      obj _to;
+      obj *t;
+      do {
+        _to = q_dequeue();
+        t = RIB(_to)->fields;
+        r = get_rank(_to)+1;
+        for (int i = 0; i < 3; i++) {
+          // if the parent of `to` was swapped (i.e. his rank decreased), some
+          // of the edges in the subgraph rooted at `to` might now be dirty,
+          // see test 1.1 for example... this is why we need to do a BFS
+          if (IS_RIB(t[i]) && (is_parent(t[i], _to) || is_dirty(_to, t[i]))) {
+            set_parent(t[i], _to); // FIXME redundant if _to is the parent
+            set_rank(t[i], r); 
+            q_enqueue(t[i]);
+          }
         }
-      }
+      } while (!Q_IS_EMPTY());
     }
   }
 }
@@ -608,7 +601,7 @@ void print_heap(){
 
 // this monster checks that the graph is back to its initial state after a test,
 // you can (should) probably ignore this
-#define CHECK_OG(r0,r1,r2,r3,r4,r5,r6,i)                                       \
+#define CHECK_OG(r0,r1,r2,r3,r4,r5,r6,i,j)                              \
   if (CAR(r0) != TAG_NUM(0) || CDR(r0) != TAG_NUM(0) || TAG(r0) != TAG_NUM(0)||\
       M_CAR(r0) != _NULL || M_CDR(r0) != _NULL || M_TAG(r0) != _NULL ||        \
       get_parent(r0) != r1 || get_rank(r0) != 4 ||                             \
@@ -630,7 +623,7 @@ void print_heap(){
       CAR(r6) != TAG_NUM(6) || CDR(r6) != TAG_NUM(6) || TAG(r6) != r5 ||       \
       M_CAR(r6) != _NULL || M_CDR(r6) != _NULL || M_TAG(r6) != _NULL ||        \
       get_parent(r6) != _NULL || get_rank(r6) != 0) {                          \
-    printf("graph is not back to its original state after test 2.%d\n",i);     \
+    printf("graph is not back to its original state after test %d.%d\n",i,j);  \
   }
 
 int main() {
@@ -650,7 +643,26 @@ int main() {
   obj r5 = alloc_rib(r4, r3, TAG_NUM(5));
   obj r6 = alloc_rib(TAG_NUM(6), TAG_NUM(6), r5);
 
-  CHECK_OG(r0,r1,r2,r3,r4,r5,r6,0);
+  CHECK_OG(r0,r1,r2,r3,r4,r5,r6,1,0);
+
+  // Test 1.1: OK -- why we need to do a BFS when adding a new edge
+  // Add an edge from r6 to r4, r4's parent becomes r6, r4's rank decreases
+  // from 2 to 1, the edge between r4 and r2 becomes dirty and so r4 becomes
+  // r2's parent and r'2 rank decreases from 3 to 2, r6's first mirror field
+  // now points to r1, r4's second mirror field now points to r3 and r3's
+  // first mirror field now points to _NULL
+  CAR(r6) = r4;
+  add_edge(r6,r4);
+  if (get_parent(r4) != r6 || get_rank(r4) != 1 || M_CAR(r6) != r5 ||
+      get_parent(r2) != r4 || get_rank(r2) != 2 || M_CDR(r4) != r3 ||
+      M_CAR(r3) != _NULL) {
+    printf("Test 1.1 failed\n");
+  }
+  remove_edge(r6,r4);
+  CAR(r6) = TAG_NUM(6);
+  set_parent(r2,r3);
+
+  CHECK_OG(r0,r1,r2,r3,r4,r5,r6,1,1);
   
 
   //----------------------------------------------------------------------------
@@ -669,7 +681,7 @@ int main() {
   CAR(r1) = r0;
   add_edge(r1,r0);
 
-  CHECK_OG(r0,r1,r2,r3,r4,r5,r6,1);
+  CHECK_OG(r0,r1,r2,r3,r4,r5,r6,2,1);
 
   // Test 2.2: OK  -- No deallocation or children/parent involved
   // Remove edge between r2 and r1, this shouldn't deallocate any memory but
@@ -682,7 +694,7 @@ int main() {
   CAR(r2) = r1;
   add_edge(r2,r1);
 
-  CHECK_OG(r0,r1,r2,r3,r4,r5,r6,2);
+  CHECK_OG(r0,r1,r2,r3,r4,r5,r6,2,2);
 
   // Test 2.3: OK -- Parent removal with deallocation, no children involved
   // Remove edge between r5 and r4, should dealloc r4 (i.e. make alloc point to
@@ -697,7 +709,7 @@ int main() {
   CDR(r4) = r2;
   add_edge(r4,r2);
 
-  CHECK_OG(r0,r1,r2,r3,r4,r5,r6,3);
+  CHECK_OG(r0,r1,r2,r3,r4,r5,r6,2,3);
 
   // Test 2.4: OK -- Parent swap but no deallocation, children involved
   // Remove edge between r3 and r2, r4 "catches" r2 and becomes the parent and
@@ -712,7 +724,7 @@ int main() {
   add_edge(r3,r2);
   set_parent(r2,r3);
 
-  CHECK_OG(r0,r1,r2,r3,r4,r5,r6,4);
+  CHECK_OG(r0,r1,r2,r3,r4,r5,r6,2,4);
 
   // Test 2.5: OK --  Parent removal with deallocation and children involved
   // Olivier's example: remove edge betweem r5 and r3 => r3, r2, r1, and r0
@@ -728,7 +740,7 @@ int main() {
   add_edge(r5,r3);
   set_parent(r2,r3);
 
-  CHECK_OG(r0,r1,r2,r3,r4,r5,r6,5);
+  CHECK_OG(r0,r1,r2,r3,r4,r5,r6,2,5);
 
   // Test 2.6: OK -- Several deallocations
   // Same as above but this time the edge between r2 and r1 is deleted first
@@ -754,7 +766,7 @@ int main() {
   CAR(r1) = r0;
   add_edge(r1,r0);
 
-  CHECK_OG(r0,r1,r2,r3,r4,r5,r6,6);
+  CHECK_OG(r0,r1,r2,r3,r4,r5,r6,2,6);
   
   //----------------------------------------------------------------------------
   
