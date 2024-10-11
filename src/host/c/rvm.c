@@ -176,8 +176,6 @@ rib *heap_start;
 #ifdef MARK_SWEEP
 #define heap_top (heap_bot + (SPACE_SZ))
 #define _NULL ((obj)NULL)
-obj *hp1;
-obj *hp2;
 #else
 obj *alloc_limit;
 #define heap_mid (heap_bot + (SPACE_SZ))
@@ -439,7 +437,6 @@ void mark(obj *o) { // Recursive version of marking phase
 void gc() {
 #ifdef DEBUG_GC
   printf("\t--GC called\n");
-  int n = 0;
 #endif
   // Mark (only 3 possible roots)
   mark(&stack);
