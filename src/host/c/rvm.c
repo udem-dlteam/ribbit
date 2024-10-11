@@ -175,7 +175,9 @@ rib *heap_start;
 #define heap_bot ((obj *)(heap_start))
 #ifdef MARK_SWEEP
 #define heap_top (heap_bot + (SPACE_SZ))
-#define _NULL ((obj) NULL)
+#define _NULL ((obj)NULL)
+obj *hp1;
+obj *hp2;
 #else
 obj *alloc_limit;
 #define heap_mid (heap_bot + (SPACE_SZ))
@@ -328,15 +330,15 @@ void init_heap() {
 
 #ifdef MARK_SWEEP
   // initialize freelist
-  scan = heap_bot;
-  *scan = _NULL; 
+  scan = heap_top;
+  *scan = _NULL;
   
-  while (scan != heap_top) {
+  while (scan != heap_bot) {
     alloc = scan; // alloc <- address of previous slot
-    scan += 3; // scan <- address of next rib slot
-    *scan = alloc; // CAR(next rib) <- address of previous slot
+    scan -= RIB_NB_FIELDS; // scan <- address of next rib slot
+    *scan = (obj)alloc; // CAR(next rib) <- address of previous slot
   }
-  alloc = scan; 
+  alloc = scan;
 #else
   alloc = heap_bot;
   alloc_limit = heap_mid;
@@ -420,11 +422,11 @@ void mark(obj *o) {
 #else
 
 void mark(obj *o) { // Recursive version of marking phase
-  if (IS_RIB(*o)) {    
+  if (IS_RIB(*o)) {
     obj *ptr = RIB(*o)->fields;
     if (!IS_MARKED(ptr[2])) { 
       obj tmp = ptr[2]; 
-      ptr[2] = MARK(ptr[2]);      
+      ptr[2] = MARK(ptr[2]);
       mark(&ptr[0]);
       mark(&ptr[1]);
       mark(&tmp);
@@ -436,26 +438,24 @@ void mark(obj *o) { // Recursive version of marking phase
 
 void gc() {
 #ifdef DEBUG_GC
-  printf("\t--GC called \n ");
+  printf("\t--GC called\n");
+  int n = 0;
 #endif
   // Mark (only 3 possible roots)
   mark(&stack);
   mark(&pc);
   mark(&FALSE);
-  
   // Sweep
   scan=heap_bot;
-  scan+=3; // first rib is always the NULL rib
-
   while (scan != heap_top) {
     obj tag = *(scan+2);
     if (IS_MARKED(tag)) {
       *(scan+2) = UNMARK(tag);
     } else {
-      *scan = alloc;
+      *scan = (obj)alloc;
       alloc = scan;
     }
-    scan += 3; // next rib object
+    scan += RIB_NB_FIELDS; // next rib object
   }
   if (*alloc == _NULL){
     printf("Heap is full\n");
@@ -549,20 +549,18 @@ obj pop() {
 void push2(obj car, obj tag) {
 #ifdef MARK_SWEEP
   obj tmp = *alloc; // next available slot in freelist
-#endif
-  
+#endif  
   // default stack frame is (value, ->, NUM_0)
   *alloc++ = car;
   *alloc++ = stack;
   *alloc++ = tag;
-
   stack = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
   
 #ifdef MARK_SWEEP
-  alloc = tmp; 
-  if (*alloc == _NULL) { // empty freelist?
-    gc(); 
-  } 
+  alloc = (obj *)tmp;
+  if (!IS_RIB(tmp) || *alloc == _NULL) { // empty freelist?
+    gc();
+  }
 #else
   if (alloc == alloc_limit) {
     gc();
