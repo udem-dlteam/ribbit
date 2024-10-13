@@ -162,16 +162,15 @@ obj q_dequeue() {
 //  - Linked list (used temporarily): simple and requires only 1 extra field
 //    but insertion and deletion is in O(n)
 //
-//  - Buckets: O(#ranks) for insertion and deletion but requires 2 extra fields
-//    to keep a reference to the next rib of the same bucket (of the same rank)
+//  - Buckets: O(#ranks) for enqueue, O(1) for dequeue, and O(#ranks + m) where
+//    m is the number of ribs in the largest bucket. Requires 2  extra field to
+//    keep a reference to the next rib of the same bucket (of the same rank)
 //    and one to keep a reference of the first rib in the next bucket (bucket
-//    with rank+=1). This is the best option (I think) if we can show that
-//    #ranks <= lg(n)
+//    with rank+=1)
 //
-//  - Red-black trees: O(lg(n)) for insertion and deletion but requires 3 extra
-//    fields: 2 for the left and right subtrees and 1 for the parent. Tagging
-//    can be used for the colour. This is a better option than buckets when
-//    #ranks > lg(n)
+//  - Red-black trees: O(lg(n)) for enqueue and dequeue/removal but requires 3
+//    extra fields: 2 for the left and right subtrees and 1 for the parent.
+//    Tagging can be used for the colour
 //
 //  - Something else...?
 
