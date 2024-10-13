@@ -6,10 +6,11 @@
  * Implementation of Even-Shiloach trees
  */
 
-
 #include <stdio.h>
 #include <stdlib.h>
 
+#define BUCKETS
+// #define RB_TREES
 
 // basic def. of a boolean
 typedef unsigned char bool;
@@ -20,7 +21,15 @@ typedef unsigned long obj;
 // a number
 typedef long num;
 
+#ifdef BUCKETS
+#define RIB_NB_FIELDS 11
+#else
+#ifdef RB_TREES
+#define RIB_NB_FIELDS 12
+#else
 #define RIB_NB_FIELDS 10
+#endif
+#endif
 typedef struct {
   obj fields[RIB_NB_FIELDS];
 } rib;
@@ -31,8 +40,9 @@ rib *heap_start;
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
 #define heap_top (heap_bot + (SPACE_SZ))
-#define _NULL ((obj) NULL)
 // end GC constants
+
+#define _NULL ((obj) NULL)
 
 obj *alloc; 
 obj *scan;
@@ -52,24 +62,28 @@ obj *scan;
 #define CAR(x) RIB(x)->fields[0]
 #define CDR(x) RIB(x)->fields[1]
 #define TAG(x) RIB(x)->fields[2]
-
-// mirror fields for co-friends lists
-#define M_CAR(x) RIB(x)->fields[3]
+#define M_CAR(x) RIB(x)->fields[3]   // mirror fields
 #define M_CDR(x) RIB(x)->fields[4]
 #define M_TAG(x) RIB(x)->fields[5]
+#define CFR(x) RIB(x)->fields[6]     // co-friends
+#define RANK(x) RIB(x)->fields[7] 
+#define Q_NEXT(x) RIB(x)->fields[8]  // queue next
 
-// rib's own co-friends
-#define CFR(x) RIB(x)->fields[6]
-
-// rank
-#define RANK(x) RIB(x)->fields[7]
-
-// queue and pqueue, respectively
-#define Q_NEXT(x) RIB(x)->fields[8]
-#define PQ_NEXT(x) RIB(x)->fields[9]
+#ifdef BUCKETS
+#define PQ_NEXT_RIB(x) RIB(x)->fields[9]
+#define PQ_NEXT_BKT(x) RIB(x)->fields[10]
+#else
+#ifdef RB_TREES
+#define PQ_LEFT(x) RIB(x)->fields[9]
+#define PQ_RIGHT(x) RIB(x)->fields[10]
+#define PQ_PARENT(x) RIB(x)->fields[11]
+#else
+#define PQ_NEXT(x) RIB(x)->fields[9] // pqueue next (linked list)
+#endif
+#endif
 
 // Structure of a rib:
-// 
+//
 //    +------------+
 // 1  |   Field 1  |
 //    +------------+
@@ -169,6 +183,126 @@ void pq_init() {
 
 #define PQ_IS_EMPTY() (pq_head == _NULL)
 
+#ifdef BUCKETS
+
+// Priority queue implemented with buckets
+
+void pq_enqueue(obj o) {
+  if (IS_RIB(o)) {
+    if (PQ_IS_EMPTY()){
+      PQ_NEXT_RIB(o) = _NULL;
+      PQ_NEXT_BKT(o) = _NULL;
+      pq_head = o;
+      return;
+    }
+    int r = NUM(RANK(o));
+    obj curr_bkt = pq_head;
+    obj next_bkt = PQ_NEXT_BKT(pq_head);
+    
+    // curr_bkt <= o <= next_bkt
+    while (next_bkt != _NULL && NUM(RANK(curr_bkt)) < r) {
+      curr_bkt = next_bkt;
+      next_bkt = PQ_NEXT_BKT(next_bkt);
+    }
+    // Note: only the first rib in the bucket keeps a reference
+    // to the first rib in the next bucket
+    if (NUM(RANK(curr_bkt)) == r) { // insertion in current bucket
+      PQ_NEXT_BKT(curr_bkt) = _NULL; 
+      PQ_NEXT_RIB(o) = curr_bkt;
+      PQ_NEXT_BKT(o) = next_bkt;
+    } else if (next_bkt == _NULL) { // new bucket with highest rank
+      PQ_NEXT_BKT(curr_bkt) = o;
+      PQ_NEXT_RIB(o) = _NULL;
+      PQ_NEXT_BKT(o) = _NULL;
+    } else if (NUM(RANK(next_bkt)) == r) { // insertion in next bucket
+      PQ_NEXT_BKT(curr_bkt) = o;
+      PQ_NEXT_RIB(o) = next_bkt;
+      PQ_NEXT_BKT(o) = PQ_NEXT_BKT(next_bkt);
+      PQ_NEXT_BKT(next_bkt) = _NULL;
+    } else { // insertion in a new bucket between curr and next buckets
+      PQ_NEXT_BKT(curr_bkt) = o;
+      PQ_NEXT_RIB(o) = _NULL;
+      PQ_NEXT_BKT(o) = next_bkt;
+    }
+  }
+}
+
+obj pq_dequeue() {
+  if (PQ_IS_EMPTY()){
+    return _NULL;
+  }
+  obj tmp = pq_head;
+  if (PQ_NEXT_RIB(pq_head) == _NULL) {
+    pq_head = PQ_NEXT_BKT(pq_head); // could be _NULL 
+  } else {
+    pq_head = PQ_NEXT_RIB(pq_head);
+  }
+  PQ_NEXT_RIB(tmp) = _NULL;
+  PQ_NEXT_BKT(tmp) = _NULL;
+  return tmp;
+}
+
+// Set operations
+
+void pq_remove(obj o) {
+  if (IS_RIB(o)) {
+    if (pq_head == _NULL) { 
+      return;
+    }
+    else if (pq_head == o) {
+      // dequeue but we don't return the rib
+      obj tmp = pq_head;
+      if (PQ_NEXT_RIB(pq_head) == _NULL) {
+        pq_head = PQ_NEXT_BKT(pq_head); // could be _NULL 
+      } else {
+        pq_head = PQ_NEXT_RIB(pq_head);
+      }
+      PQ_NEXT_RIB(tmp) = _NULL;
+      PQ_NEXT_BKT(tmp) = _NULL;
+    }
+    else {
+      int r = NUM(RANK(o));
+      obj curr = pq_head;
+      obj prev_bkt;
+      while (curr != _NULL && NUM(RANK(curr)) < r) { // find bucket
+        prev_bkt = curr;
+        curr = PQ_NEXT_BKT(curr);
+      }
+      if (curr == _NULL || NUM(RANK(curr)) > r) {
+        return; // no bucket of rank r;
+      } 
+      // find rib in bucket
+      if (curr == o) { // first rib in the bucket
+        if (PQ_NEXT_RIB(curr) == _NULL) {
+          PQ_NEXT_BKT(prev_bkt) = PQ_NEXT_BKT(curr);
+        } else {
+          PQ_NEXT_BKT(prev_bkt) = PQ_NEXT_RIB(curr);
+        }
+        PQ_NEXT_RIB(curr) = _NULL;
+        PQ_NEXT_BKT(curr) = _NULL;
+      }
+    }
+  }
+}
+
+#else
+
+#ifdef RB_TREES
+
+// TODO Priority queue implemented with red-black trees
+
+void pq_enqueue(obj o) {}
+
+obj pq_dequeue() {}
+
+// Set operations
+
+void pq_remove(obj o) {}
+
+#else
+
+// Priority queue implemented with a singly linked list
+
 void pq_enqueue(obj o) {
   // the lower the rank, the closer the rib is to pq_head
   if (IS_RIB(o)) {
@@ -206,27 +340,35 @@ obj pq_dequeue() {
 
 // Set operations
 
-void pq_remove(obj o) { 
-  // FIXME need a faster way to detect if `o` is not in the pqeueue
-  if (pq_head == _NULL) { // || (pq_head != _NULL && PQ_NEXT(*o) == _NULL)) {
-    // empty pqueue (set) or the rib is not in the pqueue (set)
-    return;
+void pq_remove(obj o) {
+  // TODO need a faster way to detect if `o` is not in the pqeueue
+  if (IS_RIB(o)) {
+    if (pq_head == _NULL) { // || (pq_head != _NULL && PQ_NEXT(*o) == _NULL)) {
+      // empty pqueue (set) or the rib is not in the pqueue (set)
+      return;
+    } else if (pq_head == o) {
+      // dequeue but we don't return the rib
+      obj tmp = pq_head;
+      pq_head = PQ_NEXT(tmp);
+      PQ_NEXT(tmp) = _NULL;
+    } else {
+      obj curr = PQ_NEXT(pq_head);
+      obj prev = pq_head;
+      while (curr != o && curr != _NULL) {
+        prev = curr;
+        curr = PQ_NEXT(curr);
+      }
+      if (curr == _NULL) { // not found in set
+        return;
+      }
+      PQ_NEXT(prev) = PQ_NEXT(curr);
+      PQ_NEXT(curr) = _NULL;
+    }
   }
-  obj curr = pq_head;
-  obj prev;
-  while (curr != o && curr != _NULL) {
-    prev = curr;
-    curr = PQ_NEXT(curr);
-  }
-  if (curr == pq_head) { 
-    pq_head = _NULL;
-    return;
-  } else if (curr == _NULL) { // not found in set
-    return;
-  }
-  PQ_NEXT(prev) = PQ_NEXT(curr);
-  PQ_NEXT(curr) = _NULL;
 }
+
+#endif
+#endif
 
 
 //==============================================================================
@@ -398,6 +540,7 @@ void remove_cofriend(obj x, obj cfr) {
 // Intuition: TODO
 
 void add_edge(obj from, obj to) {
+  // FIXME duplicate edges are allowed for now
   if (IS_RIB(from) && IS_RIB(to)) {
     add_cofriend(to, from);
     if (is_dirty(from, to)) {
@@ -545,7 +688,7 @@ void init_heap() {
   
   while (scan != heap_top) {
     alloc = scan; // alloc <- address of previous slot
-    scan += 10; // scan <- address of next rib slot
+    scan += RIB_NB_FIELDS; // scan <- address of next rib slot
     *scan = alloc; // CAR(next rib) <- address of previous slot
   }
   alloc = scan;
