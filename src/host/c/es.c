@@ -160,20 +160,20 @@ obj q_dequeue() {
 // some options:
 //
 //  - Linked list (used temporarily): simple and requires only 1 extra field
-//    but insertion and deletion is in O(n)
+//    but enqueue, dequeue, and remove are all in O(n)
 //
-//  - Buckets: O(#ranks) for insertion and deletion but requires 2 extra fields
-//    to keep a reference to the next rib of the same bucket (of the same rank)
+//  - Buckets: O(#ranks) for enqueue, O(1) for dequeue, and O(#ranks + m) where
+//    m is the number of ribs in the largest bucket. Requires 2  extra field to
+//    keep a reference to the next rib of the same bucket (of the same rank)
 //    and one to keep a reference of the first rib in the next bucket (bucket
-//    with rank+=1). This is the best option (I think) if we can show that
-//    #ranks <= lg(n)
+//    with rank+=1)
 //
-//  - Red-black trees: O(lg(n)) for insertion and deletion but requires 3 extra
-//    fields: 2 for the left and right subtrees and 1 for the parent. Tagging
-//    can be used for the colour. This is a better option than buckets when
-//    #ranks > lg(n)
+//  - Red-black trees: O(lg(n)) for enqueue and dequeue/removal but requires 3
+//    extra fields: 2 for the left and right subtrees and 1 for the parent.
+//    Tagging can be used for the colour
 //
 //  - Something else...?
+
 
 obj pq_head;
 
@@ -246,7 +246,7 @@ obj pq_dequeue() {
 
 void pq_remove(obj o) {
   if (IS_RIB(o)) {
-    if (pq_head == _NULL) { 
+    if (pq_head == _NULL) {
       return;
     }
     else if (pq_head == o) {
@@ -291,13 +291,6 @@ void pq_remove(obj o) {
 
 // TODO Priority queue implemented with red-black trees
 
-void pq_enqueue(obj o) {}
-
-obj pq_dequeue() {}
-
-// Set operations
-
-void pq_remove(obj o) {}
 
 #else
 
@@ -564,7 +557,7 @@ void add_edge(obj from, obj to) {
         for (int i = 0; i < 3; i++) {
           // if the parent of `to` was swapped (i.e. his rank decreased), some
           // of the edges in the subgraph rooted at `to` might now be dirty,
-          // see test 1.1 for example... this is why we need to do a BFS
+          // see test 1.1 for an example... this is why we need to do a BFS
           if (IS_RIB(t[i]) && (is_parent(t[i], _to) || is_dirty(_to, t[i]))) {
             set_parent(t[i], _to); // FIXME redundant if _to is the parent
             set_rank(t[i], r); 
@@ -585,6 +578,11 @@ void add_edge(obj from, obj to) {
 
 void loosen(obj x) {
   set_rank(x, -1);
+  // TODO possible optimization: don't remove here, just check if the rib has
+  // rank -1 in the catch phase, which is possible since we re-use the anker's
+  // "set" in the drop phase for the catch pqueue in the catch phase... this
+  // effectively transforms every remove (the most expensive operation in our
+  // pqueue) in a dequeue, which is done in O(1)
   pq_remove(x);
 }
 
@@ -674,18 +672,38 @@ void remove_edge(obj from, obj to) {
 }
 
 
+//------------------------------------------------------------------------------
+
+// References management
+
+void set_field(obj src, int i, obj dest) { // write barrier
+  if (IS_RIB(src)) {
+    obj *ref = RIB(src)->fields;
+    if (IS_RIB(ref[i])) { // no need to dereference _NULL or a num
+      remove_edge(src, ref[i]);
+    }
+    ref[i] = dest;
+    if (IS_RIB(dest)) { // only needed if dest is a rib
+      add_edge(src, dest);
+    }
+  }
+}
+
+#define SET_CAR(src, dest) set_field(src, 0, dest)
+#define SET_CDR(src, dest) set_field(src, 1, dest)
+#define SET_TAG(src, dest) set_field(src, 2, dest) 
+
+
 //==============================================================================
 
 // Tests
 
 void init_heap() {
-  
   heap_start = malloc(sizeof(obj) * SPACE_SZ);
- 
+  
   // initialize freelist
   scan = heap_bot;
   *scan = _NULL;
-  
   while (scan != heap_top) {
     alloc = scan; // alloc <- address of previous slot
     scan += RIB_NB_FIELDS; // scan <- address of next rib slot
@@ -694,7 +712,7 @@ void init_heap() {
   alloc = scan;
 }
 
-obj alloc_rib(obj car, obj cdr, obj tag) {
+obj __alloc_rib(obj car, obj cdr, obj tag) {
 
   obj tmp = *alloc; // next available slot in freelist
   obj from = alloc;
@@ -710,6 +728,10 @@ obj alloc_rib(obj car, obj cdr, obj tag) {
   *alloc++ = TAG_NUM(0); // rank
   *alloc++ = _NULL;      // queue
   *alloc++ = _NULL;      // priority queue
+
+#ifdef BUCKETS
+  *alloc++ = _NULL;
+#endif
 
   // adjust ref counts
   if (IS_RIB(car)) {add_edge(from, car);}
@@ -778,13 +800,13 @@ int main() {
   // Edge addition tests: building Olivier's example graph (somewhat)
   // Drawings provided on demand for free
 
-  obj r0 = alloc_rib(TAG_NUM(0), TAG_NUM(0), TAG_NUM(0));
-  obj r1 = alloc_rib(r0, TAG_NUM(1), TAG_NUM(1));
-  obj r2 = alloc_rib(r1, TAG_NUM(2), TAG_NUM(2));
-  obj r3 = alloc_rib(r2, TAG_NUM(3), r1);
-  obj r4 = alloc_rib(TAG_NUM(4), r2, TAG_NUM(4));
-  obj r5 = alloc_rib(r4, r3, TAG_NUM(5));
-  obj r6 = alloc_rib(TAG_NUM(6), TAG_NUM(6), r5);
+  obj r0 = __alloc_rib(TAG_NUM(0), TAG_NUM(0), TAG_NUM(0));
+  obj r1 = __alloc_rib(r0, TAG_NUM(1), TAG_NUM(1));
+  obj r2 = __alloc_rib(r1, TAG_NUM(2), TAG_NUM(2));
+  obj r3 = __alloc_rib(r2, TAG_NUM(3), r1);
+  obj r4 = __alloc_rib(TAG_NUM(4), r2, TAG_NUM(4));
+  obj r5 = __alloc_rib(r4, r3, TAG_NUM(5));
+  obj r6 = __alloc_rib(TAG_NUM(6), TAG_NUM(6), r5);
 
   CHECK_OG(r0,r1,r2,r3,r4,r5,r6,1,0);
 
@@ -794,15 +816,14 @@ int main() {
   // r2's parent and r'2 rank decreases from 3 to 2, r6's first mirror field
   // now points to r1, r4's second mirror field now points to r3 and r3's
   // first mirror field now points to _NULL
-  CAR(r6) = r4;
-  add_edge(r6,r4);
+  SET_CAR(r6,r4);
   if (get_parent(r4) != r6 || get_rank(r4) != 1 || M_CAR(r6) != r5 ||
       get_parent(r2) != r4 || get_rank(r2) != 2 || M_CDR(r4) != r3 ||
       M_CAR(r3) != _NULL) {
     printf("Test 1.1 failed\n");
   }
   remove_edge(r6,r4);
-  CAR(r6) = TAG_NUM(6);
+  SET_CAR(r6,TAG_NUM(6));
   set_parent(r2,r3);
 
   CHECK_OG(r0,r1,r2,r3,r4,r5,r6,1,1);
@@ -820,9 +841,8 @@ int main() {
   if (alloc != r0) {
     printf("Test 2.1 failed\n");
   }
-  r0 = alloc_rib(TAG_NUM(0), TAG_NUM(0), TAG_NUM(0));
-  CAR(r1) = r0;
-  add_edge(r1,r0);
+  r0 = __alloc_rib(TAG_NUM(0), TAG_NUM(0), TAG_NUM(0));
+  SET_CAR(r1,r0);
 
   CHECK_OG(r0,r1,r2,r3,r4,r5,r6,2,1);
 
@@ -834,8 +854,7 @@ int main() {
   if (alloc != tmp || CAR(r2) == r1 || M_TAG(r3) == r2) {
     printf("Test 2.2 failed\n");
   }
-  CAR(r2) = r1;
-  add_edge(r2,r1);
+  SET_CAR(r2,r1);
 
   CHECK_OG(r0,r1,r2,r3,r4,r5,r6,2,2);
 
@@ -846,11 +865,9 @@ int main() {
   if (alloc != r4 || CAR(r5) == r4 || M_CAR(r3) == r4) {
     printf("Test 2.3 failed\n");
   }
-  r4 = alloc_rib(TAG_NUM(4), TAG_NUM(4), TAG_NUM(4));
-  CAR(r5) = r4;
-  add_edge(r5,r4);
-  CDR(r4) = r2;
-  add_edge(r4,r2);
+  r4 = __alloc_rib(TAG_NUM(4), TAG_NUM(4), TAG_NUM(4));
+  SET_CAR(r5,r4);
+  SET_CDR(r4,r2);
 
   CHECK_OG(r0,r1,r2,r3,r4,r5,r6,2,3);
 
@@ -863,8 +880,7 @@ int main() {
     printf("Test 2.4 failed\n");
   }
   //print_heap();
-  CAR(r3) = r2;
-  add_edge(r3,r2);
+  SET_CAR(r3,r2);
   set_parent(r2,r3);
 
   CHECK_OG(r0,r1,r2,r3,r4,r5,r6,2,4);
@@ -878,9 +894,8 @@ int main() {
       get_rank(r1) != 4 || get_rank(r0) != 5) {
     printf("Test 2.5 failed\n");
   }
-  r3 = alloc_rib(r2, TAG_NUM(3), r1);
-  CDR(r5) = r3;
-  add_edge(r5,r3);
+  r3 = __alloc_rib(r2, TAG_NUM(3), r1);
+  SET_CDR(r5,r3);
   set_parent(r2,r3);
 
   CHECK_OG(r0,r1,r2,r3,r4,r5,r6,2,5);
@@ -894,20 +909,15 @@ int main() {
       get_rank(r1) != -2 || get_rank(r0) != -2) {
     printf("Test 2.6 failed\n");
   }
-  r3 = alloc_rib(TAG_NUM(3), TAG_NUM(3), TAG_NUM(3));
-  CDR(r5) = r3;
-  add_edge(r5,r3);
-  CAR(r3) = r2;
-  add_edge(r3,r2);
+  r3 = __alloc_rib(TAG_NUM(3), TAG_NUM(3), TAG_NUM(3));
+  SET_CDR(r5,r3);
+  SET_CAR(r3,r2);
   set_parent(r2,r3);
-  r1 = alloc_rib(TAG_NUM(1), TAG_NUM(1), TAG_NUM(1));
-  r0 = alloc_rib(TAG_NUM(0), TAG_NUM(0), TAG_NUM(0));
-  TAG(r3) = r1;
-  add_edge(r3,r1);
-  CAR(r2) = r1;
-  add_edge(r2,r1);
-  CAR(r1) = r0;
-  add_edge(r1,r0);
+  r1 = __alloc_rib(TAG_NUM(1), TAG_NUM(1), TAG_NUM(1));
+  r0 = __alloc_rib(TAG_NUM(0), TAG_NUM(0), TAG_NUM(0));
+  SET_TAG(r3,r1);
+  SET_CAR(r2,r1);
+  SET_CAR(r1,r0);
 
   CHECK_OG(r0,r1,r2,r3,r4,r5,r6,2,6);
   
@@ -926,51 +936,40 @@ int main() {
   // Remove edge bewteen r1 and r0 after creating a cycle between r0 and the
   // newly allocated rib r7 => their ref count won't be 0 but they should both
   // be deallocated since they're no longer accessible from a root
-  obj r7 = alloc_rib(TAG_NUM(7), TAG_NUM(7), TAG_NUM(7));
-  CAR(r0) = r7;
-  add_edge(r0,r7);
-  CDR(r7) = r0;
-  add_edge(r7,r0); // cycle created
+  obj r7 = __alloc_rib(TAG_NUM(7), TAG_NUM(7), TAG_NUM(7));
+  SET_CAR(r0,r7);
+  SET_CDR(r7,r0); // cycle created
   remove_edge(r1,r0); // <- infinite loop in drop (see comment in remove_parent)
   if (alloc != r0 || *alloc != r7 || get_rank(r0) != -2 || get_rank(r7) != -2) {
     printf("Test 3.1 failed\n");
   }
-  r0 = alloc_rib(TAG_NUM(0), TAG_NUM(0), TAG_NUM(0));
-  CAR(r1) = r0;
-  add_edge(r1,r0);
-  r7 = alloc_rib(TAG_NUM(7), TAG_NUM(7), TAG_NUM(7));
-  CAR(r0) = r7;
-  add_edge(r0,r7);
-  CDR(r7) = r0;
-  add_edge(r7,r0); // <- infinite loop in drop (see comment in remove_parent)
+  r0 = __alloc_rib(TAG_NUM(0), TAG_NUM(0), TAG_NUM(0));
+  SET_CAR(r1,r0);
+  r7 = __alloc_rib(TAG_NUM(7), TAG_NUM(7), TAG_NUM(7));
+  SET_CAR(r0,r7);
+  SET_CDR(r7,r0); // <- infinite loop in drop (see comment in remove_parent)
 
   // Test 3.2: OK -- Another object to be deallocated after cycle is detected
   // Same as above but this time we need to deallocate another rib before
   // breaking the loop where the cycle was detected (no longer applies)
-  obj r8 = alloc_rib(TAG_NUM(8), TAG_NUM(8), TAG_NUM(8));
-  TAG(r7) = r8;
-  add_edge(r7,r8);
+  obj r8 = __alloc_rib(TAG_NUM(8), TAG_NUM(8), TAG_NUM(8));
+  SET_TAG(r7,r8);
   remove_edge(r1,r0);
   if (get_rank(r0) != -2 || get_rank(r7) != -2 || get_rank(r8) != -2) {
     printf("Test 3.2 failed\n");
   }
-  r0 = alloc_rib(TAG_NUM(0), TAG_NUM(0), TAG_NUM(0));
-  CAR(r1) = r0;
-  add_edge(r1,r0);
-  r7 = alloc_rib(TAG_NUM(7), TAG_NUM(7), TAG_NUM(7));
-  CAR(r0) = r7;
-  add_edge(r0,r7);
-  CDR(r7) = r0;
-  add_edge(r7,r0);
-  r8 = alloc_rib(TAG_NUM(8), TAG_NUM(8), TAG_NUM(8));
-  TAG(r7) = r8;
-  add_edge(r7,r8);
+  r0 = __alloc_rib(TAG_NUM(0), TAG_NUM(0), TAG_NUM(0));
+  SET_CAR(r1,r0);
+  r7 = __alloc_rib(TAG_NUM(7), TAG_NUM(7), TAG_NUM(7));
+  SET_CAR(r0,r7);
+  SET_CDR(r7,r0);
+  r8 = __alloc_rib(TAG_NUM(8), TAG_NUM(8), TAG_NUM(8));
+  SET_TAG(r7,r8);
 
   // Test 3.3: OK -- A rib is involved in two cycles
   // Same as the two above but now r8 also points to r7, meaning that r7 is
   // now part of two cycles (r0/r7 and r7/r8 cycles)
-  CAR(r8) = r7;
-  add_edge(r8,r7); // new cycle created
+  SET_CAR(r8,r7); // new cycle created
   remove_edge(r1,r0);
   if (get_rank(r0) != -2 || get_rank(r7) != -2 || get_rank(r8) != -2) {
     printf("Test 3.3 failed\n");
