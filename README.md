@@ -47,7 +47,7 @@ See the `host/<host>/minify` script of a specific host for details.
 The `-l` option allows selecting the Scheme runtime library (located in the
 `lib` subdirectory). Here is a list of libraries :
  - `r4rs` : Adds all essential R4RS procedures. Includes a REPL that is fully R4RS compliant.
- - `r4rs-tc` : Like `r4rs` but with run time type checking.
+ - `r4rs/tc` : Like `r4rs` but with run time type checking.
  - `min`, `max` : Minimal library for small scheme implementations, including a minimal REPL.
  - `max-tc` : Like `min` and `max` but with run time type checking.
  - `define-macro` : Necessary for using the `define-macro` construct.
