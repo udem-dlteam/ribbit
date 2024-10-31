@@ -2,77 +2,9 @@
 (##include-once "./types.scm")
 (##include-once "./pair-list.scm")
 
-(cond-expand
-  ((host js)
+;; import apply primitives from host/<host>/lib/prim-apply.scm
+(##include-once (ribbit "prim-apply"))
 
-   (define-primitive
-     (##apply f args)
-     "() => {
-        let num_args = 0;
-        let arg = pop();
-        let f = pop();
-        while (arg !== NIL) {
-            push(arg[0]);
-            arg=arg[1];
-            num_args++;
-        }
-        push(num_args); // @@(feature arity-check)@@
-        return f;
-     }, "))
-
-  ((host py)
-   (define-feature
-     ##apply
-     ((decl
-"def prim_apply():
- _arg = pop()
- f = pop()
- num_args=0
- while _arg is not NIL:
-  push(_arg[0])
-  _arg=_arg[1]
-  num_args += 1
- push(num_args) # @@(feature arity-check)@@
- return f
-
-")))
-   (define-primitive
-     (##apply f args)
-     "prim_apply,"))
-
-  ((host c)
-   (define-primitive
-     (##apply f args)
-     "{
-     PRIM2();
-     TEMP1 = x; // save x for the gc 
-     int num_args = 0;
-     obj arg = TAG_RIB(y);
-     while (arg != NIL) {
-        push2(arg, PAIR_TAG); // make sure the arg doesn't get GC'd
-        arg = CAR(stack);
-        CAR(stack) = CAR(arg);
-        arg = TAG_RIB(CDR(arg));
-        num_args++;
-     }
-     push2(TAG_NUM(num_args), PAIR_TAG);
-     x = TEMP1; // retrive x from possibly GC'd 
-     return TAG_RIB(x);
-     }"))
-
-  ((host hs)
-   (define-primitive
-     (##apply f args)
-     " ,  (do
-       args <- pop
-       f <- pop
-       let loop numArgs' arg'  = do
-             if arg' == ribNil then 
-               push numArgs' >> return f
-             else do
-               read0 arg' >>= push
-               read1 arg' >>= loop (numArgs' + 1)
-       loop (0::Int) args)")))
 
 ;; Control features (R4RS section 6.9).
 
