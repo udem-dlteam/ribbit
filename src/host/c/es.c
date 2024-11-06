@@ -26,14 +26,14 @@
 // a reference to the procedure's code, this means that everything involved
 // in that cycle won't be deallocated: the continuation rib, the `get` and
 // `const` instruction ribs, the other symbols and primitives/lambdas
-// involved in the function and the ribs that they refer to, etc..
+// involved in the function and the ribs that they refer to, etc.).
 
 // Before the incremental GC can be used, I need to modify all the count
 // increment and decrement of the ref count GC as well as the write barrier
 // and the other... count management procedures? 
 
 // @@(feature ref-count
-#define REF_COUNT // remove comment when using the ref count GC
+// #define REF_COUNT // remove comment when using the ref count GC
 // )@@
 
 // @@(feature (not compression/lzss/2b)
@@ -159,7 +159,7 @@ rib *heap_start;
 #ifdef REF_COUNT
 #define MAX_NB_OBJS 100000000
 #else
-#define MAX_NB_OBJS 10
+#define MAX_NB_OBJS 14
 #endif
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
@@ -495,7 +495,7 @@ int get_mirror_field(obj x, obj cfr) {
 }
 
 obj next_cofriend(obj x, obj cfr) {
-  // get next co-friend in x's list of co-friends
+  // get next co-friend in x's list of co-friends (following cfr)
   return get_field(cfr, get_mirror_field(x, cfr));
 }
 
@@ -548,6 +548,9 @@ void remove_parent(obj x, obj p) {
 void add_cofriend(obj x, obj cfr) {
   // FIXME do we want the co-friends to be ordered by rank? for now the new
   // co-friend is just inserted between the parent and the following co-friend
+
+  // FIXME no check to see if cfr is already x's co-friend
+  
   obj p = get_parent(x);
   if (p == _NULL) {
     set_parent(x, cfr);
@@ -803,9 +806,35 @@ void write(obj src, obj dest, int i) {
 #else
 
 void set_field(obj src, int i, obj dest) { // write barrier
+  // The order differs a bit from the ref count version of the write barrier...
+  // TODO explain why we're doing that this way
+  // FIXME cleanup this little mess 
   if (IS_RIB(src)) {
     obj *ref = RIB(src)->fields;
     if (IS_RIB(ref[i])) { // no need to dereference _NULL or a num
+      if (next_cofriend(ref[i], src) == _NULL) {
+        // We need to be more careful here since simply removing the edge
+        // between src and ref[i] will deallocate ref[i] and potentially
+        // some other ribs refered by ref[i]. This is problematic if dest
+        // contains a reference to one of ref[i]'s children (or more) since
+        // we'll deallocate a rib (or more) that shouldn't be deallocated.
+        // We can get around that by using a temporary rib to point to ref[i]
+        // (if we give that temporary rib the same rank as src we avoid
+        // potentially changing the structure of our graph twice)
+        obj tmp = ref[i];
+        set_rank(NIL, get_rank(src));
+        TEMP3 = ref[i];
+        add_edge(NIL, ref[i]);
+        remove_edge(src, ref[i]);
+        ref[i] = dest;
+        if (IS_RIB(dest)) { // only needed if dest is a rib
+          add_edge(src, dest);
+        }
+        TEMP3 = _NULL;
+        remove_edge(NIL, tmp);
+        set_rank(NIL, 1);
+        return;
+      }
       remove_edge(src, ref[i]);
     }
     ref[i] = dest;
@@ -1563,6 +1592,11 @@ void print_heap(){
   }
 }
 
+#define _INIT_FALSE()                                                           \
+  FALSE = TAG_RIB(__alloc_rib(TAG_RIB(__alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),\
+                              TAG_RIB(__alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),\
+                              SINGLETON_TAG));
+
 // this monster checks that the graph is back to its initial state after a test,
 // you can (should) probably ignore this
 #define CHECK_OG(r0,r1,r2,r3,r4,r5,r6,i,j)                              \
@@ -1590,10 +1624,15 @@ void print_heap(){
     printf("graph is not back to its original state after test %d.%d\n",i,j);  \
   }
 
+
+void foo(){}
+
 int main() {
   // FIXME need a better test suite!
   
   init_heap();
+
+  _INIT_FALSE();
 
   // Edge addition tests: building Olivier's example graph (somewhat)
   // Drawings provided on demand for free
@@ -1625,6 +1664,9 @@ int main() {
   set_parent(r2,r3);
 
   CHECK_OG(r0,r1,r2,r3,r4,r5,r6,1,1);
+
+  
+  // Test 1.2: ?? -- a rib pointing to the same rib twice
   
 
   //----------------------------------------------------------------------------
@@ -1718,6 +1760,44 @@ int main() {
   SET_CAR(r1,r0);
 
   CHECK_OG(r0,r1,r2,r3,r4,r5,r6,2,6);
+
+  //----------------------------------------------------------------------------
+
+  // Edge "replacement" tests
+
+  // Test 3.1: OK -- replace a reference by another one, no deallocation
+  // Replace edge (r3, r2) by (r3, r0) (SET_CAR(r3,r1)): r2's parent will become
+  // r4, r0's rank will decrease to 3 and its parent will become r3, and r3's
+  // first mirror field will point to r1 instead of r4.
+  SET_CAR(r3,r0);
+  if (get_parent(r2) != r4 || CAR(r3) != r0 || M_CAR(r3) != r1 ||
+      get_parent(r0) != r3 || get_rank(r0) != 3) {
+    printf("Test 3.1 failed\n");
+  }
+  SET_CAR(r3,r2);
+  set_parent(r2,r3); // not an error, just depends on the order
+  
+  CHECK_OG(r0,r1,r2,r3,r4,r5,r6,3,1);
+
+
+  // Test 3.2: ?? -- replace reference but with deallocation (write barrier)
+  // Remove edge (r3,r1) and then replace edge (r3,r1) by (r3,r0). The trick
+  // here is that if the write barrier deallocates r1 before adding the edge
+  // (r3,r0), r0 will be deallocated because r1 itself is being deallocated
+  // (r1 is r0's only cofriend/parent at this stage and r1's other co-friend,
+  // r2, is no longer is co-friend after removing the first edge). 
+  remove_edge(r2,r1);
+  SET_TAG(r3,r0);
+  if (CAR(r2) == r1 || TAG(r3) != r0 || M_TAG(r3) != _NULL ||
+      get_rank(r1) != -2 || get_rank(r0) != 3 || get_parent(r0) != r3) {
+    printf("Test 3.2 failed\n");
+  }
+  r1 = __alloc_rib(TAG_NUM(1), TAG_NUM(1), TAG_NUM(1));
+  SET_CAR(r1,r0);
+  SET_TAG(r3,r1);
+  SET_CAR(r2,r1);
+
+  CHECK_OG(r0,r1,r2,r3,r4,r5,r6,3,2);
   
   //----------------------------------------------------------------------------
   
@@ -1739,7 +1819,7 @@ int main() {
   SET_CDR(r7,r0); // cycle created
   remove_edge(r1,r0); // <- infinite loop in drop (see comment in remove_parent)
   if (alloc != r0 || *alloc != r7 || get_rank(r0) != -2 || get_rank(r7) != -2) {
-    printf("Test 3.1 failed\n");
+    printf("Test 4.1 failed\n");
   }
   r0 = __alloc_rib(TAG_NUM(0), TAG_NUM(0), TAG_NUM(0));
   SET_CAR(r1,r0);
@@ -1754,7 +1834,7 @@ int main() {
   SET_TAG(r7,r8);
   remove_edge(r1,r0);
   if (get_rank(r0) != -2 || get_rank(r7) != -2 || get_rank(r8) != -2) {
-    printf("Test 3.2 failed\n");
+    printf("Test 4.2 failed\n");
   }
   r0 = __alloc_rib(TAG_NUM(0), TAG_NUM(0), TAG_NUM(0));
   SET_CAR(r1,r0);
@@ -1770,7 +1850,7 @@ int main() {
   SET_CAR(r8,r7); // new cycle created
   remove_edge(r1,r0);
   if (get_rank(r0) != -2 || get_rank(r7) != -2 || get_rank(r8) != -2) {
-    printf("Test 3.3 failed\n");
+    printf("Test 4.3 failed\n");
   }
   
   return 0;
