@@ -6,9 +6,14 @@
 (##include-once "./control.scm")
 (##include-once "./char.scm")
 
-;; import io primitives from host. 
+;; import io primitives from host.
 ;; They can be found inside of host/<host>/lib/prim-io.scm
-(##include-once (ribbit "prim-io"))
+(cond-expand
+  ((host rvm)
+   ;; Skip rvm host (spitting out the ribn)
+   (begin))
+  (else
+    (##include-once (ribbit "prim-io"))))
 
 ;; ---------------------- EOF & TYPES ---------------------- ;;
 
