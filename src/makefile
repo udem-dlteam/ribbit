@@ -128,10 +128,10 @@ clean:
 repl-asm.exe: rsc.exe
 	./rsc.exe -t asm -l r4rs lib/r4rs/repl.scm -e optimal -f+ compression/lzss/2b -f+ prim-no-arity -v -x repl-asm.exe
 
-../docs/repl_r4rs.js: rsc.exe host/js/* lib/r4rs/*
+../docs/repl_r4rs.js: rsc.exe host/js/* lib/r4rs/* scripts/minify
 	./rsc.exe -t js -f+ js/web -l r4rs -f+ compression/lzss/tag -m -e optimal lib/r4rs/repl.scm -f+ prim-no-arity -o ../docs/repl_r4rs.js
 
-../docs/repl_r4rs_tc.js: rsc.exe host/js/* lib/r4rs/*
-	./rsc.exe -t js -f+ js/web -l r4rs/tc -f+ compression/lzss/tag -m -e optimal lib/r4rs/repl.scm -f+ prim-no-arity -o ../docs/repl_r4rs_tc.js
+../docs/repl_r4rs_tc.js: rsc.exe host/js/* lib/r4rs/* scripts/minify
+	./rsc.exe -t js -f+ js/web -f+ debug/repl -l r4rs/tc -f+ compression/lzss/tag -m -e optimal lib/r4rs/repl.scm -f+ prim-no-arity -o ../docs/repl_r4rs_tc.js
 
 repl_r4rs: ../docs/repl_r4rs.js ../docs/repl_r4rs_tc.js

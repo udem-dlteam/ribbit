@@ -8,8 +8,11 @@
 (define (##tc-error . msgs)
   (map ##ntc-display msgs)
   (newline)
-  (set! ##dont-type-check-typechecking #f)
-  (repl))
+  (if-feature debug/repl
+    (begin
+      (set! ##dont-type-check-typechecking #f)
+      (repl))
+    (##exit 1)))
 
 (define ##dont-type-check-typechecking #f)
 
