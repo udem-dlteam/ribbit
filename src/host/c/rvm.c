@@ -18,6 +18,10 @@
 #define MARK_SWEEP_DSW // Deutsch-Schorr-Waite graph marking algorithm version
 // )@@
 
+// @@(feature debug/rib-viz
+#define VIZ
+// )@@
+
 #ifdef MARK_SWEEP_DSW
 #define MARK_SWEEP
 #endif
@@ -267,6 +271,49 @@ obj symbol_table = NUM_0;
 size_t pos = 0;
 
 
+#ifdef VIZ
+// DEBUG -- VISUALIZING THE RIBS
+FILE* viz_start_graph(char* name){
+  // open a file with the name "name" and write the header
+  FILE* file = fopen(name, "w");
+  fprintf(file, "digraph G {\n");
+  return file;
+}
+
+void viz_add_edge(FILE* graph, obj from, obj to){
+  // write the edge from "from" to "to"
+  fprintf(graph, "%ld -> %ld\n", from, to);
+}
+
+void viz_add_rib_label(FILE* graph, obj rib, obj car, obj cdr, obj tag){
+  // write the value of the rib
+  char* car_prefix = IS_RIB(car) ? "r" : "";
+  char* cdr_prefix = IS_RIB(cdr) ? "r" : "";
+  char* tag_prefix = IS_RIB(tag) ? "r" : "";
+
+  long rib_value = rib - ((long)heap_start);
+  long car_value = IS_RIB(car) ? car-((long)heap_start) : NUM(car);
+  long cdr_value = IS_RIB(cdr) ? cdr-((long)heap_start) : NUM(cdr);
+  long tag_value = IS_RIB(tag) ? tag-((long)heap_start) : NUM(tag);
+
+  fprintf(
+      graph,
+      "%ld [label=\"%ld : [%s%ld,%s%ld,%s%ld]\"]\n",
+      rib,
+      rib_value,
+      car_prefix, car_value,
+      cdr_prefix, cdr_value,
+      tag_prefix, tag_value);
+}
+
+void viz_end_graph(FILE* graph){
+  // close the file
+  fprintf(graph, "}\n");
+  fflush(graph);
+  fclose(graph);
+}
+#endif
+
 #ifdef NO_STD
 #define vm_exit(code)                                                          \
   do {                                                                         \
@@ -419,10 +466,23 @@ void mark(obj *o) {
 
 #else
 
+#ifdef VIZ
+FILE* current_graph;
+#endif
+
 void mark(obj *o) { // Recursive version of marking phase
   if (IS_RIB(*o)) {
     obj *ptr = RIB(*o)->fields;
     if (!IS_MARKED(ptr[2])) { 
+
+#ifdef VIZ
+      // Add edges to graph
+      if (IS_RIB(ptr[0])) viz_add_edge(current_graph, *o, ptr[0]);
+      if (IS_RIB(ptr[1])) viz_add_edge(current_graph, *o, ptr[1]);
+      if (IS_RIB(ptr[2])) viz_add_edge(current_graph, *o, ptr[2]);
+      viz_add_rib_label(current_graph, *o, ptr[0], ptr[1], ptr[2]);
+#endif
+
       obj tmp = ptr[2]; 
       ptr[2] = MARK(ptr[2]);
       mark(&ptr[0]);
@@ -438,10 +498,18 @@ void gc() {
 #ifdef DEBUG_GC
   printf("\t--GC called\n");
 #endif
+
+  // start graph visualization
+  current_graph = viz_start_graph("graph.dot");
+
   // Mark (only 3 possible roots)
   mark(&stack);
   mark(&pc);
   mark(&FALSE);
+
+  // end graph visualization
+  viz_end_graph(current_graph);
+
   // Sweep
   scan=heap_bot;
   while (scan != heap_top) {
