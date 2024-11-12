@@ -1395,7 +1395,7 @@
 
          (expansion
            `(begin
-              ,@(host-feature->scheme vm-features) ;; add vm features
+              ,@(if vm-features (host-feature->scheme vm-features) '()) ;; add vm features
               ,(expand-begin exprs (make-mtx '() '()))))
 
          (expansion
@@ -4634,7 +4634,7 @@
 
     (let* ((target-code-before-minification
             (if (equal? target "rvm")
-                (encode* 92)   ;; NOTE: 92 is the number of code in the encoding.
+                (stream->string (encode* 92))   ;; NOTE: 92 is the number of code in the encoding.
                 (generate-file host-file host-config encode*)))
            (target-code
             (if (or (not minify?) (equal? target "rvm"))
@@ -4775,16 +4775,18 @@
                 (newline)
                 (pp host-file))))
 
-         (encoding-name (if (equal? encoding-name "auto")
-                            (let* ((available-features (extract-feature-names host-file))
-                                   (encoding-order '((encoding/optimal "optimal") (encoding/original "original")))
-                                   (encoding-names (map car encoding-order)))
-                              (let loop ((encoding-order encoding-order))
-                                (if (or (and (pair? encoding-order) (not (pair? (cdr encoding-order))))
-                                        (memq (caar encoding-order) available-features))
-                                  (cadar encoding-order)
-                                  (loop (cdr encoding-order)))))
-                            encoding-name))
+         (encoding-name (cond
+                          ((and (equal? encoding-name "auto") (not host-file)) "original")
+                          ((equal? encoding-name "auto")
+                           (let* ((available-features (extract-feature-names host-file))
+                                  (encoding-order '((encoding/optimal "optimal") (encoding/original "original")))
+                                  (encoding-names (map car encoding-order)))
+                             (let loop ((encoding-order encoding-order))
+                               (if (or (and (pair? encoding-order) (not (pair? (cdr encoding-order))))
+                                       (memq (caar encoding-order) available-features))
+                                 (cadar encoding-order)
+                                 (loop (cdr encoding-order))))))
+                          (else encoding-name)))
          (features
            (cons
              (cons

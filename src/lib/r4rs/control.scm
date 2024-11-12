@@ -3,7 +3,12 @@
 (##include-once "./pair-list.scm")
 
 ;; import apply primitives from host/<host>/lib/prim-apply.scm
-(##include-once (ribbit "prim-apply"))
+(cond-expand
+  ((host rvm)
+   ;; Skip rvm host (spitting out the ribn)
+   (begin))
+  (else
+    (##include-once (ribbit "prim-apply"))))
 
 
 ;; Control features (R4RS section 6.9).
