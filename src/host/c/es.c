@@ -382,6 +382,8 @@ obj q_dequeue() {
 obj pq_head;
 obj pq_tail;
 
+// int pq_size;
+
 #define PQ_INIT() pq_head = _NULL; pq_tail = _NULL
 
 #define PQ_IS_EMPTY() (pq_head == _NULL)
@@ -499,10 +501,12 @@ void pq_enqueue(obj o) {
     if (PQ_IS_EMPTY()){
       pq_head = o;
       pq_tail = o;
+      //      pq_size++;
     }
     else if (RANK(o) == 1) { // root (tagged rank)
       PQ_NEXT(o) = pq_head;
       pq_head = o;
+      //      pq_size++;
     }
     else {
       // insert new rib after the first rib that has a lower rank
@@ -523,6 +527,7 @@ void pq_enqueue(obj o) {
       // if (curr == _NULL) pq_tail = o;
       PQ_NEXT(o) = curr;
       PQ_NEXT(prev) = o;
+      //      pq_size++;
     }
   }
 }
@@ -537,6 +542,7 @@ obj pq_dequeue() {
   obj tmp = pq_head;
   pq_head = PQ_NEXT(tmp);
   PQ_NEXT(tmp) = _NULL;
+  //  pq_size--;
   return tmp;
 }
 
@@ -552,6 +558,7 @@ void pq_remove(obj o) {
     // if (pq_head == pq_tail) pq_tail = _NULL;
     pq_head = PQ_NEXT(tmp);
     PQ_NEXT(tmp) = _NULL;
+    //    pq_size--;
   } else {
     obj curr = PQ_NEXT(pq_head);
     obj prev = pq_head;
@@ -569,6 +576,7 @@ void pq_remove(obj o) {
     // }
     PQ_NEXT(prev) = PQ_NEXT(curr);
     PQ_NEXT(curr) = _NULL;
+    //    pq_size--;
   }
 }
 
@@ -848,13 +856,14 @@ void drop() {
       cfr = next_cofriend(x, cfr);
       tmp = cfr;
     }
+    // printf("size=%d\n", pq_size);
   }
 }
 
 void catch() {
   // since we use a priority queue instead of a set for the ankers,
   // we can re-use it (as is) for the catch queue...
-  while (!PQ_IS_EMPTY()) {
+  do {
     obj anker = pq_dequeue();
     obj *_anker = RIB(anker)->fields;
     for (int i = 0; i < 3; i++) {
@@ -864,7 +873,7 @@ void catch() {
         pq_enqueue(_anker[i]); // add rescued node to potential "catchers"
       }
     }
-  }
+  } while (!PQ_IS_EMPTY());
 }
 
 void remove_edge(obj from, obj to, int i); // cos no header file
@@ -876,13 +885,10 @@ void dealloc_rib(obj x){
     if (IS_RIB(_x[i])) {
       if (get_rank(_x[i]) == -1) { // falling?
         dealloc_rib(_x[i]);
-      } else {
-        if (is_parent(_x[i], x)) {
-          remove_parent(_x[i], x, i);
-        } else {
-          remove_cofriend(_x[i], x, i);
-        }
-        remove_edge(x, _x[i], i);        
+      }
+      // No point in removing the edge between two falling ribs
+      else {
+        remove_edge(x, _x[i], i);
       }
     }
   }
@@ -929,8 +935,8 @@ void remove_edge(obj from, obj to, int i) {
   
     q_enqueue(to);
   
-    drop(); 
-    catch();
+    drop();
+    if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
     if (get_parent(to) == _NULL) {
       dealloc_rib(to); 
     }
@@ -949,7 +955,7 @@ void remove_root(obj old_root) {
       q_enqueue(old_root);
   
       drop(); 
-      catch();
+      if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
       if (get_parent(old_root) == _NULL) {
         dealloc_rib(old_root); 
       }
