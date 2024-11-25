@@ -785,7 +785,7 @@ void add_edge(obj from, obj to) {
   // (the check passes if the edge was dirty as well)... this shouldn't be a
   // problem for ribbit but I'll leave it there for now
   if (is_parent(to, from)) {
-    Q_INIT();      
+    // Q_INIT();      
     q_enqueue(to);
     int r = get_rank(from)+1;
     set_rank(to, r);
@@ -930,8 +930,8 @@ void remove_edge(obj from, obj to, int i) {
       RIB(from)->fields[get_mirror_field(to,from)-3] = TAG_NUM(0);
     }
 #endif  
-    Q_INIT(); // drop queue i.e. "falling ribs"
-    PQ_INIT(); // ankers i.e. potential "catchers"
+    // Q_INIT(); // drop queue i.e. "falling ribs"
+    // PQ_INIT(); // ankers i.e. potential "catchers"
   
     q_enqueue(to);
   
@@ -945,12 +945,16 @@ void remove_edge(obj from, obj to, int i) {
 
 // FIXME should we just assume that `from` is a rib to avoid the type check?
 #define remove_ref(from, to, i) if (IS_RIB(to)) remove_edge(from, to, i)
+// Fun fact: most deallocations happens when we modify the root (90%(+)) and so
+// if we don't call remove_edge we deallocate almost all the objects that we
+// would've but the execution time is about 60% what it was
+// #define remove_ref(from, to, i) _NULL
 
 void remove_root(obj old_root) {
   if (IS_RIB(old_root) && old_root != saved) {
     if (CFR(old_root) == _NULL) {
-      Q_INIT(); // drop queue i.e. "falling ribs"
-      PQ_INIT(); // ankers i.e. potential "catchers"
+      // Q_INIT(); // drop queue i.e. "falling ribs"
+      // PQ_INIT(); // ankers i.e. potential "catchers"
   
       q_enqueue(old_root);
   
@@ -1165,39 +1169,75 @@ obj pop() {
  
 #else
 
-obj prim_pop(int i) {
-  // The program manipulates at most 3 popped objects at any given time so we
-  // can avoid having them being deallocated by storing them in TEMP(5|6|7)
+/* obj prim_pop(int i) { */
+/*   // The program manipulates at most 3 popped objects at any given time so we */
+/*   // can avoid having them being deallocated by storing them in TEMP(5|6|7) */
+/*   obj tos = CAR(stack); */
+/*   if (i == 0) { */
+/*     TEMP5 = tos; */
+/*   } else if (i == 1) { */
+/*     TEMP6 = tos; */
+/*   } else { */
+/*     TEMP7 = tos; */
+/*   } */
+/*   add_ref(null_rib, tos); */
+/*   set_stack(CDR(stack)); */
+/*   return tos; */
+/* } */
+
+/* #define pop() prim_pop(0) */
+
+/* #define PRIM1() obj x = prim_pop(0) */
+/* #define PRIM2() obj y = prim_pop(1); PRIM1() */
+/* #define PRIM3() obj z = prim_pop(2); PRIM2() */
+
+/* // FIXME maybe don't set the mirror field to _NULL and just remove the edge? */
+/* #define DEC_PRIM1()                                                             \ */
+/*   remove_ref(null_rib, x, 0) */
+/* #define DEC_PRIM2()                                                             \ */
+/*   remove_ref(null_rib, y, 1);                                                   \ */
+/*   DEC_PRIM1() */
+/* #define DEC_PRIM3()                                                             \ */
+/*   remove_ref(null_rib, z, 2);                                                   \ */
+/*   DEC_PRIM2() */
+
+// Small optimization: only the first popped value needs to be referenced by
+// null_rib since the (potential) second and third popped values will be
+// reachable from null_rib, this (mini) "bulk pop" approach also allows us to
+// set the stack only once and to only delete one edge with DEC_PRIMX and to only
+// use of of the temporary field of null_rib
+
+// FIXME popping is really expensive, need to find a way to make it more efficient
+obj pop() { // single pop
   obj tos = CAR(stack);
-  if (i == 0) {
-    TEMP5 = tos;
-  } else if (i == 1) {
-    TEMP6 = tos;
-  } else {
-    TEMP7 = tos;
-  }
+  TEMP5 = tos;
   add_ref(null_rib, tos);
   set_stack(CDR(stack));
   return tos;
 }
 
-obj pop() { // single pop
-  return prim_pop(0);
-}
+#define PRIM1() obj x = pop()
 
-#define PRIM1() obj x = prim_pop(0)
-#define PRIM2() obj y = prim_pop(1); PRIM1()
-#define PRIM3() obj z = prim_pop(2); PRIM2()
+// FIXME cleanup PRIM2() and PRIM3()
 
-// FIXME maybe don't set the mirror field to _NULL and just remove the edge?
-#define DEC_PRIM1()                                                             \
-  remove_ref(null_rib, x, 0)
-#define DEC_PRIM2()                                                             \
-  remove_ref(null_rib, y, 1);                                                   \
-  DEC_PRIM1()
-#define DEC_PRIM3()                                                             \
-  remove_ref(null_rib, z, 2);                                                   \
-  DEC_PRIM2()
+#define PRIM2()                                                                 \
+  obj y = CAR(stack);                                                           \
+  TEMP5 = y;                                                                    \
+  add_ref(null_rib, y);                                                         \
+  obj x = CAR(CDR(stack));                                                      \
+  set_stack(CDR(CDR(stack)))
+
+#define PRIM3()                                                                 \
+  obj z = CAR(stack);                                                           \
+  TEMP5 = z;                                                                    \
+  add_ref(null_rib, z);                                                         \
+  obj y = CAR(CDR(stack));                                                      \
+  obj x = CAR(CDR(CDR(stack)));                                                 \
+  set_stack(CDR(CDR(CDR(stack))))
+
+#define DEC_PRIM1() remove_ref(null_rib, x, 0)
+#define DEC_PRIM2() remove_ref(null_rib, y, 0)
+#define DEC_PRIM3() remove_ref(null_rib, z, 0)
 
 // to avoid too many preprocessor instructions in the RVM code
 #define DEC_POP(o) remove_ref(null_rib, o, 0)
@@ -1921,6 +1961,8 @@ void init_stack() {
 
 void init() {
   init_heap();
+  Q_INIT();
+  PQ_INIT();
   INIT_FALSE();
   build_sym_table();
   decode();
