@@ -382,8 +382,6 @@ obj q_dequeue() {
 obj pq_head;
 obj pq_tail;
 
-// int pq_size;
-
 #define PQ_INIT() pq_head = _NULL; pq_tail = _NULL
 
 #define PQ_IS_EMPTY() (pq_head == _NULL)
@@ -501,12 +499,10 @@ void pq_enqueue(obj o) {
     if (PQ_IS_EMPTY()){
       pq_head = o;
       pq_tail = o;
-      //      pq_size++;
     }
     else if (RANK(o) == 1) { // root (tagged rank)
       PQ_NEXT(o) = pq_head;
       pq_head = o;
-      //      pq_size++;
     }
     else {
       // insert new rib after the first rib that has a lower rank
@@ -527,7 +523,6 @@ void pq_enqueue(obj o) {
       // if (curr == _NULL) pq_tail = o;
       PQ_NEXT(o) = curr;
       PQ_NEXT(prev) = o;
-      //      pq_size++;
     }
   }
 }
@@ -542,7 +537,6 @@ obj pq_dequeue() {
   obj tmp = pq_head;
   pq_head = PQ_NEXT(tmp);
   PQ_NEXT(tmp) = _NULL;
-  //  pq_size--;
   return tmp;
 }
 
@@ -558,7 +552,6 @@ void pq_remove(obj o) {
     // if (pq_head == pq_tail) pq_tail = _NULL;
     pq_head = PQ_NEXT(tmp);
     PQ_NEXT(tmp) = _NULL;
-    //    pq_size--;
   } else {
     obj curr = PQ_NEXT(pq_head);
     obj prev = pq_head;
@@ -576,7 +569,6 @@ void pq_remove(obj o) {
     // }
     PQ_NEXT(prev) = PQ_NEXT(curr);
     PQ_NEXT(curr) = _NULL;
-    //    pq_size--;
   }
 }
 
@@ -856,7 +848,6 @@ void drop() {
       cfr = next_cofriend(x, cfr);
       tmp = cfr;
     }
-    // printf("size=%d\n", pq_size);
   }
 }
 
@@ -954,15 +945,34 @@ void remove_root(obj old_root) {
   if (IS_RIB(old_root) && old_root != saved) {
     if (CFR(old_root) == _NULL) {
       // Q_INIT(); // drop queue i.e. "falling ribs"
-      // PQ_INIT(); // ankers i.e. potential "catchers"
-  
+      // PQ_INIT(); // ankers i.e. potential "catchers"  
       q_enqueue(old_root);
-  
       drop(); 
       if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
-      if (get_parent(old_root) == _NULL) {
-        dealloc_rib(old_root); 
-      }
+      dealloc_rib(old_root);
+    } else {
+      set_rank(old_root, get_rank(CFR(old_root))+1);
+    }
+  }
+}
+
+void remove_stack(obj old_root) {
+  // Similar to remove_root but specialized for the stack pointer which has at
+  // most two rib pointers (one of which will be the new stack). Doing the
+  // deallocation of the old stack directly in this function and calling
+  // remove_ref directly on the first two fields is faster than going directly
+  // through remove_edge or using remove_root. This might seem like a trivial
+  // optimization but that saves us a few  million iterations even for just a
+  // small program given how often we change the stack pointer. The same
+  // optimization for the pc pointer doesn't change anything.
+  if (IS_RIB(old_root) && old_root != saved) {
+    if (CFR(old_root) == _NULL) { // deallocate old stack
+      set_rank(old_root, -2);
+      remove_ref(old_root, CAR(old_root), 0);
+      remove_ref(old_root, CDR(old_root), 1);
+      CAR(old_root) = alloc;
+      alloc = old_root;
+      d_count++;
     } else {
       set_rank(old_root, get_rank(CFR(old_root))+1);
     }
@@ -1074,7 +1084,7 @@ void set_stack(obj new_stack) {
   obj old_stack = stack;
   stack = new_stack;
   // if (IS_RIB(stack)) set_rank(stack, 0);
-  remove_root(old_stack);
+  remove_stack(old_stack);
 }
 
 void set_pc(obj new_pc) {
@@ -1359,7 +1369,7 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   *alloc++ = _NULL;      // mirror 2
   *alloc++ = _NULL;      // mirror 3
   *alloc++ = _NULL;      // co-friends
-  *alloc++ = TAG_NUM(0); // rank will be 0 since it becomes the new stack
+  *alloc++ = TAG_NUM(0); 
   *alloc++ = _NULL;      // queue
   *alloc++ = _NULL;      // priority queue
 #ifdef BUCKETS
@@ -1424,19 +1434,16 @@ obj prim(int no) {
   case 0: // @@(primitive (##rib a b c)
   {
     PRIM3();
-    obj new_rib = TAG_RIB(alloc_rib(NUM_0, NUM_0, NUM_0));
 #ifdef REF_COUNT
+    obj new_rib = TAG_RIB(alloc_rib(NUM_0, NUM_0, NUM_0));
     CAR(new_rib) = x;
     CDR(new_rib) = y;
     TAG(new_rib) = z;
     push2(new_rib, PAIR_TAG);
     DEC_COUNT(new_rib); // remove redundant new_rib count
 #else
-    SET_CAR(new_rib, x);
-    SET_CDR(new_rib, y);
-    SET_TAG(new_rib, z);
-    push2(new_rib, PAIR_TAG); 
-    DEC_PRIM3(); // needed this time since we have references
+    push2(TAG_RIB(alloc_rib(x, y, z)), PAIR_TAG); 
+    DEC_PRIM3(); 
 #endif
     break;
   } // )@@
@@ -1516,7 +1523,7 @@ obj prim(int no) {
   {
     PRIM2();
     SET_CDR(x, y);
-    push2(CDR(x) = y, PAIR_TAG);
+    push2(y, PAIR_TAG);
 #ifdef REF_COUNT
     DEC_COUNT(y);
 #endif
@@ -1527,7 +1534,7 @@ obj prim(int no) {
   {
     PRIM2();
     SET_TAG(x, y);
-    push2(TAG(x) = y, PAIR_TAG);
+    push2(y, PAIR_TAG);
 #ifdef REF_COUNT
     DEC_COUNT(y);
 #endif
@@ -1637,7 +1644,7 @@ void run() { // evaluator
 
         else { // calling a lambda
           num nargs = NUM(pop()); // @@(feature arity-check)@@
-          obj new_stack = TAG_RIB(alloc_rib(NUM_0, proc, PAIR_TAG));  
+          obj new_stack = TAG_RIB(alloc_rib(NUM_0, proc, PAIR_TAG));
           proc = CDR(new_stack);
 #ifdef REF_COUNT
           SET_CAR(pc, CAR(proc)); // save the proc from the mighty gc
@@ -1682,9 +1689,8 @@ void run() { // evaluator
           if (CDR(new_stack) != new_stack) { INC_COUNT(CDR(new_stack)); }
 #endif
           nparams = nparams + vari; // @@(feature arity-check)@@
-          obj new_cont = TAG_RIB(list_tail(RIB(new_stack), nparams));          
+          obj new_cont = TAG_RIB(list_tail(RIB(new_stack), nparams));  
           if (jump) {
-            // nb_lambda_jump++;
             obj k = get_cont();
             SET_CAR(new_cont, CAR(k)); // CAR(new_cont) = CAR(k);
             SET_TAG(new_cont, TAG(k)); // TAG(new_cont) = TAG(k);
@@ -1692,7 +1698,6 @@ void run() { // evaluator
             DEC_COUNT(k);
 #endif
           } else {
-            // nb_lambda_call++;
             SET_CAR(new_cont, stack); // CAR(new_cont) = stack;
             SET_TAG(new_cont, TAG(pc)); // TAG(new_cont) = TAG(pc);
           }
