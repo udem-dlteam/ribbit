@@ -1966,8 +1966,10 @@ void init_stack() {
 
 void init() {
   init_heap();
+#ifndef REF_COUNT
   Q_INIT();
   PQ_INIT();
+#endif
   INIT_FALSE();
   build_sym_table();
   decode();
