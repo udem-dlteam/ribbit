@@ -388,7 +388,6 @@ obj pq_tail;
 
 #ifdef BUCKETS
 
-
 // Priority queue implemented with buckets
 
 void pq_enqueue(obj o) {
@@ -411,7 +410,7 @@ void pq_enqueue(obj o) {
     // Note: only the first rib in the bucket keeps a reference
     // to the first rib in the next bucket
     if (NUM(RANK(curr_bkt)) == r) { // insertion in current bucket
-      PQ_NEXT_BKT(curr_bkt) = _NULL; 
+      PQ_NEXT_BKT(curr_bkt) = _NULL;
       PQ_NEXT_RIB(o) = curr_bkt;
       PQ_NEXT_BKT(o) = next_bkt;
     } else if (next_bkt == _NULL) { // new bucket with highest rank
@@ -437,7 +436,7 @@ obj pq_dequeue() {
   }
   obj tmp = pq_head;
   if (PQ_NEXT_RIB(pq_head) == _NULL) {
-    pq_head = PQ_NEXT_BKT(pq_head); // could be _NULL 
+    pq_head = PQ_NEXT_BKT(pq_head); // could be _NULL
   } else {
     pq_head = PQ_NEXT_RIB(pq_head);
   }
@@ -457,7 +456,7 @@ void pq_remove(obj o) {
       // dequeue but we don't return the rib
       obj tmp = pq_head;
       if (PQ_NEXT_RIB(pq_head) == _NULL) {
-        pq_head = PQ_NEXT_BKT(pq_head); // could be _NULL 
+        pq_head = PQ_NEXT_BKT(pq_head); // could be _NULL
       } else {
         pq_head = PQ_NEXT_RIB(pq_head);
       }
@@ -474,7 +473,7 @@ void pq_remove(obj o) {
       }
       if (curr == _NULL || NUM(RANK(curr)) > r) {
         return; // no bucket of rank r;
-      } 
+      }
       // find rib in bucket
       if (curr == o) { // first rib in the bucket
         if (PQ_NEXT_RIB(curr) == _NULL) {
@@ -494,7 +493,7 @@ void pq_remove(obj o) {
 // Priority queue implemented with a singly linked list
 
 void pq_enqueue(obj o) {
-  // the lower the rank, the closer the rib is to pq_head    
+  // the lower the rank, the closer the rib is to pq_head
   if (PQ_NEXT(o) == _NULL && pq_tail != o) {
     if (PQ_IS_EMPTY()){
       pq_head = o;
@@ -512,7 +511,7 @@ void pq_enqueue(obj o) {
         prev = curr;
         curr = PQ_NEXT(curr);
       }
-      // if (curr == o) {      
+      // if (curr == o) {
       // FIXME not detecting the right thing here and yet it works?
       // This saves a lot of execution time, why?
       if (curr != _NULL && PQ_NEXT(curr) == _NULL) {
@@ -714,21 +713,21 @@ void remove_parent(obj x, obj p, int i) {
 
 void add_cofriend(obj x, obj cfr) {
   // FIXME do we want the co-friends to be ordered by rank? for now the new
-  // co-friend is just inserted between the parent and the following co-friend
-
-  // FIXME no check to see if cfr is already x's co-friend
-  
+  // co-friend is just inserted between the parent and the following co-friend  
   obj p = get_parent(x);
   if (p == _NULL) {
     set_parent(x, cfr);
     set_rank(x, get_rank(cfr)+1);
     return;
-  }
+  }  
   int i = get_mirror_field(x, p);
-  int j = get_mirror_field(x, cfr);
   obj tmp = get_field(p,i); // old co-friend pointed by parent
-  get_field(p,i) = cfr;
-  get_field(cfr,j) = tmp;
+  // No longer have duplicate co-friends AFAIK, might have to
+  // come back to that later FIXME FIXME FIXME
+  /* if (tmp != cfr) { // duplicate co-friend? */
+    get_field(p,i) = cfr;
+    get_field(cfr,get_mirror_field(x, cfr)) = tmp;
+  /* }  */
 }
 
 void remove_cofriend(obj x, obj cfr, int k) {
@@ -920,7 +919,7 @@ void remove_edge(obj from, obj to, int i) {
     if (get_field(from, i) == to) {
       RIB(from)->fields[get_mirror_field(to,from)-3] = TAG_NUM(0);
     }
-#endif  
+#endif
     // Q_INIT(); // drop queue i.e. "falling ribs"
     // PQ_INIT(); // ankers i.e. potential "catchers"
   
@@ -1056,18 +1055,18 @@ void set_pc(obj new_pc) {
 #else
 
 void set_field(obj src, int i, obj dest) { // write barrier
-  if (IS_RIB(src)) {
-    obj *ref = RIB(src)->fields;
-    obj tmp = ref[i];
-    ref[i] = dest;
-    add_ref(src, dest);
-    remove_ref(src, tmp, i);
-  }
+  obj *ref = RIB(src)->fields;
+  obj tmp = ref[i];
+  ref[i] = dest;
+  add_ref(src, dest);
+  remove_ref(src, tmp, i);
 }
 
-#define SET_CAR(src, dest) set_field(src, 0, dest)
-#define SET_CDR(src, dest) set_field(src, 1, dest)
-#define SET_TAG(src, dest) set_field(src, 2, dest)
+// FIXME assume `src` will always be a rib?
+
+#define SET_CAR(src, dest) if (IS_RIB(src)) set_field(src, 0, dest)
+#define SET_CDR(src, dest) if (IS_RIB(src)) set_field(src, 1, dest)
+#define SET_TAG(src, dest) if (IS_RIB(src)) set_field(src, 2, dest)
 
 
 // FIXME we save a decent amount of time if we don't set the rank of a root to 
@@ -1093,6 +1092,16 @@ void set_pc(obj new_pc) {
   // if (IS_RIB(pc)) set_rank(pc, 0);
   remove_root(old_pc);
 }
+
+/* #define set_stack(new_stack)                                                 \ */
+/*   obj old_stack = stack;                                                     \ */
+/*   stack = new_stack;                                                         \ */
+/*   remove_stack(old_stack); */
+
+/* #define set_pc(new_pc)                                                       \ */
+/*   obj old_pc = pc;                                                           \ */
+/*   pc = new_pc;                                                               \ */
+/*   remove_root(old_pc); */
 
 #endif
 
@@ -1165,6 +1174,9 @@ obj pop() {
   return x;
 }
 
+// to avoid too many preprocessor instructions in the RVM code
+#define DEC_POP(o) DEC_COUNT(o)
+
 #define PRIM1() obj x = pop()
 #define PRIM2() obj y = pop(); PRIM1()
 #define PRIM3() obj z = pop(); PRIM2()
@@ -1172,53 +1184,10 @@ obj pop() {
 #define DEC_PRIM1() DEC_COUNT(x)
 #define DEC_PRIM2() DEC_COUNT(y); DEC_PRIM1()
 #define DEC_PRIM3() DEC_COUNT(z); DEC_PRIM2()
-
-// to avoid too many preprocessor instructions in the RVM code
-#define DEC_POP(o) DEC_COUNT(o)
-
  
 #else
 
-/* obj prim_pop(int i) { */
-/*   // The program manipulates at most 3 popped objects at any given time so we */
-/*   // can avoid having them being deallocated by storing them in TEMP(5|6|7) */
-/*   obj tos = CAR(stack); */
-/*   if (i == 0) { */
-/*     TEMP5 = tos; */
-/*   } else if (i == 1) { */
-/*     TEMP6 = tos; */
-/*   } else { */
-/*     TEMP7 = tos; */
-/*   } */
-/*   add_ref(null_rib, tos); */
-/*   set_stack(CDR(stack)); */
-/*   return tos; */
-/* } */
-
-/* #define pop() prim_pop(0) */
-
-/* #define PRIM1() obj x = prim_pop(0) */
-/* #define PRIM2() obj y = prim_pop(1); PRIM1() */
-/* #define PRIM3() obj z = prim_pop(2); PRIM2() */
-
-/* // FIXME maybe don't set the mirror field to _NULL and just remove the edge? */
-/* #define DEC_PRIM1()                                                             \ */
-/*   remove_ref(null_rib, x, 0) */
-/* #define DEC_PRIM2()                                                             \ */
-/*   remove_ref(null_rib, y, 1);                                                   \ */
-/*   DEC_PRIM1() */
-/* #define DEC_PRIM3()                                                             \ */
-/*   remove_ref(null_rib, z, 2);                                                   \ */
-/*   DEC_PRIM2() */
-
-// Small optimization: only the first popped value needs to be referenced by
-// null_rib since the (potential) second and third popped values will be
-// reachable from null_rib, this (mini) "bulk pop" approach also allows us to
-// set the stack only once and to only delete one edge with DEC_PRIMX and to only
-// use of of the temporary field of null_rib
-
-// FIXME popping is really expensive, need to find a way to make it more efficient
-obj pop() { // single pop
+obj pop() {
   obj tos = CAR(stack);
   TEMP5 = tos;
   add_ref(null_rib, tos);
@@ -1226,31 +1195,42 @@ obj pop() { // single pop
   return tos;
 }
 
-#define PRIM1() obj x = pop()
-
-// FIXME cleanup PRIM2() and PRIM3()
-
-#define PRIM2()                                                                 \
-  obj y = CAR(stack);                                                           \
-  TEMP5 = y;                                                                    \
-  add_ref(null_rib, y);                                                         \
-  obj x = CAR(CDR(stack));                                                      \
-  set_stack(CDR(CDR(stack)))
-
-#define PRIM3()                                                                 \
-  obj z = CAR(stack);                                                           \
-  TEMP5 = z;                                                                    \
-  add_ref(null_rib, z);                                                         \
-  obj y = CAR(CDR(stack));                                                      \
-  obj x = CAR(CDR(CDR(stack)));                                                 \
-  set_stack(CDR(CDR(CDR(stack))))
-
-#define DEC_PRIM1() remove_ref(null_rib, x, 0)
-#define DEC_PRIM2() remove_ref(null_rib, y, 0)
-#define DEC_PRIM3() remove_ref(null_rib, z, 0)
-
 // to avoid too many preprocessor instructions in the RVM code
 #define DEC_POP(o) remove_ref(null_rib, o, 0)
+
+// Possible optimization: instead of referencing each popped value from null_rib
+// we could simply reference the old_stack from null_rib and then set the stack
+// only once, because each popped value will be reachable from null_rib, none
+// of them will be deallocated until we remove the edge between null_rib to the
+// old stack. I tried this previously but I was saving the first popped argument
+// instead of the stack itself, which made no sense 
+
+obj prim_pop(int i) {
+  // The program manipulates at most 3 popped objects at any given time so we
+  // can avoid having them being deallocated by storing them in TEMP(5|6|7)
+  obj tos = CAR(stack);
+  if (i == 1) {
+    TEMP6 = tos;
+  } else {
+    TEMP7 = tos;
+  }
+  add_ref(null_rib, tos);
+  set_stack(CDR(stack));
+  return tos;
+}
+
+#define PRIM1() obj x = pop()
+#define PRIM2() obj y = prim_pop(1); PRIM1()
+#define PRIM3() obj z = prim_pop(2); PRIM2()
+
+#define DEC_PRIM1()                                                             \
+  remove_ref(null_rib, x, 0)
+#define DEC_PRIM2()                                                             \
+  remove_ref(null_rib, y, 1);                                                   \
+  DEC_PRIM1()
+#define DEC_PRIM3()                                                             \
+  remove_ref(null_rib, z, 2);                                                   \
+  DEC_PRIM2()
 
 #endif
 
@@ -1273,6 +1253,29 @@ void push2(obj car, obj tag) {
   // only difference is that the ref comes from the rib pointed by instead
   // of the stack pointer itself
   INC_COUNT(car);
+  INC_COUNT(tag);
+  
+  if (!IS_RIB(tmp) || *alloc == _NULL) { // empty freelist?
+    gc();
+  }
+}
+
+void push_get(obj car, obj tag) {
+  obj tmp = *alloc; // next available slot in freelist
+  
+  // default stack frame is (value, ->, NUM_0)
+  *alloc++ = car;
+  *alloc++ = stack;
+  *alloc++ = tag;
+  *alloc++ = TAG_NUM(1); // ref count of 1 cos pointed by stack
+  alloc += (RIB_NB_FIELDS-4);
+  
+  stack = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
+  alloc = (obj *)tmp;
+  
+  // no need to increase ref count of stack because it remains unchanged
+  // only difference is that the ref comes from the rib pointed by instead
+  // of the stack pointer itself
   INC_COUNT(tag);
   
   if (!IS_RIB(tmp) || *alloc == _NULL) { // empty freelist?
@@ -1345,6 +1348,41 @@ void push2(obj car, obj tag) {
   }
 }
 
+
+// FIXME when calling push2 from run with the get instruction we add
+// a duplicate co-friend, not sure why this happens 
+void push_get(obj car, obj tag) {
+  obj tmp = *alloc; // next available slot in freelist
+  
+  // default stack frame is (value, ->, NUM_0)
+  *alloc++ = car;        // field 1
+  *alloc++ = stack;      // field 2
+  *alloc++ = tag;        // field 3
+  *alloc++ = _NULL;      // mirror 1
+  *alloc++ = _NULL;      // mirror 2
+  *alloc++ = _NULL;      // mirror 3
+  *alloc++ = _NULL;      // co-friends
+  *alloc++ = TAG_NUM(0); // rank will be 0 since it becomes the new stack
+  *alloc++ = _NULL;      // queue
+  *alloc++ = _NULL;      // priority queue
+#ifdef BUCKETS
+  *alloc++ = _NULL;
+#endif
+
+  obj new_rib = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
+
+  add_ref(new_rib, stack);
+  set_stack(new_rib);
+  
+  add_ref(new_rib, tag);
+
+  alloc = (obj *)tmp;
+
+  if (!IS_RIB(tmp) || alloc == null_rib) { // empty freelist?
+    gc();
+  }
+}
+
 // We don't need to link a newly allocated rib from the stack since we
 // don't trigger a GC cycle when allocating a new rib: since we deallocate
 // objects instantly when they're no longer needed (even if they're part of
@@ -1391,7 +1429,7 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   }
   
   return RIB(new_rib);
-}  
+}
 
 #define alloc_rib2(car, cdr, tag) alloc_rib(car,cdr,tag)
 
@@ -1678,13 +1716,14 @@ void run() { // evaluator
 #endif
           }
           // )@@
+          obj tmp;
           for (int i = 0; i < nparams; ++i) {
             new_stack = TAG_RIB(alloc_rib(pop(), new_stack, PAIR_TAG));
 #ifdef REF_COUNT
             DEC_COUNT(CDR(new_stack)); // old new stack
 #endif
             DEC_POP(CAR(new_stack));
-          }
+          }       
 #ifdef REF_COUNT
           if (CDR(new_stack) != new_stack) { INC_COUNT(CDR(new_stack)); }
 #endif
@@ -1726,7 +1765,13 @@ void run() { // evaluator
       break;
     }
     case INSTR_GET: { // get
+#ifdef REF_COUNT
       push2(get_opnd(CDR(pc)), PAIR_TAG);
+#else
+      // FIXME might cause to add an already existing co-friend, not sure
+      // how this will impact more complex programs so might need to remove
+      push_get(get_opnd(CDR(pc)), PAIR_TAG);
+#endif
       ADVANCE_PC();
       break;
     }
@@ -1771,7 +1816,7 @@ void init_heap() {
 #else
   null_rib = TAG_RIB((rib *)(scan));
   // rank should always be 0 since popped values will be saved there temporarly
-  set_rank(null_rib, 0); 
+  set_rank(null_rib, 0);
 #endif  
   while (scan != heap_bot) {
     alloc = scan; // alloc <- address of previous slot
