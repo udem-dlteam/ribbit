@@ -23,6 +23,10 @@
 #define BUCKETS
 // )@@
 
+// @@(feature linked-list
+#define LINKED_LIST
+// )@@
+
 // @@(feature test-es
 #define TEST_ES
 // )@@
@@ -52,7 +56,7 @@ typedef long num;
 #ifdef REF_COUNT
 #define RIB_NB_FIELDS 4
 #else
-#ifdef BUCKETS
+#if defined(BUCKETS) || defined(LINKED_LIST) 
 #define RIB_NB_FIELDS 11
 #else
 #define RIB_NB_FIELDS 10
@@ -77,12 +81,17 @@ typedef struct {
 // queue next
 #define Q_NEXT(x) RIB(x)->fields[8]  
 
+// priority queue
 #ifdef BUCKETS
 #define PQ_NEXT_RIB(x) RIB(x)->fields[9]
 #define PQ_NEXT_BKT(x) RIB(x)->fields[10]
 #else
-// pqueue next (linked list)
+// singly linked list
 #define PQ_NEXT(x) RIB(x)->fields[9] 
+// doubly linked list
+#ifdef LINKED_LIST
+#define PQ_PREV(x) RIB(x)->fields[10]
+#endif
 #endif
 #endif
 
@@ -163,7 +172,7 @@ rib *heap_start;
 #ifdef TEST_ES
 #define MAX_NB_OBJS 14 
 #else
-#define MAX_NB_OBJS 100000000
+#define MAX_NB_OBJS 100000000 // 215
 #endif
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
@@ -249,18 +258,18 @@ void viz_heap(){
     if (IS_RIB(scan[0])) viz_add_edge(current_graph, scan, scan[0]);
     if (IS_RIB(scan[1])) viz_add_edge(current_graph, scan, scan[1]);
     if (IS_RIB(scan[2])) viz_add_edge(current_graph, scan, scan[2]);
-    viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank);
-    /* if (scan == stack) { */
-    /*   viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-33)); */
-    /* } else if (scan == pc) { */
-    /*   viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-444)); */
-    /* } else if (scan == FALSE) { */
-    /*   viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-5555)); */
-    /* } else if (scan == symbol_table) { */
-    /*   viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-66666)); */
-    /* } else { */
-    /*   viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank); */
-    /* } */
+    // viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank);
+    if (scan == stack) {
+      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-33));
+    } else if (scan == pc) {
+      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-444));
+    } else if (scan == FALSE || scan == TRUE || scan == NIL) {
+      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-5555));
+    } else if (scan == symbol_table) {
+      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-66666));
+    } else {
+      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank);
+    }
     scan-=RIB_NB_FIELDS;
   }
   viz_end_graph(current_graph);
@@ -293,8 +302,6 @@ void show_rib(obj r) {
   printf("Mirror 3 = %lu\n", *ptr++);
   printf("Parent = %lu\n", *ptr++);
   printf("Rank = %d\n", UNTAG(*ptr++));
-  printf("Q next = %lu\n", *ptr++);
-  printf("PQ next = %lu\n", *ptr++);
 }
 
 #endif
@@ -387,8 +394,6 @@ obj pq_tail;
 #define PQ_IS_EMPTY() (pq_head == _NULL)
 
 #ifdef BUCKETS
-
-// Priority queue implemented with buckets
 
 void pq_enqueue(obj o) {
   if (IS_RIB(o)) {
@@ -490,11 +495,86 @@ void pq_remove(obj o) {
 
 #else
 
-// Priority queue implemented with a singly linked list
+#ifdef LINKED_LIST
+
+// Priority queue implemented with a doubly linked list
+
+// No idea why this is (much) slower than the singly linked list
+// given that the delete operation (for the set) is now in O(1)
+// instead of O(n). Leaving this here for now because I probably
+// missed something
 
 void pq_enqueue(obj o) {
   // the lower the rank, the closer the rib is to pq_head
-  if (PQ_NEXT(o) == _NULL && pq_tail != o) {
+  if (PQ_PREV(o) == _NULL && pq_head != o) {
+    if (PQ_IS_EMPTY()){
+      pq_head = o;
+    }
+    else if (RANK(o) == 1) { // root (tagged rank)
+      PQ_PREV(pq_head) = o;
+      PQ_NEXT(o) = pq_head;
+      pq_head = o;
+    }
+    else {
+      // insert new rib after the first rib that has a lower rank
+      obj prev = pq_head;
+      obj curr = PQ_NEXT(pq_head);
+      while (curr != _NULL && RANK(curr) < RANK(o)) { 
+        prev = curr;
+        curr = PQ_NEXT(curr);
+      }
+      PQ_NEXT(prev) = o; // could be _NULL
+      if (curr != _NULL) { // o becomes the tail?
+        PQ_PREV(curr) = o;
+        PQ_NEXT(o) = _NULL;
+      }
+      PQ_PREV(o) = prev;
+    }
+  }
+}
+
+obj pq_dequeue() {
+  if (PQ_IS_EMPTY()){
+    return _NULL;
+  }
+  obj tmp = pq_head;
+  pq_head = PQ_NEXT(tmp);
+  if (pq_head != _NULL) {
+    PQ_PREV(pq_head) = _NULL;
+    PQ_NEXT(tmp) = _NULL;
+  }
+  return tmp;
+}
+
+// Set operations
+
+void pq_remove(obj o) {
+  if (PQ_PREV(o) != _NULL) { // in pqueue but not pq_head
+    PQ_NEXT(PQ_PREV(o)) = PQ_NEXT(o); // could be _NULL
+    if (PQ_NEXT(o) != _NULL) { // not last element in pqueue
+      PQ_PREV(PQ_NEXT(o)) = PQ_PREV(o);
+      PQ_NEXT(o) = _NULL;
+    }
+    PQ_PREV(o) = _NULL;
+  } else if (pq_head == o) { // pq_head, else o is not in set
+    pq_head = _NULL;
+  }
+}
+
+#else
+
+// Priority queue implemented with a singly linked list
+
+// In the previous version of the singly linked list, I had a bug
+// where I would never add an element to the pqueue if it was the
+// last element before the tail in the priority queue. This is
+// obviously wrong but somehow all the programs that I tested
+// worked (although they were quite simple) and the execution time
+// was about 30% faster...
+
+void pq_enqueue(obj o) {
+  // the lower the rank, the closer the rib is to pq_head
+  if (PQ_NEXT(o) == _NULL && pq_head != o && pq_tail != o) {
     if (PQ_IS_EMPTY()){
       pq_head = o;
       pq_tail = o;
@@ -507,20 +587,14 @@ void pq_enqueue(obj o) {
       // insert new rib after the first rib that has a lower rank
       obj prev = pq_head;
       obj curr = PQ_NEXT(pq_head);
-      while (curr != _NULL && RANK(curr) < RANK(o)) { // && curr != o) {
+      while (curr != _NULL && RANK(curr) < RANK(o)){ 
         prev = curr;
         curr = PQ_NEXT(curr);
       }
-      // if (curr == o) {
-      // FIXME not detecting the right thing here and yet it works?
-      // This saves a lot of execution time, why?
-      if (curr != _NULL && PQ_NEXT(curr) == _NULL) {
-        // o was already in the priority queue in the last position
-        //printf("o was the last element in the pqueue\n");
-        return;
+      if (curr == _NULL) {
+        pq_tail = o;
       }
-      // if (curr == _NULL) pq_tail = o;
-      PQ_NEXT(o) = curr;
+      PQ_NEXT(o) = curr; // could be _NULL, potentially redundant
       PQ_NEXT(prev) = o;
     }
   }
@@ -534,43 +608,42 @@ obj pq_dequeue() {
     pq_tail = _NULL;
   }
   obj tmp = pq_head;
-  pq_head = PQ_NEXT(tmp);
-  PQ_NEXT(tmp) = _NULL;
+  pq_head = PQ_NEXT(tmp); // could be _NULL, potentially redundant
+  PQ_NEXT(tmp) = _NULL; // same as above
   return tmp;
 }
 
 // Set operations
 
 void pq_remove(obj o) {
-  // TODO need a faster way to detect if `o` is not in the pqeueue
-  if (pq_head == _NULL || (pq_head != _NULL && PQ_NEXT(o) == _NULL)) { // && pq_tail != o)) {
-    // empty pqueue (set) or the rib is not in the pqueue (set)
+  if (PQ_NEXT(o) == _NULL && pq_head != o && pq_tail != o) { // o not in set?
     return;
-  } else if (pq_head == o) {
+  }
+  if (pq_head == o) {
     obj tmp = pq_head;
-    // if (pq_head == pq_tail) pq_tail = _NULL;
     pq_head = PQ_NEXT(tmp);
+    if (pq_tail == o) {
+      pq_tail = _NULL;
+      return;
+    }
     PQ_NEXT(tmp) = _NULL;
   } else {
     obj curr = PQ_NEXT(pq_head);
     obj prev = pq_head;
-
     // Assumes that PQ_NEXT of a rib can't contain a reference to itself
-    while (curr != o && curr != _NULL) {
+    while (curr != o) {
       prev = curr;
       curr = PQ_NEXT(curr);
     }
-    if (curr == _NULL) { // not found in set
-      return;
-    }    
-    // if (curr == pq_tail) {
-    //   pq_tail = prev;
-    // }
+    if (curr == pq_tail) {
+      pq_tail = prev;
+    }
     PQ_NEXT(prev) = PQ_NEXT(curr);
     PQ_NEXT(curr) = _NULL;
   }
 }
 
+#endif
 #endif
 
 //==============================================================================
@@ -641,9 +714,9 @@ int get_mirror_field(obj x, obj cfr) {
 
 // Saves us a few seconds in execution time if we define these as macros
 
-#define is_root(x) (x == stack || x == pc || x == FALSE || x == symbol_table)
 #define get_rank(x) (NUM(RANK(x)))
 #define set_rank(x, rank) (RANK(x) = TAG_NUM(rank))
+#define is_root(x) (get_rank(x) == 0 || x == stack || x == pc || x == FALSE || x == symbol_table)
 #define is_dirty(from, to) (get_rank(from) < (get_rank(to) - 1))
 #define next_cofriend(x, cfr) (get_field(cfr, get_mirror_field(x, cfr)))
 #define is_parent(x, p) (CFR(x) == p)
@@ -913,7 +986,7 @@ void remove_edge(obj from, obj to, int i) {
   }
     
   remove_parent(to, from, i); // `to` is "parentless"
-  if (saved != to && (!is_root(to))) {
+  if (to != saved && (!is_root(to))) {
     // TODO remove, same as above
 #ifdef TEST_ES
     if (get_field(from, i) == to) {
@@ -1260,29 +1333,6 @@ void push2(obj car, obj tag) {
   }
 }
 
-void push_get(obj car, obj tag) {
-  obj tmp = *alloc; // next available slot in freelist
-  
-  // default stack frame is (value, ->, NUM_0)
-  *alloc++ = car;
-  *alloc++ = stack;
-  *alloc++ = tag;
-  *alloc++ = TAG_NUM(1); // ref count of 1 cos pointed by stack
-  alloc += (RIB_NB_FIELDS-4);
-  
-  stack = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
-  alloc = (obj *)tmp;
-  
-  // no need to increase ref count of stack because it remains unchanged
-  // only difference is that the ref comes from the rib pointed by instead
-  // of the stack pointer itself
-  INC_COUNT(tag);
-  
-  if (!IS_RIB(tmp) || *alloc == _NULL) { // empty freelist?
-    gc();
-  }
-}
-
 rib *alloc_rib(obj car, obj cdr, obj tag) {
   push2(car, cdr); // tag is set
   
@@ -1329,7 +1379,7 @@ void push2(obj car, obj tag) {
   *alloc++ = TAG_NUM(0); // rank will be 0 since it becomes the new stack
   *alloc++ = _NULL;      // queue
   *alloc++ = _NULL;      // priority queue
-#ifdef BUCKETS
+#if defined(BUCKETS) || defined(LINKED_LIST) 
   *alloc++ = _NULL;
 #endif
 
@@ -1348,7 +1398,6 @@ void push2(obj car, obj tag) {
   }
 }
 
-
 // FIXME when calling push2 from run with the get instruction we add
 // a duplicate co-friend, not sure why this happens 
 void push_get(obj car, obj tag) {
@@ -1365,7 +1414,7 @@ void push_get(obj car, obj tag) {
   *alloc++ = TAG_NUM(0); // rank will be 0 since it becomes the new stack
   *alloc++ = _NULL;      // queue
   *alloc++ = _NULL;      // priority queue
-#ifdef BUCKETS
+#if defined(BUCKETS) || defined(LINKED_LIST) 
   *alloc++ = _NULL;
 #endif
 
@@ -1410,7 +1459,7 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   *alloc++ = TAG_NUM(0); 
   *alloc++ = _NULL;      // queue
   *alloc++ = _NULL;      // priority queue
-#ifdef BUCKETS
+#if defined(BUCKETS) || defined(LINKED_LIST) 
   *alloc++ = _NULL;
 #endif
 
@@ -1431,7 +1480,7 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   return RIB(new_rib);
 }
 
-#define alloc_rib2(car, cdr, tag) alloc_rib(car,cdr,tag)
+#define alloc_rib2(car, cdr, tag) alloc_rib(car, cdr, tag)
 
 #endif
 
@@ -1631,6 +1680,9 @@ obj prim(int no) {
   } // )@@
   case 19:  // @@(primitive (##putchar c)
   {
+#ifdef VIZ
+    viz_heap();
+#endif
     PRIM1();
     putchar((char)NUM(x));
     fflush(stdout);
@@ -1796,7 +1848,6 @@ void run() { // evaluator
     }
   }
 }
-
 
 //------------------------------------------------------------------------------
 
@@ -2017,6 +2068,7 @@ void init() {
 #endif
   INIT_FALSE();
   build_sym_table();
+  // viz_heap();
   decode();
   INIT_GLOBAL();
   init_stack();
@@ -2049,8 +2101,7 @@ obj __alloc_rib(obj car, obj cdr, obj tag) {
   *alloc++ = TAG_NUM(0); // rank
   *alloc++ = _NULL;      // queue
   *alloc++ = _NULL;      // priority queue
-
-#ifdef BUCKETS
+#if defined(BUCKETS) || defined(LINKED_LIST) 
   *alloc++ = _NULL;
 #endif
 
