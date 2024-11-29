@@ -65,7 +65,6 @@ typedef long num;
 typedef struct {
   obj fields[RIB_NB_FIELDS];
 } rib;
-
 #define CAR(x) RIB(x)->fields[0]
 #define CDR(x) RIB(x)->fields[1]
 #define TAG(x) RIB(x)->fields[2]
@@ -177,6 +176,7 @@ rib *heap_start;
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
 #define heap_top (heap_bot + (SPACE_SZ))
+
 
 //==============================================================================
 
@@ -570,7 +570,7 @@ void pq_remove(obj o) {
 // last element before the tail in the priority queue. This is
 // obviously wrong but somehow all the programs that I tested
 // worked (although they were quite simple) and the execution time
-// was about 30% faster...
+// was about 30% faster (and the same number of rib was deallocated)
 
 void pq_enqueue(obj o) {
   // the lower the rank, the closer the rib is to pq_head
@@ -645,6 +645,7 @@ void pq_remove(obj o) {
 
 #endif
 #endif
+
 
 //==============================================================================
 
@@ -1081,6 +1082,12 @@ void dec_count(obj o) {
     }
     ptr[0] = (obj)alloc; // reference to next availabe slot in memory
     alloc = &ptr[0];
+#ifdef VIZ
+    // Simplifies the generated graph
+    ptr[1] = _NULL;
+    ptr[2] = _NULL;
+    ptr[3] = TAG_NUM(0);
+#endif
   }
   else {
     ptr[3] = TAG_NUM(count);
@@ -1215,7 +1222,17 @@ void gc() {
     } else {
       *scan = (obj)alloc;
       alloc = scan;
-      // *(scan+3) = TAG_NUM(0);
+#ifdef VIZ
+#ifdef REF_COUNT
+      scan++;
+      *scan++ = _NULL;
+      *scan++ = _NULL;
+      *scan++ = TAG_NUM(0);
+      scan -= RIB_NB_FIELDS;
+#else
+      // ES 
+#endif
+#endif
     }
     scan += RIB_NB_FIELDS; // next rib object
   }
@@ -1680,9 +1697,6 @@ obj prim(int no) {
   } // )@@
   case 19:  // @@(primitive (##putchar c)
   {
-#ifdef VIZ
-    viz_heap();
-#endif
     PRIM1();
     putchar((char)NUM(x));
     fflush(stdout);
@@ -1703,7 +1717,6 @@ obj prim(int no) {
   }
   return TAG_NUM(0);
 }
-
 
 #define ADVANCE_PC() set_pc(TAG(pc))
 
@@ -1775,12 +1788,9 @@ void run() { // evaluator
             DEC_COUNT(CDR(new_stack)); // old new stack
 #endif
             DEC_POP(CAR(new_stack));
-          }       
-#ifdef REF_COUNT
-          if (CDR(new_stack) != new_stack) { INC_COUNT(CDR(new_stack)); }
-#endif
+          } 
           nparams = nparams + vari; // @@(feature arity-check)@@
-          obj new_cont = TAG_RIB(list_tail(RIB(new_stack), nparams));  
+          obj new_cont = TAG_RIB(list_tail(RIB(new_stack), nparams));
           if (jump) {
             obj k = get_cont();
             SET_CAR(new_cont, CAR(k)); // CAR(new_cont) = CAR(k);
@@ -1790,13 +1800,13 @@ void run() { // evaluator
 #endif
           } else {
             SET_CAR(new_cont, stack); // CAR(new_cont) = stack;
+#ifdef REF_COUNT
+            DEC_COUNT(stack);
+#endif
             SET_TAG(new_cont, TAG(pc)); // TAG(new_cont) = TAG(pc);
           }
           // FIXME segfault if set_stack with the (fact 10) program with ref count?
           stack = new_stack; // set_stack(new_stack);
-#ifdef REF_COUNT
-          // DEC_COUNT(new_stack);
-#endif
           obj new_pc = CAR(pc); // proc entry point
           SET_CAR(pc, TAG_NUM(instr));
           set_pc(TAG(new_pc));
@@ -1941,6 +1951,9 @@ void build_sym_table() {
     byte c = get_byte();
     if (c == 44) {
       set_sym_tbl(TAG_RIB(create_sym(accum))); // symbol_table = TAG_RIB(create_sym(accum));
+#ifdef REF_COUNT
+    DEC_COUNT(accum);
+#endif
       accum = NIL;
       continue;
     }
@@ -1953,7 +1966,6 @@ void build_sym_table() {
   }
   set_sym_tbl(TAG_RIB(create_sym(accum))); // symbol_table = TAG_RIB(create_sym(accum));
 #ifdef REF_COUNT
-  DEC_COUNT(accum);
   DEC_COUNT(accum);
 #endif
 }
@@ -2007,7 +2019,11 @@ void decode() {
       }
     }
     else if (op < 24){
-      push2(TAG_RIB(inst_tail(RIB(TOS), n)), NUM_0);
+      obj tmp = TAG_RIB(inst_tail(RIB(TOS), n));
+      push2(tmp, NUM_0);
+#ifdef REF_COUNT
+      DEC_COUNT(tmp);
+#endif
       continue;
     }
     else if (op < 25){
@@ -2015,18 +2031,17 @@ void decode() {
       i=4;
     }
     obj c = TAG_RIB(alloc_rib(TAG_NUM(i), n, NUM_0));
-#ifdef REF_COUNT
-    DEC_COUNT(CDR(c));
-#endif
     SET_TAG(c, TOS); //  c->fields[2] = TOS;
     SET_CAR(stack, c); // TOS = TAG_RIB(c);
+#ifdef REF_COUNT
+    DEC_COUNT(CDR(c)); // n
+    DEC_COUNT(TOS); // c
+#endif
   }
+  set_pc(TAG(CAR(n)));
 #ifdef REF_COUNT
   DEC_COUNT(n);
-#else
-  // TODO
 #endif
-  set_pc(TAG(CAR(n))); 
 }
 // )@@
 
@@ -2034,16 +2049,33 @@ void decode() {
 // init global variables and stack
 
 void set_global(obj c) {
+#ifdef REF_COUNT
+  SET_CAR(CAR(symbol_table), c);
+  set_sym_tbl(CDR(symbol_table)); // symbol_table = CDR(symbol_table);
+#else
+  // FIXME
   CAR(CAR(symbol_table)) = c;
   symbol_table = CDR(symbol_table);
+#endif
 }
 
 // initialize primitive 0, FALSE, TRUE, and NIL
+#ifdef REF_COUNT
+#define INIT_GLOBAL()                                                          \
+  obj tmp = TAG_RIB(alloc_rib(NUM_0, symbol_table, CLOSURE_TAG));              \
+  DEC_COUNT(CDR(tmp));                                                         \
+  set_global(tmp);                                                             \
+  DEC_COUNT(tmp);                                                              \
+  set_global(FALSE);                                                           \
+  set_global(TRUE);                                                            \
+  set_global(NIL)
+#else
 #define INIT_GLOBAL()                                                          \
   set_global(TAG_RIB(alloc_rib(NUM_0, symbol_table, CLOSURE_TAG)));            \
   set_global(FALSE);                                                           \
   set_global(TRUE);                                                            \
   set_global(NIL)
+#endif
 
 void init_stack() {
   push2(NUM_0, PAIR_TAG);
@@ -2059,16 +2091,14 @@ void init_stack() {
   TAG(first) = PAIR_TAG;
 }
 
-
 void init() {
   init_heap();
 #ifndef REF_COUNT
   Q_INIT();
   PQ_INIT();
 #endif
-  INIT_FALSE();
+  INIT_FALSE(); // don't really care about the ref count of FALSE, TRUE, and NIL
   build_sym_table();
-  // viz_heap();
   decode();
   INIT_GLOBAL();
   init_stack();
