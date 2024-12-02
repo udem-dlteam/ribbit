@@ -12,17 +12,6 @@
  * the R4RS library.
  */
 
-// README if someone pulled recently, I somewhat broke the GC... but not really.
-// The GC now works (collects everything, including cycles) except for one
-// thing: we might end up in an infinite loop in the drop phase or in
-// remove_cofriend (or anywhere that we iterate through a rib's co-friends)
-// when there's a cycle in the linkage of co-friends... I'm not sure why
-// it happens but I think it's because I allow for duplicates.
-// I'll fix that soon
-
-// I also made a some changes that slowed down the GC in general
-
-
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -183,7 +172,7 @@ rib *heap_start;
 #ifdef TEST_ES
 #define MAX_NB_OBJS 14 
 #else
-#define MAX_NB_OBJS 200 // 100000000 // 215
+#define MAX_NB_OBJS 100000000 // 200 // 100000000 // 215
 #endif
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
@@ -844,17 +833,51 @@ int get_mirror_field(obj x, obj cfr) {
 /*   return CFR(x); */
 /* } */
 
+
+/* void print_cofriends(obj x) { */
+/*   if (IS_RIB(x)) { */
+/*     obj curr = CFR(x); */
+/*     while (curr != _NULL) { */
+/*       printf("%lu -> ", curr); */
+/*       curr = next_cofriend(x, curr); */
+/*     } */
+/*     printf("_NULL\n"); */
+/*   } */
+/* } */
+
 void set_parent(obj child, obj new_parent) {
   obj old_parent = get_parent(child);
+  // printf("%ld -> %ld\n", child-((long)heap_start), new_parent-((long)heap_start));
   if (old_parent == _NULL || old_parent == new_parent) { // parentless child
     CFR(child) = new_parent;
     return;
   }
-  int i = get_mirror_field(child, old_parent);
-  int j = get_mirror_field(child, new_parent);
-  get_field(old_parent,i) = get_field(new_parent,j); // assumes new_parent is a cfr
-  get_field(new_parent,j) = old_parent;
-  CFR(child) = new_parent;
+  obj prev;
+  obj curr = old_parent;
+  while (curr != new_parent && curr != _NULL) {
+    prev = curr;
+    curr = next_cofriend(child, curr);
+  }
+  if (curr == _NULL) { // new_parent was not a co-friend
+    int i = get_mirror_field(child, new_parent);
+    get_field(new_parent, i) = old_parent; // make new parent point to old parent
+    CFR(child) = new_parent; // new parent becomes... the new parent
+    return;
+  }
+  int i = get_mirror_field(child, prev);
+  int j = get_mirror_field(child, curr);
+  get_field(prev, i) = get_field(curr, j); // remove new_parent from cfr chain
+  get_field(curr, j) = old_parent; // make new parent point to old parent
+  CFR(child) = new_parent; // new parent becomes... the new parent
+
+  /* // This works only if the new parent is the rib right after the old parent in the */
+  /* // chain of co-friends but if the new parent is further away in the chain, any */
+  /* // rib between these two will be lost... oopsie */
+  /* int i = get_mirror_field(child, old_parent); */
+  /* int j = get_mirror_field(child, new_parent); */
+  /* get_field(old_parent,i) = get_field(new_parent,j); // assumes new_parent is a cfr */
+  /* get_field(new_parent,j) = old_parent; */
+  /* CFR(child) = new_parent; */
 }
 
 void remove_parent(obj x, obj p, int i) {
@@ -877,53 +900,53 @@ void remove_parent(obj x, obj p, int i) {
   }
 }
 
-void add_cofriend(obj x, obj cfr) {
-  // FIXME do we want the co-friends to be ordered by rank? for now the new
-  // co-friend is just inserted between the parent and the following co-friend
-  obj p = get_parent(x);
-  if (p == _NULL) {
-    set_parent(x, cfr);
-    set_rank(x, get_rank(cfr)+1);
-    return;
-  }  
-  int i = get_mirror_field(x, p);
-  obj tmp = get_field(p,i); // old co-friend pointed by parent
-  // No longer have duplicate co-friends AFAIK, might have to
-  // come back to that later FIXME FIXME FIXME
-  /* if (tmp != cfr) { // duplicate co-friend? */
-    get_field(p,i) = cfr;
-    get_field(cfr,get_mirror_field(x, cfr)) = tmp;
-  /* }  */
-}
-
 /* void add_cofriend(obj x, obj cfr) { */
-/*   // cofriends are inserted by rank, this way we can easily check if */
-/*   // we're trying to add a duplicate  */
+/*   // FIXME do we want the co-friends to be ordered by rank? for now the new */
+/*   // co-friend is just inserted between the parent and the following co-friend */
 /*   obj p = get_parent(x); */
 /*   if (p == _NULL) { */
 /*     set_parent(x, cfr); */
 /*     set_rank(x, get_rank(cfr)+1); */
 /*     return; */
-/*   }  */
-/*   obj prev = _NULL; */
-/*   obj curr = p; */
-/*   while (curr != _NULL && curr != cfr && get_rank(curr) <= get_rank(cfr)) { */
-/*     prev = curr; */
-/*     curr = next_cofriend(x, curr); */
-/*   } */
-/*   if (curr == cfr) return; // duplicates */
-/*   if (prev == _NULL) { */
-/*     CFR(x) = cfr; // new parent; */
-/*   } */
-/*   if (prev == _NULL) { */
-/*     // cfr will become the new parent FIXME redundant */
-/*     CFR(x) = cfr; */
-/*   } else { */
-/*     // insert cfr between prev and curr */
-/*     get_field(prev, get_mirror_field(x, prev)) = cfr; */
-/*   } */
-/*   get_field(cfr, get_mirror_field(x, cfr)) = curr; */
+/*   }   */
+/*   int i = get_mirror_field(x, p); */
+/*   obj tmp = get_field(p,i); // old co-friend pointed by parent */
+/*   // No longer have duplicate co-friends AFAIK, might have to */
+/*   // come back to that later FIXME FIXME FIXME */
+/*   /\* if (tmp != cfr) { // duplicate co-friend? *\/ */
+/*     get_field(p,i) = cfr; */
+/*     get_field(cfr,get_mirror_field(x, cfr)) = tmp; */
+/*   /\* }  *\/ */
 /* } */
+
+void add_cofriend(obj x, obj cfr) {
+  // cofriends are inserted by rank, this way we can easily check if
+  // we're trying to add a duplicate
+  obj p = get_parent(x);
+  if (p == _NULL) {
+    set_parent(x, cfr);
+    set_rank(x, get_rank(cfr)+1);
+    return;
+  }
+  obj prev = _NULL;
+  obj curr = p;
+  while (curr != _NULL && curr != cfr && get_rank(curr) <= get_rank(cfr)) {
+    prev = curr;
+    curr = next_cofriend(x, curr);
+  }
+  if (curr == cfr) return; // duplicates
+  if (prev == _NULL) {
+    CFR(x) = cfr; // new parent;
+  }
+  if (prev == _NULL) {
+    // cfr will become the new parent FIXME redundant
+    CFR(x) = cfr;
+  } else {
+    // insert cfr between prev and curr
+    get_field(prev, get_mirror_field(x, prev)) = cfr;
+  }
+  get_field(cfr, get_mirror_field(x, cfr)) = curr;
+}
 
 void remove_cofriend(obj x, obj cfr, int k) {
   // assumes that cfr is not x's parent
@@ -1070,7 +1093,6 @@ void drop() {
       }
       cfr = next_cofriend(x, cfr);
       if (cfr == tmp) break; // FIXME rib is delusional (refers to itself)
-      /* if (IS_RIB(cfr) && !(PQ_NEXT(cfr) == _NULL && pq_head != cfr && pq_tail != cfr)) continue; */
       tmp = cfr;
     }
   }
@@ -1912,12 +1934,10 @@ obj prim(int no) {
 
 #define ADVANCE_PC() set_pc(TAG(pc))
 
-void foo() {}
-
 void run() { // evaluator
   while (1) {
     num instr = NUM(CAR(pc));
-    printf("instr = %d\n", instr);
+    // printf("instr = %d\n", instr);
     switch (instr) {
     case INSTR_AP: // call or jump
     {
@@ -1966,7 +1986,6 @@ void run() { // evaluator
           // @@(feature rest-param (use arity-check)
           nargs-=nparams;
           if (vari){
-            printf("hey\n");
             obj rest = NIL;
             for(int i = 0; i < nargs; ++i){
               rest = TAG_RIB(alloc_rib(pop(), rest, PAIR_TAG));
