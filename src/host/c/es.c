@@ -183,7 +183,7 @@ rib *heap_start;
 #ifdef TEST_ES
 #define MAX_NB_OBJS 14 
 #else
-#define MAX_NB_OBJS 100000000 // 215
+#define MAX_NB_OBJS 200 // 100000000 // 215
 #endif
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
@@ -877,23 +877,9 @@ void remove_parent(obj x, obj p, int i) {
   }
 }
 
-bool is_cofriend(obj x, obj cfr) {
-  // FIXME this is insanely slow but I'm just using this to see if
-  // it solves my problem
-  obj curr = get_parent(x);
-  obj tmp;
-  while (curr != _NULL && curr != cfr) {
-    tmp = curr;
-    curr = next_cofriend(x, curr);
-    if (tmp == curr) { return 1; }
-  }
-  return (curr == _NULL) ? 0 : 1;
-}
-
 void add_cofriend(obj x, obj cfr) {
   // FIXME do we want the co-friends to be ordered by rank? for now the new
   // co-friend is just inserted between the parent and the following co-friend
-  // if (is_cofriend(x,cfr)) printf("oops\n");
   obj p = get_parent(x);
   if (p == _NULL) {
     set_parent(x, cfr);
@@ -1004,8 +990,6 @@ void update_ranks(obj root) {
 
 void add_edge(obj from, obj to) {
   // FIXME duplicate edges are allowed for now
-
-  if (is_cofriend(to,from)) return; // printf("oops\n");
 
   // `from` and `to` are assumed to be ribs
   add_cofriend(to, from);
@@ -1933,7 +1917,7 @@ void foo() {}
 void run() { // evaluator
   while (1) {
     num instr = NUM(CAR(pc));
-    // printf("instr = %d\n", instr);
+    printf("instr = %d\n", instr);
     switch (instr) {
     case INSTR_AP: // call or jump
     {
@@ -1982,6 +1966,7 @@ void run() { // evaluator
           // @@(feature rest-param (use arity-check)
           nargs-=nparams;
           if (vari){
+            printf("hey\n");
             obj rest = NIL;
             for(int i = 0; i < nargs; ++i){
               rest = TAG_RIB(alloc_rib(pop(), rest, PAIR_TAG));
