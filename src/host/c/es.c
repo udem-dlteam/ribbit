@@ -143,7 +143,7 @@ obj FALSE = NUM_0;
 obj symbol_table = NUM_0;
 size_t pos = 0;
 
-// temp value for newly allocated rib so that it doesn't get deallocated
+// temp variable for newly allocated rib so that it doesn't get deallocated
 obj saved;
 
 #define TRUE (CAR(FALSE))
@@ -850,7 +850,9 @@ void remove_cofriend(obj x, obj cfr, int k) {
 // Intuition: TODO
 
 void update_ranks(obj root) {
-  // FIXME integrate this in add_edge
+  // FIXME integrate this in add_edge and stop the update as soon as the rank
+  // of all children of a rib is clean (or else we just traverse the entire
+  // subgraph for no reason)
   q_enqueue(root);
   int r;
   obj curr;
@@ -1063,10 +1065,6 @@ void remove_edge(obj from, obj to, int i) {
 
 // FIXME should we just assume that `from` is a rib to avoid the type check?
 #define remove_ref(from, to, i) if (IS_RIB(to)) remove_edge(from, to, i)
-// Fun fact: most deallocations happens when we modify the root (90%(+)) and so
-// if we don't call remove_edge we deallocate almost all the objects that we
-// would've but the execution time is about 60% what it was
-// #define remove_ref(from, to, i) _NULL
 
 
 //------------------------------------------------------------------------------
@@ -1084,7 +1082,10 @@ void remove_root(obj old_root) {
       dealloc_rib(old_root);
     } else {
       set_rank(old_root, get_rank(CFR(old_root))+1);
-      // FIXME should update all ranks
+      // FIXME in theory, need to update ranks as well (e.g. for pc when parent
+      // is not _NULL after a lambda call) but this slows down the execution
+      // time way too much and the ranks will be updated soon enough (it doesn't
+      // change the number of objects being deallocated AFAIK)
     }
   }
 }
@@ -1226,19 +1227,14 @@ void set_field(obj src, int i, obj dest) { // write barrier
 #define SET_CDR(src, dest) if (IS_RIB(src)) set_field(src, 1, dest)
 #define SET_TAG(src, dest) if (IS_RIB(src)) set_field(src, 2, dest)
 
-
-// FIXME we save a decent amount of time if we don't set the rank of a root to 
-// 0 and it doesn't change anything to the number of objects being deallocated
-
 void set_sym_tbl(obj new_sym_tbl) {
   obj old_sym_tbl = symbol_table;
   symbol_table = new_sym_tbl;
-  // not a root
-  // if (IS_RIB(symbol_table)) set_rank(symbol_table, 0);
   remove_root(old_sym_tbl);
+  if (IS_RIB(symbol_table)) set_rank(symbol_table, 0);
 
   /* // FIXME integrate this in the ES logic */
-  /* if (IS_RIB(symbol_table)) update_ranks(symbol_table); */
+  if (IS_RIB(symbol_table)) update_ranks(symbol_table);
 }
 
 void set_stack(obj new_stack) {
@@ -1251,26 +1247,21 @@ void set_stack(obj new_stack) {
   if (IS_RIB(stack)) update_ranks(stack);
 }
 
-
 void set_pc(obj new_pc) {
   obj old_pc = pc;
   pc = new_pc;
   if (IS_RIB(pc)) set_rank(pc, 0);
   remove_root(old_pc);
+
+  // FIXME this is the "proper" order so that we update ranks properly after
+  // a lambda call but this slows down the execution time a lot and doesn't
+  // change the number of objects being deallocated
+  /* remove_root(old_pc); */
+  /* if (IS_RIB(pc)) set_rank(pc, 0); */
   
   // FIXME integrate this in the ES logic
   if (IS_RIB(pc)) update_ranks(pc);
 }
-
-/* #define set_stack(new_stack)                                                 \ */
-/*   obj old_stack = stack;                                                     \ */
-/*   stack = new_stack;                                                         \ */
-/*   remove_stack(old_stack); */
-
-/* #define set_pc(new_pc)                                                       \ */
-/*   obj old_pc = pc;                                                           \ */
-/*   pc = new_pc;                                                               \ */
-/*   remove_root(old_pc); */
 
 #endif
 
