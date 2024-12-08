@@ -889,32 +889,7 @@ void add_edge(obj from, obj to) {
   // (the check passes if the edge was dirty as well)... this shouldn't be a
   // problem for ribbit but I'll leave it there for now
   if (is_parent(to, from)) {
-    // Q_INIT();
-    q_enqueue(to);
-    int r = get_rank(from)+1;
-    set_rank(to, r);
-    obj _to;
-    obj *t;
-    do {
-      _to = q_dequeue();
-      t = RIB(_to)->fields;
-      r = get_rank(_to)+1;
-      for (int i = 0; i < 3; i++) {
-        // if the parent of `to` was swapped (i.e. his rank decreased), some
-        // of the edges in the subgraph rooted at `to` might now be dirty,
-        // see test 1.1 for an example... this is why we need to do a BFS
-        if (IS_RIB(t[i]) && (!is_root(t[i]))) { // && (is_parent(t[i], _to) || is_dirty(_to, t[i]))) {
-          if (is_parent(t[i], _to)) {
-            set_rank(t[i], r);
-            q_enqueue(t[i]);
-          } else if (is_dirty(_to, t[i])) {
-            set_parent(t[i], _to); 
-            set_rank(t[i], r);
-            q_enqueue(t[i]);
-          }
-        }
-      }
-    } while (!Q_IS_EMPTY());
+    update_ranks(to);
   }
 }
 
