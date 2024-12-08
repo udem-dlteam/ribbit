@@ -768,53 +768,53 @@ void remove_parent(obj x, obj p, int i) {
   }
 }
 
-/* void add_cofriend(obj x, obj cfr) { */
-/*   // FIXME do we want the co-friends to be ordered by rank? for now the new */
-/*   // co-friend is just inserted between the parent and the following co-friend */
-/*   obj p = get_parent(x); */
-/*   if (p == _NULL) { */
-/*     set_parent(x, cfr); */
-/*     set_rank(x, get_rank(cfr)+1); */
-/*     return; */
-/*   } */
-/*   int i = get_mirror_field(x, p); */
-/*   obj tmp = get_field(p,i); // old co-friend pointed by parent */
-/*   // No longer have duplicate co-friends AFAIK, might have to */
-/*   // come back to that later FIXME FIXME FIXME */
-/*   /\* if (tmp != cfr) { // duplicate co-friend? *\/ */
-/*     get_field(p,i) = cfr; */
-/*     get_field(cfr,get_mirror_field(x, cfr)) = tmp; */
-/*   /\* }  *\/ */
-/* } */
-
 void add_cofriend(obj x, obj cfr) {
-  // cofriends are inserted by rank, this way we can easily check if
-  // we're trying to add a duplicate
+  // FIXME do we want the co-friends to be ordered by rank? for now the new
+  // co-friend is just inserted between the parent and the following co-friend
   obj p = get_parent(x);
   if (p == _NULL) {
     set_parent(x, cfr);
     set_rank(x, get_rank(cfr)+1);
     return;
   }
-  obj prev = _NULL;
-  obj curr = p;
-  while (curr != _NULL && curr != cfr && get_rank(curr) <= get_rank(cfr)) {
-    prev = curr;
-    curr = next_cofriend(x, curr);
-  }
-  if (curr == cfr) return; // duplicates
-  if (prev == _NULL) {
-    CFR(x) = cfr; // new parent;
-  }
-  if (prev == _NULL) {
-    // cfr will become the new parent FIXME redundant
-    CFR(x) = cfr;
-  } else {
-    // insert cfr between prev and curr
-    get_field(prev, get_mirror_field(x, prev)) = cfr;
-  }
-  get_field(cfr, get_mirror_field(x, cfr)) = curr;
+  int i = get_mirror_field(x, p);
+  obj tmp = get_field(p,i); // old co-friend pointed by parent
+  // No longer have duplicate co-friends AFAIK, might have to
+  // come back to that later FIXME FIXME FIXME
+  /* if (tmp != cfr) { // duplicate co-friend? */
+    get_field(p,i) = cfr;
+    get_field(cfr,get_mirror_field(x, cfr)) = tmp;
+  /* }  */
 }
+
+/* void add_cofriend(obj x, obj cfr) { */
+/*   // cofriends are inserted by rank, this way we can easily check if */
+/*   // we're trying to add a duplicate */
+/*   obj p = get_parent(x); */
+/*   if (p == _NULL) { */
+/*     set_parent(x, cfr); */
+/*     set_rank(x, get_rank(cfr)+1); */
+/*     return; */
+/*   } */
+/*   obj prev = _NULL; */
+/*   obj curr = p; */
+/*   while (curr != _NULL && curr != cfr && get_rank(curr) <= get_rank(cfr)) { */
+/*     prev = curr; */
+/*     curr = next_cofriend(x, curr); */
+/*   } */
+/*   if (curr == cfr) return; // duplicates */
+/*   if (prev == _NULL) { */
+/*     CFR(x) = cfr; // new parent; */
+/*   } */
+/*   if (prev == _NULL) { */
+/*     // cfr will become the new parent FIXME redundant */
+/*     CFR(x) = cfr; */
+/*   } else { */
+/*     // insert cfr between prev and curr */
+/*     get_field(prev, get_mirror_field(x, prev)) = cfr; */
+/*   } */
+/*   get_field(cfr, get_mirror_field(x, cfr)) = curr; */
+/* } */
 
 void remove_cofriend(obj x, obj cfr, int k) {
   // assumes that cfr is not x's parent
@@ -2076,8 +2076,6 @@ rib *inst_tail(rib *lst, num i){
   return (i == 0) ? lst : inst_tail(RIB(lst->fields[2]), i - 1);
 }
 
-bool nummm = 0;
-
 // @@(feature encoding/optimal
 void decode() {
   // @@(replace "{1,2,3}" (list->host encoding/optimal/start "{" "," "}")
@@ -2087,7 +2085,6 @@ void decode() {
   int d;
   int op;
   int i;
-
   while (1) {
     num x = GET_CODE();
     n = x;
@@ -2173,7 +2170,6 @@ void set_global(obj c) {
 #else
 // FIXME infinite loop here when we use SET_CAR for the intial primitive, we
 // create a cycle so we keep enqueuing in add_edge->set_field ad infinitum
-// (I took Latin in high school)
 #define INIT_GLOBAL()                                                          \
   obj tmp = TAG_RIB(alloc_rib(NUM_0, symbol_table, CLOSURE_TAG));              \
   saved = _NULL;                                                               \
@@ -2185,7 +2181,10 @@ void set_global(obj c) {
   set_sym_tbl(CDR(symbol_table));                                              \
   set_global(FALSE);                                                           \
   set_global(TRUE);                                                            \
-  set_global(NIL)
+  set_global(NIL);                                                             \
+  update_ranks(tmp);                                                           \
+  set_rank(symbol_table, 0);                                                   \
+  update_ranks(symbol_table)
 #endif
 
 void init_stack() {
