@@ -143,9 +143,6 @@ obj FALSE = NUM_0;
 obj symbol_table = NUM_0;
 size_t pos = 0;
 
-// temp variable for newly allocated rib so that it doesn't get deallocated
-obj saved;
-
 #define TRUE (CAR(FALSE))
 #define NIL (CDR(FALSE))
 
@@ -259,8 +256,6 @@ void viz_heap(){
       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-5555));
     } else if (scan == symbol_table) {
       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-66666));
-    } else if (scan == saved) {
-      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-777777));
     } else {
       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank);
     }
@@ -1043,7 +1038,7 @@ void remove_edge(obj from, obj to, int i) {
   }
     
   remove_parent(to, from, i); // `to` is "parentless"
-  if (to != saved && (!is_root(to))) {
+  if (!is_root(to)) {
     // TODO remove, same as above
 #ifdef TEST_ES
     if (get_field(from, i) == to) {
@@ -1072,7 +1067,7 @@ void remove_edge(obj from, obj to, int i) {
 // Specific node deletion
 
 void remove_root(obj old_root) {
-  if (IS_RIB(old_root) && old_root != saved) {
+  if (IS_RIB(old_root)) {
     if (CFR(old_root) == _NULL) {
       // Q_INIT(); // drop queue i.e. "falling ribs"
       // PQ_INIT(); // ankers i.e. potential "catchers"  
@@ -1099,7 +1094,7 @@ void remove_stack(obj old_root) {
   // optimization but that saves us a few  million iterations even for just a
   // small program given how often we change the stack pointer. The same
   // optimization for the pc pointer doesn't change anything.
-  if (IS_RIB(old_root) && old_root != saved) {
+  if (IS_RIB(old_root)) {
     if (CFR(old_root) == _NULL) { // deallocate old stack
       set_rank(old_root, -2);
       remove_ref(old_root, CAR(old_root), 0);
@@ -1545,8 +1540,6 @@ void push_get(obj car, obj tag) {
 // collect all the objects once they're no longer needed otherwise we'll
 // trigger a GC cycle and the newly allocated rib might get collected
 
-// FIXME just add the `saved` check to the GC sweep phase for now
-
 rib *alloc_rib(obj car, obj cdr, obj tag) {
   // allocates a rib without protecting it from the GC
 
@@ -1573,8 +1566,6 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   add_ref(new_rib, tag);
 
   alloc = (obj *)tmp;
-
-  saved = new_rib;
 
   if (!IS_RIB(tmp) || alloc == null_rib) { // empty freelist? 
     gc();
@@ -1889,7 +1880,6 @@ void run() { // evaluator
           obj new_cont = TAG_RIB(list_tail(RIB(new_stack), nparams));
           if (jump) {
             obj k = get_cont();
-            saved = get_cont();
             SET_CAR(new_cont, CAR(k)); // CAR(new_cont) = CAR(k);
             SET_TAG(new_cont, TAG(k)); // TAG(new_cont) = TAG(k);
 #ifdef REF_COUNT
@@ -1981,7 +1971,6 @@ void init_heap() {
   }
   alloc = scan;
   stack = NUM_0;
-  saved = NUM_0;
 }
 
 #define INIT_FALSE()                                                           \
@@ -2143,7 +2132,6 @@ void decode() {
 #ifdef REF_COUNT
   DEC_COUNT(n);
 #else
-  saved = _NULL; // stop protecting n
   if (IS_RIB(n)) remove_root(n);
 #endif
 }
@@ -2172,7 +2160,6 @@ void set_global(obj c) {
 // create a cycle so we keep enqueuing in add_edge->set_field ad infinitum
 #define INIT_GLOBAL()                                                          \
   obj tmp = TAG_RIB(alloc_rib(NUM_0, symbol_table, CLOSURE_TAG));              \
-  saved = _NULL;                                                               \
   CAR(CAR(symbol_table)) = tmp;                                                \
   obj tmp2 = CAR(symbol_table);                                                \
   remove_edge(symbol_table, tmp2, 0);                                          \
