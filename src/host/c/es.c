@@ -861,7 +861,7 @@ void update_ranks(obj root) {
       // FIXME the `c[i] != root` condition is necessary to sometimes avoid
       // an infinite loop when we update the ranks after setting a new root
       // but not sure if that should also be applied in add_edge?
-      if (IS_RIB(c[i]) && c[i] != root) {
+      if (IS_RIB(c[i]) && c[i] != root && (!is_root(c[i]))) {
         
         if (is_parent(c[i], curr)) {
           set_rank(c[i], r);
@@ -903,7 +903,7 @@ void add_edge(obj from, obj to) {
         // if the parent of `to` was swapped (i.e. his rank decreased), some
         // of the edges in the subgraph rooted at `to` might now be dirty,
         // see test 1.1 for an example... this is why we need to do a BFS
-        if (IS_RIB(t[i])) { // && (is_parent(t[i], _to) || is_dirty(_to, t[i]))) {
+        if (IS_RIB(t[i]) && (!is_root(t[i]))) { // && (is_parent(t[i], _to) || is_dirty(_to, t[i]))) {
           if (is_parent(t[i], _to)) {
             set_rank(t[i], r);
             q_enqueue(t[i]);
