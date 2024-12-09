@@ -1338,30 +1338,14 @@ obj pop() {
 // to avoid too many preprocessor instructions in the RVM code
 #define DEC_POP(o) TEMP5 = _NULL; remove_ref(null_rib, o, 0)
 
-// Possible optimization: instead of referencing each popped value from null_rib
-// we could simply reference the old_stack from null_rib and then set the stack
-// only once, because each popped value will be reachable from null_rib, none
-// of them will be deallocated until we remove the edge between null_rib to the
-// old stack. I tried this previously but I was saving the first popped argument
-// instead of the stack itself, which made no sense 
-
-obj prim_pop(int i) {
-  // The program manipulates at most 3 popped objects at any given time so we
-  // can avoid having them being deallocated by storing them in TEMP(5|6|7)
-  obj tos = CAR(stack);
-  if (i == 1) {
-    TEMP6 = tos;
-  } else {
-    TEMP7 = tos;
-  }
-  add_ref(null_rib, tos);
+#define _pop(var)                                                               \
+  obj var = CAR(stack);                                                         \
+  add_ref(null_rib, var);                                                       \
   set_stack(CDR(stack));
-  return tos;
-}
 
-#define PRIM1() obj x = pop()
-#define PRIM2() obj y = prim_pop(1); PRIM1()
-#define PRIM3() obj z = prim_pop(2); PRIM2()
+#define PRIM1() TEMP5 = CAR(stack); _pop(x)
+#define PRIM2() TEMP6 = CAR(stack); _pop(y); PRIM1()
+#define PRIM3() TEMP7 = CAR(stack); _pop(z); PRIM2()
 
 // Not sure if we should set TEMPX to _NULL or not but this simplifies the
 // generated graph so I'll leave it for now
@@ -1796,21 +1780,19 @@ void run() { // evaluator
 #ifdef REF_COUNT
             SET_CDR(stack, CAR(pc));
 #else
-            // Sometimes I work in mysterious ways
-            // FIXME need to potentially deallocate the old CDR of stack
-            obj tmp = CDR(stack);
+            // SET_CDR doesn't work FIXME FIXME FIXME
             CDR(stack) = CAR(pc); // SET_CDR(stack, CAR(pc));
-            update_ranks(stack);
 #endif
           }
           ADVANCE_PC();
         }
 
         else { // calling a lambda
-          /* gc(); */
           num nargs = NUM(pop()); // @@(feature arity-check)@@
           obj new_stack = TAG_RIB(alloc_rib(NUM_0, proc, PAIR_TAG));
           proc = CDR(new_stack);
+
+          // FIXME no need to save the procedure for ES
 #ifdef REF_COUNT
           SET_CAR(pc, CAR(proc)); // save the proc from the mighty gc
 #else
@@ -1825,16 +1807,25 @@ void run() { // evaluator
             exit(1);
           }
           // )@@
+
+          // Optimization: we don't update the stack until the end of the two
+          // loops below and thus avoid updating the subgraph rooted at the
+          // stack nparams time which is completely unnecessary
+          obj s = stack;
+          
           // @@(feature rest-param (use arity-check)
           nargs-=nparams;
           if (vari){
             obj rest = NIL;
             for(int i = 0; i < nargs; ++i){
-              rest = TAG_RIB(alloc_rib(pop(), rest, PAIR_TAG));
 #ifdef REF_COUNT
+              rest = TAG_RIB(alloc_rib(pop(), rest, PAIR_TAG));
               DEC_COUNT(CDR(rest)); // old rest
-#endif
               DEC_POP(CAR(rest));
+#else
+              rest = TAG_RIB(alloc_rib(CAR(s), rest, PAIR_TAG));
+              s = CDR(s);
+#endif
             }
             new_stack = TAG_RIB(alloc_rib(rest, new_stack, PAIR_TAG));
 #ifdef REF_COUNT
@@ -1845,12 +1836,19 @@ void run() { // evaluator
           // )@@
           obj tmp;
           for (int i = 0; i < nparams; ++i) {
-            new_stack = TAG_RIB(alloc_rib(pop(), new_stack, PAIR_TAG));
 #ifdef REF_COUNT
+            new_stack = TAG_RIB(alloc_rib(pop(), new_stack, PAIR_TAG));
             DEC_COUNT(CDR(new_stack)); // old new stack
-#endif
             DEC_POP(CAR(new_stack));
+#else
+            new_stack = TAG_RIB(alloc_rib(CAR(s), new_stack, PAIR_TAG));
+            s = CDR(s);
+#endif
           }
+#ifndef REF_COUNT
+          if (s != stack) set_stack(s); 
+#endif
+          
           nparams = nparams + vari; // @@(feature arity-check)@@
           obj new_cont = TAG_RIB(list_tail(RIB(new_stack), nparams));
           if (jump) {
@@ -1894,7 +1892,8 @@ void run() { // evaluator
 #else
       // FIXME might cause to add an already existing co-friend, not sure
       // how this will impact more complex programs so might need to remove
-      push_get(get_opnd(CDR(pc)), PAIR_TAG);
+      // push_get(get_opnd(CDR(pc)), PAIR_TAG);
+      push2(get_opnd(CDR(pc)), PAIR_TAG);
 #endif
       ADVANCE_PC();
       break;
@@ -1926,7 +1925,7 @@ void run() { // evaluator
 // Program initialization
 
 void init_heap() {
-  heap_start = malloc(sizeof(obj) * (SPACE_SZ+1));
+  heap_start = malloc(sizeof(obj) * SPACE_SZ); // (SPACE_SZ+1));
   if (!heap_start) {
     vm_exit(EXIT_NO_MEMORY);
   }
