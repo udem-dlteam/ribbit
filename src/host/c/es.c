@@ -61,9 +61,9 @@ typedef long num;
 #define RIB_NB_FIELDS 4
 #else
 #if defined(BUCKETS) || defined(LINKED_LIST) 
-#define RIB_NB_FIELDS 11
+#define RIB_NB_FIELDS 12
 #else
-#define RIB_NB_FIELDS 10
+#define RIB_NB_FIELDS 11
 #endif
 #endif
 typedef struct {
@@ -171,9 +171,9 @@ int d_count = 0;
 
 rib *heap_start;
 #ifdef TEST_ES
-#define MAX_NB_OBJS 14 
+#define MAX_NB_OBJS 14
 #else
-#define MAX_NB_OBJS 100000000
+#define MAX_NB_OBJS 500
 #endif
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
@@ -212,57 +212,119 @@ void viz_add_edge(FILE* graph, obj from, obj to){
   fprintf(graph, "%ld -> %ld\n", from, to);
 }
 
-void viz_add_rib_label(FILE* graph, obj rib, obj car, obj cdr, obj tag, obj rank){
+void viz_add_dot_edge(FILE* graph, obj from, obj to){
+  // write the edge from "from" to "to"
+  fprintf(graph, "%ld -> %ld [style=dotted]\n ", from, to);
+}
+
+
+void viz_add_dot_edge_red(FILE* graph, obj from, obj to){
+  // write the edge from "from" to "to"
+  fprintf(graph, "%ld -> %ld [style=dotted, color=red]\n ", from, to);
+}
+
+void display_rib(rib* r){
+  obj car = r->fields[0];
+  obj cdr = r->fields[1];
+  obj tag = r->fields[2];
+
+  long car_value = IS_RIB(car) ? car-((long)heap_start) : NUM(car);
+  long cdr_value = IS_RIB(cdr) ? cdr-((long)heap_start) : NUM(cdr);
+  long tag_value = IS_RIB(tag) ? tag-((long)heap_start) : NUM(tag);
+
+  char* car_prefix = IS_RIB(car) ? "r" : "";
+  char* cdr_prefix = IS_RIB(cdr) ? "r" : "";
+  char* tag_prefix = IS_RIB(tag) ? "r" : "";
+
+  printf("r%ld [%s%ld,%s%ld,%s%ld]\n", 
+      (long)r - ((long) heap_start),
+      car_prefix, car_value,
+      cdr_prefix, cdr_value,
+      tag_prefix, tag_value
+  );
+
+
+}
+
+void viz_add_rib_label(FILE* graph, obj rib, obj car, obj cdr, obj tag, obj co_car, obj co_cdr, obj co_tag, obj co_friend, obj rank, char* color){
   // write the value of the rib
   char* car_prefix = IS_RIB(car) ? "r" : "";
   char* cdr_prefix = IS_RIB(cdr) ? "r" : "";
   char* tag_prefix = IS_RIB(tag) ? "r" : "";
+  char* co_car_prefix = IS_RIB(co_car) ? "r" : "";
+  char* co_cdr_prefix = IS_RIB(co_cdr) ? "r" : "";
+  char* co_tag_prefix = IS_RIB(co_tag) ? "r" : "";
+  char* co_friend_prefix = IS_RIB(co_friend) ? "r" : "";
+
   long rib_value = rib - ((long)heap_start);
   long car_value = IS_RIB(car) ? car-((long)heap_start) : NUM(car);
   long cdr_value = IS_RIB(cdr) ? cdr-((long)heap_start) : NUM(cdr);
   long tag_value = IS_RIB(tag) ? tag-((long)heap_start) : NUM(tag);
+
+  long co_car_value = IS_RIB(co_car) ? co_car-((long)heap_start) : NUM(co_car);
+  long co_cdr_value = IS_RIB(co_cdr) ? co_cdr-((long)heap_start) : NUM(co_cdr);
+  long co_tag_value = IS_RIB(co_tag) ? co_tag-((long)heap_start) : NUM(co_tag);
+  long co_friend_value = IS_RIB(co_friend) ? co_friend-((long)heap_start) : NUM(co_friend);
+
+
   long rank_value = NUM(rank);
   fprintf(
       graph,
-      "%ld [label=\"%ld : [%s%ld,%s%ld,%s%ld] -- %ld\"]\n",
+      "%ld [label=\"%ld : [%s%ld,%s%ld,%s%ld] M[%s%ld,%s%ld,%s%ld] CO[%s%ld] -- %ld\" color=\"%s\"]\n",
       rib,
       rib_value,
       car_prefix, car_value,
       cdr_prefix, cdr_value,
       tag_prefix, tag_value,
-      rank_value);
+
+      co_car_prefix, co_car_value,
+      co_cdr_prefix, co_cdr_value,
+      co_tag_prefix, co_tag_value,
+      co_friend_prefix, co_friend_value,
+      rank_value,
+      color);
 }
 
-void viz_heap(){
+void viz_heap(char* name){
   // to check manually if the tests are working properly
-  current_graph = viz_start_graph("graph.dot");
+  current_graph = viz_start_graph(name);
   scan=heap_top;
   
-  for (int i = 0; i <= MAX_NB_OBJS; i++) {
+  while(scan != heap_bot - RIB_NB_FIELDS) {
 #ifdef REF_COUNT
     obj rank = scan[3];
 #else
     obj rank = scan[7];
 #endif
+    obj tag = scan[2];
+    bool is_marked = scan[10];
+    char* color = is_marked ? "red" : "black";
+
     if (IS_RIB(scan[0])) viz_add_edge(current_graph, scan, scan[0]);
     if (IS_RIB(scan[1])) viz_add_edge(current_graph, scan, scan[1]);
     if (IS_RIB(scan[2])) viz_add_edge(current_graph, scan, scan[2]);
+
+    if (IS_RIB(scan[3])) viz_add_dot_edge(current_graph, scan, scan[3]);
+    if (IS_RIB(scan[4])) viz_add_dot_edge(current_graph, scan, scan[4]);
+    if (IS_RIB(scan[5])) viz_add_dot_edge(current_graph, scan, scan[5]);
+    if (IS_RIB(scan[6])) viz_add_dot_edge_red(current_graph, scan, scan[6]);
+
     // viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank);
     if (scan == stack) {
-      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-33));
+      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-33), color);
     } else if (scan == pc) {
-      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-444));
+      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2],  scan[3], scan[4], scan[5],scan[6],  TAG_NUM(-444), color);
     } else if (scan == FALSE || scan == TRUE || scan == NIL) {
-      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-5555));
+      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-5555), color);
     } else if (scan == symbol_table) {
-      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-66666));
+      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-66666), color);
     } else {
-      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank);
+      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], rank, color);
     }
     scan-=RIB_NB_FIELDS;
   }
+  printf("Writing graph to %s\n", name);
   viz_end_graph(current_graph);
-  exit(1);
 }
 
 #endif
@@ -879,6 +941,14 @@ void update_ranks(obj root) {
 void add_edge(obj from, obj to) {
   // FIXME duplicate edges are allowed for now
 
+  if (((long)from) - ((long)heap_start)==30536){
+    printf("found!!\n");
+  }
+
+  if (((long)to) - ((long)heap_start)==30536){
+    printf("found2!!\n");
+  }
+
   // `from` and `to` are assumed to be ribs
   add_cofriend(to, from);
   if (is_dirty(from, to)) {
@@ -1180,15 +1250,32 @@ void set_pc(obj new_pc) {
 
 #else
 
+int check = 0;
+
 void set_field(obj src, int i, obj dest) { // write barrier
   obj *ref = RIB(src)->fields;
+  if (check){
+    viz_heap("graph_before.dot");
+  }
   obj tmp = ref[i];
   ref[i] = dest;
   add_ref(src, dest);
+  if (check){
+    viz_heap("graph_middle.dot");
+    //breakpoint();
+  }
+        //unmark_all();
   remove_ref(src, tmp, i);
+  if (check){
+    viz_heap("graph_end.dot");
+  }
 
   // FIXME integrate this in the ES logic
   if (IS_RIB(src)) update_ranks(src);
+  if (check){
+    viz_heap("graph_end2.dot");
+    exit(1);
+  }
 }
 
 // FIXME assume `src` will always be a rib?
@@ -1244,18 +1331,51 @@ void set_pc(obj new_pc) {
 
 // Cycle detection and collection (ref count)
 
-void mark(obj *o) { // Recursive version of marking phase
-  if (IS_RIB(*o)) {
-    obj *ptr = RIB(*o)->fields;
-    if (!IS_MARKED(ptr[2])) { 
-      obj tmp = ptr[2]; 
-      ptr[2] = MARK(ptr[2]);
-      mark(&ptr[0]);
-      mark(&ptr[1]);
-      mark(&tmp);
+void mark(obj o){
+  if (IS_RIB(o)){
+    //printf("marking...\n");
+    rib* r = RIB(o);
+    //display_rib(r);
+    obj* ptr = r->fields;
+    
+    if (ptr[10] == 0){
+      //ptr[10] = 1;
+      mark(ptr[0]);
+      mark(ptr[1]);
+      mark(ptr[2]);
     }
   }
 }
+
+
+
+// void mark(rib* o) { // Recursive version of marking phase
+//   rib* r = o;
+// 
+// 
+//   if (r->fields[10] == 1) return;
+//   printf("marking...\n");
+//   fflush(stdout);
+//   r->fields[10] = 1;
+//   if (IS_RIB(r->fields[0])) mark(r->fields[0]);
+//   if (IS_RIB(r->fields[1])) mark(r->fields[1]);
+//   if (IS_RIB(r->fields[2])) mark(r->fields[2]);
+// }
+
+void mark_all(){
+  printf("\t--Marking all\n");
+  printf("marking stack\n");
+  mark(RIB(stack));
+  printf("marking pc\n");
+  mark(RIB(pc));
+  printf("marking false\n");
+  mark(RIB(FALSE));
+}
+
+void unmark_all(){
+
+}
+
 
 void gc() {
   printf("\t--GC called\n");
@@ -1436,6 +1556,7 @@ void push2(obj car, obj tag) {
   *alloc++ = TAG_NUM(0); // rank will be 0 since it becomes the new stack
   *alloc++ = _NULL;      // queue
   *alloc++ = _NULL;      // priority queue
+  *alloc++ = 0;      // marked (for visuals)
 #if defined(BUCKETS) || defined(LINKED_LIST) 
   *alloc++ = _NULL;
 #endif
@@ -1471,6 +1592,7 @@ void push_get(obj car, obj tag) {
   *alloc++ = TAG_NUM(0); // rank will be 0 since it becomes the new stack
   *alloc++ = _NULL;      // queue
   *alloc++ = _NULL;      // priority queue
+  *alloc++ = 0;      // marked (for visuals)
 #if defined(BUCKETS) || defined(LINKED_LIST) 
   *alloc++ = _NULL;
 #endif
@@ -1501,7 +1623,6 @@ void push_get(obj car, obj tag) {
 
 rib *alloc_rib(obj car, obj cdr, obj tag) {
   // allocates a rib without protecting it from the GC
-
   obj tmp = *alloc; // next available slot in freelist
   
   *alloc++ = car;        // field 1
@@ -1514,6 +1635,7 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   *alloc++ = TAG_NUM(0); 
   *alloc++ = _NULL;      // queue
   *alloc++ = _NULL;      // priority queue
+  *alloc++ = 0;      // marked (for visuals)
 #if defined(BUCKETS) || defined(LINKED_LIST) 
   *alloc++ = _NULL;
 #endif
@@ -1781,7 +1903,9 @@ void run() { // evaluator
             SET_CDR(stack, CAR(pc));
 #else
             // SET_CDR doesn't work FIXME FIXME FIXME
-            CDR(stack) = CAR(pc); // SET_CDR(stack, CAR(pc));
+            // CDR(stack) = CAR(pc); // 
+            check = 1;
+            SET_CDR(stack, CAR(pc));
 #endif
           }
           ADVANCE_PC();
@@ -1910,7 +2034,11 @@ void run() { // evaluator
       break;
     }
     case INSTR_HALT: { // halt
+
       printf("deallocation count = %d\n", d_count);
+      fflush(stdout);
+      //gc();
+      //viz_heap("graph_after.dot");
       vm_exit(0);
     }
     default: { // error
@@ -1943,6 +2071,7 @@ void init_heap() {
     scan -= RIB_NB_FIELDS; // scan <- address of next rib slot
     *scan = (obj)alloc; // CAR(next rib) <- address of previous slot
   }
+
   alloc = scan;
   stack = NUM_0;
 }
