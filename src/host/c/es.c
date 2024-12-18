@@ -16,6 +16,12 @@
 // (not just here, in the actual RVM as well)
 
 
+/* Know bugs:
+ * - Infinite loop when a function is redefined, didn't investigate at all
+ * - ...
+ */
+
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -212,30 +218,104 @@ void viz_add_edge(FILE* graph, obj from, obj to){
   fprintf(graph, "%ld -> %ld\n", from, to);
 }
 
-void viz_add_rib_label(FILE* graph, obj rib, obj car, obj cdr, obj tag, obj rank){
+void viz_add_dot_edge(FILE* graph, obj from, obj to){
+  // write the edge from "from" to "to"
+  fprintf(graph, "%ld -> %ld [style=dotted]\n ", from, to);
+}
+void viz_add_dot_edge_red(FILE* graph, obj from, obj to){
+  // write the edge from "from" to "to"
+  fprintf(graph, "%ld -> %ld [style=dotted, color=red]\n ", from, to);
+}
+
+/* void viz_add_rib_label(FILE* graph, obj rib, obj car, obj cdr, obj tag, obj rank){ */
+/*   // write the value of the rib */
+/*   char* car_prefix = IS_RIB(car) ? "r" : ""; */
+/*   char* cdr_prefix = IS_RIB(cdr) ? "r" : ""; */
+/*   char* tag_prefix = IS_RIB(tag) ? "r" : ""; */
+/*   long rib_value = rib - ((long)heap_start); */
+/*   long car_value = IS_RIB(car) ? car-((long)heap_start) : NUM(car); */
+/*   long cdr_value = IS_RIB(cdr) ? cdr-((long)heap_start) : NUM(cdr); */
+/*   long tag_value = IS_RIB(tag) ? tag-((long)heap_start) : NUM(tag); */
+/*   long rank_value = NUM(rank); */
+/*   fprintf( */
+/*       graph, */
+/*       "%ld [label=\"%ld : [%s%ld,%s%ld,%s%ld] -- %ld\"]\n", */
+/*       rib, */
+/*       rib_value, */
+/*       car_prefix, car_value, */
+/*       cdr_prefix, cdr_value, */
+/*       tag_prefix, tag_value, */
+/*       rank_value); */
+/* } */
+
+/* void viz_heap(){ */
+/*   // to check manually if the tests are working properly */
+/*   current_graph = viz_start_graph("graph.dot"); */
+/*   scan=heap_top; */
+  
+/*   for (int i = 0; i <= MAX_NB_OBJS; i++) { */
+/* #ifdef REF_COUNT */
+/*     obj rank = scan[3]; */
+/* #else */
+/*     obj rank = scan[7]; */
+/* #endif */
+/*     if (IS_RIB(scan[0])) viz_add_edge(current_graph, scan, scan[0]); */
+/*     if (IS_RIB(scan[1])) viz_add_edge(current_graph, scan, scan[1]); */
+/*     if (IS_RIB(scan[2])) viz_add_edge(current_graph, scan, scan[2]); */
+/*     // viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank); */
+/*     if (scan == stack) { */
+/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-33)); */
+/*     } else if (scan == pc) { */
+/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-444)); */
+/*     } else if (scan == FALSE || scan == TRUE || scan == NIL) { */
+/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-5555)); */
+/*     } else if (scan == symbol_table) { */
+/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-66666)); */
+/*     } else { */
+/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank); */
+/*     } */
+/*     scan-=RIB_NB_FIELDS; */
+/*   } */
+/*   viz_end_graph(current_graph); */
+/*   exit(1); */
+/* } */
+
+void viz_add_rib_label(FILE* graph, obj rib, obj car, obj cdr, obj tag, obj m_car, obj m_cdr, obj m_tag, obj p, obj rank){
   // write the value of the rib
   char* car_prefix = IS_RIB(car) ? "r" : "";
   char* cdr_prefix = IS_RIB(cdr) ? "r" : "";
   char* tag_prefix = IS_RIB(tag) ? "r" : "";
+  char* m_car_prefix = IS_RIB(m_car) ? "r" : "";
+  char* m_cdr_prefix = IS_RIB(m_cdr) ? "r" : "";
+  char* m_tag_prefix = IS_RIB(m_tag) ? "r" : "";
+  char* p_prefix = IS_RIB(tag) ? "r" : "";
   long rib_value = rib - ((long)heap_start);
   long car_value = IS_RIB(car) ? car-((long)heap_start) : NUM(car);
   long cdr_value = IS_RIB(cdr) ? cdr-((long)heap_start) : NUM(cdr);
   long tag_value = IS_RIB(tag) ? tag-((long)heap_start) : NUM(tag);
+  long m_car_value = IS_RIB(m_car) ? m_car-((long)heap_start) : NUM(m_car);
+  long m_cdr_value = IS_RIB(m_cdr) ? m_cdr-((long)heap_start) : NUM(m_cdr);
+  long m_tag_value = IS_RIB(m_tag) ? m_tag-((long)heap_start) : NUM(m_tag);
+  long p_value = IS_RIB(p) ? p-((long)heap_start) : NUM(p);
   long rank_value = NUM(rank);
   fprintf(
       graph,
-      "%ld [label=\"%ld : [%s%ld,%s%ld,%s%ld] -- %ld\"]\n",
+      "%ld [label=\"%ld : [%s%ld,%s%ld,%s%ld] M[%s%ld,%s%ld,%s%ld] CO[%s%ld] -- %ld\"]\n",
       rib,
       rib_value,
       car_prefix, car_value,
       cdr_prefix, cdr_value,
       tag_prefix, tag_value,
+      m_car_prefix, m_car_value,
+      m_cdr_prefix, m_cdr_value,
+      m_tag_prefix, m_tag_value,
+      p_prefix, p_value,
       rank_value);
 }
-
-void viz_heap(){
+void viz_heap(char* name){
   // to check manually if the tests are working properly
-  current_graph = viz_start_graph("graph.dot");
+  // current_graph = viz_start_graph("graph.dot");
+  current_graph = viz_start_graph(name);
   scan=heap_top;
   
   for (int i = 0; i <= MAX_NB_OBJS; i++) {
@@ -247,17 +327,21 @@ void viz_heap(){
     if (IS_RIB(scan[0])) viz_add_edge(current_graph, scan, scan[0]);
     if (IS_RIB(scan[1])) viz_add_edge(current_graph, scan, scan[1]);
     if (IS_RIB(scan[2])) viz_add_edge(current_graph, scan, scan[2]);
+    if (IS_RIB(scan[3])) viz_add_dot_edge(current_graph, scan, scan[3]);
+    if (IS_RIB(scan[4])) viz_add_dot_edge(current_graph, scan, scan[4]);
+    if (IS_RIB(scan[5])) viz_add_dot_edge(current_graph, scan, scan[5]);
+    if (IS_RIB(scan[6])) viz_add_dot_edge_red(current_graph, scan, scan[6]);
     // viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank);
     if (scan == stack) {
-      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-33));
+      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-33));
     } else if (scan == pc) {
-      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-444));
+      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-444));
     } else if (scan == FALSE || scan == TRUE || scan == NIL) {
-      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-5555));
+      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-5555));
     } else if (scan == symbol_table) {
-      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-66666));
+      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-66666));
     } else {
-      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank);
+      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], rank);
     }
     scan-=RIB_NB_FIELDS;
   }
@@ -763,7 +847,7 @@ void remove_parent(obj x, obj p, int i) {
   }
 }
 
-void add_cofriend(obj x, obj cfr) {
+void add_cofriend(obj x, obj cfr, int j) {
   // FIXME do we want the co-friends to be ordered by rank? for now the new
   // co-friend is just inserted between the parent and the following co-friend
   obj p = get_parent(x);
@@ -774,12 +858,9 @@ void add_cofriend(obj x, obj cfr) {
   }
   int i = get_mirror_field(x, p);
   obj tmp = get_field(p,i); // old co-friend pointed by parent
-  // No longer have duplicate co-friends AFAIK, might have to
-  // come back to that later FIXME FIXME FIXME
-  /* if (tmp != cfr) { // duplicate co-friend? */
-    get_field(p,i) = cfr;
-    get_field(cfr,get_mirror_field(x, cfr)) = tmp;
-  /* }  */
+  get_field(p,i) = cfr;
+  // get_field(cfr, get_mirror_field(x, cfr)) = tmp;
+  get_field(cfr, j+3) = tmp;
 }
 
 /* void add_cofriend(obj x, obj cfr) { */
@@ -813,7 +894,7 @@ void add_cofriend(obj x, obj cfr) {
 
 void remove_cofriend(obj x, obj cfr, int k) {
   // assumes that cfr is not x's parent
-  obj curr = CFR(x);  
+  obj curr = CFR(x);
   obj prev;
   obj tmp = NUM_0;
   while (curr != cfr && curr != _NULL) {
@@ -834,7 +915,7 @@ void remove_cofriend(obj x, obj cfr, int k) {
   int j = get_mirror_field(x, prev);
   obj tmp2 = get_field(curr,i);
   get_field(curr,i) = _NULL; // remove reference to next co-friend
-  get_field(prev,j) = tmp2;
+  get_field(prev,j) = (tmp2 != x) ? tmp2 : _NULL; 
 }
 
 
@@ -876,11 +957,8 @@ void update_ranks(obj root) {
   } while (!Q_IS_EMPTY());
 }
 
-void add_edge(obj from, obj to) {
-  // FIXME duplicate edges are allowed for now
-
-  // `from` and `to` are assumed to be ribs
-  add_cofriend(to, from);
+void add_edge(obj from, obj to, int i) {
+  add_cofriend(to, from, i);
   if (is_dirty(from, to)) {
     set_parent(to, from);
   }
@@ -894,7 +972,9 @@ void add_edge(obj from, obj to) {
 }
 
 // FIXME should we just assume that `from` is a rib to avoid the type check?
-#define add_ref(from, to) if (IS_RIB(to)) add_edge(from, to)
+#define add_ref(from, to, i) if (IS_RIB(to)) add_edge(from, to, i)
+
+#define add_ref_nr(from, to, i) if (IS_RIB(to) && M_CAR(stack) == _NULL) add_edge(from, to, i)
 
 
 //------------------------------------------------------------------------------
@@ -1056,6 +1136,8 @@ void remove_root(obj old_root) {
       // is not _NULL after a lambda call) but this slows down the execution
       // time way too much and the ranks will be updated soon enough (it doesn't
       // change the number of objects being deallocated AFAIK)
+
+      // update_ranks(old_root);
     }
   }
 }
@@ -1094,6 +1176,8 @@ void remove_stack(obj old_root) {
     } else {
       set_rank(old_root, get_rank(CFR(old_root))+1);
       // FIXME same as above
+
+      // update_ranks(old_root);
     }
   }
 }
@@ -1180,15 +1264,49 @@ void set_pc(obj new_pc) {
 
 #else
 
-void set_field(obj src, int i, obj dest) { // write barrier
-  obj *ref = RIB(src)->fields;
-  obj tmp = ref[i];
-  ref[i] = dest;
-  add_ref(src, dest);
-  remove_ref(src, tmp, i);
+/* void set_field(obj src, int i, obj dest) { // write barrier */
+/*   obj *ref = RIB(src)->fields; */
+/*   obj tmp = ref[i]; */
+/*   ref[i] = dest; */
+/*   add_ref(src, dest); */
+/*   remove_ref(src, tmp, i); */
 
-  // FIXME integrate this in the ES logic
-  if (IS_RIB(src)) update_ranks(src);
+/*   // FIXME integrate this in the ES logic */
+/*   if (IS_RIB(src)) update_ranks(src); */
+/* } */
+
+void set_field(obj src, int i, obj dest) { // write barrier
+  // The order differs a bit from the ref count version of the write barrier...
+  // TODO explain why we're doing that this way
+  obj *ref = RIB(src)->fields;
+  if (IS_RIB(ref[i])) { // no need to dereference _NULL or a num
+    if (next_cofriend(ref[i], src) == _NULL) {
+      // We need to be more careful here since simply removing the edge
+      // between src and ref[i] will deallocate ref[i] and potentially
+      // some other ribs refered by ref[i]. This is problematic if dest
+      // contains a reference to one of ref[i]'s children (or more) since
+      // we'll deallocate a rib (or more) that shouldn't be deallocated.
+      // We can get around that by using a temporary rib to point to ref[i]
+      // (if we give that temporary rib the same rank as src we avoid
+      // potentially changing the structure of our graph twice)
+      obj tmp = ref[i];
+      set_rank(NIL, get_rank(src));
+      TEMP3 = ref[i];
+      add_edge(NIL, ref[i], 0);
+      remove_edge(src, ref[i], i);
+      ref[i] = dest;
+      add_ref(src, dest, i);
+      TEMP3 = _NULL;
+      remove_edge(NIL, tmp, 0);
+      set_rank(NIL, 1);
+      // update_ranks(src);
+      return;
+    }
+    remove_edge(src, ref[i], i);
+  }
+  ref[i] = dest;
+  add_ref(src, dest, i);
+  // if (IS_RIB(src)) update_ranks(src);
 }
 
 // FIXME assume `src` will always be a rib?
@@ -1330,28 +1448,38 @@ obj pop() {
 obj pop() {
   obj tos = CAR(stack);
   TEMP5 = tos;
-  add_ref(null_rib, tos);
+  add_ref(null_rib, tos, 0);
   set_stack(CDR(stack));
   return tos;
 }
 
+// FIXME FIXME FIXME this is a patch but there's clearly something faulty in my
+// implementation if I even need to do this at all
+#define CLEAR_NR()                                                              \
+  obj *nr_ptr = RIB(null_rib)->fields;                                          \
+  nr_ptr[3] = _NULL;                                                            \
+  nr_ptr[4] = _NULL;                                                            \
+  nr_ptr[5] = _NULL;
+
 // to avoid too many preprocessor instructions in the RVM code
 #define DEC_POP(o) TEMP5 = _NULL; remove_ref(null_rib, o, 0)
 
-#define _pop(var)                                                               \
+#define _pop(var, i)                                                            \
   obj var = CAR(stack);                                                         \
-  add_ref(null_rib, var);                                                       \
+  add_ref_nr(null_rib, var, i);                                                 \
   set_stack(CDR(stack));
 
-#define PRIM1() TEMP5 = CAR(stack); _pop(x)
-#define PRIM2() TEMP6 = CAR(stack); _pop(y); PRIM1()
-#define PRIM3() TEMP7 = CAR(stack); _pop(z); PRIM2()
+// FIXME no need to save CAR(stack) in TEMPX if popped obj has another parent
+#define PRIM1() TEMP5 = CAR(stack); _pop(x, 0)
+#define PRIM2() TEMP6 = CAR(stack); _pop(y, 1); PRIM1()
+#define PRIM3() TEMP7 = CAR(stack); _pop(z, 2); PRIM2()
 
 // Not sure if we should set TEMPX to _NULL or not but this simplifies the
 // generated graph so I'll leave it for now
 
 #define DEC_PRIM1()                                                             \
   TEMP5 = _NULL;                                                                \
+  CLEAR_NR();                                                                   \
   remove_ref(null_rib, x, 0)
 #define DEC_PRIM2()                                                             \
   TEMP6 = _NULL;                                                                \
@@ -1442,12 +1570,12 @@ void push2(obj car, obj tag) {
 
   obj new_rib = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
 
-  add_ref(new_rib, stack);
+  add_ref(new_rib, stack, 1);
   set_stack(new_rib);
   
-  add_ref(new_rib, car);
-  add_ref(new_rib, tag);
-
+  add_ref(new_rib, car, 0);
+  add_ref(new_rib, tag, 2);
+  
   alloc = (obj *)tmp;
 
   if (!IS_RIB(tmp) || alloc == null_rib) { // empty freelist?
@@ -1477,10 +1605,10 @@ void push_get(obj car, obj tag) {
 
   obj new_rib = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
 
-  add_ref(new_rib, stack);
+  add_ref(new_rib, stack, 1);
   set_stack(new_rib);
   
-  add_ref(new_rib, tag);
+  add_ref(new_rib, tag, 2);
 
   alloc = (obj *)tmp;
 
@@ -1520,9 +1648,9 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
 
   obj new_rib =  TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
 
-  add_ref(new_rib, car);
-  add_ref(new_rib, cdr);
-  add_ref(new_rib, tag);
+  add_ref(new_rib, car, 0);
+  add_ref(new_rib, cdr, 1);
+  add_ref(new_rib, tag, 2);
 
   alloc = (obj *)tmp;
 
@@ -1582,8 +1710,8 @@ obj prim(int no) {
     push2(new_rib, PAIR_TAG);
     DEC_COUNT(new_rib); // remove redundant new_rib count
 #else
-    push2(TAG_RIB(alloc_rib(x, y, z)), PAIR_TAG); 
-    DEC_PRIM3(); 
+    push2(TAG_RIB(alloc_rib(x, y, z)), PAIR_TAG);
+    DEC_PRIM3();
 #endif
     break;
   } // )@@
@@ -1791,12 +1919,9 @@ void run() { // evaluator
           num nargs = NUM(pop()); // @@(feature arity-check)@@
           obj new_stack = TAG_RIB(alloc_rib(NUM_0, proc, PAIR_TAG));
           proc = CDR(new_stack);
-
-          // FIXME no need to save the procedure for ES
 #ifdef REF_COUNT
+          // No need to save the procedure for ES
           SET_CAR(pc, CAR(proc)); // save the proc from the mighty gc
-#else
-          CAR(pc) = CAR(proc); // FIXME ... why does it work?
 #endif
           num nparams_vari = NUM(CAR(CAR(proc)));
           num nparams = nparams_vari >> 1;
@@ -1865,11 +1990,16 @@ void run() { // evaluator
 #endif
             SET_TAG(new_cont, TAG(pc)); // TAG(new_cont) = TAG(pc);
           }
-          // FIXME segfault if set_stack with the (fact 10) program with ref count?
+#ifdef REF_COUNT
           stack = new_stack;
           obj new_pc = CAR(pc); // proc entry point
           SET_CAR(pc, TAG_NUM(instr));
           set_pc(TAG(new_pc));
+#else
+          set_pc(TAG(CAR(proc)));
+          stack = new_stack; // set_stack(new_stack);
+          // update_ranks(symbol_table);
+#endif
         }
         break;
       }
@@ -1887,14 +2017,7 @@ void run() { // evaluator
       break;
     }
     case INSTR_GET: { // get
-#ifdef REF_COUNT
       push2(get_opnd(CDR(pc)), PAIR_TAG);
-#else
-      // FIXME might cause to add an already existing co-friend, not sure
-      // how this will impact more complex programs so might need to remove
-      // push_get(get_opnd(CDR(pc)), PAIR_TAG);
-      push2(get_opnd(CDR(pc)), PAIR_TAG);
-#endif
       ADVANCE_PC();
       break;
     }
@@ -1925,7 +2048,10 @@ void run() { // evaluator
 // Program initialization
 
 void init_heap() {
-  heap_start = malloc(sizeof(obj) * SPACE_SZ); // (SPACE_SZ+1));
+  // heap_start = malloc(sizeof(obj) * SPACE_SZ); // (SPACE_SZ+1));
+
+  // calloc is faster with gcc
+  heap_start = calloc(SPACE_SZ, sizeof(obj)); 
   if (!heap_start) {
     vm_exit(EXIT_NO_MEMORY);
   }
@@ -1937,7 +2063,7 @@ void init_heap() {
   null_rib = TAG_RIB((rib *)(scan));
   // rank should always be 0 since popped values will be saved there temporarly
   set_rank(null_rib, 0);
-#endif  
+#endif
   while (scan != heap_bot) {
     alloc = scan; // alloc <- address of previous slot
     scan -= RIB_NB_FIELDS; // scan <- address of next rib slot
@@ -2137,8 +2263,8 @@ void set_global(obj c) {
   CAR(CAR(symbol_table)) = tmp;                                                \
   obj tmp2 = CAR(symbol_table);                                                \
   remove_edge(symbol_table, tmp2, 0);                                          \
-  add_edge(tmp2, tmp);                                                         \
-  add_edge(symbol_table, tmp2);                                                \
+  add_edge(tmp2, tmp, 0);                                                      \
+  add_edge(symbol_table, tmp2, 0);                                             \
   set_sym_tbl(CDR(symbol_table));                                              \
   set_global(FALSE);                                                           \
   set_global(TRUE);                                                            \
@@ -2156,7 +2282,7 @@ void init_stack() {
   CDR(stack) = NUM_0;
   TAG(stack) = first;
 #ifndef REF_COUNT
-  add_ref(stack, first);
+  add_ref(stack, first, 2);
 #endif
 
   CAR(first) = TAG_NUM(INSTR_HALT);
