@@ -55,6 +55,7 @@ The `-l` option allows selecting the Scheme runtime library (located in the
 To compile an executable of the Ribbit Scheme Compiler (rsc.exe) with Gambit, you can use :
 
 ```
+cd src
 make rsc.exe
 ```
 
