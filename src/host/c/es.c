@@ -1362,6 +1362,8 @@ void set_pc(obj new_pc) {
 
 // Cycle detection and collection (ref count)
 
+int leftovers = 0;
+
 void mark(obj *o) { // Recursive version of marking phase
   if (IS_RIB(*o)) {
     obj *ptr = RIB(*o)->fields;
@@ -1388,22 +1390,34 @@ void gc() {
     if (IS_MARKED(tag)) {
       *(scan+2) = UNMARK(tag);
     } else {
+#ifdef REF_COUNT
+      if (RIB((obj)scan)->fields[3] != 0) leftovers++;
+#else
+      if (get_rank((obj)scan) != 0) leftovers++;
+#endif
       *scan = (obj)alloc;
       alloc = scan;
 #ifdef VIZ
-#ifdef REF_COUNT
       scan++;
       *scan++ = _NULL;
       *scan++ = _NULL;
+#ifdef REF_COUNT
       *scan++ = TAG_NUM(0);
-      scan -= RIB_NB_FIELDS;
 #else
-      // ES 
+      *scan++ = _NULL;
+      *scan++ = _NULL;
+      *scan++ = _NULL;
+      *scan++ = _NULL;
+      *scan++ = TAG_NUM(0);
+      *scan++ = _NULL;
+      *scan++ = _NULL;
 #endif
+      scan -= RIB_NB_FIELDS;
 #endif
     }
     scan += RIB_NB_FIELDS; // next rib object
   }
+  printf("uncollected ribs = %d\n", leftovers);
 #ifdef REF_COUNT
   if (*alloc == _NULL){
     printf("Heap is full\n");
@@ -1909,7 +1923,7 @@ void run() { // evaluator
             SET_CDR(stack, CAR(pc));
 #else
             // SET_CDR doesn't work FIXME FIXME FIXME
-            CDR(stack) = CAR(pc); // SET_CDR(stack, CAR(pc));
+            SET_CDR(stack, CAR(pc));
 #endif
           }
           ADVANCE_PC();
@@ -1997,8 +2011,7 @@ void run() { // evaluator
           set_pc(TAG(new_pc));
 #else
           set_pc(TAG(CAR(proc)));
-          stack = new_stack; // set_stack(new_stack);
-          // update_ranks(symbol_table);
+          set_stack(new_stack);
 #endif
         }
         break;
@@ -2034,6 +2047,7 @@ void run() { // evaluator
     }
     case INSTR_HALT: { // halt
       printf("deallocation count = %d\n", d_count);
+      gc();
       vm_exit(0);
     }
     default: { // error
