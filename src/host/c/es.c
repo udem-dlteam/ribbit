@@ -227,59 +227,6 @@ void viz_add_dot_edge_red(FILE* graph, obj from, obj to){
   fprintf(graph, "%ld -> %ld [style=dotted, color=red]\n ", from, to);
 }
 
-/* void viz_add_rib_label(FILE* graph, obj rib, obj car, obj cdr, obj tag, obj rank){ */
-/*   // write the value of the rib */
-/*   char* car_prefix = IS_RIB(car) ? "r" : ""; */
-/*   char* cdr_prefix = IS_RIB(cdr) ? "r" : ""; */
-/*   char* tag_prefix = IS_RIB(tag) ? "r" : ""; */
-/*   long rib_value = rib - ((long)heap_start); */
-/*   long car_value = IS_RIB(car) ? car-((long)heap_start) : NUM(car); */
-/*   long cdr_value = IS_RIB(cdr) ? cdr-((long)heap_start) : NUM(cdr); */
-/*   long tag_value = IS_RIB(tag) ? tag-((long)heap_start) : NUM(tag); */
-/*   long rank_value = NUM(rank); */
-/*   fprintf( */
-/*       graph, */
-/*       "%ld [label=\"%ld : [%s%ld,%s%ld,%s%ld] -- %ld\"]\n", */
-/*       rib, */
-/*       rib_value, */
-/*       car_prefix, car_value, */
-/*       cdr_prefix, cdr_value, */
-/*       tag_prefix, tag_value, */
-/*       rank_value); */
-/* } */
-
-/* void viz_heap(){ */
-/*   // to check manually if the tests are working properly */
-/*   current_graph = viz_start_graph("graph.dot"); */
-/*   scan=heap_top; */
-  
-/*   for (int i = 0; i <= MAX_NB_OBJS; i++) { */
-/* #ifdef REF_COUNT */
-/*     obj rank = scan[3]; */
-/* #else */
-/*     obj rank = scan[7]; */
-/* #endif */
-/*     if (IS_RIB(scan[0])) viz_add_edge(current_graph, scan, scan[0]); */
-/*     if (IS_RIB(scan[1])) viz_add_edge(current_graph, scan, scan[1]); */
-/*     if (IS_RIB(scan[2])) viz_add_edge(current_graph, scan, scan[2]); */
-/*     // viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank); */
-/*     if (scan == stack) { */
-/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-33)); */
-/*     } else if (scan == pc) { */
-/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-444)); */
-/*     } else if (scan == FALSE || scan == TRUE || scan == NIL) { */
-/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-5555)); */
-/*     } else if (scan == symbol_table) { */
-/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-66666)); */
-/*     } else { */
-/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank); */
-/*     } */
-/*     scan-=RIB_NB_FIELDS; */
-/*   } */
-/*   viz_end_graph(current_graph); */
-/*   exit(1); */
-/* } */
-
 void viz_add_rib_label(FILE* graph, obj rib, obj car, obj cdr, obj tag, obj m_car, obj m_cdr, obj m_tag, obj p, obj rank){
   // write the value of the rib
   char* car_prefix = IS_RIB(car) ? "r" : "";
@@ -324,24 +271,24 @@ void viz_heap(char* name){
 #else
     obj rank = scan[7];
 #endif
-    if (IS_RIB(scan[0])) viz_add_edge(current_graph, scan, scan[0]);
-    if (IS_RIB(scan[1])) viz_add_edge(current_graph, scan, scan[1]);
-    if (IS_RIB(scan[2])) viz_add_edge(current_graph, scan, scan[2]);
-    if (IS_RIB(scan[3])) viz_add_dot_edge(current_graph, scan, scan[3]);
-    if (IS_RIB(scan[4])) viz_add_dot_edge(current_graph, scan, scan[4]);
-    if (IS_RIB(scan[5])) viz_add_dot_edge(current_graph, scan, scan[5]);
-    if (IS_RIB(scan[6])) viz_add_dot_edge_red(current_graph, scan, scan[6]);
+    if (IS_RIB(scan[0])) viz_add_edge(current_graph, ((obj)scan), scan[0]);
+    if (IS_RIB(scan[1])) viz_add_edge(current_graph, ((obj)scan), scan[1]);
+    if (IS_RIB(scan[2])) viz_add_edge(current_graph, ((obj)scan), scan[2]);
+    if (IS_RIB(scan[3])) viz_add_dot_edge(current_graph, ((obj)scan), scan[3]);
+    if (IS_RIB(scan[4])) viz_add_dot_edge(current_graph, ((obj)scan), scan[4]);
+    if (IS_RIB(scan[5])) viz_add_dot_edge(current_graph, ((obj)scan), scan[5]);
+    if (IS_RIB(scan[6])) viz_add_dot_edge_red(current_graph, ((obj)scan), scan[6]);
     // viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank);
-    if (scan == stack) {
-      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-33));
-    } else if (scan == pc) {
-      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-444));
-    } else if (scan == FALSE || scan == TRUE || scan == NIL) {
-      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-5555));
-    } else if (scan == symbol_table) {
-      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-66666));
+    if (((obj)scan) == stack) {
+      viz_add_rib_label(current_graph, ((obj)scan), scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-33));
+    } else if (((obj)scan) == pc) {
+      viz_add_rib_label(current_graph, ((obj)scan), scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-444));
+    } else if (((obj)scan) == FALSE || ((obj)scan) == TRUE || ((obj)scan) == NIL) {
+      viz_add_rib_label(current_graph, ((obj)scan), scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-5555));
+    } else if (((obj)scan) == symbol_table) {
+      viz_add_rib_label(current_graph, ((obj)scan), scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-66666));
     } else {
-      viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], rank);
+      viz_add_rib_label(current_graph, ((obj)scan), scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], rank);
     }
     scan-=RIB_NB_FIELDS;
   }
@@ -974,6 +921,7 @@ void add_edge(obj from, obj to, int i) {
 // FIXME should we just assume that `from` is a rib to avoid the type check?
 #define add_ref(from, to, i) if (IS_RIB(to)) add_edge(from, to, i)
 
+// Only link the null rib if the the popped object would be deallocated
 #define add_ref_nr(from, to, i) if (IS_RIB(to) && M_CAR(stack) == _NULL) add_edge(from, to, i)
 
 
@@ -984,11 +932,6 @@ void add_edge(obj from, obj to, int i) {
 // Intuition: TODO
 
 #define loosen(x) set_rank(x, -1); pq_remove(x)
-
-// void loosen(obj x) {
-//   set_rank(x, -1);
-//   pq_remove(x);
-// }
 
 void drop() {
   obj x; // current "falling" rib
@@ -1050,8 +993,8 @@ void dealloc_rib(obj x){
       }
     }
   }
-  CAR(x) = alloc; // deallocate the rib by adding it to the freelist
-  alloc = x;
+  CAR(x) = (obj)alloc; // deallocate the rib by adding it to the freelist
+  alloc = (obj *)x;
   d_count++;
 #ifdef VIZ
   // simplifies the generated graph (assumes singly linked list)
@@ -1156,9 +1099,9 @@ void remove_stack(obj old_root) {
       set_rank(old_root, -2);
       remove_ref(old_root, CAR(old_root), 0);
       remove_ref(old_root, CDR(old_root), 1);
-      CAR(old_root) = alloc;
+      CAR(old_root) = (obj)alloc;
       CDR(old_root) = _NULL;
-      alloc = old_root;
+      alloc = (obj *)old_root;
       d_count++;
 #ifdef VIZ
       obj *_x = RIB(old_root)->fields;
@@ -1322,7 +1265,7 @@ void set_sym_tbl(obj new_sym_tbl) {
   if (IS_RIB(symbol_table)) set_rank(symbol_table, 0);
 
   /* // FIXME integrate this in the ES logic */
-  if (IS_RIB(symbol_table)) update_ranks(symbol_table);
+  update_ranks(symbol_table);
 }
 
 void set_stack(obj new_stack) {
@@ -1348,7 +1291,7 @@ void set_pc(obj new_pc) {
   /* if (IS_RIB(pc)) set_rank(pc, 0); */
   
   // FIXME integrate this in the ES logic
-  if (IS_RIB(pc)) update_ranks(pc);
+  update_ranks(pc);
 }
 
 #endif
@@ -1393,7 +1336,7 @@ void gc() {
 #ifdef REF_COUNT
       if (RIB((obj)scan)->fields[3] != 0) leftovers++;
 #else
-      if (get_rank((obj)scan) != 0) leftovers++;
+      if (!is_root((obj)scan)) leftovers++;
 #endif
       *scan = (obj)alloc;
       alloc = scan;
@@ -1421,10 +1364,12 @@ void gc() {
 #ifdef REF_COUNT
   if (*alloc == _NULL){
     printf("Heap is full\n");
+    exit(1);
   }
 #else
-  if (alloc == null_rib) {
+  if (((obj)alloc) == null_rib) {
     printf("Heap is full\n");
+    exit(1);
   }
 #endif
 }
@@ -1591,44 +1536,6 @@ void push2(obj car, obj tag) {
   add_ref(new_rib, tag, 2);
   
   alloc = (obj *)tmp;
-
-  if (!IS_RIB(tmp) || alloc == null_rib) { // empty freelist?
-    gc();
-  }
-}
-
-// FIXME when calling push2 from run with the get instruction we add
-// a duplicate co-friend, not sure why this happens 
-void push_get(obj car, obj tag) {
-  obj tmp = *alloc; // next available slot in freelist
-  
-  // default stack frame is (value, ->, NUM_0)
-  *alloc++ = car;        // field 1
-  *alloc++ = stack;      // field 2
-  *alloc++ = tag;        // field 3
-  *alloc++ = _NULL;      // mirror 1
-  *alloc++ = _NULL;      // mirror 2
-  *alloc++ = _NULL;      // mirror 3
-  *alloc++ = _NULL;      // co-friends
-  *alloc++ = TAG_NUM(0); // rank will be 0 since it becomes the new stack
-  *alloc++ = _NULL;      // queue
-  *alloc++ = _NULL;      // priority queue
-#if defined(BUCKETS) || defined(LINKED_LIST) 
-  *alloc++ = _NULL;
-#endif
-
-  obj new_rib = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
-
-  add_ref(new_rib, stack, 1);
-  set_stack(new_rib);
-  
-  add_ref(new_rib, tag, 2);
-
-  alloc = (obj *)tmp;
-
-  if (!IS_RIB(tmp) || alloc == null_rib) { // empty freelist?
-    gc();
-  }
 }
 
 // We don't need to link a newly allocated rib from the stack since we
@@ -1667,10 +1574,6 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   add_ref(new_rib, tag, 2);
 
   alloc = (obj *)tmp;
-
-  if (!IS_RIB(tmp) || alloc == null_rib) { // empty freelist? 
-    gc();
-  }
   
   return RIB(new_rib);
 }
@@ -2047,6 +1950,9 @@ void run() { // evaluator
     }
     case INSTR_HALT: { // halt
       printf("deallocation count = %d\n", d_count);
+      // viz_heap("graph.dot");
+      // remove_root(symbol_table);
+      // viz_heap("graph.dot");
       gc();
       vm_exit(0);
     }
@@ -2237,9 +2143,10 @@ void decode() {
     DEC_COUNT(CDR(c)); // n
     DEC_COUNT(TOS); // c
 #else
-    if (TEMP5 == n) {
-      DEC_POP(n); // n
-    }
+    DEC_POP(n); // n
+    /* if (TEMP5 == n) { */
+    /*   DEC_POP(n); // n */
+    /* } */
 #endif
   }
   set_pc(TAG(CAR(n)));
