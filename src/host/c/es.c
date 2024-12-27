@@ -45,6 +45,11 @@
 #define VIZ
 // )@@
 
+// @@(feature optimal-es
+// To test some optimizations (e.g. deferred rank updates, etc.)
+#define OPTIMAL_ES
+// )@@
+
 // @@(feature (not compression/lzss/2b)
 // @@(replace "41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121" (encode-as-bytes "auto" "" "," "")
 unsigned char input[] = {41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121,0}; // RVM code that prints HELLO!
@@ -293,7 +298,7 @@ void viz_heap(char* name){
     scan-=RIB_NB_FIELDS;
   }
   viz_end_graph(current_graph);
-  exit(1);
+  // exit(1);
 }
 
 #endif
@@ -705,7 +710,8 @@ int get_mirror_field(obj x, obj cfr) {
 
 #define get_rank(x) (NUM(RANK(x)))
 #define set_rank(x, rank) (RANK(x) = TAG_NUM(rank))
-#define is_root(x) (get_rank(x) == 0 || x == stack || x == pc || x == FALSE || x == symbol_table)
+#define is_root(x) (x == stack || x == pc || x == FALSE)
+// #define is_root(x) (get_rank(x) == 0 || x == stack || x == pc || x == FALSE || x == symbol_table)
 #define is_dirty(from, to) (get_rank(from) < (get_rank(to) - 1))
 #define next_cofriend(x, cfr) (get_field(cfr, get_mirror_field(x, cfr)))
 #define is_parent(x, p) (CFR(x) == p)
@@ -786,12 +792,12 @@ void remove_parent(obj x, obj p, int i) {
   // edge r1->r0, r7 will also become r0's parent. This parent/child cycle
   // will create an infinite loop in the drop phase... needs to be handled
   // somehow and this is probably not the proper way to do it...
-  if (CFR(x) != _NULL && is_parent(CFR(x), x)) {
-    // should probably check if there's another co-friend and wrap this in
-    // a loop until we find a co-friend that's not a child and if there's
-    // no such co-friend, THEN we assign CFR(x) = _NULL ... FIXME
-    CFR(x) = _NULL; 
-  }
+  /* if (CFR(x) != _NULL && is_parent(CFR(x), x)) { */
+  /*   // should probably check if there's another co-friend and wrap this in */
+  /*   // a loop until we find a co-friend that's not a child and if there's */
+  /*   // no such co-friend, THEN we assign CFR(x) = _NULL ... FIXME */
+  /*   CFR(x) = _NULL; */
+  /* } */
 }
 
 void add_cofriend(obj x, obj cfr, int j) {
@@ -988,7 +994,7 @@ void dealloc_rib(obj x){
         dealloc_rib(_x[i]);
       }
       // No point in removing the edge between two falling ribs
-      else {
+      else if (x != _x[i]) {
         remove_edge(x, _x[i], i);
       }
     }
@@ -1051,7 +1057,7 @@ void remove_edge(obj from, obj to, int i) {
     drop();
     if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
     if (get_parent(to) == _NULL) {
-      dealloc_rib(to); 
+      dealloc_rib(to);
     }
   }
 }
@@ -1068,12 +1074,13 @@ void remove_root(obj old_root) {
   if (IS_RIB(old_root)) {
     if (CFR(old_root) == _NULL) {
       // Q_INIT(); // drop queue i.e. "falling ribs"
-      // PQ_INIT(); // ankers i.e. potential "catchers"  
+      // PQ_INIT(); // ankers i.e. potential "catchers"      
       q_enqueue(old_root);
       drop();
       if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
       dealloc_rib(old_root);
-    } else {
+    }
+    else {
       set_rank(old_root, get_rank(CFR(old_root))+1);
       // FIXME in theory, need to update ranks as well (e.g. for pc when parent
       // is not _NULL after a lambda call) but this slows down the execution
@@ -1276,6 +1283,22 @@ void set_stack(obj new_stack) {
   
   // FIXME integrate this in the ES logic
   if (IS_RIB(stack)) update_ranks(stack);
+
+  // FIXME not sure why this is not working
+  /* if (IS_RIB(stack)) { */
+  /*   obj *_stack = RIB(stack)->fields; */
+  /*   for (int i = 0; i < 3; i++) { */
+  /*     if (IS_RIB(_stack[i])) { */
+  /*    // FIXME not sure how this will behave when pc and stack are both */
+  /*    // pointing to the same rib */
+  /*    if (!is_parent(_stack[i], stack)) { */
+  /*      set_parent(_stack[i], stack); */
+  /*      set_rank(_stack[i], 1); */
+  /*      update_ranks(_stack[i]); */
+  /*    } */
+  /*     } */
+  /*   } */
+  /* } */
 }
 
 void set_pc(obj new_pc) {
@@ -1283,17 +1306,66 @@ void set_pc(obj new_pc) {
   pc = new_pc;
   if (IS_RIB(pc)) set_rank(pc, 0);
   remove_root(old_pc);
-
-  // FIXME this is the "proper" order so that we update ranks properly after
-  // a lambda call but this slows down the execution time a lot and doesn't
-  // change the number of objects being deallocated
-  /* remove_root(old_pc); */
-  /* if (IS_RIB(pc)) set_rank(pc, 0); */
   
   // FIXME integrate this in the ES logic
-  update_ranks(pc);
+  // update_ranks(pc);
+  
+  obj *_pc = RIB(pc)->fields;
+  for (int i = 0; i < 3; i++) {
+    if (IS_RIB(_pc[i])) {
+      // FIXME not sure how this will behave when pc and stack are both
+      // pointing to the same rib
+      if (!is_parent(_pc[i], pc)) {
+        set_parent(_pc[i], pc);
+        set_rank(_pc[i], 1);
+        update_ranks(_pc[i]);
+      }
+    }
+  }
 }
 
+#ifdef OPTIMAL_ES
+
+void set_stack2(obj new_stack) {
+  obj old_stack = stack;
+  stack = new_stack;
+  if (IS_RIB(stack)) set_rank(stack, 0);
+  remove_stack(old_stack);
+
+  /* if (IS_RIB(stack)) { */
+  /*   obj *_stack = RIB(stack)->fields; */
+  /*   for (int i = 0; i < 3; i++) { */
+  /*     if (IS_RIB(_stack[i])) { */
+  /*    if (!is_parent(_stack[i], stack)) { */
+  /*      set_parent(_stack[i], stack); */
+  /*    } */
+  /*     } */
+  /*   } */
+  /* } */
+}
+
+void set_pc2(obj new_pc) {
+  obj old_pc = pc;
+  pc = new_pc;
+  if (IS_RIB(pc)) set_rank(pc, 0);
+  remove_root(old_pc);
+
+  obj *_pc = RIB(pc)->fields;
+  for (int i = 0; i < 3; i++) {
+    if (IS_RIB(_pc[i])) {
+      if (!is_parent(_pc[i], pc)) {
+        set_parent(_pc[i], pc);
+      }
+    }
+  }
+}
+
+#else
+
+#define set_stack2(new_stack) set_stack(new_stack)
+#define set_pc2(new_pc) set_pc(new_pc)
+
+#endif
 #endif
 
 
@@ -1336,7 +1408,7 @@ void gc() {
 #ifdef REF_COUNT
       if (RIB((obj)scan)->fields[3] != 0) leftovers++;
 #else
-      if (!is_root((obj)scan)) leftovers++;
+      if (get_rank((obj)scan) != 0) leftovers++;
 #endif
       *scan = (obj)alloc;
       alloc = scan;
@@ -1404,24 +1476,20 @@ obj pop() {
  
 #else
 
+// Can we just set the rank of the popped object to 0 to avoid having it being
+// deallocated (i.e. make it a temporary root), it's a bit faster this way
 obj pop() {
   obj tos = CAR(stack);
   TEMP5 = tos;
   add_ref(null_rib, tos, 0);
+  // if (IS_RIB(tos)) set_rank(tos, 0);
   set_stack(CDR(stack));
   return tos;
 }
 
-// FIXME FIXME FIXME this is a patch but there's clearly something faulty in my
-// implementation if I even need to do this at all
-#define CLEAR_NR()                                                              \
-  obj *nr_ptr = RIB(null_rib)->fields;                                          \
-  nr_ptr[3] = _NULL;                                                            \
-  nr_ptr[4] = _NULL;                                                            \
-  nr_ptr[5] = _NULL;
-
 // to avoid too many preprocessor instructions in the RVM code
 #define DEC_POP(o) TEMP5 = _NULL; remove_ref(null_rib, o, 0)
+// #define DEC_POP(o) _NULL
 
 #define _pop(var, i)                                                            \
   obj var = CAR(stack);                                                         \
@@ -1432,6 +1500,14 @@ obj pop() {
 #define PRIM1() TEMP5 = CAR(stack); _pop(x, 0)
 #define PRIM2() TEMP6 = CAR(stack); _pop(y, 1); PRIM1()
 #define PRIM3() TEMP7 = CAR(stack); _pop(z, 2); PRIM2()
+
+// FIXME FIXME FIXME this is a patch but there's clearly something faulty in my
+// implementation if I even need to do this at all
+#define CLEAR_NR()                                                              \
+  obj *nr_ptr = RIB(null_rib)->fields;                                          \
+  nr_ptr[3] = _NULL;                                                            \
+  nr_ptr[4] = _NULL;                                                            \
+  nr_ptr[5] = _NULL;
 
 // Not sure if we should set TEMPX to _NULL or not but this simplifies the
 // generated graph so I'll leave it for now
@@ -1821,13 +1897,12 @@ void run() { // evaluator
             continue;
           }
           if (jump) { // tail call
-            set_pc(get_cont());
 #ifdef REF_COUNT
-            SET_CDR(stack, CAR(pc));
+            set_pc(get_cont());
 #else
-            // SET_CDR doesn't work FIXME FIXME FIXME
-            SET_CDR(stack, CAR(pc));
+            set_pc2(get_cont()); // FIXME can we avoid updating the ranks here?
 #endif
+            SET_CDR(stack, CAR(pc));
           }
           ADVANCE_PC();
         }
@@ -1939,13 +2014,19 @@ void run() { // evaluator
     }
     case INSTR_CONST: { // const
       push2(CDR(pc), PAIR_TAG);
+#ifdef REF_COUNT
       ADVANCE_PC();
+#else      
+      // FIXME no rank updates?
+      set_pc2(TAG(pc)); // ADVANCE_PC();
+#endif
       break;
     }
     case INSTR_IF: { // if
-      obj p = pop();
-      set_pc((p != FALSE) ? CDR(pc) : TAG(pc));
-      DEC_POP(p);
+      // obj p = pop();
+      set_pc((CAR(stack) != FALSE) ? CDR(pc) : TAG(pc));
+      // DEC_POP(p);
+      set_stack(CDR(stack));
       break;
     }
     case INSTR_HALT: { // halt
@@ -1968,10 +2049,10 @@ void run() { // evaluator
 // Program initialization
 
 void init_heap() {
-  // heap_start = malloc(sizeof(obj) * SPACE_SZ); // (SPACE_SZ+1));
+  heap_start = malloc(sizeof(obj) * SPACE_SZ); // (SPACE_SZ+1));
 
   // calloc is faster with gcc
-  heap_start = calloc(SPACE_SZ, sizeof(obj)); 
+  // heap_start = calloc(SPACE_SZ, sizeof(obj)); 
   if (!heap_start) {
     vm_exit(EXIT_NO_MEMORY);
   }
