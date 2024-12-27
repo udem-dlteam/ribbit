@@ -994,7 +994,7 @@ void dealloc_rib(obj x){
         dealloc_rib(_x[i]);
       }
       // No point in removing the edge between two falling ribs
-      else if (x != _x[i]) {
+      else {
         remove_edge(x, _x[i], i);
       }
     }
@@ -1489,7 +1489,6 @@ obj pop() {
 
 // to avoid too many preprocessor instructions in the RVM code
 #define DEC_POP(o) TEMP5 = _NULL; remove_ref(null_rib, o, 0)
-// #define DEC_POP(o) _NULL
 
 #define _pop(var, i)                                                            \
   obj var = CAR(stack);                                                         \
