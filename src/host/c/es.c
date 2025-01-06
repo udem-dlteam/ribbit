@@ -809,10 +809,31 @@ void add_cofriend(obj x, obj cfr, int j) {
     set_rank(x, get_rank(cfr)+1);
     return;
   }
+
+  // Cas 1: No need to update the whole co-friend list as cfr already point
+  // to x. We can reuse this field instead and return as the list is already
+  // valid
+  for (int k = 0; k < 3; k++){
+    if (k == j) continue;
+    if (get_field(cfr, k) == x){
+      get_field(cfr, j+3) = get_field(cfr, k+3);
+      return;
+    }
+  }
+
+  // Other case, cfr is not already a cofriend of x.
+  // So we need to add it and potentally reupdate all occurences of mirroir field of x in p.
   int i = get_mirror_field(x, p);
   obj tmp = get_field(p,i); // old co-friend pointed by parent
-  get_field(p,i) = cfr;
-  // get_field(cfr, get_mirror_field(x, cfr)) = tmp;
+
+  // Make sure all mirroir field of the parent point to the right
+  for (int k = 0; k < 3; k++){
+    if (get_field(p, k) == x){
+      get_field(p,k+3) = cfr;
+    }
+  }
+
+  // Set the next cofriend in the list
   get_field(cfr, j+3) = tmp;
 }
 
