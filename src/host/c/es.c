@@ -123,7 +123,6 @@ typedef struct {
 #define MARK(x) ((x)|2) // assumes x is a tagged obj (ul)
 #define UNMARK(x) ((x)^2)
 #define IS_MARKED(x) ((x)&2)
-#define GET_MARK(o) (IS_MARKED(CDR(o)) + (IS_MARKED(TAG(o)) >> 1))
 
 #define INSTR_AP 0
 #define INSTR_SET 1
@@ -264,6 +263,8 @@ void viz_add_rib_label(FILE* graph, obj rib, obj car, obj cdr, obj tag, obj m_ca
       p_prefix, p_value,
       rank_value);
 }
+
+
 void viz_heap(char* name){
   // to check manually if the tests are working properly
   // current_graph = viz_start_graph("graph.dot");
@@ -699,7 +700,7 @@ void pq_remove(obj o) {
 
 int get_mirror_field(obj x, obj cfr) {
   for (int i = 0; i < 3; i++){
-    if (get_field(cfr,i) == x) {
+    if (get_field(cfr,i) == x && get_field(cfr,i+3) != cfr) {
       return i+3;
     }
   }
@@ -800,6 +801,22 @@ void remove_parent(obj x, obj p, int i) {
   /* } */
 }
 
+/* void add_cofriend(obj x, obj cfr, int j) { */
+/*   // FIXME do we want the co-friends to be ordered by rank? for now the new */
+/*   // co-friend is just inserted between the parent and the following co-friend */
+/*   obj p = get_parent(x); */
+/*   if (p == _NULL) { */
+/*     set_parent(x, cfr); */
+/*     set_rank(x, get_rank(cfr)+1); */
+/*     return; */
+/*   } */
+/*   int i = get_mirror_field(x, p); */
+/*   obj tmp = get_field(p,i); // old co-friend pointed by parent */
+/*   get_field(p,i) = cfr; */
+/*   // get_field(cfr, get_mirror_field(x, cfr)) = tmp; */
+/*   get_field(cfr, j+3) = tmp; */
+/* } */
+
 void add_cofriend(obj x, obj cfr, int j) {
   // FIXME do we want the co-friends to be ordered by rank? for now the new
   // co-friend is just inserted between the parent and the following co-friend
@@ -821,7 +838,7 @@ void add_cofriend(obj x, obj cfr, int j) {
     }
   }
 
-  // Other case, cfr is not already a cofriend of x.
+  // Other case, cfr is not already a cofriend of x
   // So we need to add it and potentally reupdate all occurences of mirroir field of x in p.
   int i = get_mirror_field(x, p);
   obj tmp = get_field(p,i); // old co-friend pointed by parent
@@ -866,30 +883,61 @@ void add_cofriend(obj x, obj cfr, int j) {
 /*   get_field(cfr, get_mirror_field(x, cfr)) = curr; */
 /* } */
 
+/* void remove_cofriend(obj x, obj cfr, int k) { */
+/*   // assumes that cfr is not x's parent */
+/*   obj curr = CFR(x); */
+/*   obj prev; */
+/*   obj tmp = NUM_0; */
+/*   while (curr != cfr && curr != _NULL) { */
+/*     prev = curr; */
+/*     curr = next_cofriend(x, curr); */
+/*   } */
+/*   if (curr == _NULL) { */
+/*     // FIXME cfr was not a co-friend of x, not sure if that's a bug */
+/*     return; */
+/*   } */
+/*   int i = get_mirror_field(x, curr); */
+/*   int j = get_mirror_field(x, prev); */
+/*   obj tmp2 = get_field(curr,i); */
+/*   get_field(curr,i) = _NULL; // remove reference to next co-friend */
+/*   get_field(prev,j) = (tmp2 != x) ? tmp2 : _NULL;  */
+/* } */
+
 void remove_cofriend(obj x, obj cfr, int k) {
-  // assumes that cfr is not x's parent
+  // Should be named "remove_link" or something because we don't remove the
+  // co-friend if there exist more than one ref from cfr to x
+
+  // If cofriend cfr points to x more than once, just set k's mirror field to
+  // NULL
+  for (int i = 0; i < 3; i++) {
+    if (i == k) continue;
+    if (get_field(cfr, i) == x) {
+      get_field(cfr, k + 3) = _NULL;
+      return;
+    }
+  }
+  // Else we need to find cfr in the list of co-friend and remove it (assumes
+  // cfr is not x's parent and that cfr could not be present in the list)
   obj curr = CFR(x);
   obj prev;
-  obj tmp = NUM_0;
-  while (curr != cfr && curr != _NULL) {
+  while (curr != cfr && curr != _NULL) { // get co-friend and his predecessor
     prev = curr;
-    if (get_mirror_field(x, curr) == -1) {
-      curr = get_field(x, k+3);
-      break;
-    }
     curr = next_cofriend(x, curr);
-    if (curr == tmp) break;
-    tmp = curr;
   }
   if (curr == _NULL) {
     // FIXME cfr was not a co-friend of x, not sure if that's a bug
     return;
   }
-  int i = get_mirror_field(x, curr);
-  int j = get_mirror_field(x, prev);
-  obj tmp2 = get_field(curr,i);
-  get_field(curr,i) = _NULL; // remove reference to next co-friend
-  get_field(prev,j) = (tmp2 != x) ? tmp2 : _NULL; 
+  // remove reference to next co-friend
+  obj tmp = get_field(curr, k);
+  get_field(curr, k) = _NULL; 
+
+  // set all mirror field (associated with ref to x in cfr) to the next co-friend
+  for (int i = 0; k < 3; k++){
+    if (get_field(prev, i) == x){
+      get_field(prev, i+3) = tmp;
+    }
+  }
 }
 
 
@@ -982,7 +1030,7 @@ void drop() {
         pq_enqueue(cfr);
       }
       cfr = next_cofriend(x, cfr);
-      if (cfr == tmp) break; // FIXME rib is delusional (refers to itself)
+      // if (cfr == tmp) break; // FIXME rib is delusional (refers to itself)
       tmp = cfr;
     }
   }
@@ -1238,12 +1286,9 @@ void set_pc(obj new_pc) {
 /* void set_field(obj src, int i, obj dest) { // write barrier */
 /*   obj *ref = RIB(src)->fields; */
 /*   obj tmp = ref[i]; */
+/*   add_ref(src, dest, i); */
 /*   ref[i] = dest; */
-/*   add_ref(src, dest); */
 /*   remove_ref(src, tmp, i); */
-
-/*   // FIXME integrate this in the ES logic */
-/*   if (IS_RIB(src)) update_ranks(src); */
 /* } */
 
 void set_field(obj src, int i, obj dest) { // write barrier
@@ -1267,8 +1312,8 @@ void set_field(obj src, int i, obj dest) { // write barrier
       remove_edge(src, ref[i], i);
       ref[i] = dest;
       add_ref(src, dest, i);
-      TEMP3 = _NULL;
       remove_edge(NIL, tmp, 0);
+      TEMP3 = _NULL;
       set_rank(NIL, 1);
       // update_ranks(src);
       return;
@@ -1325,7 +1370,7 @@ void set_stack(obj new_stack) {
 void set_pc(obj new_pc) {
   obj old_pc = pc;
   pc = new_pc;
-  if (IS_RIB(pc)) set_rank(pc, 0);
+  set_rank(pc, 0);
   remove_root(old_pc);
   
   // FIXME integrate this in the ES logic
@@ -1509,7 +1554,7 @@ obj pop() {
 }
 
 // to avoid too many preprocessor instructions in the RVM code
-#define DEC_POP(o) TEMP5 = _NULL; remove_ref(null_rib, o, 0)
+#define DEC_POP(o) remove_ref(null_rib, o, 0); TEMP5 = _NULL
 
 #define _pop(var, i)                                                            \
   obj var = CAR(stack);                                                         \
@@ -1533,16 +1578,16 @@ obj pop() {
 // generated graph so I'll leave it for now
 
 #define DEC_PRIM1()                                                             \
+  remove_ref(null_rib, x, 0);                                                   \
   TEMP5 = _NULL;                                                                \
-  CLEAR_NR();                                                                   \
-  remove_ref(null_rib, x, 0)
+  CLEAR_NR()
 #define DEC_PRIM2()                                                             \
-  TEMP6 = _NULL;                                                                \
   remove_ref(null_rib, y, 1);                                                   \
+  TEMP6 = _NULL;                                                                \
   DEC_PRIM1()
 #define DEC_PRIM3()                                                             \
-  TEMP7 = _NULL;                                                                \
   remove_ref(null_rib, z, 2);                                                   \
+  TEMP7 = _NULL;                                                                \
   DEC_PRIM2()
 
 #endif
@@ -1901,6 +1946,7 @@ obj prim(int no) {
 void run() { // evaluator
   while (1) {
     num instr = NUM(CAR(pc));
+    // printf("instr = %d\n", instr);
     switch (instr) {
     case INSTR_AP: // call or jump
     {
@@ -2036,7 +2082,7 @@ void run() { // evaluator
       push2(CDR(pc), PAIR_TAG);
 #ifdef REF_COUNT
       ADVANCE_PC();
-#else      
+#else
       // FIXME no rank updates?
       set_pc2(TAG(pc)); // ADVANCE_PC();
 #endif
@@ -2051,6 +2097,7 @@ void run() { // evaluator
     }
     case INSTR_HALT: { // halt
       printf("deallocation count = %d\n", d_count);
+      // viz_heap();
       // viz_heap("graph.dot");
       // remove_root(symbol_table);
       // viz_heap("graph.dot");
@@ -2275,7 +2322,7 @@ void set_global(obj c) {
   set_global(tmp);                                                             \
   DEC_COUNT(tmp);                                                              \
   set_global(FALSE);                                                           \
-  set_global(TRUE);                                                            \
+  set_global(TRUE);                                                     \
   set_global(NIL)
 #else
 // FIXME infinite loop here when we use SET_CAR for the intial primitive, we
