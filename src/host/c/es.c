@@ -781,24 +781,41 @@ void set_parent(obj child, obj new_parent) {
   /* CFR(child) = new_parent; */
 }
 
+/* void remove_parent(obj x, obj p, int i) { */
+/*   // FIXME this could be problematic since we don't tag the parent */
+/*   // and the next co-friend is not technically the parent... */
+/*   CFR(x) = get_field(p,i+3); */
+/*   get_field(p,i+3) = _NULL; */
+
+/*   // FIXME see test 3.1 to see how this could happen: after adding the edges */
+/*   // r0->r7 and then r7->r0, r7 will become r0's only co-friend (other than */
+/*   // r1 which is his parent) even though r0 is r7's parent. When removing the */
+/*   // edge r1->r0, r7 will also become r0's parent. This parent/child cycle */
+/*   // will create an infinite loop in the drop phase... needs to be handled */
+/*   // somehow and this is probably not the proper way to do it... */
+/*   /\* if (CFR(x) != _NULL && is_parent(CFR(x), x)) { *\/ */
+/*   /\*   // should probably check if there's another co-friend and wrap this in *\/ */
+/*   /\*   // a loop until we find a co-friend that's not a child and if there's *\/ */
+/*   /\*   // no such co-friend, THEN we assign CFR(x) = _NULL ... FIXME *\/ */
+/*   /\*   CFR(x) = _NULL; *\/ */
+/*   /\* } *\/ */
+/* } */
+
 void remove_parent(obj x, obj p, int i) {
   // FIXME this could be problematic since we don't tag the parent
   // and the next co-friend is not technically the parent...
+
+  // Only remove the parent if it points only once to the child, else
+  // just set the mirror field to _NULL
+  for (int j = 0; j < 3; j++) {
+    if (j == i) continue;
+    if (get_field(p, j) == x) {
+      get_field(p, i+3) = _NULL;
+      return;
+    }
+  }
   CFR(x) = get_field(p,i+3);
   get_field(p,i+3) = _NULL;
-
-  // FIXME see test 3.1 to see how this could happen: after adding the edges
-  // r0->r7 and then r7->r0, r7 will become r0's only co-friend (other than
-  // r1 which is his parent) even though r0 is r7's parent. When removing the
-  // edge r1->r0, r7 will also become r0's parent. This parent/child cycle
-  // will create an infinite loop in the drop phase... needs to be handled
-  // somehow and this is probably not the proper way to do it...
-  /* if (CFR(x) != _NULL && is_parent(CFR(x), x)) { */
-  /*   // should probably check if there's another co-friend and wrap this in */
-  /*   // a loop until we find a co-friend that's not a child and if there's */
-  /*   // no such co-friend, THEN we assign CFR(x) = _NULL ... FIXME */
-  /*   CFR(x) = _NULL; */
-  /* } */
 }
 
 /* void add_cofriend(obj x, obj cfr, int j) { */
@@ -933,7 +950,7 @@ void remove_cofriend(obj x, obj cfr, int k) {
   get_field(curr, k) = _NULL; 
 
   // set all mirror field (associated with ref to x in cfr) to the next co-friend
-  for (int i = 0; k < 3; k++){
+  for (int i = 0; i < 3; i++){
     if (get_field(prev, i) == x){
       get_field(prev, i+3) = tmp;
     }
@@ -1111,7 +1128,10 @@ void remove_edge(obj from, obj to, int i) {
   }
     
   remove_parent(to, from, i); // `to` is "parentless"
-  if (!is_root(to)) {
+
+  // Second condition happens when we remove an edge between a node and his
+  // parent but the parent points to the child more than once
+  if (!is_root(to) && (!is_parent(to, from))) {
     // TODO remove, same as above
 #ifdef TEST_ES
     if (get_field(from, i) == to) {
