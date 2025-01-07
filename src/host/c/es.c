@@ -12,11 +12,10 @@
  * the R4RS library.
  */
 
-// FIXME any call to gc in a lambda in run will make the program crash
-// (not just here, in the actual RVM as well)
-
-
 /* Know bugs:
+ * - Co-friend not found when trying to remove it from a list of co-friend
+ * - set_field and problem with when trying to protect with NIL
+ * - Some rib's rank are not updated throught the program's execution 
  * - Infinite loop when a function is redefined, didn't investigate at all
  * - ...
  */
@@ -747,7 +746,7 @@ int get_mirror_field(obj x, obj cfr) {
 /*   return CFR(x); */
 /* } */
 
-void set_parent(obj child, obj new_parent) {
+void set_parent(obj child, obj new_parent, int k) {
   obj old_parent = get_parent(child);
   if (old_parent == _NULL || old_parent == new_parent) { // parentless child
     CFR(child) = new_parent;
@@ -759,17 +758,36 @@ void set_parent(obj child, obj new_parent) {
     prev = curr;
     curr = next_cofriend(child, curr);
   }
-  if (curr == _NULL) { // new_parent was not a co-friend
-    int i = get_mirror_field(child, new_parent);
-    get_field(new_parent, i) = old_parent; // make new parent point to old parent
+  if (curr == _NULL) { // new_parent was not a co-friend (guaranteed to have only one ref)
+    get_field(new_parent, k + 3) = old_parent; // make new parent point to old parent
     CFR(child) = new_parent; // new parent becomes... the new parent
     return;
   }
-  int i = get_mirror_field(child, prev);
-  int j = get_mirror_field(child, curr);
-  get_field(prev, i) = get_field(curr, j); // remove new_parent from cfr chain
-  get_field(curr, j) = old_parent; // make new parent point to old parent
-  CFR(child) = new_parent; // new parent becomes... the new parent
+
+  obj next = next_cofriend(child, curr); // successor of curr (next will have to point to next)  
+  obj tmp = get_parent(child); // old parent
+
+  for (int i = 0; i < 3; i++){
+    if (get_field(curr, i) == child){
+      get_field(curr, i+3) = tmp;
+    }
+  }
+
+  get_parent(child) = curr; // new parent
+
+  // set all mirror field (associated with ref to child in new_parent) to the next co-friend
+  for (int i = 0; i < 3; i++){
+    if (get_field(prev, i) == child){
+      get_field(prev, i+3) = next;
+    }
+  }
+
+  
+  /* int i = get_mirror_field(child, prev); */
+  /* int j = get_mirror_field(child, curr); */
+  /* get_field(prev, i) = get_field(curr, j); // remove new_parent from cfr chain */
+  /* get_field(curr, j) = old_parent; // make new parent point to old parent */
+  /* CFR(child) = new_parent; // new parent becomes... the new parent */
 
   /* // This works only if the new parent is the rib right after the old parent in the */
   /* // chain of co-friends but if the new parent is further away in the chain, any */
@@ -807,6 +825,8 @@ void remove_parent(obj x, obj p, int i) {
 
   // Only remove the parent if it points only once to the child, else
   // just set the mirror field to _NULL
+
+  // Case 1: 
   for (int j = 0; j < 3; j++) {
     if (j == i) continue;
     if (get_field(p, j) == x) {
@@ -814,8 +834,9 @@ void remove_parent(obj x, obj p, int i) {
       return;
     }
   }
-  CFR(x) = get_field(p,i+3);
-  get_field(p,i+3) = _NULL;
+  // Case 2: Only one ref from p to x
+  get_parent(x) = get_field(p, i+3); // get next co-friend
+  get_field(p, i+3) = _NULL; // set paren't mirror field to _NULL
 }
 
 /* void add_cofriend(obj x, obj cfr, int j) { */
@@ -823,7 +844,7 @@ void remove_parent(obj x, obj p, int i) {
 /*   // co-friend is just inserted between the parent and the following co-friend */
 /*   obj p = get_parent(x); */
 /*   if (p == _NULL) { */
-/*     set_parent(x, cfr); */
+/*     set_parent(x, cfr, j); */
 /*     set_rank(x, get_rank(cfr)+1); */
 /*     return; */
 /*   } */
@@ -839,7 +860,7 @@ void add_cofriend(obj x, obj cfr, int j) {
   // co-friend is just inserted between the parent and the following co-friend
   obj p = get_parent(x);
   if (p == _NULL) {
-    set_parent(x, cfr);
+    set_parent(x, cfr, j);
     set_rank(x, get_rank(cfr)+1);
     return;
   }
@@ -917,8 +938,10 @@ void add_cofriend(obj x, obj cfr, int j) {
 /*   int j = get_mirror_field(x, prev); */
 /*   obj tmp2 = get_field(curr,i); */
 /*   get_field(curr,i) = _NULL; // remove reference to next co-friend */
-/*   get_field(prev,j) = (tmp2 != x) ? tmp2 : _NULL;  */
+/*   get_field(prev,j) = (tmp2 != x) ? tmp2 : _NULL; */
 /* } */
+
+void foo(){}
 
 void remove_cofriend(obj x, obj cfr, int k) {
   // Should be named "remove_link" or something because we don't remove the
@@ -935,7 +958,7 @@ void remove_cofriend(obj x, obj cfr, int k) {
   }
   // Else we need to find cfr in the list of co-friend and remove it (assumes
   // cfr is not x's parent and that cfr could not be present in the list)
-  obj curr = CFR(x);
+  obj curr = get_parent(x);
   obj prev;
   while (curr != cfr && curr != _NULL) { // get co-friend and his predecessor
     prev = curr;
@@ -943,11 +966,15 @@ void remove_cofriend(obj x, obj cfr, int k) {
   }
   if (curr == _NULL) {
     // FIXME cfr was not a co-friend of x, not sure if that's a bug
+    /* if (cfr != null_rib) foo(); */
+    /* printf("couldn't find the cofriend when trying to remove\n"); */
+    
+    // exit(1);
     return;
   }
   // remove reference to next co-friend
-  obj tmp = get_field(curr, k);
-  get_field(curr, k) = _NULL; 
+  obj tmp = get_field(curr, k+3);
+  get_field(curr, k+3) = _NULL;
 
   // set all mirror field (associated with ref to x in cfr) to the next co-friend
   for (int i = 0; i < 3; i++){
@@ -987,7 +1014,7 @@ void update_ranks(obj root) {
           set_rank(c[i], r);
           q_enqueue(c[i]);
         } else if (is_dirty(curr, c[i])) {
-          set_parent(c[i], curr); 
+          set_parent(c[i], curr, i); 
           set_rank(c[i], r);
           q_enqueue(c[i]);
         }
@@ -999,7 +1026,7 @@ void update_ranks(obj root) {
 void add_edge(obj from, obj to, int i) {
   add_cofriend(to, from, i);
   if (is_dirty(from, to)) {
-    set_parent(to, from);
+    set_parent(to, from, i);
   }
   // The reference from a new root to an existing rib is not considered dirty
   // so we need to have the `is_parent` check to account for that situation
@@ -1061,7 +1088,7 @@ void catch() {
     obj *_anker = RIB(anker)->fields;
     for (int i = 0; i < 3; i++) {
       if (IS_RIB(_anker[i]) && (get_rank(_anker[i]) == -1)) {
-        set_parent(_anker[i], anker);
+        set_parent(_anker[i], anker, i);
         set_rank(_anker[i], get_rank(anker)+1);
         pq_enqueue(_anker[i]); // add rescued node to potential "catchers"
       }
@@ -1329,16 +1356,16 @@ void set_field(obj src, int i, obj dest) { // write barrier
       set_rank(NIL, get_rank(src));
       TEMP3 = ref[i];
       add_edge(NIL, ref[i], 0);
-      remove_edge(src, ref[i], i);
+      remove_ref(src, ref[i], i);
       ref[i] = dest;
       add_ref(src, dest, i);
-      remove_edge(NIL, tmp, 0);
+      remove_ref(NIL, tmp, 0);
       TEMP3 = _NULL;
       set_rank(NIL, 1);
       // update_ranks(src);
       return;
     }
-    remove_edge(src, ref[i], i);
+    remove_ref(src, ref[i], i);
   }
   ref[i] = dest;
   add_ref(src, dest, i);
@@ -1378,7 +1405,7 @@ void set_stack(obj new_stack) {
   /*    // FIXME not sure how this will behave when pc and stack are both */
   /*    // pointing to the same rib */
   /*    if (!is_parent(_stack[i], stack)) { */
-  /*      set_parent(_stack[i], stack); */
+  /*      set_parent(_stack[i], stack, i); */
   /*      set_rank(_stack[i], 1); */
   /*      update_ranks(_stack[i]); */
   /*    } */
@@ -1402,7 +1429,7 @@ void set_pc(obj new_pc) {
       // FIXME not sure how this will behave when pc and stack are both
       // pointing to the same rib
       if (!is_parent(_pc[i], pc)) {
-        set_parent(_pc[i], pc);
+        set_parent(_pc[i], pc, i);
         set_rank(_pc[i], 1);
         update_ranks(_pc[i]);
       }
@@ -1423,7 +1450,7 @@ void set_stack2(obj new_stack) {
   /*   for (int i = 0; i < 3; i++) { */
   /*     if (IS_RIB(_stack[i])) { */
   /*    if (!is_parent(_stack[i], stack)) { */
-  /*      set_parent(_stack[i], stack); */
+  /*      set_parent(_stack[i], stack, i); */
   /*    } */
   /*     } */
   /*   } */
@@ -1440,7 +1467,7 @@ void set_pc2(obj new_pc) {
   for (int i = 0; i < 3; i++) {
     if (IS_RIB(_pc[i])) {
       if (!is_parent(_pc[i], pc)) {
-        set_parent(_pc[i], pc);
+        set_parent(_pc[i], pc, i);
       }
     }
   }
@@ -2351,7 +2378,7 @@ void set_global(obj c) {
   obj tmp = TAG_RIB(alloc_rib(NUM_0, symbol_table, CLOSURE_TAG));              \
   CAR(CAR(symbol_table)) = tmp;                                                \
   obj tmp2 = CAR(symbol_table);                                                \
-  remove_edge(symbol_table, tmp2, 0);                                          \
+  remove_ref(symbol_table, tmp2, 0);                                          \
   add_edge(tmp2, tmp, 0);                                                      \
   add_edge(symbol_table, tmp2, 0);                                             \
   set_sym_tbl(CDR(symbol_table));                                              \
