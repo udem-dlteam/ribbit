@@ -941,8 +941,6 @@ void add_cofriend(obj x, obj cfr, int j) {
 /*   get_field(prev,j) = (tmp2 != x) ? tmp2 : _NULL; */
 /* } */
 
-void foo(){}
-
 void remove_cofriend(obj x, obj cfr, int k) {
   // Should be named "remove_link" or something because we don't remove the
   // co-friend if there exist more than one ref from cfr to x
@@ -968,7 +966,6 @@ void remove_cofriend(obj x, obj cfr, int k) {
     // FIXME cfr was not a co-friend of x, not sure if that's a bug
     /* if (cfr != null_rib) foo(); */
     /* printf("couldn't find the cofriend when trying to remove\n"); */
-    
     // exit(1);
     return;
   }
@@ -2338,10 +2335,9 @@ void decode() {
     DEC_COUNT(CDR(c)); // n
     DEC_COUNT(TOS); // c
 #else
-    DEC_POP(n); // n
-    /* if (TEMP5 == n) { */
-    /*   DEC_POP(n); // n */
-    /* } */
+    if (TEMP5 == n) {
+      DEC_POP(n); // n
+    }
 #endif
   }
   set_pc(TAG(CAR(n)));
