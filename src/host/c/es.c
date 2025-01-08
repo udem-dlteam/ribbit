@@ -49,6 +49,14 @@
 #define OPTIMAL_ES
 // )@@
 
+// @@(feature alt-encoding
+// This feature activates the second encoding for the way we track references
+// i.e. we track references themselves rather than co-friend when traversing
+// the list of co-friends... this is used to compare the performance
+#define ALT_ENCODING
+// )@@
+
+
 // @@(feature (not compression/lzss/2b)
 // @@(replace "41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121" (encode-as-bytes "auto" "" "," "")
 unsigned char input[] = {41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121,0}; // RVM code that prints HELLO!
@@ -964,8 +972,9 @@ void remove_cofriend(obj x, obj cfr, int k) {
   }
   if (curr == _NULL) {
     // FIXME cfr was not a co-friend of x, not sure if that's a bug
-    /* if (cfr != null_rib) foo(); */
-    /* printf("couldn't find the cofriend when trying to remove\n"); */
+    /* if (cfr != null_rib) { */
+    /*   printf("couldn't find the cofriend when trying to remove\n"); */
+    /* } */
     // exit(1);
     return;
   }
@@ -1039,7 +1048,6 @@ void add_edge(obj from, obj to, int i) {
 
 // Only link the null rib if the the popped object would be deallocated
 #define add_ref_nr(from, to, i) if (IS_RIB(to) && M_CAR(stack) == _NULL) add_edge(from, to, i)
-
 
 //------------------------------------------------------------------------------
 
@@ -1177,6 +1185,9 @@ void remove_edge(obj from, obj to, int i) {
 
 // FIXME should we just assume that `from` is a rib to avoid the type check?
 #define remove_ref(from, to, i) if (IS_RIB(to)) remove_edge(from, to, i)
+
+// FIXME need to generalize this so that it works with any protected field
+#define remove_ref_nr(to, i) remove_edge(null_rib, to, i); TEMP5 = _NULL;
 
 
 //------------------------------------------------------------------------------
@@ -1590,36 +1601,37 @@ obj pop() {
 // deallocated (i.e. make it a temporary root), it's a bit faster this way
 obj pop() {
   obj tos = CAR(stack);
-  TEMP5 = tos;
-  add_ref(null_rib, tos, 0);
+  if (IS_RIB(tos) && M_CAR(stack) == _NULL) {
+    // protect TOS only if it gets deallocated otherwise
+    TEMP5 = tos;
+    add_edge(null_rib, tos, 0);
+  }
   // if (IS_RIB(tos)) set_rank(tos, 0);
   set_stack(CDR(stack));
   return tos;
 }
 
 // to avoid too many preprocessor instructions in the RVM code
-#define DEC_POP(o) remove_ref(null_rib, o, 0); TEMP5 = _NULL
+#define DEC_POP(o) if (TEMP5 == o) remove_ref_nr(o, 0)
+
+
+// FIXME!!! only protect a popped object if said object would get deallocated
+// otherwise (can easily be checked since M_CAR(stack) would be _NULL)
 
 #define _pop(var, i)                                                            \
   obj var = CAR(stack);                                                         \
-  add_ref_nr(null_rib, var, i);                                                 \
+  add_ref(null_rib, var, i);                                                    \
   set_stack(CDR(stack));
 
-// FIXME no need to save CAR(stack) in TEMPX if popped obj has another parent
 #define PRIM1() TEMP5 = CAR(stack); _pop(x, 0)
 #define PRIM2() TEMP6 = CAR(stack); _pop(y, 1); PRIM1()
 #define PRIM3() TEMP7 = CAR(stack); _pop(z, 2); PRIM2()
 
-// FIXME FIXME FIXME this is a patch but there's clearly something faulty in my
-// implementation if I even need to do this at all
 #define CLEAR_NR()                                                              \
   obj *nr_ptr = RIB(null_rib)->fields;                                          \
   nr_ptr[3] = _NULL;                                                            \
   nr_ptr[4] = _NULL;                                                            \
   nr_ptr[5] = _NULL;
-
-// Not sure if we should set TEMPX to _NULL or not but this simplifies the
-// generated graph so I'll leave it for now
 
 #define DEC_PRIM1()                                                             \
   remove_ref(null_rib, x, 0);                                                   \
@@ -2335,9 +2347,7 @@ void decode() {
     DEC_COUNT(CDR(c)); // n
     DEC_COUNT(TOS); // c
 #else
-    if (TEMP5 == n) {
-      DEC_POP(n); // n
-    }
+    DEC_POP(n);
 #endif
   }
   set_pc(TAG(CAR(n)));
