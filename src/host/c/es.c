@@ -109,7 +109,8 @@ typedef struct {
 #define PQ_NEXT_BKT(x) RIB(x)->fields[10]
 #else
 // singly linked list
-#define PQ_NEXT(x) RIB(x)->fields[9] 
+#define PQ_NEXT(x) RIB(x)->fields[9]
+// #define PQ_NEXT(x) Q_NEXT(x)
 // doubly linked list
 #ifdef LINKED_LIST
 #define PQ_PREV(x) RIB(x)->fields[10]
@@ -788,23 +789,12 @@ void set_parent(obj child, obj new_parent, int k) {
     if (get_field(prev, i) == child){
       get_field(prev, i+3) = next;
     }
-  }
-
-  
+  }  
   /* int i = get_mirror_field(child, prev); */
   /* int j = get_mirror_field(child, curr); */
   /* get_field(prev, i) = get_field(curr, j); // remove new_parent from cfr chain */
   /* get_field(curr, j) = old_parent; // make new parent point to old parent */
   /* CFR(child) = new_parent; // new parent becomes... the new parent */
-
-  /* // This works only if the new parent is the rib right after the old parent in the */
-  /* // chain of co-friends but if the new parent is further away in the chain, any */
-  /* // rib between these two will be lost... oopsie */
-  /* int i = get_mirror_field(child, old_parent); */
-  /* int j = get_mirror_field(child, new_parent); */
-  /* get_field(old_parent,i) = get_field(new_parent,j); // assumes new_parent is a cfr */
-  /* get_field(new_parent,j) = old_parent; */
-  /* CFR(child) = new_parent; */
 }
 
 /* void remove_parent(obj x, obj p, int i) { */
@@ -949,6 +939,8 @@ void add_cofriend(obj x, obj cfr, int j) {
 /*   get_field(prev,j) = (tmp2 != x) ? tmp2 : _NULL; */
 /* } */
 
+void foo(){}
+
 void remove_cofriend(obj x, obj cfr, int k) {
   // Should be named "remove_link" or something because we don't remove the
   // co-friend if there exist more than one ref from cfr to x
@@ -973,7 +965,8 @@ void remove_cofriend(obj x, obj cfr, int k) {
   if (curr == _NULL) {
     // FIXME cfr was not a co-friend of x, not sure if that's a bug
     /* if (cfr != null_rib) { */
-    /*   printf("couldn't find the cofriend when trying to remove\n"); */
+    /*   foo(); */
+    /*   printf("couldn't find the cofriend when trying to remove\n\n"); */
     /* } */
     // exit(1);
     return;
@@ -1120,7 +1113,6 @@ void dealloc_rib(obj x){
   CAR(x) = (obj)alloc; // deallocate the rib by adding it to the freelist
   alloc = (obj *)x;
   d_count++;
-#ifdef VIZ
   // simplifies the generated graph (assumes singly linked list)
   _x[1] = _NULL;
   _x[2] = _NULL;
@@ -1130,8 +1122,7 @@ void dealloc_rib(obj x){
   _x[6] = _NULL;
   _x[7] = TAG_NUM(0);
   _x[8] = _NULL;
-  _x[9] = _NULL;
-#endif
+  _x[9] = _NULL; // FIXME assumes singly linked list
 }
   
 void remove_edge(obj from, obj to, int i) {
@@ -1234,9 +1225,9 @@ void remove_stack(obj old_root) {
       CDR(old_root) = _NULL;
       alloc = (obj *)old_root;
       d_count++;
-#ifdef VIZ
       obj *_x = RIB(old_root)->fields;
-      // simplifies the generated graph (assumes singly linked list)
+      
+      // FIXME redundant with rib allocation
       _x[1] = _NULL;
       _x[2] = _NULL;
       _x[3] = _NULL;
@@ -1245,8 +1236,7 @@ void remove_stack(obj old_root) {
       _x[6] = _NULL;
       _x[7] = TAG_NUM(0);
       _x[8] = _NULL;
-      _x[9] = _NULL;
-#endif
+      _x[9] = _NULL; // FIXME assumes singly linked list
     } else {
       set_rank(old_root, get_rank(CFR(old_root))+1);
       // FIXME same as above
@@ -1286,12 +1276,11 @@ void dec_count(obj o) {
     }
     ptr[0] = (obj)alloc; // reference to next availabe slot in memory
     alloc = &ptr[0];
-#ifdef VIZ
-    // Simplifies the generated graph
+    
+    // FIXME Simplifies the generated graph but redundant with rib allocation
     ptr[1] = _NULL;
     ptr[2] = _NULL;
     ptr[3] = TAG_NUM(0);
-#endif
   }
   else {
     ptr[3] = TAG_NUM(count);
@@ -1350,6 +1339,7 @@ void set_field(obj src, int i, obj dest) { // write barrier
   // The order differs a bit from the ref count version of the write barrier...
   // TODO explain why we're doing that this way
   obj *ref = RIB(src)->fields;
+  
   if (IS_RIB(ref[i])) { // no need to dereference _NULL or a num
     if (next_cofriend(ref[i], src) == _NULL) {
       // We need to be more careful here since simply removing the edge
@@ -1996,7 +1986,6 @@ obj prim(int no) {
   return TAG_NUM(0);
 }
 
-
 #define ADVANCE_PC() set_pc(TAG(pc))
 
 void run() { // evaluator
@@ -2153,10 +2142,6 @@ void run() { // evaluator
     }
     case INSTR_HALT: { // halt
       printf("deallocation count = %d\n", d_count);
-      // viz_heap();
-      // viz_heap("graph.dot");
-      // remove_root(symbol_table);
-      // viz_heap("graph.dot");
       gc();
       vm_exit(0);
     }
@@ -2304,13 +2289,13 @@ void decode() {
     op = -1;
     while((d=weights[++op])<=n) n-=d;
     if (op < 4) push2(NUM_0, NUM_0); // JUMP
-    if (op < 24) n = op%2> 0 ? get_int(n):n; 
+    if (op < 24) n = op % 2> 0 ? get_int(n) : n; 
     if (op < 20) {
       i = (op / 4) - 1;
-      i = i < 0?0:i;
+      i = i < 0 ? 0 : i;
       n = !(op & 0b10)  ? TAG_NUM(n) : TAG_RIB(symbol_ref(n));
 #ifdef REF_COUNT
-      INC_COUNT(n); 
+      INC_COUNT(n);
 #endif
     }
     else if (op < 22) {
@@ -2359,6 +2344,56 @@ void decode() {
 }
 // )@@
 
+// @@(feature encoding/original
+void decode() {
+  
+  // TODO adapt original encoding to ref count and ES, original is faster
+  
+  int weights[6] = {20, 30, 0, 10, 11, 4};
+  obj n;
+  int d;
+  int op;
+  while (1) {
+    num x = GET_CODE();
+    n = x;
+    op = -1;
+    while (n > 2 + (d = weights[++op])) {
+      n -= d + 3;
+    }
+    if (x > 90) {
+      op = INSTR_IF;
+      n = pop();
+    } else {
+      if (!op) {
+        push2(NUM_0, NUM_0);
+      }
+      if (n >= d) {
+        n = (n == d) ? TAG_NUM(get_int(0))
+                     : TAG_RIB(symbol_ref(get_int(n - d - 1)));
+      } else {
+        n = (op < 3) ? TAG_RIB(symbol_ref(n)) : TAG_NUM(n);
+      }
+      if (op > 4) {
+        n = TAG_RIB(
+            alloc_rib(TAG_RIB(alloc_rib2(n, NUM_0, pop())), NIL, CLOSURE_TAG));
+        if (stack == NUM_0) {
+          break;
+        }
+        op = INSTR_CONST;
+      } else if (op > 0) {
+        op--;
+      } else {
+        op = 0;
+      }
+    }
+    rib *c = alloc_rib(TAG_NUM(op), n, 0);
+    c->fields[2] = TOS;
+    TOS = TAG_RIB(c);
+  }
+  pc = TAG(CAR(n));
+}
+// )@@
+
 
 // init global variables and stack
 
@@ -2375,7 +2410,7 @@ void set_global(obj c) {
   set_global(tmp);                                                             \
   DEC_COUNT(tmp);                                                              \
   set_global(FALSE);                                                           \
-  set_global(TRUE);                                                     \
+  set_global(TRUE);                                                            \
   set_global(NIL)
 #else
 // FIXME infinite loop here when we use SET_CAR for the intial primitive, we
@@ -2384,7 +2419,7 @@ void set_global(obj c) {
   obj tmp = TAG_RIB(alloc_rib(NUM_0, symbol_table, CLOSURE_TAG));              \
   CAR(CAR(symbol_table)) = tmp;                                                \
   obj tmp2 = CAR(symbol_table);                                                \
-  remove_ref(symbol_table, tmp2, 0);                                          \
+  remove_ref(symbol_table, tmp2, 0);                                           \
   add_edge(tmp2, tmp, 0);                                                      \
   add_edge(symbol_table, tmp2, 0);                                             \
   set_sym_tbl(CDR(symbol_table));                                              \
