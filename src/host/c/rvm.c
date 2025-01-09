@@ -172,7 +172,7 @@ typedef struct {
 
 // GC constants
 rib *heap_start;
-#define MAX_NB_OBJS 100000000 // 48000 is minimum for bootstrap
+#define MAX_NB_OBJS 100000 // 48000 is minimum for bootstrap
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
 #ifdef MARK_SWEEP
