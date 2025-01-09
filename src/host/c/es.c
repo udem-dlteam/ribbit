@@ -17,9 +17,33 @@
  * - set_field and problem with when trying to protect with NIL
  * - Some rib's rank are not updated throught the program's execution 
  * - Infinite loop when a function is redefined, didn't investigate at all
- * - ...
+ * - ... anything else?
  */
 
+/* TODOs (other than fixing the bugs listed above, not in order of priority)
+ * - Adapt original compression to ref count and ES
+ * - Adapt the IO primitives for ref count and ES garbage collector
+ * - RC: Make sure all (non-cyclic) ribs are collected
+ * - ES: Implement a better test suite
+ * - ES ... _NULL?
+ * - ES: Only clear a rib's field during allocation or deallocation, not both
+ * - ES: Only protect a popped rib if it would get deallocated otherwise 
+ * - ES: Fix the potential bug in set_field 
+ * - ES: Implement finalizers 
+ * - ES: Re-evaluate my dealloc_rib strategy, might not be optimal
+ * - ES: Add the "reference" encoding for chaining co-friends
+ * - ES: Add co-friends by rank?
+ * - ES: Find a way to deal with the PC updates
+ * - ES: Find the source of the uncollected ribs with r4rs's display 
+ * - ES: Merge the queue and priority queue in one field
+ * - ES: Explore other priority queue implementations
+ * - ES: Determine a good heuristic for heap size and a resizing strategy?
+ * - ES: More efficient way to allocate the free list?
+ * - ES: Add the missing features from the original RVM (esp. r4rs chars/strings)
+ * - ES: Explore other ways than linking the null rib to protect popped ribs 
+ * - ES: Optimizations, optimizations, and more optimizations 
+ * - ... anything else?
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1066,14 +1090,11 @@ void drop() {
       }
     }
     // identify x's co-friends that could be potential "catchers"
-    obj tmp = NUM_0;
     while (cfr != _NULL) {
       if (get_rank(cfr) != -1) { // potential anker?
         pq_enqueue(cfr);
       }
       cfr = next_cofriend(x, cfr);
-      // if (cfr == tmp) break; // FIXME rib is delusional (refers to itself)
-      tmp = cfr;
     }
   }
 }
@@ -1326,14 +1347,6 @@ void set_pc(obj new_pc) {
 }
 
 #else
-
-/* void set_field(obj src, int i, obj dest) { // write barrier */
-/*   obj *ref = RIB(src)->fields; */
-/*   obj tmp = ref[i]; */
-/*   add_ref(src, dest, i); */
-/*   ref[i] = dest; */
-/*   remove_ref(src, tmp, i); */
-/* } */
 
 void set_field(obj src, int i, obj dest) { // write barrier
   // The order differs a bit from the ref count version of the write barrier...
@@ -2062,7 +2075,6 @@ void run() { // evaluator
 #endif
           }
           // )@@
-          obj tmp;
           for (int i = 0; i < nparams; ++i) {
 #ifdef REF_COUNT
             new_stack = TAG_RIB(alloc_rib(pop(), new_stack, PAIR_TAG));
