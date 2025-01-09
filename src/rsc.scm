@@ -756,7 +756,7 @@
 (define (host-config-add-location! host-config location feature)
   (let ((location-ref (assoc location (host-config-locations host-config))))
     (if location-ref
-      (set-cdr! location-ref (append (cdr location-ref) feature))
+      (set-car! (cdr location-ref) (append (cadr location-ref) feature))
       (begin
         (host-config-locations-set! host-config (cons (list location feature) (host-config-locations host-config)))
         #t))))
