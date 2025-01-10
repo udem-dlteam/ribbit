@@ -3,29 +3,43 @@
 ;; with the time library (see src/lib/time.scm)
 
 ;; Add c global definitions to keep track of time
-(define-feature c/include-clock
-  ((import "#include <time.h>\n")))
+(define-feature c/include-sys/time.h
+  ((import "#include <sys/time.h>\n")))
 
 (define-feature c/timer/globals
-  (use c/include-clock)
+  (use c/include-sys/time.h)
   ((decl "
-clock_t time_before;
-clock_t time_difference;
+struct timeval time_before;
+struct timeval time_after;
 ")))
 
 (define-feature c/timer/gc-globals
-  (use c/include-clock)
+  (use c/include-sys/time.h)
   ((decl "
-clock_t time_gc_before;
-clock_t time_gc_accumulated;
+struct timeval time_gc_before;
+struct timeval time_gc_after;
+long long time_gc_accumulated;
 int should_clock_gc = 0;
 int gc_invocations = 0;
 ")
    (gc-start "
-if(should_clock_gc == 1) {gc_invocations++;time_gc_before=clock();}
+if(should_clock_gc == 1) {
+  gc_invocations++;
+  if(gettimeofday(&time_gc_before, 0) != 0) {
+    printf(\"***error while grabbing time...\");
+    exit(1);
+  };
+}
 ")
    (gc-end "
-if(should_clock_gc == 1) {time_gc_accumulated += clock()-time_gc_before; gc_invocations++;}
+if(should_clock_gc == 1) {
+  if(gettimeofday(&time_gc_after, 0) != 0){
+    printf(\"***Error while grabbing time...\");
+    exit(1);
+  }
+  time_gc_accumulated += (time_gc_after.tv_sec-time_gc_before.tv_sec)*1000000LL + time_gc_after.tv_usec-time_gc_before.tv_usec;
+  gc_invocations++;
+}
 ")))
 
 
@@ -36,7 +50,10 @@ if(should_clock_gc == 1) {time_gc_accumulated += clock()-time_gc_before; gc_invo
   should_clock_gc = 1;
   gc_invocations = 0;
   time_gc_accumulated = 0;
-  time_before = clock();
+  if(gettimeofday(&time_before, 0) != 0) {
+    printf(\"***error while grabbing time...\");
+    exit(1);
+  };
   push2(TAG_NUM(0), PAIR_TAG);
   break;
   }")
@@ -45,17 +62,26 @@ if(should_clock_gc == 1) {time_gc_accumulated += clock()-time_gc_before; gc_invo
 (define-primitive (##timer-end)
   (use c/time/globals c/time/gc-globals)
   "{
-time_difference = clock() - time_before;
-should_clock_gc = 0;
-push2(TAG_NUM(0), PAIR_TAG);
-break;
+  if(gettimeofday(&time_after, 0) != 0) {
+    printf(\"***error while grabbing time...\");
+    exit(1);
+  };
+
+  should_clock_gc = 0;
+  push2(TAG_NUM(0), PAIR_TAG);
+  break;
 }")
 
 ;; Display a timer in the format '2.623414 seconds (0.028148 seconds in GC, 3630 invocations)'
 (define-primitive (##timer-display)
   (use c/time/globals c/time/gc-globals)
   "{
-printf(\"%.6f seconds (%.6f seconds in GC, %d invocations)\\n\", ((double)time_difference) / CLOCKS_PER_SEC, ((double)time_gc_accumulated) / CLOCKS_PER_SEC, gc_invocations);
+long long time_difference_ns = (time_after.tv_sec-time_before.tv_sec)*1000000LL + time_after.tv_usec-time_before.tv_usec;
+printf(
+  \"%.6f seconds (%.6f seconds in GC, %d invocations)\\n\",
+  ((double)time_difference_ns) / 1000000,
+  ((double)time_gc_accumulated) / 1000000, gc_invocations
+);
 push2(TAG_NUM(0), PAIR_TAG);
 break;
 }")
