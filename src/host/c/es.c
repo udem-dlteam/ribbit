@@ -1087,8 +1087,14 @@ void update_ranks(obj root) {
       // an infinite loop when we update the ranks after setting a new root
       // but not sure if that should also be applied in add_edge?
       if (IS_RIB(c[i]) && c[i] != root && (!is_root(c[i]))) {
-        
-        if (is_parent(c[i], curr)) {
+
+        // Only update ranks if the parent's rank was updated or if the edge
+        // is dirty
+        // FIXME we could avoid A LOT of overhead if we could avoid some updates
+        // here without changing how many ribs gets collected, also should note
+        // that the algorithm enqueues EVERY friends, which I don't do here to
+        // avoid the insane overhead of doing that
+        if (is_parent(c[i], curr) && (get_rank(curr) != (get_rank(c[i])+1))) {
           set_rank(c[i], r);
           q_enqueue(c[i]);
         } else if (is_dirty(curr, c[i])) {
@@ -1180,8 +1186,7 @@ void dealloc_rib(obj x){
       if (get_rank(_x[i]) == -1) { // falling?
         dealloc_rib(_x[i]);
       }
-      // No point in removing the edge between two falling ribs
-      else {
+      else { // if (get_rank(_x[i]) != -2) {
         remove_edge(x, _x[i], i);
       }
     }
@@ -1277,6 +1282,11 @@ void remove_root(obj old_root) {
       // FIXME FIXME FIXME FIXME FIXME
       // This is essential (I think) for the GC to collect all ribs but it slows
       // down the execution time.... A LOT, need to find a way to reduce that
+      
+      // IMPORTANT: doing the rank update allows the GC to collect all rib when
+      // we run the tests with `max-tc` but this is the only library that
+      // requires this to collect all ribs, probably should check if we can
+      // dp the rank update ONLY under certain circumstances 
       update_ranks(old_root);
     }
   }
