@@ -732,7 +732,7 @@ void pq_remove(obj o) {
 
 int get_mirror_field(obj x, obj cfr) {
   for (int i = 0; i < 3; i++){
-    if (get_field(cfr,i) == x && get_field(cfr,i+3) != cfr) {
+    if (get_field(cfr,i) == x) { // && get_field(cfr,i+3) != cfr) {
       return i+3;
     }
   }
