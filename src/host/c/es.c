@@ -25,6 +25,7 @@
  * - Adapt the IO primitives for ref count and ES garbage collector
  * - RC: Make sure all (non-cyclic) ribs are collected
  * - ES: Implement a better test suite
+ * - ES: Make sure there's no redundant rank updates that slows down the execution time
  * - ES ... _NULL?
  * - ES: Only clear a rib's field during allocation or deallocation, not both
  * - ES: Only protect a popped rib if it would get deallocated otherwise 
@@ -262,6 +263,59 @@ void viz_add_dot_edge_red(FILE* graph, obj from, obj to){
   // write the edge from "from" to "to"
   fprintf(graph, "%ld -> %ld [style=dotted, color=red]\n ", from, to);
 }
+
+/* void viz_add_rib_label(FILE* graph, obj rib, obj car, obj cdr, obj tag, obj rank){ */
+/*   // write the value of the rib */
+/*   char* car_prefix = IS_RIB(car) ? "r" : ""; */
+/*   char* cdr_prefix = IS_RIB(cdr) ? "r" : ""; */
+/*   char* tag_prefix = IS_RIB(tag) ? "r" : ""; */
+/*   long rib_value = rib - ((long)heap_start); */
+/*   long car_value = IS_RIB(car) ? car-((long)heap_start) : NUM(car); */
+/*   long cdr_value = IS_RIB(cdr) ? cdr-((long)heap_start) : NUM(cdr); */
+/*   long tag_value = IS_RIB(tag) ? tag-((long)heap_start) : NUM(tag); */
+/*   long rank_value = NUM(rank); */
+/*   fprintf( */
+/*       graph, */
+/*       "%ld [label=\"%ld : [%s%ld,%s%ld,%s%ld] -- %ld\"]\n", */
+/*       rib, */
+/*       rib_value, */
+/*       car_prefix, car_value, */
+/*       cdr_prefix, cdr_value, */
+/*       tag_prefix, tag_value, */
+/*       rank_value); */
+/* } */
+
+/* void viz_heap(){ */
+/*   // to check manually if the tests are working properly */
+/*   current_graph = viz_start_graph("graph.dot"); */
+/*   scan=heap_top; */
+  
+/*   for (int i = 0; i <= MAX_NB_OBJS; i++) { */
+/* #ifdef REF_COUNT */
+/*     obj rank = scan[3]; */
+/* #else */
+/*     obj rank = scan[7]; */
+/* #endif */
+/*     if (IS_RIB(scan[0])) viz_add_edge(current_graph, scan, scan[0]); */
+/*     if (IS_RIB(scan[1])) viz_add_edge(current_graph, scan, scan[1]); */
+/*     if (IS_RIB(scan[2])) viz_add_edge(current_graph, scan, scan[2]); */
+/*     // viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank); */
+/*     if (scan == stack) { */
+/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-33)); */
+/*     } else if (scan == pc) { */
+/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-444)); */
+/*     } else if (scan == FALSE || scan == TRUE || scan == NIL) { */
+/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-5555)); */
+/*     } else if (scan == symbol_table) { */
+/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-66666)); */
+/*     } else { */
+/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank); */
+/*     } */
+/*     scan-=RIB_NB_FIELDS; */
+/*   } */
+/*   viz_end_graph(current_graph); */
+/*   // exit(1); */
+/* } */
 
 void viz_add_rib_label(FILE* graph, obj rib, obj car, obj cdr, obj tag, obj m_car, obj m_cdr, obj m_tag, obj p, obj rank){
   // write the value of the rib
@@ -744,6 +798,7 @@ int get_mirror_field(obj x, obj cfr) {
 #define get_rank(x) (NUM(RANK(x)))
 #define set_rank(x, rank) (RANK(x) = TAG_NUM(rank))
 #define is_root(x) (x == stack || x == pc || x == FALSE)
+// FIXME uncollected ribs when an object of rank 0 or the symmbol table is considered a root 
 // #define is_root(x) (get_rank(x) == 0 || x == stack || x == pc || x == FALSE || x == symbol_table)
 #define is_dirty(from, to) (get_rank(from) < (get_rank(to) - 1))
 #define next_cofriend(x, cfr) (get_field(cfr, get_mirror_field(x, cfr)))
@@ -1218,12 +1273,11 @@ void remove_root(obj old_root) {
     }
     else {
       set_rank(old_root, get_rank(CFR(old_root))+1);
-      // FIXME in theory, need to update ranks as well (e.g. for pc when parent
-      // is not _NULL after a lambda call) but this slows down the execution
-      // time way too much and the ranks will be updated soon enough (it doesn't
-      // change the number of objects being deallocated AFAIK)
 
-      // update_ranks(old_root);
+      // FIXME FIXME FIXME FIXME FIXME
+      // This is essential (I think) for the GC to collect all ribs but it slows
+      // down the execution time.... A LOT, need to find a way to reduce that
+      update_ranks(old_root);
     }
   }
 }
@@ -1260,9 +1314,9 @@ void remove_stack(obj old_root) {
       _x[9] = _NULL; // FIXME assumes singly linked list
     } else {
       set_rank(old_root, get_rank(CFR(old_root))+1);
+      
       // FIXME same as above
-
-      // update_ranks(old_root);
+      update_ranks(old_root);
     }
   }
 }
@@ -1373,14 +1427,14 @@ void set_field(obj src, int i, obj dest) { // write barrier
       remove_ref(NIL, tmp, 0);
       TEMP3 = _NULL;
       set_rank(NIL, 1);
-      // update_ranks(src);
+      update_ranks(src);
       return;
     }
     remove_ref(src, ref[i], i);
   }
   ref[i] = dest;
   add_ref(src, dest, i);
-  // if (IS_RIB(src)) update_ranks(src);
+  if (IS_RIB(src)) update_ranks(src);
 }
 
 // FIXME assume `src` will always be a rib?
@@ -1433,7 +1487,7 @@ void set_pc(obj new_pc) {
   
   // FIXME integrate this in the ES logic
   // update_ranks(pc);
-  
+
   obj *_pc = RIB(pc)->fields;
   for (int i = 0; i < 3; i++) {
     if (IS_RIB(_pc[i])) {
@@ -2154,6 +2208,7 @@ void run() { // evaluator
     }
     case INSTR_HALT: { // halt
       printf("deallocation count = %d\n", d_count);
+      /* viz_heap("graph.dot"); */
       gc();
       vm_exit(0);
     }
