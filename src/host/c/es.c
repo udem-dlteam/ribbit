@@ -7,8 +7,8 @@
  * garbage collector inspired by Even-Shiloach trees.
  *
  * This version of the RVM doesn't include all the features defined in the
- * original version (DEBUG, NO_STD, lzss compression, original encoding, 
- * stop & copy GC, R4RS lib's chars/strings, etc.) but can be used with
+ * original version (DEBUG, NO_STD, lzss compression, ARG_V, clang support, 
+ * stop & copy GC, DEFAULT_REPL_MIN, NOSTART, CHECK_ACCESS, etc.) but can be used with
  * the R4RS library.
  */
 
@@ -22,9 +22,12 @@
 
 /* TODOs (other than fixing the bugs listed above, not in order of priority)
  * - Adapt original compression to ref count and ES
+ * - Adapt strings/chars and list primitives for ref count and ES
+ * - Adapt eval primitive to ref count and ES
  * - Adapt the IO primitives for ref count and ES garbage collector
  * - RC: Make sure all (non-cyclic) ribs are collected
  * - ES: Implement a better test suite
+ * - ES: Check that my way to detect uncollected ribs in `gc` is not faulty
  * - ES: Make sure there's no redundant rank updates that slows down the execution time
  * - ES ... _NULL?
  * - ES: Only clear a rib's field during allocation or deallocation, not both
@@ -184,6 +187,7 @@ obj FALSE = NUM_0;
 
 // global but not a root, referenced
 obj symbol_table = NUM_0;
+
 size_t pos = 0;
 
 #define TRUE (CAR(FALSE))
@@ -1094,7 +1098,7 @@ void update_ranks(obj root) {
         // here without changing how many ribs gets collected, also should note
         // that the algorithm enqueues EVERY friends, which I don't do here to
         // avoid the insane overhead of doing that
-        if (is_parent(c[i], curr) && (get_rank(curr) != (get_rank(c[i])+1))) {
+        if (is_parent(c[i], curr)) { // && (get_rank(curr) != (get_rank(c[i])+1))) {
           set_rank(c[i], r);
           q_enqueue(c[i]);
         } else if (is_dirty(curr, c[i])) {
@@ -1286,7 +1290,7 @@ void remove_root(obj old_root) {
       // IMPORTANT: doing the rank update allows the GC to collect all rib when
       // we run the tests with `max-tc` but this is the only library that
       // requires this to collect all ribs, probably should check if we can
-      // dp the rank update ONLY under certain circumstances 
+      // do the rank update ONLY under certain circumstances 
       update_ranks(old_root);
     }
   }
@@ -1871,6 +1875,51 @@ obj get_cont() {
   }
   return s;
 }
+
+// @@(feature scm2str
+char* scm2str(obj s) { // FIXME not tested
+    int length = (int) NUM(CDR(s)); 
+    obj current = CAR(s);
+    char* str = malloc(length + 1);
+    for (int i = 0; i < length; i++) {
+        str[i] = (char) NUM(CAR(current));
+        current = CDR(current);
+    }
+
+    str[length] = '\0';
+
+    return str;
+};
+// )@@
+
+// @@(feature str2scm
+obj str2scm(char* s) { // FIXME not tested
+    obj chrs = NIL;
+    int len = 0;
+    int i = 0;
+
+    while (s[len++]); // calculate length
+    len--; // remove \0 at the end
+    
+    // Construct list by the tail
+    i = len;
+    while (i--) 
+      chrs = TAG_RIB(alloc_rib(TAG_NUM(s[i]), chrs, PAIR_TAG));
+
+    return TAG_RIB(alloc_rib(chrs, TAG_NUM(len), STRING_TAG));
+}
+// )@@
+
+// @@(feature list2scm (use str2scm)
+// Warning, this implementation assumes string inside of the list
+obj list2scm(char **s, int length) { // FIXME not tested
+    obj list = NIL;
+    for (int i = length - 1; i >= 0; i--)
+        list = TAG_RIB(alloc_rib(str2scm(s[i]), list, PAIR_TAG));
+    
+    return list;
+};
+// )@@
 
 // @@(feature bool2scm
 obj bool2scm(bool x) { return x ? TRUE : FALSE; }
