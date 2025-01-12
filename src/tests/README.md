@@ -64,7 +64,7 @@ Note that all of these variables can be redefined in the command line. For examp
 HOST=c HOST_INTERPRETER="clang -o" TEST_TAGS=r4rs make check
 ```
 
-For an example of Makefile, see the [c host makefile](./../hosts/c/makefile).
+For an example of Makefile, see the [c host makefile](./../host/c/makefile).
 
 ## Test files
 
