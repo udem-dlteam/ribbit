@@ -16,7 +16,6 @@
  * - Co-friend not found when trying to remove it from a list of co-friend
  * - set_field and problem with when trying to protect with NIL
  * - Some rib's rank are not updated throught the program's execution 
- * - Infinite loop when a function is redefined, didn't investigate at all
  * - ... anything else?
  */
 
@@ -35,7 +34,6 @@
  * - ES: Fix the potential bug in set_field 
  * - ES: Implement finalizers 
  * - ES: Re-evaluate my dealloc_rib strategy, might not be optimal
- * - ES: Add the "reference" encoding for chaining co-friends
  * - ES: Add co-friends by rank?
  * - ES: Find a way to deal with the PC updates
  * - ES: Find the source of the uncollected ribs with r4rs's display 
@@ -71,19 +69,6 @@
 // @@(feature debug/rib-viz
 #define VIZ
 // )@@
-
-// @@(feature optimal-es
-// To test some optimizations (e.g. deferred rank updates, etc.)
-#define OPTIMAL_ES
-// )@@
-
-// @@(feature alt-encoding
-// This feature activates the second encoding for the way we track references
-// i.e. we track references themselves rather than co-friend when traversing
-// the list of co-friends... this is used to compare the performance
-#define ALT_ENCODING
-// )@@
-
 
 // @@(feature (not compression/lzss/2b)
 // @@(replace "41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121" (encode-as-bytes "auto" "" "," "")
@@ -578,11 +563,6 @@ void pq_remove(obj o) {
 
 // Priority queue implemented with a doubly linked list
 
-// No idea why this is (much) slower than the singly linked list
-// given that the delete operation (for the set) is now in O(1)
-// instead of O(n). Leaving this here for now because I probably
-// missed something
-
 void pq_enqueue(obj o) {
   // the lower the rank, the closer the rib is to pq_head
   if (PQ_PREV(o) == _NULL && pq_head != o) {
@@ -643,13 +623,6 @@ void pq_remove(obj o) {
 #else
 
 // Priority queue implemented with a singly linked list
-
-// In the previous version of the singly linked list, I had a bug
-// where I would never add an element to the pqueue if it was the
-// last element before the tail in the priority queue. This is
-// obviously wrong but somehow all the programs that I tested
-// worked (although they were quite simple) and the execution time
-// was about 30% faster (and the same number of rib was deallocated)
 
 void pq_enqueue(obj o) {
   // the lower the rank, the closer the rib is to pq_head
@@ -797,46 +770,19 @@ int get_mirror_field(obj x, obj cfr) {
   return -1; // cfr is not x's co-friend
 }
 
-// Saves us a few seconds in execution time if we define these as macros
-
 #define get_rank(x) (NUM(RANK(x)))
 #define set_rank(x, rank) (RANK(x) = TAG_NUM(rank))
+
 #define is_root(x) (x == stack || x == pc || x == FALSE)
 // FIXME uncollected ribs when an object of rank 0 or the symmbol table is considered a root 
 // #define is_root(x) (get_rank(x) == 0 || x == stack || x == pc || x == FALSE || x == symbol_table)
 #define is_dirty(from, to) (get_rank(from) < (get_rank(to) - 1))
+
 #define next_cofriend(x, cfr) (get_field(cfr, get_mirror_field(x, cfr)))
+
 #define is_parent(x, p) (CFR(x) == p)
 #define get_parent(x) CFR(x)
 
-/* bool is_root(obj x) { */
-/*   return (x == stack || x == pc || x == FALSE || x == symbol_table); */
-/* } */
-
-/* int get_rank(obj x) { */
-/*   return NUM(RANK(x)); */
-/* } */
-
-/* void set_rank(obj x, int rank) { */
-/*   RANK(x) = TAG_NUM(rank); */
-/* } */
-
-/* bool is_dirty(obj from, obj to) { */
-/*   return (get_rank(from) < (get_rank(to) - 1)); */
-/* } */
-
-/* obj next_cofriend(obj x, obj cfr) { */
-/*   // get next co-friend in x's list of co-friends (following cfr) */
-/*   return get_field(cfr, get_mirror_field(x, cfr)); */
-/* } */
-
-/* bool is_parent(obj x, obj p) { */
-/*   return (CFR(x) == p);  */
-/* } */
-
-/* obj get_parent(obj x) { */
-/*   return CFR(x); */
-/* } */
 
 void set_parent(obj child, obj new_parent, int k) {
   obj old_parent = get_parent(child);
@@ -856,7 +802,7 @@ void set_parent(obj child, obj new_parent, int k) {
     return;
   }
 
-  obj next = next_cofriend(child, curr); // successor of curr (next will have to point to next)  
+  obj next = next_cofriend(child, curr); // successor of curr (next will have to point to next)
   obj tmp = get_parent(child); // old parent
 
   for (int i = 0; i < 3; i++){
@@ -873,68 +819,25 @@ void set_parent(obj child, obj new_parent, int k) {
       get_field(prev, i+3) = next;
     }
   }  
-  /* int i = get_mirror_field(child, prev); */
-  /* int j = get_mirror_field(child, curr); */
-  /* get_field(prev, i) = get_field(curr, j); // remove new_parent from cfr chain */
-  /* get_field(curr, j) = old_parent; // make new parent point to old parent */
-  /* CFR(child) = new_parent; // new parent becomes... the new parent */
 }
 
-/* void remove_parent(obj x, obj p, int i) { */
-/*   // FIXME this could be problematic since we don't tag the parent */
-/*   // and the next co-friend is not technically the parent... */
-/*   CFR(x) = get_field(p,i+3); */
-/*   get_field(p,i+3) = _NULL; */
-
-/*   // FIXME see test 3.1 to see how this could happen: after adding the edges */
-/*   // r0->r7 and then r7->r0, r7 will become r0's only co-friend (other than */
-/*   // r1 which is his parent) even though r0 is r7's parent. When removing the */
-/*   // edge r1->r0, r7 will also become r0's parent. This parent/child cycle */
-/*   // will create an infinite loop in the drop phase... needs to be handled */
-/*   // somehow and this is probably not the proper way to do it... */
-/*   /\* if (CFR(x) != _NULL && is_parent(CFR(x), x)) { *\/ */
-/*   /\*   // should probably check if there's another co-friend and wrap this in *\/ */
-/*   /\*   // a loop until we find a co-friend that's not a child and if there's *\/ */
-/*   /\*   // no such co-friend, THEN we assign CFR(x) = _NULL ... FIXME *\/ */
-/*   /\*   CFR(x) = _NULL; *\/ */
-/*   /\* } *\/ */
-/* } */
-
 void remove_parent(obj x, obj p, int i) {
-  // FIXME this could be problematic since we don't tag the parent
-  // and the next co-friend is not technically the parent...
-
-  // Only remove the parent if it points only once to the child, else
-  // just set the mirror field to _NULL
-
-  // Case 1: 
+  // Case 1: The parent `p` has more than one reference to the child `x`,
+  // set the mirror field to NULL but don't actually remove the parent
   for (int j = 0; j < 3; j++) {
     if (j == i) continue;
     if (get_field(p, j) == x) {
-      get_field(p, i+3) = _NULL;
+      get_field(p, i + 3) = _NULL;
       return;
     }
   }
-  // Case 2: Only one ref from p to x
-  get_parent(x) = get_field(p, i+3); // get next co-friend
-  get_field(p, i+3) = _NULL; // set paren't mirror field to _NULL
+  // Case 2: The parent `p` has only one reference to the child `x`, the
+  // parent must be removed from the list of co-friends, the next co-friend
+  // is set as the temporary parent (note that its rank might not be minimal)
+  get_parent(x) = get_field(p, i + 3); // next co-friend
+  get_field(p, i + 3) = _NULL; 
 }
 
-/* void add_cofriend(obj x, obj cfr, int j) { */
-/*   // FIXME do we want the co-friends to be ordered by rank? for now the new */
-/*   // co-friend is just inserted between the parent and the following co-friend */
-/*   obj p = get_parent(x); */
-/*   if (p == _NULL) { */
-/*     set_parent(x, cfr, j); */
-/*     set_rank(x, get_rank(cfr)+1); */
-/*     return; */
-/*   } */
-/*   int i = get_mirror_field(x, p); */
-/*   obj tmp = get_field(p,i); // old co-friend pointed by parent */
-/*   get_field(p,i) = cfr; */
-/*   // get_field(cfr, get_mirror_field(x, cfr)) = tmp; */
-/*   get_field(cfr, j+3) = tmp; */
-/* } */
 
 void add_cofriend(obj x, obj cfr, int j) {
   // FIXME do we want the co-friends to be ordered by rank? for now the new
@@ -1002,28 +905,6 @@ void add_cofriend(obj x, obj cfr, int j) {
 /*   get_field(cfr, get_mirror_field(x, cfr)) = curr; */
 /* } */
 
-/* void remove_cofriend(obj x, obj cfr, int k) { */
-/*   // assumes that cfr is not x's parent */
-/*   obj curr = CFR(x); */
-/*   obj prev; */
-/*   obj tmp = NUM_0; */
-/*   while (curr != cfr && curr != _NULL) { */
-/*     prev = curr; */
-/*     curr = next_cofriend(x, curr); */
-/*   } */
-/*   if (curr == _NULL) { */
-/*     // FIXME cfr was not a co-friend of x, not sure if that's a bug */
-/*     return; */
-/*   } */
-/*   int i = get_mirror_field(x, curr); */
-/*   int j = get_mirror_field(x, prev); */
-/*   obj tmp2 = get_field(curr,i); */
-/*   get_field(curr,i) = _NULL; // remove reference to next co-friend */
-/*   get_field(prev,j) = (tmp2 != x) ? tmp2 : _NULL; */
-/* } */
-
-void foo(){}
-
 void remove_cofriend(obj x, obj cfr, int k) {
   // Should be named "remove_link" or something because we don't remove the
   // co-friend if there exist more than one ref from cfr to x
@@ -1048,7 +929,6 @@ void remove_cofriend(obj x, obj cfr, int k) {
   if (curr == _NULL) {
     // FIXME cfr was not a co-friend of x, not sure if that's a bug
     /* if (cfr != null_rib) { */
-    /*   foo(); */
     /*   printf("couldn't find the cofriend when trying to remove\n\n"); */
     /* } */
     // exit(1);
@@ -1516,48 +1396,6 @@ void set_pc(obj new_pc) {
   }
 }
 
-#ifdef OPTIMAL_ES
-
-void set_stack2(obj new_stack) {
-  obj old_stack = stack;
-  stack = new_stack;
-  if (IS_RIB(stack)) set_rank(stack, 0);
-  remove_stack(old_stack);
-
-  /* if (IS_RIB(stack)) { */
-  /*   obj *_stack = RIB(stack)->fields; */
-  /*   for (int i = 0; i < 3; i++) { */
-  /*     if (IS_RIB(_stack[i])) { */
-  /*    if (!is_parent(_stack[i], stack)) { */
-  /*      set_parent(_stack[i], stack, i); */
-  /*    } */
-  /*     } */
-  /*   } */
-  /* } */
-}
-
-void set_pc2(obj new_pc) {
-  obj old_pc = pc;
-  pc = new_pc;
-  if (IS_RIB(pc)) set_rank(pc, 0);
-  remove_root(old_pc);
-
-  obj *_pc = RIB(pc)->fields;
-  for (int i = 0; i < 3; i++) {
-    if (IS_RIB(_pc[i])) {
-      if (!is_parent(_pc[i], pc)) {
-        set_parent(_pc[i], pc, i);
-      }
-    }
-  }
-}
-
-#else
-
-#define set_stack2(new_stack) set_stack(new_stack)
-#define set_pc2(new_pc) set_pc(new_pc)
-
-#endif
 #endif
 
 
@@ -1812,10 +1650,6 @@ void push2(obj car, obj tag) {
 // a cycle) then the number of live objects at all time in the program
 // corresponds to the maximum number of objects allowed by the program.
 
-// Note that assumes that we don't defer deallocation and that we in fact
-// collect all the objects once they're no longer needed otherwise we'll
-// trigger a GC cycle and the newly allocated rib might get collected
-
 rib *alloc_rib(obj car, obj cdr, obj tag) {
   // allocates a rib without protecting it from the GC
 
@@ -1924,6 +1758,7 @@ obj list2scm(char **s, int length) { // FIXME not tested
 // @@(feature bool2scm
 obj bool2scm(bool x) { return x ? TRUE : FALSE; }
 // )@@
+
 
 // Primitive procedures
 obj prim(int no) {
@@ -2112,6 +1947,7 @@ obj prim(int no) {
   return TAG_NUM(0);
 }
 
+
 #define ADVANCE_PC() set_pc(TAG(pc))
 
 void run() { // evaluator
@@ -2134,11 +1970,7 @@ void run() { // evaluator
             continue;
           }
           if (jump) { // tail call
-#ifdef REF_COUNT
             set_pc(get_cont());
-#else
-            set_pc2(get_cont()); // FIXME can we avoid updating the ranks here?
-#endif
             SET_CDR(stack, CAR(pc));
           }
           ADVANCE_PC();
@@ -2250,12 +2082,7 @@ void run() { // evaluator
     }
     case INSTR_CONST: { // const
       push2(CDR(pc), PAIR_TAG);
-#ifdef REF_COUNT
       ADVANCE_PC();
-#else
-      // FIXME no rank updates?
-      set_pc2(TAG(pc)); // ADVANCE_PC();
-#endif
       break;
     }
     case INSTR_IF: { // if
