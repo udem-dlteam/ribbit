@@ -1098,7 +1098,7 @@ void update_ranks(obj root) {
         // here without changing how many ribs gets collected, also should note
         // that the algorithm enqueues EVERY friends, which I don't do here to
         // avoid the insane overhead of doing that
-        if (is_parent(c[i], curr)) { // && (get_rank(curr) != (get_rank(c[i])+1))) {
+        if (is_parent(c[i], curr) && (get_rank(curr) != (get_rank(c[i])+1))) {
           set_rank(c[i], r);
           q_enqueue(c[i]);
         } else if (is_dirty(curr, c[i])) {
