@@ -8,7 +8,7 @@ primitive and other types of meta information. This meta information is annotate
 `@@(` and `)@@` tags.
 
 ## How to run
-To run those tests, go into the [src](../src) directory and run : 
+To run those tests, go into the `src` directory and run : 
 
 ```
 HOST={your host} make check-feature

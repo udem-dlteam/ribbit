@@ -182,7 +182,7 @@ replacing `pro` with the target language.
 
 ### Other examples and tests
 
-For other examples and tests, you can look at the [examples](./src/examples) and [tests](./tests)
+For other examples and tests, you can look at the [examples](./src/examples) and [tests](./src/tests)
 directories.
 
 The makefile in the `src` directory has these make targets:

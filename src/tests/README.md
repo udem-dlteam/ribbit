@@ -18,7 +18,7 @@ HOST=<host> make check-repl
 ```
 
 Where `<host>` is the host language you want to test. For example, <host> can be any of `c`, `js`, `asm`, `hs`, `py`. See
-the [front page](../README.md) for a list of all supported hosts.
+the [front page](./../../README.md) for a list of all supported hosts.
 
 # Test infrastructure
 
@@ -33,7 +33,7 @@ Given a host and test file, it will perform broadly the following steps:
    the `;;;input:` comment in the source code of the test.
 3. Compare the output of the target host file and the expected output specified in the test file with the `;;;expected` comment.
 
-For more details about the test runner, see the [test-runner](test-runner) script or continue reading.
+For more details about the test runner, see the [test-runner](./../run_test.sh) script or continue reading.
 
 ## Host Makefiles
 
@@ -64,7 +64,7 @@ Note that all of these variables can be redefined in the command line. For examp
 HOST=c HOST_INTERPRETER="clang -o" TEST_TAGS=r4rs make check
 ```
 
-For an example of Makefile, see the [c host makefile](../hosts/c/Makefile).
+For an example of Makefile, see the [c host makefile](./../hosts/c/makefile).
 
 ## Test files
 
