@@ -16,7 +16,7 @@
   break;
   }")
 
-(if-feature host/c/es,c 
+(if-feature host/c/es.c 
 
   ;; FIXME not fully tested
   ;; ref count or even-shiloach gc          
