@@ -3,4 +3,4 @@
 (##define-resource-reader
  ipfs
  (lambda (resource-path)
-   (shell-cmd (string-append "ipfs cat " resource-path))))
+   (open-input-string (pipe-through (string-append "ipfs cat " resource-path) ""))))
