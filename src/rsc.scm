@@ -1828,7 +1828,7 @@
                       mtx)
                     #f))))
 
-             ((eqv? first '##include-str)
+             ((eqv? first '##include-string)
               (expand-expr (read-str-resource (parse-resource (cadr expr))) mtx))
 
              (else
@@ -2139,6 +2139,15 @@
     (if reader
       ((cadr reader) resource-path)
       (error "No resource reader found for resource-type:" (resource-type resource)))))
+
+(define (read-char-list input-port)
+  (let loop ((c (read-char input-port)))
+    (cond 
+      ((eof-object? c) '())
+      (else (cons c (loop (read-char input-port)))))))
+
+(define (read-str-resource resource)
+  (list->string (read-char-list (get-resource-port resource))))
 
 (define (expand-resource resource mtx)
   (let ((old-current-resource current-resource))
