@@ -5030,7 +5030,7 @@ The output is written to output.c, with an executable compiled to run-output.exe
     (if (not src-path)
 
       (begin
-        (display "*** a Scheme source file must be specified\n")
+        (error "*** a Scheme source file must be specified\n")
         (exit-program-abnormally))
 
       (fancy-compiler
