@@ -333,9 +333,10 @@
        (let ((path (string-replace (string-replace path "//" "/") "/./" "/")))
          (if (string-prefix? "./" path)
            (loop (substring path 2 (string-length path)))
-           (if (string-prefix? "../" path)
-             (loop (substring path 3 (string-length path)))
-             path)))))
+           path))))
+           ;; (if (string-prefix? "../" path)
+           ;;   (loop (substring path 3 (string-length path)))
+           ;;   path)
 
 (cond-expand
 
@@ -4049,8 +4050,9 @@
 (define (read-library lib-path)
   `((##include-once (ribbit ,lib-path))))
 
-(define (read-program lib-path src-path)
+(define (read-program lib-path src-path prefix-code)
   (append (apply append (map read-library lib-path))
+          (if (not prefix-code) '() (read-from-file prefix-code))
           (if (equal? src-path "-")
               (read-all)
               (read-from-file src-path))))
@@ -4738,6 +4740,7 @@
 
 (define target "rvm")
 (define (fancy-compiler src-path
+                        prefix-code
                         output-path
                         exe-output-path
                         rvm-path
@@ -4768,8 +4771,8 @@
   (let* ((vm-source
            (if (equal? _target "rvm")
              #f
-             (string-from-file
-               (path-expand rvm-path
+             (string-from-file rvm-path
+               #;(path-expand rvm-path
                             (root-dir)))))
          (host-file
            (if (equal? _target "rvm")
@@ -4807,7 +4810,7 @@
          (program-read
            (report-status
              "Reading program source code"
-             (read-program lib-path src-path)))
+             (read-program lib-path src-path prefix-code)))
 
          (program-compiled
            (report-status
@@ -4911,6 +4914,7 @@ The output is written to output.c, with an executable compiled to run-output.exe
   (let ((verbosity 0)
         (debug-info '())
         (target "rvm")
+        (prefix-code #f)
         (input-path #f)
         (output-path #f)
         (exe-output-path #f)
@@ -4933,6 +4937,9 @@ The output is written to output.c, with an executable compiled to run-output.exe
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-i" "--input")))
                  (set! input-path (car rest))
+                 (loop (cdr rest)))
+                ((and (pair? rest) (member arg '("--prefix-code")))
+                 (set! prefix-code (car rest))
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-o" "--output")))
                  (set! output-path (car rest))
@@ -5030,6 +5037,7 @@ The output is written to output.c, with an executable compiled to run-output.exe
 
       (fancy-compiler
         src-path
+        prefix-code
         (or output-path
             (if (or (equal? src-path "-") (equal? target "rvm"))
               "-"
