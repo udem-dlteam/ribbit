@@ -5158,9 +5158,7 @@
   (let* ((vm-source
            (if (equal? _target "rvm")
              #f
-             (string-from-file rvm-path
-               #;(path-expand rvm-path
-                            (root-dir)))))
+             (string-from-file rvm-path)))
          (host-file
            (if (equal? _target "rvm")
              #f
