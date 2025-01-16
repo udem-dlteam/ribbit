@@ -876,35 +876,6 @@ void add_cofriend(obj x, obj cfr, int j) {
   get_field(cfr, j+3) = tmp;
 }
 
-/* void add_cofriend(obj x, obj cfr) { */
-/*   // cofriends are inserted by rank, this way we can easily check if */
-/*   // we're trying to add a duplicate */
-/*   obj p = get_parent(x); */
-/*   if (p == _NULL) { */
-/*     set_parent(x, cfr); */
-/*     set_rank(x, get_rank(cfr)+1); */
-/*     return; */
-/*   } */
-/*   obj prev = _NULL; */
-/*   obj curr = p; */
-/*   while (curr != _NULL && curr != cfr && get_rank(curr) <= get_rank(cfr)) { */
-/*     prev = curr; */
-/*     curr = next_cofriend(x, curr); */
-/*   } */
-/*   if (curr == cfr) return; // duplicates */
-/*   if (prev == _NULL) { */
-/*     CFR(x) = cfr; // new parent; */
-/*   } */
-/*   if (prev == _NULL) { */
-/*     // cfr will become the new parent FIXME redundant */
-/*     CFR(x) = cfr; */
-/*   } else { */
-/*     // insert cfr between prev and curr */
-/*     get_field(prev, get_mirror_field(x, prev)) = cfr; */
-/*   } */
-/*   get_field(cfr, get_mirror_field(x, cfr)) = curr; */
-/* } */
-
 void remove_cofriend(obj x, obj cfr, int k) {
   // Should be named "remove_link" or something because we don't remove the
   // co-friend if there exist more than one ref from cfr to x
