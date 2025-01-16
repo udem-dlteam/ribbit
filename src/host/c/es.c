@@ -1181,7 +1181,7 @@ void remove_root(obj old_root) {
       // we run the tests with `max-tc` but this is the only library that
       // requires this to collect all ribs, probably should check if we can
       // do the rank update ONLY under certain circumstances 
-      update_ranks(old_root);
+      // update_ranks(old_root);
     }
   }
 }
@@ -1218,9 +1218,14 @@ void remove_stack(obj old_root) {
       _x[9] = _NULL; // FIXME assumes singly linked list
     } else {
       set_rank(old_root, get_rank(CFR(old_root))+1);
+
+      q_enqueue(old_root);
+      drop();
+      if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
+      if (CFR(old_root) == _NULL) dealloc_rib(old_root);
       
       // FIXME same as above
-      update_ranks(old_root);
+      // update_ranks(old_root);
     }
   }
 }
