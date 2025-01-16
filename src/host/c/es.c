@@ -917,6 +917,36 @@ void remove_cofriend(obj x, obj cfr, int k) {
   }
 }
 
+void clean_cofriends(obj x) {
+  obj prev = get_parent(x);
+  obj curr = next_cofriend(x, prev);
+
+  // parent's rank shouldn't be -1
+  
+  while (curr != _NULL) {
+    if (get_rank(curr) == -1) {
+
+      obj next = next_cofriend(x, curr);
+      
+      // link all prev mirror fields to next cofriend
+      for (int i = 0; i < 3; i++){
+        if (get_field(curr, i) == x){
+          get_field(curr, i+3) = _NULL;
+        }
+      }  
+
+      // set all mirror field (associated with ref to x in cfr) to the next co-friend
+      for (int i = 0; i < 3; i++){
+        if (get_field(prev, i) == x){
+          get_field(prev, i+3) = next;
+        }
+      }      
+    }
+    prev = curr;
+    curr = next_cofriend(x, curr);
+  }
+}
+
 
 //------------------------------------------------------------------------------
 
@@ -1080,8 +1110,14 @@ void dealloc_rib(obj x){
       if (get_rank(_x[i]) == -1) { // falling?
         dealloc_rib(_x[i]);
       }
+
+      /* else if (get_rank(_x[i]) == -2) { */
+      /*        continue; */
+      /* } */
       else { // if (get_rank(_x[i]) != -2) {
-        remove_edge(x, _x[i], i);
+        // remove_cofriend(_x[i], x, i);
+        // clean_cofriends(_x[i]);
+        remove_edge(x, _x[i], i); // FIXME overhead
       }
     }
   }
@@ -1143,7 +1179,7 @@ void remove_edge(obj from, obj to, int i) {
   
     drop();
     if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
-    if (get_parent(to) == _NULL) {
+    if (get_parent(to) == _NULL) { // or == -1
       dealloc_rib(to);
     }
   }
