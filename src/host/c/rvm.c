@@ -1028,9 +1028,9 @@ void run() {
             if (vari){
                 obj rest = NIL;
                 for(int i = 0; i < nargs; ++i){
-                    rest = TAG_RIB(alloc_rib(pop(), rest, s2));
-                    s2 = TAG(rest);
-                    TAG(rest) = PAIR_TAG;
+                    TEMP1 = s2;
+                    rest = TAG_RIB(alloc_rib(pop(), rest, PAIR_TAG));
+                    s2=TEMP1;
                 }
                 s2 = TAG_RIB(alloc_rib(rest, s2, PAIR_TAG));
             }
