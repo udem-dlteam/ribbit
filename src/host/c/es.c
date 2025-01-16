@@ -924,6 +924,44 @@ void remove_cofriend(obj x, obj cfr, int k) {
 
 // Intuition: TODO
 
+/* void update_ranks(obj root) { */
+/*   // FIXME integrate this in add_edge and stop the update as soon as the rank */
+/*   // of all children of a rib is clean (or else we just traverse the entire */
+/*   // subgraph for no reason) */
+/*   q_enqueue(root); */
+/*   int r; */
+/*   obj curr; */
+/*   obj *c; */
+/*   do { */
+/*     curr = q_dequeue(); */
+/*     c = RIB(curr)->fields; */
+/*     r = get_rank(curr)+1; */
+/*     for (int i = 0; i < 3; i++) { */
+
+/*       // FIXME the `c[i] != root` condition is necessary to sometimes avoid */
+/*       // an infinite loop when we update the ranks after setting a new root */
+/*       // but not sure if that should also be applied in add_edge? */
+/*       if (IS_RIB(c[i]) && c[i] != root && (!is_root(c[i]))) { */
+
+/*         // Only update ranks if the parent's rank was updated or if the edge */
+/*         // is dirty */
+/*         // FIXME we could avoid A LOT of overhead if we could avoid some updates */
+/*         // here without changing how many ribs gets collected, also should note */
+/*         // that the algorithm enqueues EVERY friends, which I don't do here to */
+/*         // avoid the insane overhead of doing that */
+/*         if (is_parent(c[i], curr) && (get_rank(curr) != (get_rank(c[i])+1))) { */
+/*           set_rank(c[i], r); */
+/*           q_enqueue(c[i]); */
+/*         } else if (is_dirty(curr, c[i])) { */
+/*           set_parent(c[i], curr, i); */
+/*           set_rank(c[i], r); */
+/*           q_enqueue(c[i]); */
+/*         } */
+/*       } */
+/*     } */
+/*   } while (!Q_IS_EMPTY()); */
+/* } */
+
 void update_ranks(obj root) {
   // FIXME integrate this in add_edge and stop the update as soon as the rank
   // of all children of a rib is clean (or else we just traverse the entire
@@ -941,7 +979,7 @@ void update_ranks(obj root) {
       // FIXME the `c[i] != root` condition is necessary to sometimes avoid
       // an infinite loop when we update the ranks after setting a new root
       // but not sure if that should also be applied in add_edge?
-      if (IS_RIB(c[i]) && c[i] != root && (!is_root(c[i]))) {
+      if (IS_RIB(c[i]) && (!is_root(c[i]))) {
 
         // Only update ranks if the parent's rank was updated or if the edge
         // is dirty
@@ -951,11 +989,11 @@ void update_ranks(obj root) {
         // avoid the insane overhead of doing that
         if (is_parent(c[i], curr) && (get_rank(curr) != (get_rank(c[i])+1))) {
           set_rank(c[i], r);
-          q_enqueue(c[i]);
+          if (c[i] != root) q_enqueue(c[i]);
         } else if (is_dirty(curr, c[i])) {
-          set_parent(c[i], curr, i); 
+          set_parent(c[i], curr, i);
           set_rank(c[i], r);
-          q_enqueue(c[i]);
+          if (c[i] != root) q_enqueue(c[i]);
         }
       }
     }
@@ -996,13 +1034,14 @@ void drop() {
   obj cfr;
   while (!Q_IS_EMPTY()) {
     x = q_dequeue();
+    // if (get_rank(x) == -1) continue;
     _x = RIB(x)->fields;
     cfr = get_parent(x);
     loosen(x);
     // making x's children "fall" along with him
     for (int i = 0; i < 3; i++) {
       if (IS_RIB(_x[i]) && is_parent(_x[i], x) && (!is_root(_x[i]))) {
-        q_enqueue(_x[i]);
+        if (get_rank(_x[i]) != -1) q_enqueue(_x[i]);
       }
     }
     // identify x's co-friends that could be potential "catchers"
