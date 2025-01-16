@@ -104,15 +104,17 @@
         (sub-str-len (string-length sub-str)))
     (let loop ((i 0))
       (and (<= i (- str-len sub-str-len))
-           (or (string-at? str sub-str i sub-str-len)
+           (or (string-at? str sub-str i (+ i sub-str-len))
                (loop (+ 1 i)))))))
+
+(define (string-contains? str sub-str) (string-contains str sub-str))
 
 (define (string-find str sub-str)
   (let ((str-len (string-length str))
         (sub-str-len (string-length sub-str)))
     (let loop ((i 0))
       (and (<= i (- str-len sub-str-len))
-           (if (string-at? str sub-str i sub-str-len)
+           (if (string-at? str sub-str i (+ i sub-str-len))
              i
              (loop (+ 1 i)))))))
 
