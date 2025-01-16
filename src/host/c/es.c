@@ -1197,18 +1197,22 @@ void remove_edge(obj from, obj to, int i) {
 // Specific node deletion
 
 void remove_root(obj old_root) {
-  if (IS_RIB(old_root)) {
+  if (IS_RIB(old_root)) {    
     if (CFR(old_root) == _NULL) {
       // Q_INIT(); // drop queue i.e. "falling ribs"
       // PQ_INIT(); // ankers i.e. potential "catchers"      
       q_enqueue(old_root);
       drop();
       if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
-      dealloc_rib(old_root);
+      dealloc_rib(old_root);      
     }
     else {
+      // printf("hey\n");
       set_rank(old_root, get_rank(CFR(old_root))+1);
-
+      q_enqueue(old_root);
+      drop();
+      if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
+      if (CFR(old_root) == _NULL) dealloc_rib(old_root);
       // FIXME FIXME FIXME FIXME FIXME
       // This is essential (I think) for the GC to collect all ribs but it slows
       // down the execution time.... A LOT, need to find a way to reduce that
@@ -2149,6 +2153,7 @@ void run() { // evaluator
     case INSTR_HALT: { // halt
       printf("deallocation count = %d\n", d_count);
       /* viz_heap("graph.dot"); */
+      /* viz_heap(); */
       gc();
       vm_exit(0);
     }
