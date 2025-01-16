@@ -1366,36 +1366,37 @@ void set_stack(obj new_stack) {
   obj old_stack = stack;
   stack = new_stack;
   if (IS_RIB(stack)) set_rank(stack, 0);
-  remove_stack(old_stack);
   
   // FIXME integrate this in the ES logic
   if (IS_RIB(stack)) update_ranks(stack);
 
   // FIXME not sure why this is not working
-  /* if (IS_RIB(stack)) { */
-  /*   obj *_stack = RIB(stack)->fields; */
-  /*   for (int i = 0; i < 3; i++) { */
-  /*     if (IS_RIB(_stack[i])) { */
-  /*    // FIXME not sure how this will behave when pc and stack are both */
-  /*    // pointing to the same rib */
-  /*    if (!is_parent(_stack[i], stack)) { */
-  /*      set_parent(_stack[i], stack, i); */
-  /*      set_rank(_stack[i], 1); */
-  /*      update_ranks(_stack[i]); */
-  /*    } */
-  /*     } */
-  /*   } */
-  /* } */
+  if (IS_RIB(stack)) {
+    obj *_stack = RIB(stack)->fields;
+    for (int i = 0; i < 3; i++) {
+      if (IS_RIB(_stack[i])) {
+        // FIXME not sure how this will behave when pc and stack are both
+        // pointing to the same rib
+        if (!is_parent(_stack[i], stack)) {
+          set_parent(_stack[i], stack, i);
+          set_rank(_stack[i], 1);
+          update_ranks(_stack[i]);
+        }
+      }
+    }
+  }
+
+  remove_stack(old_stack);
 }
 
 void set_pc(obj new_pc) {
   obj old_pc = pc;
   pc = new_pc;
   set_rank(pc, 0);
-  remove_root(old_pc);
+  // remove_root(old_pc);
   
   // FIXME integrate this in the ES logic
-  // update_ranks(pc);
+  update_ranks(pc);
 
   obj *_pc = RIB(pc)->fields;
   for (int i = 0; i < 3; i++) {
@@ -1409,6 +1410,8 @@ void set_pc(obj new_pc) {
       }
     }
   }
+
+  remove_root(old_pc);
 }
 
 #endif
