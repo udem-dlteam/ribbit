@@ -12,39 +12,31 @@
  * the R4RS library.
  */
 
-/* Know bugs:
- * - Co-friend not found when trying to remove it from a list of co-friend
- * - set_field and problem with when trying to protect with NIL
- * - Some rib's rank are not updated throught the program's execution 
- * - ... anything else?
- */
-
-/* TODOs (other than fixing the bugs listed above, not in order of priority)
+/* TODO
  * - Adapt original compression to ref count and ES
  * - Adapt strings/chars and list primitives for ref count and ES
- * - Adapt eval primitive to ref count and ES
+ * - Adapt apply primitive to ref count and ES
  * - Adapt the IO primitives for ref count and ES garbage collector
  * - RC: Make sure all (non-cyclic) ribs are collected
  * - ES: Implement a better test suite
- * - ES: Check that my way to detect uncollected ribs in `gc` is not faulty
  * - ES: Make sure there's no redundant rank updates that slows down the execution time
  * - ES ... _NULL?
  * - ES: Only clear a rib's field during allocation or deallocation, not both
  * - ES: Only protect a popped rib if it would get deallocated otherwise 
  * - ES: Fix the potential bug in set_field 
+ * - ES: Co-friend not found in remove_cofriend???
  * - ES: Implement finalizers 
  * - ES: Re-evaluate my dealloc_rib strategy, might not be optimal
  * - ES: Add co-friends by rank?
  * - ES: Find a way to deal with the PC updates
- * - ES: Find the source of the uncollected ribs with r4rs's display 
  * - ES: Merge the queue and priority queue in one field
  * - ES: Explore other priority queue implementations
  * - ES: Determine a good heuristic for heap size and a resizing strategy?
- * - ES: More efficient way to allocate the free list?
  * - ES: Add the missing features from the original RVM (esp. r4rs chars/strings)
  * - ES: Explore other ways than linking the null rib to protect popped ribs 
  * - ES: Optimizations, optimizations, and more optimizations 
  * - ... anything else?
+ * - ... optimize ref count, mark-sweep, and stop-and-copy
  */
 
 #include <stdio.h>
@@ -199,7 +191,7 @@ obj *scan;
 int d_count = 0;
 
 rib *heap_start;
-#define MAX_NB_OBJS 100000000
+#define MAX_NB_OBJS 1000000
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
 #define heap_top (heap_bot + (SPACE_SZ))
@@ -1102,15 +1094,12 @@ void dealloc_rib(obj x){
     if (IS_RIB(_x[i])) {
       if (get_rank(_x[i]) == -1) { // falling?
         dealloc_rib(_x[i]);
-      }
-
-      /* else if (get_rank(_x[i]) == -2) { */
-      /*        continue; */
-      /* } */
-      else { // if (get_rank(_x[i]) != -2) {
-        // remove_cofriend(_x[i], x, i);
-        // clean_cofriends(_x[i]);
+      } else if (get_rank(_x[i]) == -2) { // already deallocated?
+        continue;
+      } else if (is_parent(_x[i], x)) {
         remove_edge(x, _x[i], i); // FIXME overhead
+      } else {
+        remove_cofriend(_x[i], x, i);
       }
     }
   }
@@ -1158,7 +1147,7 @@ void remove_edge(obj from, obj to, int i) {
     q_enqueue(to);  
     drop();
     if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
-    if (get_parent(to) == _NULL) { // or == -1
+    if (get_rank(to) == -1) {
       dealloc_rib(to);
     }
   }
