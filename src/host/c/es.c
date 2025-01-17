@@ -2383,22 +2383,12 @@ void set_global(obj c) {
   set_global(TRUE);                                                            \
   set_global(NIL)
 #else
-// FIXME infinite loop here when we use SET_CAR for the intial primitive, we
-// create a cycle so we keep enqueuing in add_edge->set_field ad infinitum
 #define INIT_GLOBAL()                                                          \
   obj tmp = TAG_RIB(alloc_rib(NUM_0, symbol_table, CLOSURE_TAG));              \
-  CAR(CAR(symbol_table)) = tmp;                                                \
-  obj tmp2 = CAR(symbol_table);                                                \
-  remove_ref(symbol_table, tmp2, 0);                                           \
-  add_edge(tmp2, tmp, 0);                                                      \
-  add_edge(symbol_table, tmp2, 0);                                             \
-  set_sym_tbl(CDR(symbol_table));                                              \
+  set_global(tmp);                                                             \
   set_global(FALSE);                                                           \
   set_global(TRUE);                                                            \
-  set_global(NIL);                                                             \
-  update_ranks(tmp);                                                           \
-  set_rank(symbol_table, 0);                                                   \
-  update_ranks(symbol_table)
+  set_global(NIL)
 #endif
 
 void init_stack() {
