@@ -1145,12 +1145,6 @@ void remove_edge(obj from, obj to, int i) {
     // `from` from `to`'s co-friends since the structure of the subgraph
     // remains the same and `to` won't be deallocated
     remove_cofriend(to, from, i);
-#ifdef TEST_ES
-    // TODO remove, just used my tests but this will be done elsewhere in the GC
-    if (get_field(from, i) == to) {
-      RIB(from)->fields[get_mirror_field(to,from)-3] = TAG_NUM(0);
-    }
-#endif
     return;
   }
     
@@ -1159,17 +1153,9 @@ void remove_edge(obj from, obj to, int i) {
   // Second condition happens when we remove an edge between a node and his
   // parent but the parent points to the child more than once
   if (!is_root(to) && (!is_parent(to, from))) {
-    // TODO remove, same as above
-#ifdef TEST_ES
-    if (get_field(from, i) == to) {
-      RIB(from)->fields[get_mirror_field(to,from)-3] = TAG_NUM(0);
-    }
-#endif
     // Q_INIT(); // drop queue i.e. "falling ribs"
-    // PQ_INIT(); // ankers i.e. potential "catchers"
-  
-    q_enqueue(to);
-  
+    // PQ_INIT(); // ankers i.e. potential "catchers"  
+    q_enqueue(to);  
     drop();
     if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
     if (get_parent(to) == _NULL) { // or == -1
@@ -1190,31 +1176,14 @@ void remove_edge(obj from, obj to, int i) {
 // Specific node deletion
 
 void remove_root(obj old_root) {
-  if (IS_RIB(old_root)) {    
-    if (CFR(old_root) == _NULL) {
-      // Q_INIT(); // drop queue i.e. "falling ribs"
-      // PQ_INIT(); // ankers i.e. potential "catchers"      
-      q_enqueue(old_root);
-      drop();
-      if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
-      dealloc_rib(old_root);      
-    }
-    else {
+  if (IS_RIB(old_root)) {
+    if (CFR(old_root) != _NULL) {
       set_rank(old_root, get_rank(CFR(old_root))+1);
-      q_enqueue(old_root);
-      drop();
-      if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
-      if (CFR(old_root) == _NULL) dealloc_rib(old_root);
-      // FIXME FIXME FIXME FIXME FIXME
-      // This is essential (I think) for the GC to collect all ribs but it slows
-      // down the execution time.... A LOT, need to find a way to reduce that
-      
-      // IMPORTANT: doing the rank update allows the GC to collect all rib when
-      // we run the tests with `max-tc` but this is the only library that
-      // requires this to collect all ribs, probably should check if we can
-      // do the rank update ONLY under certain circumstances 
-      // update_ranks(old_root);
     }
+    q_enqueue(old_root);
+    drop();
+    if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
+    if (CFR(old_root) == _NULL) dealloc_rib(old_root);
   }
 }
 
@@ -1255,9 +1224,6 @@ void remove_stack(obj old_root) {
       drop();
       if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
       if (CFR(old_root) == _NULL) dealloc_rib(old_root);
-      
-      // FIXME same as above
-      // update_ranks(old_root);
     }
   }
 }
