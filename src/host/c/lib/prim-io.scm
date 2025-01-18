@@ -5,7 +5,7 @@
   FILE* file = fdopen(0, \"r\");
   push2((long) file | 1, PAIR_TAG);
   break;
-  }")
+}")
 
 (define-primitive
   (##stdout-fd)
@@ -14,11 +14,9 @@
   FILE* file = fdopen(1, \"w\");
   push2((long) file | 1, PAIR_TAG);
   break;
-  }")
+}")
 
 (if-feature host/c/es.c 
-
-  ;; FIXME not fully tested
   ;; ref count or even-shiloach gc          
   (begin
     (define-primitive 
@@ -32,7 +30,7 @@
   free((void*) filename);
   DEC_PRIM1();
   break;
-  }")
+}")
 
     (define-primitive
       (##get-fd-output-file filename)
@@ -45,7 +43,7 @@
   free((void *) filename);
   DEC_PRIM1();
   break;
-  }")
+}")
 
     (define-primitive
       (##read-char-fd fd)
@@ -59,7 +57,7 @@
   else push2(TAG_NUM(buffer[0]), PAIR_TAG);
   DEC_PRIM1();
   break;
-  }")
+}")
 
     (define-primitive
       (##write-char-fd ch fd)
@@ -76,7 +74,7 @@
   push2(TRUE, PAIR_TAG);
   DEC_PRIM2();
   break;
-  }")
+}")
 
     (define-primitive
       (##close-input-fd fd)
@@ -87,7 +85,7 @@
   fclose(file);
   DEC_PRIM1();
   break;
-  }"))
+}"))
 
   ;; mark-and-sweep or stop-and-copy gc
   (begin
@@ -101,7 +99,7 @@
   push2(file ? (long) file | 1 : FALSE, PAIR_TAG);
   free((void*) filename);
   break;
-  }")
+}")
 
     (define-primitive
       (##get-fd-output-file filename)
@@ -113,7 +111,7 @@
   push2((long) file | 1, PAIR_TAG);
   free((void *) filename);
   break;
-  }")
+}")
 
     (define-primitive
       (##read-char-fd fd)
@@ -126,7 +124,7 @@
   if (!bytes_read) push2(NIL, PAIR_TAG);
   else push2(TAG_NUM(buffer[0]), PAIR_TAG);
   break;
-  }")
+}")
 
     (define-primitive
       (##write-char-fd ch fd)
@@ -142,7 +140,7 @@
   fflush(file);
   push2(TRUE, PAIR_TAG);
   break;
-  }")
+}")
 
     (define-primitive
       (##close-input-fd fd)
@@ -152,8 +150,6 @@
   FILE* file = (FILE*) ((long) x ^ 1);
   fclose(file);
   break;
-  }")))
+}")))
 
 (define (##close-output-fd port) (##close-input-fd port))
-
-  
