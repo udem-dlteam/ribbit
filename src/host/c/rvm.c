@@ -1031,6 +1031,7 @@ void run() {
                     TEMP1 = s2;
                     rest = TAG_RIB(alloc_rib(pop(), rest, PAIR_TAG));
                     s2=TEMP1;
+                    TEMP1 = NUM_0;
                 }
                 s2 = TAG_RIB(alloc_rib(rest, s2, PAIR_TAG));
             }

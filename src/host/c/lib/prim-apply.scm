@@ -13,5 +13,6 @@
     }
     push2(TAG_NUM(num_args), PAIR_TAG);
     x = TEMP1; // retrive x from possibly GC'd 
+    TEMP1 = NUM_0;
     return TAG_RIB(x);
    }")
