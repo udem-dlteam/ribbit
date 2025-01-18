@@ -191,7 +191,7 @@ obj *scan;
 int d_count = 0;
 
 rib *heap_start;
-#define MAX_NB_OBJS 1000000
+#define MAX_NB_OBJS 1000000 
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
 #define heap_top (heap_bot + (SPACE_SZ))
@@ -1958,7 +1958,14 @@ obj prim(int no) {
 void run() { // evaluator
   while (1) {
     num instr = NUM(CAR(pc));
-    // printf("instr = %d\n", instr);
+    
+    // @@(feature es-apply
+    if (IS_RIB(TEMP4)) {
+      remove_edge(NIL, TEMP4, 1);
+      TEMP4 = _NULL;
+    }
+    // )@@
+    
     switch (instr) {
     case INSTR_AP: // call or jump
     {
