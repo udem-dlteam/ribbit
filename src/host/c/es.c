@@ -8,36 +8,74 @@
  *
  * This version of the RVM doesn't include all the features defined in the
  * original version (DEBUG, NO_STD, lzss compression, ARG_V, clang support, 
- * stop & copy GC, DEFAULT_REPL_MIN, NOSTART, CHECK_ACCESS, etc.) but can be used with
- * the R4RS library.
+ * stop & copy GC, DEFAULT_REPL_MIN, NOSTART, CHECK_ACCESS, etc.) but can be
+ *  used with the R4RS library.
  */
 
-/* TODO
- * - Adapt original compression to ref count and ES
- * - Adapt strings/chars and list primitives for ref count and ES
- * - Adapt apply primitive to ref count and ES
- * - Adapt the IO primitives for ref count and ES garbage collector
- * - RC: Make sure all (non-cyclic) ribs are collected
- * - ES: Implement a better test suite
- * - ES: Make sure there's no redundant rank updates that slows down the execution time
- * - ES ... _NULL?
- * - ES: Only clear a rib's field during allocation or deallocation, not both
- * - ES: Only protect a popped rib if it would get deallocated otherwise 
- * - ES: Fix the potential bug in set_field 
- * - ES: Co-friend not found in remove_cofriend???
- * - ES: Implement finalizers 
- * - ES: Re-evaluate my dealloc_rib strategy, might not be optimal
- * - ES: Add co-friends by rank?
- * - ES: Find a way to deal with the PC updates
- * - ES: Merge the queue and priority queue in one field
- * - ES: Explore other priority queue implementations
- * - ES: Determine a good heuristic for heap size and a resizing strategy?
- * - ES: Add the missing features from the original RVM (esp. r4rs chars/strings)
- * - ES: Explore other ways than linking the null rib to protect popped ribs 
- * - ES: Optimizations, optimizations, and more optimizations 
- * - ... anything else?
- * - ... optimize ref count, mark-sweep, and stop-and-copy
+
+/* TODO (Even-Shiloach)
+ * --------------------
+ * Bugs
+ *  - Final bugs from the ribbit test suite
+ *  - Fuzzy tests bugs (potentially)
+ *  - Dealloc_rib: remove `remove_edge` procedure (and figure out how a parent 
+ *    can end up there in the first place)
+ *  - Set_field: potential problem when protecting a cyclic object
+ *  - Cofriend not found in remove_cofriend (although this might happen because
+ *    of dealloc_rib and when protecting a rib by linking it to the null rib)
+ *
+ * Features
+ *  - Adapt original compression to ES
+ *  - Primitives: apply, io, and sys
+ *  - Missing features from the original rvm (make this rvm a fully working one,
+ *    we can make another one that just includes the even-shiloach algorithm)
+ *  - FINALIZERS
+ *  - Dynamic heap size?
+ *  - ... cleanup the code
+ *
+ * Priority Queue
+ *  - Singly linked list using only one field
+ *  - Buckets
+ *  - Red-black trees (Feeley has an implementation for Gambit)
+ *  - Heap of some sort
+ *  - Embedded array (Monnier's idea)
+ *
+ * Optimizations
+ *  - Only protect a rib if it would get deallocated otherwise
+ *  - Only clear a rib's fields during allocation or deallocation, not both
+ *  - Get rid of _NULL ???
+ *  - Explore other ways to protect a popped rib than linking it to the null rib
+ *    (e.g. tagging the rank field, uncollectable region in memory, ...)
+ *  - Check for redundant rank updates (I managed to remove all the rank updates
+ *    from set_x and collected all the ribs regardless, confirm this is actually
+ *    working and then remove those rank updates)
+ *  - Explore other ways to link the cofriends to potentially reduce the 
+ *    overhead associated with adding and removing edges
+ *  - Check for places where we can deferr or avoid rank updates altogether
+ *  - Micro optimizations in the code
+ *  - ... PC and stack rank updates
  */
+
+
+/* TODO (Reference counting)
+ * -------------------------
+ * Bugs
+ *  - Make sure that all (non-cyclic) ribs are collected, haven't fully tested 
+ *
+ * Features
+ *  - Adapt original compression to RC
+ *  - String, chars, and pair features
+ *  - Primitives: apply, io, and sys
+ *  - Missing features from the original rvm 
+ *  - ... cleanup the code
+ *
+ * Optimizations
+ *  - ... ?
+ *
+ * 
+ * ... Should also optimize mark-and-sweep and stop-and-copy a little bit
+ */
+
 
 #include <stdio.h>
 #include <stdlib.h>
