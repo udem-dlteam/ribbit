@@ -806,8 +806,12 @@ int get_mirror_field(obj x, obj cfr) {
 #define set_rank(x, rank) (RANK(x) = TAG_NUM(rank))
 
 #define is_root(x) (x == stack || x == pc || x == FALSE)
+
+// FIXME used in the "drop" phase to minimize overhead, seems to be working...
+#define is_root2(x) (x == symbol_table || x == stack || x == pc || x == FALSE)
 // FIXME uncollected ribs when an object of rank 0 or the symmbol table is considered a root 
 // #define is_root(x) (get_rank(x) == 0 || x == stack || x == pc || x == FALSE || x == symbol_table)
+
 #define is_dirty(from, to) (get_rank(from) < (get_rank(to) - 1))
 
 #define next_cofriend(x, cfr) (get_field(cfr, get_mirror_field(x, cfr)))
@@ -1193,7 +1197,7 @@ void remove_edge(obj from, obj to, int i) {
 
   // Second condition happens when we remove an edge between a node and his
   // parent but the parent points to the child more than once
-  if (!is_root(to) && (!is_parent(to, from))) {
+  if (!is_root2(to) && (!is_parent(to, from))) {
     // Q_INIT(); // drop queue i.e. "falling ribs"
     // PQ_INIT(); // ankers i.e. potential "catchers"  
     q_enqueue(to);  
