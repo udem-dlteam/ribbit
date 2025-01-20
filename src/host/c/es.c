@@ -15,6 +15,9 @@
 
 /* TODO (Even-Shiloach)
  * --------------------
+ *
+ * --> MODIFY THE ALGORITHM SO THAT WE DON'T MAINTAIN A MINIMUM SPANNING TREE!
+ *
  * Bugs
  *  - Final bugs from the ribbit test suite
  *  - Fuzzy tests bugs (potentially)
@@ -95,6 +98,9 @@
 #define LINKED_LIST
 // )@@
 
+// @@(feature update-ranks
+#define UPDATE_RANKS
+// )@@
 
 // @@(feature debug/rib-viz
 #define VIZ
@@ -980,6 +986,9 @@ void clean_cofriends(obj x) {
 
 // Intuition: TODO
 
+
+#ifdef UPDATE_RANKS
+
 /* void update_ranks(obj root) { */
 /*   // FIXME integrate this in add_edge and stop the update as soon as the rank */
 /*   // of all children of a rib is clean (or else we just traverse the entire */
@@ -1031,12 +1040,7 @@ void update_ranks(obj root) {
     c = RIB(curr)->fields;
     r = get_rank(curr)+1;
     for (int i = 0; i < 3; i++) {
-
-      // FIXME the `c[i] != root` condition is necessary to sometimes avoid
-      // an infinite loop when we update the ranks after setting a new root
-      // but not sure if that should also be applied in add_edge?
       if (IS_RIB(c[i]) && (!is_root(c[i]))) {
-
         // Only update ranks if the parent's rank was updated or if the edge
         // is dirty
         // FIXME we could avoid A LOT of overhead if we could avoid some updates
@@ -1055,6 +1059,13 @@ void update_ranks(obj root) {
     }
   } while (!Q_IS_EMPTY());
 }
+
+#else
+
+#define update_ranks(o) NULL
+
+#endif
+
 
 void add_edge(obj from, obj to, int i) {
   add_cofriend(to, from, i);
