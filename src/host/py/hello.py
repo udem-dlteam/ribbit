@@ -9,17 +9,25 @@
 # This RVM only implements the core features of Ribbit.
 #
 
+#
+# To run this RVM, and get 'HELLO!' back, simply do:
+#   python3 hello.py
+#
+# To run this RVM with the rsc compiler, give the option `--rvm host/py/hello.py`
+# to the compiler
+#
+
 # ======================
 # == (0) Input String ==
 # ======================
 
 # @@(replace ");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" (encode 92)
 # RVM code that prints HELLO!
-input=");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y" 
+input=");'u?>vD?>vRD?>vRA?>vRA?>vR:?>vR=!(:lkm!':lkv6y"
 # )@@
 
 # ========================
-# == (2) VM definitions ==
+# == (1) VM definitions ==
 # ========================
 import sys
 stdout=sys.stdout
@@ -27,39 +35,119 @@ stdout=sys.stdout
 # Functions to retrive bytes from the input string
 pos=-1
 def get_byte():
+    """
+    Get the next byte in input string.
+
+    return: integer represeting the byte value (number between 0 and 255)
+    """
     global pos
     pos += 1
     return ord(input[pos])
 
 def get_code():
-    x = get_byte() - 35
-    if x < 0:
+    """
+    In Ribbit, the input string is optimized for space, meaning that only
+    the subset of all writable characters (without escaping) is used. This
+    character set is made of 92 characters:
+
+      !#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNO
+      PQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~
+
+    This function converts a byte into a number between 0 and 91 that represent
+    it's position in this character-set.
+
+    return: integer between 0 and 91 representing the position in the writable, non-escapable character-set
+    """
+
+    # Most writable characters are continuous, except for space (ascii 34) and `\` (ascii 92).
+    # This trick allows us to write this function efficiently. The table below should help understand
+    # the relationship between ascii codes, characters and the output.
+    #
+    # Ascii code | character | Writable Character Map (output)
+    # 33         | !         | 57
+    # 35-91      | # to [    | 0-56
+    # 93-126     | ] to ~    | 58-91
+
+    byte_value = get_byte() - 35
+    if byte_value < 0:
+        # for the ! character (ascii code 33)
         return 57
     else:
-        return x
+        return byte_value
 
-def get_int(n):
-     x = get_code()
-     n *= 46
-     if x < 46:
-         return n + x
-     else:
-         return get_int(n + x - 46)
+def get_int(accumulator):
+    """
+    Recursively decodes a variable-length integer from the input string. The integer is encoded
+    using a variable-length encoding format on 92 codes,where each byte contributes a portion
+    of the total value.
 
-FALSE=[0,0,5]
-TRUE=[0,0,5]
-NIL=[0,0,5]
+    At each code checked, this function either stops and returns the integer or consumes
+    the next byte to construct a bigger number. Codes between 0-45 tell the algorithm
+    to stop and return the integer, while codes between 46-91 indicate that the function
+    should continue reading more bytes to build a larger number.
 
-# Note that stack operations are done
-# using ribs, similar as a liked list
-stack=0
+    This algorithm is analog to a base 46 number representation. See the examples to understand
+    the relationship:
 
-def push(x):
+     Codes in input |  Base 46 encoding                       | Decoded number (output)
+     42             |  42 * (46^0)                            | 42
+     47 17          |  1  * (46^1) + 17 * (46^0)              | 63
+     56 61 03       |  10 * (46^2) + 15 * (46^1) + 3 * (46^0) | 21853
+
+
+    Args:
+      - accumulator: The accumulated value.
+
+    Returns: The next integer encoded in the stack.
+
+    See also:
+     - https://en.wikipedia.org/wiki/Variable-length_quantity
+     - https://simple.wikipedia.org/wiki/Base_(mathematics)
+    """
+    next_byte = get_code()
+    accumulator *= 46
+    if next_byte < 46:
+        return accumulator + next_byte
+    else:
+        return get_int(accumulator + next_byte - 46)
+
+# Representation of scheme constants as Ribs.
+# Special values are tagged with a 5 at the end.
+FALSE=[0,0,5] #  #f
+TRUE=[0,0,5]  #  #t
+NIL=[0,0,5]   # '()
+
+
+stack=0 # The stack is encoded using a linked list of ribs.
+def push(value):
+    """
+    Adds a new value on top of the stack.
+
+    In Ribbit, Scheme lists are encoded using ribs, where the third field is a 0. For example,
+
+      '()         => NIL
+      '(42)       => [42, NIL, 0]
+      '(42 43 44) => [42, [43, [44, NIL, 0], 0], 0]
+
+    As the stack is encoded as a scheme list, we need to allocate a new rib to 'contain' the new
+    value added to the stack.
+
+    Args:
+      - value: the value to push to stack
+    """
     global stack
 
-    stack = [x,stack,0]
+    stack = [value,stack,0]
 
 def pop():
+    """
+    Pops the top value on the stack
+
+    As the stack is encoded as a scheme list, we need to retrive its value in the first field.
+    The stack is then mutated to the next value in the list, which is the second field of the rib.
+
+    return: The value on top of the stack
+    """
     global stack
 
     x = stack[0]
@@ -71,26 +159,40 @@ def pop():
 # == (3) VM primitives ==
 # =======================
 
-# Input output (I/O) primitives
 def putchar(c):
+    """
+    Prints a character to the standard output.
+
+    Args:
+      - c: The character to print, as a integer
+    """
     stdout.write(chr(c))
     stdout.flush()
     return c
 
 def getchar():
+    """
+    Gets the next character from the standard input or -1 when
+    no characters are available, for example, when end-of-file (eof)
+    is reached.
+
+    Return: The character in the standard input or -1.
+    """
     c=sys.stdin.read(1)
-    if len(c) == 1: # successful read
-        return ord(c)
+    if len(c) == 1:
+        push(ord(c))
     else:
-        return -1
-   
+        push(-1) #eof
 
 # Utility functions to create primitives
 # with a specific number of arguments. It :
 #  1. Pops the specified of argument from the stack
-#  2. Calls the function with the popped arguments
+#  2. Calls the function passed as argument with the
+#     popped arguments
 #  3. Pushes the result back to the stack
-# This simplifies the creation of primitives
+# This simplifies the creation of primitives as it can wrap
+# a python function and transform it into a valid Ribbit
+# primitive.
 def prim1(f):
     return lambda: push(f(pop()))
 
@@ -100,28 +202,49 @@ def prim2(f):
 def prim3(f):
     return lambda: push(f(pop(),pop(),pop()))
 
-# Utilitary function to transform a Python boolean into a 
-#  Scheme one
 def bool2scm(x):
+    """
+    Utilitary function to transform a Python boolean into a
+    Scheme one.
+
+    Args:
+     - x: a python boolean
+
+    Returns: The corresponding Scheme boolean
+    """
     return TRUE if x else FALSE
 
-
-# Utilitary function to check if a value is a rib
 def is_rib(x):
+    """
+    Utility function to check if a python object is a rib.
+
+    Args:
+     - x: A python object
+
+    Returns: true if x is a rib, false otherwise.
+    """
     return isinstance(x, list)
 
-# Field modification functions
-def field0set(y,x):x[0]=y;return y
-def field1set(y,x):x[1]=y;return y
-def field2set(y,x):x[2]=y;return y
+def field0set(y,x):
+    x[0] = y
+    return y
+
+def field1set(y,x):
+    x[1] = y
+    return y
+
+def field2set(y,x):
+    x[2] = y
+    return y
 
 
-# Primitive table as defined in the paper
+# Primitive table as defined in the paper. You can look at the CONTRIBUTING document for
+# some usefull notes about each primitive.
 primitives = [
- # @@(primitives (gen body) 
- prim3(lambda z,y,x:[x,y,z]),                                            # @@(primitive (##rib a b c))@@
+ # @@(primitives (gen body)
+ prim3(lambda z,y,x: [x,y,z]),                                           # @@(primitive (##rib a b c))@@
  prim1(lambda x:x),                                                      # @@(primitive (##id x))@@
- lambda:(pop(),None)[1],                                                 # @@(primitive (##arg1 x y))@@
+ lambda:(pop(),0)[1],                                                    # @@(primitive (##arg1 x y))@@
  lambda:push([pop(),pop()][0]),                                          # @@(primitive (##arg2 x y))@@
  lambda:push([pop()[0],stack,1]),                                        # @@(primitive (##close rib))@@
  prim1(lambda x:bool2scm(is_rib(x))),                                    # @@(primitive (##rib? rib))@@
@@ -147,11 +270,17 @@ primitives = [
 # == (4) Symbol table ==
 # ======================
 
-# Utilitary function to get the ith element of a linked list of ribs
 def list_tail(lst,i):
+    """
+    Given a liked list and an index, gets the ith element of this list
+
+    returns:
+      - the ith element of the list
+    """
     while i>0:
         lst=lst[1]
         i-=1
+
     return lst
 
 # Symbol table variable
@@ -164,14 +293,13 @@ symtbl=NIL
 # Each symbol contains the global value it refers to, its name as a sting and
 # the symbol tag (2) :
 #
-#  Symbol : [ value, name, 2 ] 
+#  Symbol : [ value, name, 2 ]
 #
-# In the creation of the symbol table, all global values are initiated to
-# FALSE. it will be updated during the execution of the bytecode.
-
+# In the creation of the symbol table, values associated with the symbol (global variables)
+# are initiated to FALSE.
 
 # The first byte of the bytecode tells the number of "empty symbols", meaning
-# symbols whose name is the empty string : [NIL, 0, 3]
+# symbols whose name is the empty string, or in ribs: [NIL, 0, 3]
 n = get_int(0)
 for n in range(n):
     # Appends an empty symbol [ FALSE, "" , 2 ] to the symbol table
@@ -189,7 +317,7 @@ while True:
     if c == ord(','): # end of symbol
 
         # Appends the symbol with its name to the symbol table
-        symbol_to_append = [FALSE, [symbol_name, n, 3], 2]
+        symbol_to_append = [FALSE, [symbol_name, symbol_name_len, 3], 2]
         symtbl=[symbol_to_append, symtbl, 0]
         symbol_name = NIL
         symbol_name_len = 0
@@ -206,9 +334,15 @@ while True:
         # Increment the length of the symbol name
         symbol_name_len += 1
 
-# References the nth symbol in the symbol table
 def symbol_ref(n):
+    """
+    References the nth symbol in the symbol table
+
+    Returns:
+    - The nth symbol in the symbol table.
+    """
     return list_tail(symtbl,n)[0]
+
 
 # ========================================
 # == (5) Decoding of the RVM's bytecode ==
