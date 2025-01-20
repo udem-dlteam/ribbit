@@ -1198,62 +1198,21 @@ void remove_edge(obj from, obj to, int i) {
 #define remove_ref_nr(to, i) remove_edge(null_rib, to, i); TEMP5 = _NULL;
 
 
-//------------------------------------------------------------------------------
-
-// Specific node deletion
-
-void remove_root(obj old_root) {
-  if (IS_RIB(old_root)) {
-    if (CFR(old_root) != _NULL) {
-      set_rank(old_root, get_rank(CFR(old_root))+1);
-    }
-    q_enqueue(old_root);
-    drop();
-    if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
-    if (CFR(old_root) == _NULL) dealloc_rib(old_root);
+void remove_node(obj old_root) {
+  if (CFR(old_root) != _NULL) {
+    set_rank(old_root, get_rank(CFR(old_root))+1);
+  }
+  q_enqueue(old_root);
+  drop();
+  if (!PQ_IS_EMPTY()) {
+    catch(); // avoid function call if no catchers
+  }
+  if (CFR(old_root) == _NULL) {
+    dealloc_rib(old_root);
   }
 }
 
-void remove_stack(obj old_root) {
-  // Similar to remove_root but specialized for the stack pointer which has at
-  // most two rib pointers (one of which will be the new stack). Doing the
-  // deallocation of the old stack directly in this function and calling
-  // remove_ref directly on the first two fields is faster than going directly
-  // through remove_edge or using remove_root. This might seem like a trivial
-  // optimization but that saves us a few  million iterations even for just a
-  // small program given how often we change the stack pointer. The same
-  // optimization for the pc pointer doesn't change anything.
-  if (IS_RIB(old_root)) {
-    if (CFR(old_root) == _NULL) { // deallocate old stack
-      set_rank(old_root, -2);
-      remove_ref(old_root, CAR(old_root), 0);
-      remove_ref(old_root, CDR(old_root), 1);
-      CAR(old_root) = (obj)alloc;
-      CDR(old_root) = _NULL;
-      alloc = (obj *)old_root;
-      d_count++;
-      obj *_x = RIB(old_root)->fields;
-      
-      // FIXME redundant with rib allocation
-      _x[1] = _NULL;
-      _x[2] = _NULL;
-      _x[3] = _NULL;
-      _x[4] = _NULL;
-      _x[5] = _NULL;
-      _x[6] = _NULL;
-      _x[7] = TAG_NUM(0);
-      _x[8] = _NULL;
-      _x[9] = _NULL; // FIXME assumes singly linked list
-    } else {
-      set_rank(old_root, get_rank(CFR(old_root))+1);
-
-      q_enqueue(old_root);
-      drop();
-      if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
-      if (CFR(old_root) == _NULL) dealloc_rib(old_root);
-    }
-  }
-}
+#define remove_root(old_root) if (IS_RIB(old_root)) remove_node(old_root)
 
 // end of code specific to ESTrees
 #endif 
@@ -1411,7 +1370,7 @@ void set_stack(obj new_stack) {
     }
   }
 
-  remove_stack(old_stack);
+  remove_root(old_stack);
 }
 
 void set_pc(obj new_pc) {
