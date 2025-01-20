@@ -16,8 +16,10 @@
   break;
 }")
 
-(if-feature host/c/es.c 
-  ;; ref count or even-shiloach gc 
+(if-feature c/gc/es
+            
+  ;; ref count or even-shiloach gc          
+
   (begin
     (define-primitive 
       (%%get-fd-input-file filename)
