@@ -23,6 +23,9 @@
  *  - Set_field: potential problem when protecting a cyclic object
  *  - Cofriend not found in remove_cofriend (although this might happen because
  *    of dealloc_rib and when protecting a rib by linking it to the null rib)
+ *  - Is_root doesn't work when the condition is simply get_rank(o) == 0 instead
+ *    of explicitely checking the equality between the object and one of the 
+ *    known roots
  *
  * Features
  *  - Adapt original compression to ES
