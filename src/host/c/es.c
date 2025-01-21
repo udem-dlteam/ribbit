@@ -40,13 +40,15 @@
  *  - ... cleanup the code
  *
  * Priority Queue
- *  - Singly linked list using only one field
+ *  - Singly linked list using only one field [DONE]
+ *  - Singly linked list using no additional fields?
  *  - Buckets
  *  - Red-black trees (Feeley has an implementation for Gambit)
  *  - Heap of some sort
  *  - Embedded array (Monnier's idea)
  *
  * Optimizations
+ *  - Don't drop the symbol table for no reason (speeds up the program A LOT)
  *  - Only protect a rib if it would get deallocated otherwise
  *  - Only clear a rib's fields during allocation or deallocation, not both
  *  - Get rid of _NULL ???
@@ -130,7 +132,7 @@ typedef long num;
 #if defined(BUCKETS) || defined(LINKED_LIST) 
 #define RIB_NB_FIELDS 11
 #else
-#define RIB_NB_FIELDS 10
+#define RIB_NB_FIELDS 9  // 10 reuse the queue field for the pqueue
 #endif
 #endif
 typedef struct {
@@ -157,9 +159,9 @@ typedef struct {
 #define PQ_NEXT_RIB(x) RIB(x)->fields[9]
 #define PQ_NEXT_BKT(x) RIB(x)->fields[10]
 #else
-// singly linked list
-#define PQ_NEXT(x) RIB(x)->fields[9]
-// #define PQ_NEXT(x) Q_NEXT(x)
+// singly linked list (use the same field for queue and pqueue)
+// #define PQ_NEXT(x) RIB(x)->fields[9]
+#define PQ_NEXT(x) Q_NEXT(x)
 // doubly linked list
 #ifdef LINKED_LIST
 #define PQ_PREV(x) RIB(x)->fields[10]
@@ -1105,14 +1107,23 @@ void drop() {
   obj cfr;
   while (!Q_IS_EMPTY()) {
     x = q_dequeue();
+    
     // if (get_rank(x) == -1) continue;
+    
     _x = RIB(x)->fields;
     cfr = get_parent(x);
-    loosen(x);
+
+    // loosen(x);
+    
     // making x's children "fall" along with him
     for (int i = 0; i < 3; i++) {
       if (IS_RIB(_x[i]) && is_parent(_x[i], x) && (!is_root(_x[i]))) {
-        if (get_rank(_x[i]) != -1) q_enqueue(_x[i]);
+        if (get_rank(_x[i]) != -1) {
+          // if we loosen here instead of when we dequeue, we can reuse the
+          // queue field for the priority queue
+          loosen(_x[i]);
+          q_enqueue(_x[i]);
+        }
       }
     }
     // identify x's co-friends that could be potential "catchers"
@@ -1171,7 +1182,7 @@ void dealloc_rib(obj x){
   _x[6] = _NULL;
   _x[7] = TAG_NUM(0);
   _x[8] = _NULL;
-  _x[9] = _NULL; // FIXME assumes singly linked list
+  // _x[9] = _NULL; // FIXME assumes singly linked list
 }
   
 void remove_edge(obj from, obj to, int i) {
@@ -1197,10 +1208,11 @@ void remove_edge(obj from, obj to, int i) {
 
   // Second condition happens when we remove an edge between a node and his
   // parent but the parent points to the child more than once
-  if (!is_root2(to) && (!is_parent(to, from))) {
+  if (!is_root(to) && (!is_parent(to, from))) {
     // Q_INIT(); // drop queue i.e. "falling ribs"
     // PQ_INIT(); // ankers i.e. potential "catchers"  
-    q_enqueue(to);  
+    q_enqueue(to);
+    set_rank(to, -1); // loosen without removing
     drop();
     if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
     if (get_rank(to) == -1) {
@@ -1221,6 +1233,7 @@ void remove_node(obj old_root) {
     set_rank(old_root, get_rank(CFR(old_root))+1);
   }
   q_enqueue(old_root);
+  set_rank(old_root, -1); // loosen without removing
   drop();
   if (!PQ_IS_EMPTY()) {
     catch(); // avoid function call if no catchers
@@ -1475,7 +1488,7 @@ void gc() {
       *scan++ = _NULL;
       *scan++ = TAG_NUM(0);
       *scan++ = _NULL;
-      *scan++ = _NULL;
+      // *scan++ = _NULL;
 #endif
       scan -= RIB_NB_FIELDS;
 #endif
@@ -1648,10 +1661,11 @@ void push2(obj car, obj tag) {
   *alloc++ = _NULL;      // co-friends
   *alloc++ = TAG_NUM(0); // rank will be 0 since it becomes the new stack
   *alloc++ = _NULL;      // queue
-  *alloc++ = _NULL;      // priority queue
-#if defined(BUCKETS) || defined(LINKED_LIST) 
-  *alloc++ = _NULL;
-#endif
+  // *alloc++ = _NULL;      // priority queue
+/*   alloc++; */
+/* #if defined(BUCKETS) || defined(LINKED_LIST)  */
+/*   *alloc++ = _NULL; */
+/* #endif */
 
   obj new_rib = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
 
@@ -1684,10 +1698,11 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   *alloc++ = _NULL;      // co-friends
   *alloc++ = TAG_NUM(0); 
   *alloc++ = _NULL;      // queue
-  *alloc++ = _NULL;      // priority queue
-#if defined(BUCKETS) || defined(LINKED_LIST) 
-  *alloc++ = _NULL;
-#endif
+  // *alloc++ = _NULL;      // priority queue
+/*   alloc++; */
+/* #if defined(BUCKETS) || defined(LINKED_LIST)  */
+/*   *alloc++ = _NULL; */
+/* #endif */
 
   obj new_rib =  TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
 
