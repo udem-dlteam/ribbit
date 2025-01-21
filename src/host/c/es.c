@@ -19,7 +19,7 @@
  * --> MODIFY THE ALGORITHM SO THAT WE DON'T MAINTAIN A MINIMUM SPANNING TREE!
  *
  * Bugs
- *  - Final bugs from the ribbit test suite
+ *  - tests/r4rs/6-7-string-op.scm
  *  - Fuzzy tests bugs (potentially)
  *  - Dealloc_rib: remove `remove_edge` procedure (and figure out how a parent 
  *    can end up there in the first place)
@@ -29,10 +29,11 @@
  *  - Is_root doesn't work when the condition is simply get_rank(o) == 0 instead
  *    of explicitely checking the equality between the object and one of the 
  *    known roots
+ *  - Call a GC for every instruction to make sure everything is collected...
  *
  * Features
- *  - Adapt original compression to ES
- *  - Primitives: apply, io, and sys
+ *  - Adapt original decoding to ES
+ *  - Primitives: sys (+ maybe move them all in the same file)
  *  - Missing features from the original rvm (make this rvm a fully working one,
  *    we can make another one that just includes the even-shiloach algorithm)
  *  - FINALIZERS
@@ -48,7 +49,6 @@
  *  - Embedded array (Monnier's idea)
  *
  * Optimizations
- *  - Don't drop the symbol table for no reason (speeds up the program A LOT)
  *  - Only protect a rib if it would get deallocated otherwise
  *  - Only clear a rib's fields during allocation or deallocation, not both
  *  - Get rid of _NULL ???
@@ -61,7 +61,8 @@
  *    overhead associated with adding and removing edges
  *  - Check for places where we can deferr or avoid rank updates altogether
  *  - Micro optimizations in the code
- *  - ... PC and stack rank updates
+ *  - ... PC and stack rank updates (pretty sure we have redundant drop phases 
+ *        when there's a set_stack followed by a set_pc)
  */
 
 
@@ -1400,7 +1401,6 @@ void set_stack(obj new_stack) {
       }
     }
   }
-
   remove_root(old_stack);
 }
 
@@ -1669,8 +1669,21 @@ void push2(obj car, obj tag) {
 
   obj new_rib = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
 
+  // Update stack without the drop
   add_ref(new_rib, stack, 1);
-  set_stack(new_rib);
+  stack = new_rib;
+  obj *_stack = RIB(stack)->fields;
+  for (int i = 0; i < 3; i++) {
+    if (IS_RIB(_stack[i])) {
+      // FIXME not sure how this will behave when pc and stack are both
+      // pointing to the same rib
+      if (!is_parent(_stack[i], stack)) {
+        set_parent(_stack[i], stack, i);
+        set_rank(_stack[i], 1);
+        update_ranks(_stack[i]);
+      }
+    }
+  }
   
   add_ref(new_rib, car, 0);
   add_ref(new_rib, tag, 2);
