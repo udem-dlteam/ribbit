@@ -37,7 +37,6 @@
  *  - Missing features from the original rvm (make this rvm a fully working one,
  *    we can make another one that just includes the even-shiloach algorithm)
  *  - FINALIZERS
- *  - Dynamic heap size?
  *  - ... cleanup the code
  *
  * Priority Queue
@@ -55,8 +54,6 @@
  *  - Check for redundant rank updates (I managed to remove all the rank updates
  *    from set_x and collected all the ribs regardless, confirm this is actually
  *    working and then remove those rank updates)
- *  - Explore other ways to link the cofriends to potentially reduce the 
- *    overhead associated with adding and removing edges
  *  - Check for places where we can deferr or avoid rank updates altogether
  *  - Micro optimizations in the code
  *  - ... PC and stack rank updates (pretty sure we have redundant drop phases 
