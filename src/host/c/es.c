@@ -32,7 +32,7 @@
  *  - Call a GC for every instruction to make sure everything is collected...
  *
  * Features
- *  - Adapt original decoding to ES
+ *  - Adapt original encoding to ES
  *  - Primitives: sys (+ maybe move them all in the same file)
  *  - Missing features from the original rvm (make this rvm a fully working one,
  *    we can make another one that just includes the even-shiloach algorithm)
@@ -41,7 +41,6 @@
  *  - ... cleanup the code
  *
  * Priority Queue
- *  - Singly linked list using only one field [DONE]
  *  - Singly linked list using no additional fields?
  *  - Buckets
  *  - Red-black trees (Feeley has an implementation for Gambit)
@@ -50,7 +49,6 @@
  *
  * Optimizations
  *  - Only protect a rib if it would get deallocated otherwise
- *  - Only clear a rib's fields during allocation or deallocation, not both
  *  - Get rid of _NULL ???
  *  - Explore other ways to protect a popped rib than linking it to the null rib
  *    (e.g. tagging the rank field, uncollectable region in memory, ...)
@@ -1174,16 +1172,8 @@ void dealloc_rib(obj x){
   CAR(x) = (obj)alloc; // deallocate the rib by adding it to the freelist
   alloc = (obj *)x;
   d_count++;
-  // simplifies the generated graph (assumes singly linked list)
-  _x[1] = _NULL;
-  _x[2] = _NULL;
-  _x[3] = _NULL;
-  _x[4] = _NULL;
-  _x[5] = _NULL;
-  _x[6] = _NULL;
+  _x[6] = _NULL; // no parent
   _x[7] = TAG_NUM(0);
-  _x[8] = _NULL;
-  // _x[9] = _NULL; // FIXME assumes singly linked list
 }
   
 void remove_edge(obj from, obj to, int i) {
@@ -1374,7 +1364,6 @@ void set_sym_tbl(obj new_sym_tbl) {
   remove_root(old_sym_tbl);
   if (IS_RIB(symbol_table)) set_rank(symbol_table, 0);
 
-  /* // FIXME integrate this in the ES logic */
   update_ranks(symbol_table);
 }
 
@@ -1383,10 +1372,8 @@ void set_stack(obj new_stack) {
   stack = new_stack;
   if (IS_RIB(stack)) set_rank(stack, 0);
   
-  // FIXME integrate this in the ES logic
   if (IS_RIB(stack)) update_ranks(stack);
 
-  // FIXME not sure why this is not working
   if (IS_RIB(stack)) {
     obj *_stack = RIB(stack)->fields;
     for (int i = 0; i < 3; i++) {
@@ -1408,9 +1395,7 @@ void set_pc(obj new_pc) {
   obj old_pc = pc;
   pc = new_pc;
   set_rank(pc, 0);
-  // remove_root(old_pc);
   
-  // FIXME integrate this in the ES logic
   update_ranks(pc);
 
   obj *_pc = RIB(pc)->fields;
@@ -1440,8 +1425,6 @@ void set_pc(obj new_pc) {
 
 // Cycle detection and collection (ref count)
 
-int leftovers = 0;
-
 void mark(obj *o) { // Recursive version of marking phase
   if (IS_RIB(*o)) {
     obj *ptr = RIB(*o)->fields;
@@ -1456,6 +1439,7 @@ void mark(obj *o) { // Recursive version of marking phase
 }
 
 void gc() {
+  int leftovers = 0;
   printf("\t--GC called\n");
   // Mark (only 3 possible roots)
   mark(&stack);
@@ -1475,23 +1459,6 @@ void gc() {
 #endif
       *scan = (obj)alloc;
       alloc = scan;
-#ifdef VIZ
-      scan++;
-      *scan++ = _NULL;
-      *scan++ = _NULL;
-#ifdef REF_COUNT
-      *scan++ = TAG_NUM(0);
-#else
-      *scan++ = _NULL;
-      *scan++ = _NULL;
-      *scan++ = _NULL;
-      *scan++ = _NULL;
-      *scan++ = TAG_NUM(0);
-      *scan++ = _NULL;
-      // *scan++ = _NULL;
-#endif
-      scan -= RIB_NB_FIELDS;
-#endif
     }
     scan += RIB_NB_FIELDS; // next rib object
   }
@@ -1660,9 +1627,7 @@ void push2(obj car, obj tag) {
   *alloc++ = _NULL;      // mirror 3
   *alloc++ = _NULL;      // co-friends
   *alloc++ = TAG_NUM(0); // rank will be 0 since it becomes the new stack
-  *alloc++ = _NULL;      // queue
-  // *alloc++ = _NULL;      // priority queue
-/*   alloc++; */
+  *alloc++ = _NULL;      // queue and priority queue
 /* #if defined(BUCKETS) || defined(LINKED_LIST)  */
 /*   *alloc++ = _NULL; */
 /* #endif */
@@ -1710,9 +1675,7 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   *alloc++ = _NULL;      // mirror 3
   *alloc++ = _NULL;      // co-friends
   *alloc++ = TAG_NUM(0); 
-  *alloc++ = _NULL;      // queue
-  // *alloc++ = _NULL;      // priority queue
-/*   alloc++; */
+  *alloc++ = _NULL;      // queue and priority queue
 /* #if defined(BUCKETS) || defined(LINKED_LIST)  */
 /*   *alloc++ = _NULL; */
 /* #endif */
