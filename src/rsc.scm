@@ -3514,7 +3514,7 @@
       ",")
     ";"))
 
-(define (symtbl->stream symtbl symbols* ribn-base byte-base)
+(define (symtbl->stream symtbl symbols* ribn-base byte-base literal-encoding)
   (encode-n
     (- (table-length symtbl)
        (length symbols*))
@@ -3527,21 +3527,34 @@
                      (reverse (string->list str)))))
                symbols*)
           ",")
-        byte-base)
-      (string->stream ";" byte-base))
+        byte-base
+        literal-encoding)
+      (string->stream ";" byte-base literal-encoding))
     (quotient ribn-base 2)))
 
-(define (string->stream string encoding-size)
+(define (string->stream string encoding-size literal-encoding)
+  ;; This maps a char to its index in the literal encoding
+  (define reverse-literal-encoding (make-vector 128 #f))
+
+  (let loop ((i 0))
+    (if (< i (string-length literal-encoding))
+      (begin
+        (vector-set!
+          reverse-literal-encoding
+          (char->integer (string-ref literal-encoding i))
+          i)
+        (loop (+ 1 i)))))
+
   (cond
     ((eqv? encoding-size 256)
      (map char->integer (string->list string)))
     ((eqv? encoding-size 92)
      (map
       (lambda (c)
-        (let ((n (char->integer c)))
-          (if (= n 33)
-            (- 92 35)
-            (- n 35))))
+        (let ((mapped-char (vector-ref reverse-literal-encoding (char->integer c)))) ;; TODO: this can be very slow
+          (if (eqv? mapped-char #f)
+            (error "Literal is not in literal encoding, cannot encode symtbl" c)
+            mapped-char)))
       (string->list string)))
     (else
       (error "Cannot transform string to stream, wrong encoding" encoding-size))))
@@ -3555,11 +3568,11 @@
 
 
 (define writable-ascii-literal-encoding " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~")
-(define default-ribbit-literal-encoding "#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[!]^_`abcdefghijklmnopqrstuvwxyz{|}~")
+(define default-literal-encoding "#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[!]^_`abcdefghijklmnopqrstuvwxyz{|}~")
 
 ;; supposes the 92 encoding scheme
 (define (stream->default-string stream)
-  (stream->literal-string stream default-ribbit-literal-encoding))
+  (stream->literal-string stream default-literal-encoding))
 
 (define (stream->literal-string stream literal-encoding)
   (list->string
@@ -3613,7 +3626,7 @@
         (cons (car stream) result))
       result)))
 
-(define (encode proc exports host-config byte-stats encoding-name byte-base)
+(define (encode proc exports host-config byte-stats encoding-name byte-base literal-encoding)
 
   ;; 1 = 128 codes reserved for compression (128-255)
   ;; 2 = 64  codes reserved for compression (192-255)
@@ -3625,7 +3638,7 @@
   (define size-base-min 7)
   (define size-base-max 13)
 
-  (define (ribn-base) 
+  (define (ribn-base)
     (- byte-base compression-range-size))
 
   ;; state
@@ -3649,10 +3662,15 @@
           (ribn-base))))
 
     (define (p/enc-symtbl)
-      (let* ((symtbl-and-symbols* (encode-symtbl proc exports host-config (encoding-inst-size encoding (list 'call 'sym 'short))))
+      (let* ((symtbl-and-symbols*
+               (encode-symtbl
+                 proc
+                 exports
+                 host-config
+                 (encoding-inst-size encoding (list 'call 'sym 'short))))
              (symbol* (cdr symtbl-and-symbols*)))
         (set! symtbl   (car symtbl-and-symbols*))
-        (set! stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base))))
+        (set! stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base literal-encoding))))
 
     (define (p/comp-tag)
       (set! stream
@@ -3792,8 +3810,6 @@
            (optimal-encoding))
           (else
             (error "Cannot find encoding (or number of byte not supported) :" encoding-name))))
-
-
 
       (p/enc-symtbl)
       (p/enc-prog)
@@ -4399,19 +4415,19 @@
 (define (replace-eval expr encode host-config)
 
   (define (encode-as-string encoding-size)
-    (stream->default-string (encode encoding-size)))
+    (stream->default-string (encode encoding-size default-literal-encoding)))
 
   (define (encode-as-bytes encoding-size prefix sep suffix)
     (list->host
       (cond
         ((eqv? encoding-size 92)
-         (string->list* (stream->default-string (encode encoding-size))))
+         (string->list* (stream->default-string (encode encoding-size default-literal-encoding))))
 
         ((equal? encoding-size "auto")
          (let ((optimal? (host-config-feature-live? host-config 'encoding/optimal)))
           (if optimal?
-           (encode 256) ;; if optimal is enabled, it supports 256 encoding
-           (string->list* (stream->default-string (encode 92)))))) ;; else, original encoding supports 92
+           (encode 256 default-literal-encoding) ;; if optimal is enabled, it supports 256 encoding
+           (string->list* (stream->default-string (encode 92 default-literal-encoding)))))) ;; else, original encoding supports 92
         (else
          (encode encoding-size)))
      prefix
@@ -4425,7 +4441,7 @@
                writable-ascii-literal-encoding
                chars-to-remove))
            (encoding-size (string-length encoding-charset)))
-      (stream->literal-string (encode encoding-size) encoding-charset)))
+      (stream->literal-string (encode encoding-size encoding-charset) encoding-charset)))
 
   (define functions
     `((encode ,encode-as-string 2)
@@ -4643,7 +4659,7 @@
          (host-config
            (vector-ref proc-exports-and-features 2))
          (encode*
-          (lambda (byte-base)
+          (lambda (byte-base literal-encoding)
             (let ((input
                    (append
                     (encode
@@ -4652,7 +4668,8 @@
                      host-config
                      byte-stats
                      encoding-name
-                     byte-base)
+                     byte-base
+                     literal-encoding)
                     (if input-path
                         (string->list* (string-from-file input-path))
                         '()))))
@@ -4665,7 +4682,7 @@
 
     (let* ((target-code-before-minification
             (if (equal? target "rvm")
-                (stream->default-string (encode* 92))   ;; NOTE: 92 is the number of code in the encoding.
+                (stream->default-string (encode* 92 default-literal-encoding))   ;; NOTE: 92 is the number of code in the encoding.
                 (generate-file host-file host-config encode*)))
            (target-code
             (if (or (not minify?) (equal? target "rvm"))
