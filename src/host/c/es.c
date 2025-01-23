@@ -1209,6 +1209,7 @@ void remove_edge(obj from, obj to, int i) {
     // @@(location gc-start)@@
     drop();
     if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
+    // @@(location gc-end)@@
     if (get_rank(to) == -1) {
       dealloc_rib(to);
     }
