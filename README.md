@@ -19,13 +19,11 @@ For more information about Ribbit, you can look at our papers in the [paper sect
 ## Development
 
 Ribbit is a research project currently **under development**. A lot of enhancements have been made since the first paper
-(R4RS compliance, I/O primitives, define-primitive/define-feature, bignum/flonums etc.) and a new release is planned for the end of 2024.
+(R4RS compliance, I/O primitives, define-primitive/define-feature, bignum/flonums etc.) and a new release is planned for the end of mid 2025.
+
 If you do encounter bugs, please report them in the issue section of Github.
 
-Like all systems, Ribbit has some quirks. If you encounter problems that are not documented or if you have any questions, please
-reach out in the issues section of Github.
-
-<!-- If you are interested in contributing, you can look at [how to contribute](#how-to-contribute) -->
+If you are interested in contributing, you can look at [how to contribute](./CONTRIBUTING.md).
 
 ## Usage
 
