@@ -3242,7 +3242,7 @@
 
 
   (define (add-variables! host-config tag)
-    (let ((tag-as-string (stream->string (list tag))))
+    (let ((tag-as-string (stream->default-string (list tag))))
       (host-config-feature-add!
         host-config
         'compression/lzss/tag-as-code
@@ -3499,12 +3499,12 @@
 
 (define (symtbl->string symtbl symbols* encoding-size)
   (string-append
-    (stream->string
-    (encode-n
-      (- (table-length symtbl)
-         (length symbols*))
-      '()
-      (quotient encoding-size 2)))
+    (stream->default-string
+      (encode-n
+        (- (table-length symtbl)
+           (length symbols*))
+        '()
+        (quotient encoding-size 2)))
     (string-concatenate
       (map (lambda (s)
              (let ((str (symbol->str s)))
@@ -3546,13 +3546,26 @@
     (else
       (error "Cannot transform string to stream, wrong encoding" encoding-size))))
 
+(define (string-remove-chars string chars-to-remove)
+  (let loop ((resulting-string (string->list writable-ascii-literal-encoding))
+             (chars-to-remove (string->list chars-to-remove)))
+    (list->string
+      (filter (lambda (char) (not (memv char chars-to-remove)))
+              resulting-string))))
+
+
+(define writable-ascii-literal-encoding " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~")
+(define default-ribbit-literal-encoding "#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[!]^_`abcdefghijklmnopqrstuvwxyz{|}~")
+
 ;; supposes the 92 encoding scheme
-(define (stream->string stream)
+(define (stream->default-string stream)
+  (stream->literal-string stream default-ribbit-literal-encoding))
+
+(define (stream->literal-string stream literal-encoding)
   (list->string
-   (map (lambda (n)
-          (let ((c (+ n 35)))
-            (integer->char (if (= c 92) 33 c))))
-        stream)))
+    (map (lambda (n)
+           (string-ref literal-encoding n))
+         stream)))
 
 (define (encoding-optimal-order encoding)
   (define order
@@ -4386,30 +4399,39 @@
 (define (replace-eval expr encode host-config)
 
   (define (encode-as-string encoding-size)
-    (stream->string (encode encoding-size)))
+    (stream->default-string (encode encoding-size)))
 
   (define (encode-as-bytes encoding-size prefix sep suffix)
     (list->host
       (cond
         ((eqv? encoding-size 92)
-         (string->list* (stream->string (encode encoding-size))))
+         (string->list* (stream->default-string (encode encoding-size))))
 
         ((equal? encoding-size "auto")
          (let ((optimal? (host-config-feature-live? host-config 'encoding/optimal)))
           (if optimal?
            (encode 256) ;; if optimal is enabled, it supports 256 encoding
-           (string->list* (stream->string (encode 92)))))) ;; else, original encoding supports 92
+           (string->list* (stream->default-string (encode 92)))))) ;; else, original encoding supports 92
         (else
          (encode encoding-size)))
      prefix
      sep
      suffix))
 
+  (define (encode-writable-ascii chars-to-remove)
+    ;; Remove chars from writable ascii table
+    (let* ((encoding-charset
+             (string-remove-chars
+               writable-ascii-literal-encoding
+               chars-to-remove))
+           (encoding-size (string-length encoding-charset)))
+      (stream->literal-string (encode encoding-size) encoding-charset)))
 
   (define functions
     `((encode ,encode-as-string 2)
       (encode-as-bytes ,encode-as-bytes 5)
       (encode-as-string ,encode-as-string 2)
+      (encode-writable-ascii ,encode-writable-ascii 2)
       (rvm-code-to-bytes ,rvm-code-to-bytes 3)
       (list->host ,list->host 5)))
 
@@ -4451,7 +4473,7 @@
 
   ;; cache result of select replace evaluations
   (define cached-functions
-    '(encode encode-as-bytes encode-as-string))
+    '(encode encode-as-bytes encode-as-string encode-writable-ascii))
 
   (define cache (make-table))
 
@@ -4601,7 +4623,7 @@
   (let ((file-content (call-with-input-file path (lambda (port) (read-line port #f)))))
        (if (eof-object? file-content) "" file-content)))
 
-(define (generate-code 
+(define (generate-code
           target
           verbosity
           debug-info
@@ -4643,7 +4665,7 @@
 
     (let* ((target-code-before-minification
             (if (equal? target "rvm")
-                (stream->string (encode* 92))   ;; NOTE: 92 is the number of code in the encoding.
+                (stream->default-string (encode* 92))   ;; NOTE: 92 is the number of code in the encoding.
                 (generate-file host-file host-config encode*)))
            (target-code
             (if (or (not minify?) (equal? target "rvm"))
