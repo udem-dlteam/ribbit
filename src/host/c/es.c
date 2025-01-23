@@ -80,12 +80,14 @@
  * ... Should also optimize mark-and-sweep and stop-and-copy a little bit
  */
 
+// @@(location import)@@
+// @@(location decl)@@
 
 #include <stdio.h>
 #include <stdlib.h>
 
 // @@(feature ref-count
-#define REF_COUNT 
+#define REF_COUNT
 // )@@
 
 // @@(feature buckets
@@ -1201,8 +1203,10 @@ void remove_edge(obj from, obj to, int i) {
     // PQ_INIT(); // ankers i.e. potential "catchers"  
     q_enqueue(to);
     set_rank(to, -1); // loosen without removing
+    // @@(location gc-start)@@
     drop();
     if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
+    // @@(location gc-end)@@
     if (get_rank(to) == -1) {
       dealloc_rib(to);
     }
