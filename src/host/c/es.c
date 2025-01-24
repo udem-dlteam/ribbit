@@ -21,8 +21,6 @@
  * Bugs
  *  - tests/r4rs/6-7-string-op.scm
  *  - Fuzzy tests bugs (potentially)
- *  - Dealloc_rib: remove `remove_edge` procedure (and figure out how a parent 
- *    can end up there in the first place)
  *  - Set_field: potential problem when protecting a cyclic object
  *  - Cofriend not found in remove_cofriend (although this might happen because
  *    of dealloc_rib and when protecting a rib by linking it to the null rib)
@@ -45,15 +43,14 @@
  *  - Red-black trees (Feeley has an implementation for Gambit)
  *  - Heap of some sort
  *  - Embedded array (Monnier's idea)
+ *  - Skip list
  *
  * Optimizations
  *  - Only protect a rib if it would get deallocated otherwise
+ *  - Adopt
  *  - Get rid of _NULL ???
  *  - Explore other ways to protect a popped rib than linking it to the null rib
  *    (e.g. tagging the rank field, uncollectable region in memory, ...)
- *  - Check for redundant rank updates (I managed to remove all the rank updates
- *    from set_x and collected all the ribs regardless, confirm this is actually
- *    working and then remove those rank updates)
  *  - Check for places where we can deferr or avoid rank updates altogether
  *  - Micro optimizations in the code
  *  - ... PC and stack rank updates (pretty sure we have redundant drop phases 
@@ -80,12 +77,14 @@
  * ... Should also optimize mark-and-sweep and stop-and-copy a little bit
  */
 
+// @@(location import)@@
+// @@(location decl)@@
 
 #include <stdio.h>
 #include <stdlib.h>
 
 // @@(feature ref-count
-#define REF_COUNT 
+#define REF_COUNT
 // )@@
 
 // @@(feature buckets
@@ -1103,9 +1102,6 @@ void drop() {
   obj cfr;
   while (!Q_IS_EMPTY()) {
     x = q_dequeue();
-    
-    // if (get_rank(x) == -1) continue;
-    
     _x = RIB(x)->fields;
     cfr = get_parent(x);
 
@@ -1148,20 +1144,29 @@ void catch() {
   } while (!PQ_IS_EMPTY());
 }
 
-void remove_edge(obj from, obj to, int i); // cos no header file
-
 void dealloc_rib(obj x){
   set_rank(x, -2); // deallocated rib, this way we just ignore cycles
   obj *_x = RIB(x)->fields;
   for (int i = 0; i < 3; i++) {
     if (IS_RIB(_x[i])) {
-      if (get_rank(_x[i]) == -1) { // falling?
-        dealloc_rib(_x[i]);
-      } else if (get_rank(_x[i]) == -2) { // already deallocated?
-        continue;
-      } else if (is_parent(_x[i], x)) {
-        remove_edge(x, _x[i], i); // FIXME overhead
-      } else {
+      /* if (get_rank(_x[i]) == -2) { // already deallocated, child or not */
+      /*          continue; */
+      /* } else if (get_rank(_x[i]) == -1) { // falling, child or not */
+      /*          dealloc_rib(_x[i]); */
+      /* } else if (is_parent(_x[i], x)) { // child is a root */
+      /*          remove_parent(_x[i], x, i); */
+      /* } else { // not a child, only need to remove x from co-friend's list */
+      /*   remove_cofriend(_x[i], x, i); */
+      /* } */
+      if (is_parent(_x[i], x)) {
+        if (get_rank(_x[i]) == -2) { // already deallocated?
+          continue;
+        } else if (get_rank(_x[i]) == -1) { // falling?
+          dealloc_rib(_x[i]);
+        } else { // child is a root
+          remove_parent(_x[i], x, i);
+        }
+      } else { // not a child, only need to remove x from co-friend's list
         remove_cofriend(_x[i], x, i);
       }
     }
@@ -1201,11 +1206,13 @@ void remove_edge(obj from, obj to, int i) {
     // PQ_INIT(); // ankers i.e. potential "catchers"  
     q_enqueue(to);
     set_rank(to, -1); // loosen without removing
+    // @@(location gc-start)@@
     drop();
     if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
     if (get_rank(to) == -1) {
       dealloc_rib(to);
     }
+    // @@(location gc-end)@@
   }
 }
 
