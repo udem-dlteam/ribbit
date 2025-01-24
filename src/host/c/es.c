@@ -74,6 +74,9 @@
 // @@(location import)@@
 // @@(location decl)@@
 
+#define true 1
+#define false 0
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -87,6 +90,13 @@
 
 // @@(feature debug/rib-viz
 #define VIZ
+void viz_heap(char* name);
+// )@@
+
+#define UNALLOCATED_RIB_RANK 999999
+// @@(feature debug/clean-ribs
+#define CLEAN_RIBS
+#define UNALLOCATED_RIB_RANK 999999
 // )@@
 
 // @@(feature (not compression/lzss/2b)
@@ -295,163 +305,6 @@ rib *heap_start;
 // print_queue
 // print_pqueue
 
-#ifdef VIZ
-
-FILE* current_graph;
-
-FILE* viz_start_graph(char* name){
-  // open a file with the name "name" and write the header
-  FILE* file = fopen(name, "w");
-  fprintf(file, "digraph G {\n");
-  return file;
-}
-
-void viz_end_graph(FILE* graph){
-  // close the file
-  fprintf(graph, "}\n");
-  fflush(graph);
-  fclose(graph);
-}
-
-void viz_add_edge(FILE* graph, obj from, obj to){
-  // write the edge from "from" to "to"
-  fprintf(graph, "%ld -> %ld\n", from, to);
-}
-
-void viz_add_dot_edge(FILE* graph, obj from, obj to){
-  // write the edge from "from" to "to"
-  fprintf(graph, "%ld -> %ld [style=dotted]\n ", from, to);
-}
-void viz_add_dot_edge_red(FILE* graph, obj from, obj to){
-  // write the edge from "from" to "to"
-  fprintf(graph, "%ld -> %ld [style=dotted, color=red]\n ", from, to);
-}
-
-/* void viz_add_rib_label(FILE* graph, obj rib, obj car, obj cdr, obj tag, obj rank){ */
-/*   // write the value of the rib */
-/*   char* car_prefix = IS_RIB(car) ? "r" : ""; */
-/*   char* cdr_prefix = IS_RIB(cdr) ? "r" : ""; */
-/*   char* tag_prefix = IS_RIB(tag) ? "r" : ""; */
-/*   long rib_value = rib - ((long)heap_start); */
-/*   long car_value = IS_RIB(car) ? car-((long)heap_start) : NUM(car); */
-/*   long cdr_value = IS_RIB(cdr) ? cdr-((long)heap_start) : NUM(cdr); */
-/*   long tag_value = IS_RIB(tag) ? tag-((long)heap_start) : NUM(tag); */
-/*   long rank_value = NUM(rank); */
-/*   fprintf( */
-/*       graph, */
-/*       "%ld [label=\"%ld : [%s%ld,%s%ld,%s%ld] -- %ld\"]\n", */
-/*       rib, */
-/*       rib_value, */
-/*       car_prefix, car_value, */
-/*       cdr_prefix, cdr_value, */
-/*       tag_prefix, tag_value, */
-/*       rank_value); */
-/* } */
-
-/* void viz_heap(){ */
-/*   // to check manually if the tests are working properly */
-/*   current_graph = viz_start_graph("graph.dot"); */
-/*   scan=heap_top; */
-  
-/*   for (int i = 0; i <= MAX_NB_OBJS; i++) { */
-/* #ifdef REF_COUNT */
-/*     obj rank = scan[3]; */
-/* #else */
-/*     obj rank = scan[7]; */
-/* #endif */
-/*     if (IS_RIB(scan[0])) viz_add_edge(current_graph, scan, scan[0]); */
-/*     if (IS_RIB(scan[1])) viz_add_edge(current_graph, scan, scan[1]); */
-/*     if (IS_RIB(scan[2])) viz_add_edge(current_graph, scan, scan[2]); */
-/*     // viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank); */
-/*     if (scan == stack) { */
-/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-33)); */
-/*     } else if (scan == pc) { */
-/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-444)); */
-/*     } else if (scan == FALSE || scan == TRUE || scan == NIL) { */
-/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-5555)); */
-/*     } else if (scan == symbol_table) { */
-/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-66666)); */
-/*     } else { */
-/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank); */
-/*     } */
-/*     scan-=RIB_NB_FIELDS; */
-/*   } */
-/*   viz_end_graph(current_graph); */
-/*   // exit(1); */
-/* } */
-
-void viz_add_rib_label(FILE* graph, obj rib, obj car, obj cdr, obj tag, obj m_car, obj m_cdr, obj m_tag, obj p, obj rank){
-  // write the value of the rib
-  char* car_prefix = IS_RIB(car) ? "r" : "";
-  char* cdr_prefix = IS_RIB(cdr) ? "r" : "";
-  char* tag_prefix = IS_RIB(tag) ? "r" : "";
-  char* m_car_prefix = IS_RIB(m_car) ? "r" : "";
-  char* m_cdr_prefix = IS_RIB(m_cdr) ? "r" : "";
-  char* m_tag_prefix = IS_RIB(m_tag) ? "r" : "";
-  char* p_prefix = IS_RIB(tag) ? "r" : "";
-  long rib_value = rib - ((long)heap_start);
-  long car_value = IS_RIB(car) ? car-((long)heap_start) : NUM(car);
-  long cdr_value = IS_RIB(cdr) ? cdr-((long)heap_start) : NUM(cdr);
-  long tag_value = IS_RIB(tag) ? tag-((long)heap_start) : NUM(tag);
-  long m_car_value = IS_RIB(m_car) ? m_car-((long)heap_start) : NUM(m_car);
-  long m_cdr_value = IS_RIB(m_cdr) ? m_cdr-((long)heap_start) : NUM(m_cdr);
-  long m_tag_value = IS_RIB(m_tag) ? m_tag-((long)heap_start) : NUM(m_tag);
-  long p_value = IS_RIB(p) ? p-((long)heap_start) : NUM(p);
-  long rank_value = NUM(rank);
-  fprintf(
-      graph,
-      "%ld [label=\"%ld : [%s%ld,%s%ld,%s%ld] M[%s%ld,%s%ld,%s%ld] CO[%s%ld] -- %ld\"]\n",
-      rib,
-      rib_value,
-      car_prefix, car_value,
-      cdr_prefix, cdr_value,
-      tag_prefix, tag_value,
-      m_car_prefix, m_car_value,
-      m_cdr_prefix, m_cdr_value,
-      m_tag_prefix, m_tag_value,
-      p_prefix, p_value,
-      rank_value);
-}
-
-
-void viz_heap(char* name){
-  // to check manually if the tests are working properly
-  // current_graph = viz_start_graph("graph.dot");
-  current_graph = viz_start_graph(name);
-  scan=heap_top;
-  
-  for (int i = 0; i <= MAX_NB_OBJS; i++) {
-#ifdef REF_COUNT
-    obj rank = scan[3];
-#else
-    obj rank = scan[7];
-#endif
-    if (IS_RIB(scan[0])) viz_add_edge(current_graph, ((obj)scan), scan[0]);
-    if (IS_RIB(scan[1])) viz_add_edge(current_graph, ((obj)scan), scan[1]);
-    if (IS_RIB(scan[2])) viz_add_edge(current_graph, ((obj)scan), scan[2]);
-    if (IS_RIB(scan[3])) viz_add_dot_edge(current_graph, ((obj)scan), scan[3]);
-    if (IS_RIB(scan[4])) viz_add_dot_edge(current_graph, ((obj)scan), scan[4]);
-    if (IS_RIB(scan[5])) viz_add_dot_edge(current_graph, ((obj)scan), scan[5]);
-    if (IS_RIB(scan[6])) viz_add_dot_edge_red(current_graph, ((obj)scan), scan[6]);
-    // viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank);
-    if (((obj)scan) == stack) {
-      viz_add_rib_label(current_graph, ((obj)scan), scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-33));
-    } else if (((obj)scan) == pc) {
-      viz_add_rib_label(current_graph, ((obj)scan), scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-444));
-    } else if (((obj)scan) == FALSE || ((obj)scan) == TRUE || ((obj)scan) == NIL) {
-      viz_add_rib_label(current_graph, ((obj)scan), scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-5555));
-    } else if (((obj)scan) == symbol_table) {
-      viz_add_rib_label(current_graph, ((obj)scan), scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-66666));
-    } else {
-      viz_add_rib_label(current_graph, ((obj)scan), scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], rank);
-    }
-    scan-=RIB_NB_FIELDS;
-  }
-  viz_end_graph(current_graph);
-  // exit(1);
-}
-
-#endif
 
 #ifndef REF_COUNT
 
@@ -1266,8 +1119,18 @@ void dealloc_rib(obj x){
   CAR(x) = (obj)alloc; // deallocate the rib by adding it to the freelist
   alloc = (obj *)x;
   d_count++;
+
   _x[6] = _NULL; // no parent
-  _x[7] = TAG_NUM(0);
+
+#ifdef CLEAN_RIBS
+  for (int i = 1; i < RIB_NB_FIELDS; i++) {
+    _x[i] = _NULL;
+  }
+#endif
+
+#ifndef REF_COUNT
+  set_rank(x, UNALLOCATED_RIB_RANK);
+#endif 
 }
   
 void remove_edge(obj from, obj to, int i) {
@@ -1533,7 +1396,8 @@ void mark(obj *o) { // Recursive version of marking phase
 
 void gc() {
   int leftovers = 0;
-  printf("\t--GC called\n");
+  int wrongly_collected = 0;
+  //printf("\t--GC called\n");
   // Mark (only 3 possible roots)
   mark(&stack);
   mark(&pc);
@@ -1544,18 +1408,22 @@ void gc() {
     obj tag = *(scan+2);
     if (IS_MARKED(tag)) {
       *(scan+2) = UNMARK(tag);
+      if (get_rank((obj)scan) == UNALLOCATED_RIB_RANK) {
+        wrongly_collected++;
+      }
     } else {
 #ifdef REF_COUNT
       if (RIB((obj)scan)->fields[3] != 0) leftovers++;
 #else
-      if (get_rank((obj)scan) != 0) leftovers++;
+      if (get_rank((obj)scan) != UNALLOCATED_RIB_RANK) leftovers++;
 #endif
       *scan = (obj)alloc;
       alloc = scan;
     }
     scan += RIB_NB_FIELDS; // next rib object
   }
-  printf("uncollected ribs = %d\n", leftovers);
+  printf("***REMAINING_RIBS = %d\n", leftovers);
+  printf("***ALIVE_BUT_COLLECTED = %d\n", wrongly_collected);
 #ifdef REF_COUNT
   if (*alloc == _NULL){
     printf("Heap is full\n");
@@ -2211,7 +2079,7 @@ void run() { // evaluator
       break;
     }
     case INSTR_HALT: { // halt
-      printf("deallocation count = %d\n", d_count);
+      //printf("deallocation count = %d\n", d_count);
       /* viz_heap("graph.dot"); */
       /* viz_heap(); */
       gc();
@@ -2246,9 +2114,12 @@ void init_heap() {
   set_rank(null_rib, 0);
 #endif
   while (scan != heap_bot) {
+    set_rank(scan, UNALLOCATED_RIB_RANK);
     alloc = scan; // alloc <- address of previous slot
     scan -= RIB_NB_FIELDS; // scan <- address of next rib slot
     *scan = (obj)alloc; // CAR(next rib) <- address of previous slot
+#ifndef REF_COUNT
+#endif
   }
   alloc = scan;
   stack = NUM_0;
@@ -2522,5 +2393,167 @@ void init() {
   init_stack();
   run();
 }
+
+
+#ifdef VIZ
+
+FILE* current_graph;
+
+FILE* viz_start_graph(char* name){
+  // open a file with the name "name" and write the header
+  FILE* file = fopen(name, "w");
+  fprintf(file, "digraph G {\n");
+  return file;
+}
+
+void viz_end_graph(FILE* graph){
+  // close the file
+  fprintf(graph, "}\n");
+  fflush(graph);
+  fclose(graph);
+}
+
+void viz_add_edge(FILE* graph, obj from, obj to){
+  // write the edge from "from" to "to"
+  fprintf(graph, "%ld -> %ld\n", from, to);
+}
+
+void viz_add_dot_edge(FILE* graph, obj from, obj to){
+  // write the edge from "from" to "to"
+  fprintf(graph, "%ld -> %ld [style=dotted]\n ", from, to);
+}
+void viz_add_dot_edge_red(FILE* graph, obj from, obj to){
+  // write the edge from "from" to "to"
+  fprintf(graph, "%ld -> %ld [style=dotted, color=red]\n ", from, to);
+}
+
+/* void viz_add_rib_label(FILE* graph, obj rib, obj car, obj cdr, obj tag, obj rank){ */
+/*   // write the value of the rib */
+/*   char* car_prefix = IS_RIB(car) ? "r" : ""; */
+/*   char* cdr_prefix = IS_RIB(cdr) ? "r" : ""; */
+/*   char* tag_prefix = IS_RIB(tag) ? "r" : ""; */
+/*   long rib_value = rib - ((long)heap_start); */
+/*   long car_value = IS_RIB(car) ? car-((long)heap_start) : NUM(car); */
+/*   long cdr_value = IS_RIB(cdr) ? cdr-((long)heap_start) : NUM(cdr); */
+/*   long tag_value = IS_RIB(tag) ? tag-((long)heap_start) : NUM(tag); */
+/*   long rank_value = NUM(rank); */
+/*   fprintf( */
+/*       graph, */
+/*       "%ld [label=\"%ld : [%s%ld,%s%ld,%s%ld] -- %ld\"]\n", */
+/*       rib, */
+/*       rib_value, */
+/*       car_prefix, car_value, */
+/*       cdr_prefix, cdr_value, */
+/*       tag_prefix, tag_value, */
+/*       rank_value); */
+/* } */
+
+/* void viz_heap(){ */
+/*   // to check manually if the tests are working properly */
+/*   current_graph = viz_start_graph("graph.dot"); */
+/*   scan=heap_top; */
+  
+/*   for (int i = 0; i <= MAX_NB_OBJS; i++) { */
+/* #ifdef REF_COUNT */
+/*     obj rank = scan[3]; */
+/* #else */
+/*     obj rank = scan[7]; */
+/* #endif */
+/*     if (IS_RIB(scan[0])) viz_add_edge(current_graph, scan, scan[0]); */
+/*     if (IS_RIB(scan[1])) viz_add_edge(current_graph, scan, scan[1]); */
+/*     if (IS_RIB(scan[2])) viz_add_edge(current_graph, scan, scan[2]); */
+/*     // viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank); */
+/*     if (scan == stack) { */
+/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-33)); */
+/*     } else if (scan == pc) { */
+/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-444)); */
+/*     } else if (scan == FALSE || scan == TRUE || scan == NIL) { */
+/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-5555)); */
+/*     } else if (scan == symbol_table) { */
+/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-66666)); */
+/*     } else { */
+/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank); */
+/*     } */
+/*     scan-=RIB_NB_FIELDS; */
+/*   } */
+/*   viz_end_graph(current_graph); */
+/*   // exit(1); */
+/* } */
+
+void viz_add_rib_label(FILE* graph, obj rib, obj car, obj cdr, obj tag, obj m_car, obj m_cdr, obj m_tag, obj p, obj rank){
+  // write the value of the rib
+  char* car_prefix = IS_RIB(car) ? "r" : "";
+  char* cdr_prefix = IS_RIB(cdr) ? "r" : "";
+  char* tag_prefix = IS_RIB(tag) ? "r" : "";
+  char* m_car_prefix = IS_RIB(m_car) ? "r" : "";
+  char* m_cdr_prefix = IS_RIB(m_cdr) ? "r" : "";
+  char* m_tag_prefix = IS_RIB(m_tag) ? "r" : "";
+  char* p_prefix = IS_RIB(tag) ? "r" : "";
+  long rib_value = rib - ((long)heap_start);
+  long car_value = IS_RIB(car) ? car-((long)heap_start) : NUM(car);
+  long cdr_value = IS_RIB(cdr) ? cdr-((long)heap_start) : NUM(cdr);
+  long tag_value = IS_RIB(tag) ? tag-((long)heap_start) : NUM(tag);
+  long m_car_value = IS_RIB(m_car) ? m_car-((long)heap_start) : NUM(m_car);
+  long m_cdr_value = IS_RIB(m_cdr) ? m_cdr-((long)heap_start) : NUM(m_cdr);
+  long m_tag_value = IS_RIB(m_tag) ? m_tag-((long)heap_start) : NUM(m_tag);
+  long p_value = IS_RIB(p) ? p-((long)heap_start) : NUM(p);
+  long rank_value = NUM(rank);
+  fprintf(
+      graph,
+      "%ld [label=\"%ld : [%s%ld,%s%ld,%s%ld] M[%s%ld,%s%ld,%s%ld] CO[%s%ld] -- %ld\"]\n",
+      rib,
+      rib_value,
+      car_prefix, car_value,
+      cdr_prefix, cdr_value,
+      tag_prefix, tag_value,
+      m_car_prefix, m_car_value,
+      m_cdr_prefix, m_cdr_value,
+      m_tag_prefix, m_tag_value,
+      p_prefix, p_value,
+      rank_value);
+}
+
+
+void viz_heap(char* name){
+  // to check manually if the tests are working properly
+  // current_graph = viz_start_graph("graph.dot");
+  current_graph = viz_start_graph(name);
+  scan=heap_top;
+  
+  for (int i = 0; i <= MAX_NB_OBJS; i++) {
+    int rank = get_rank(scan);
+
+    // skip unallocated ribs
+    if (rank == UNALLOCATED_RIB_RANK) {
+      scan-=RIB_NB_FIELDS;
+      continue;
+    }
+
+    if (IS_RIB(scan[0])) viz_add_edge(current_graph, ((obj)scan), scan[0]);
+    if (IS_RIB(scan[1])) viz_add_edge(current_graph, ((obj)scan), scan[1]);
+    if (IS_RIB(scan[2])) viz_add_edge(current_graph, ((obj)scan), scan[2]);
+    if (IS_RIB(scan[3])) viz_add_dot_edge(current_graph, ((obj)scan), scan[3]);
+    if (IS_RIB(scan[4])) viz_add_dot_edge(current_graph, ((obj)scan), scan[4]);
+    if (IS_RIB(scan[5])) viz_add_dot_edge(current_graph, ((obj)scan), scan[5]);
+    if (IS_RIB(scan[6])) viz_add_dot_edge_red(current_graph, ((obj)scan), scan[6]);
+    // viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank);
+    if (((obj)scan) == stack) {
+      viz_add_rib_label(current_graph, ((obj)scan), scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-33));
+    } else if (((obj)scan) == pc) {
+      viz_add_rib_label(current_graph, ((obj)scan), scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-444));
+    } else if (((obj)scan) == FALSE || ((obj)scan) == TRUE || ((obj)scan) == NIL) {
+      viz_add_rib_label(current_graph, ((obj)scan), scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-5555));
+    } else if (((obj)scan) == symbol_table) {
+      viz_add_rib_label(current_graph, ((obj)scan), scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(-66666));
+    } else {
+      viz_add_rib_label(current_graph, ((obj)scan), scan[0], scan[1], scan[2], scan[3], scan[4], scan[5], scan[6], TAG_NUM(rank));
+    }
+    scan-=RIB_NB_FIELDS;
+  }
+  viz_end_graph(current_graph);
+  // exit(1);
+}
+
+#endif
  
 int main() { init(); }
