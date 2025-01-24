@@ -24,9 +24,6 @@
  *  - Set_field: potential problem when protecting a cyclic object
  *  - Cofriend not found in remove_cofriend (although this might happen because
  *    of dealloc_rib and when protecting a rib by linking it to the null rib)
- *  - Is_root doesn't work when the condition is simply get_rank(o) == 0 instead
- *    of explicitely checking the equality between the object and one of the 
- *    known roots
  *  - Call a GC for every instruction to make sure everything is collected...
  *
  * Features
@@ -49,8 +46,6 @@
  *  - Only protect a rib if it would get deallocated otherwise
  *  - Adopt
  *  - Get rid of _NULL ???
- *  - Explore other ways to protect a popped rib than linking it to the null rib
- *    (e.g. tagging the rank field, uncollectable region in memory, ...)
  *  - Check for places where we can deferr or avoid rank updates altogether
  *  - Micro optimizations in the code
  *  - ... PC and stack rank updates (pretty sure we have redundant drop phases 
@@ -802,12 +797,12 @@ int get_mirror_field(obj x, obj cfr) {
 #define get_rank(x) (NUM(RANK(x)))
 #define set_rank(x, rank) (RANK(x) = TAG_NUM(rank))
 
-#define is_root(x) (x == stack || x == pc || x == FALSE)
-
-// FIXME used in the "drop" phase to minimize overhead, seems to be working...
-#define is_root2(x) (x == symbol_table || x == stack || x == pc || x == FALSE)
-// FIXME uncollected ribs when an object of rank 0 or the symmbol table is considered a root 
-// #define is_root(x) (get_rank(x) == 0 || x == stack || x == pc || x == FALSE || x == symbol_table)
+// FIXME the condition `get_rank == 0` causes a segfault in the mark-and-sweep
+// GC when we check if all objects were collected because FALSE's rank was
+// modified at some point during the program's execution and gets collected.
+// This is not THAT big of a deal since we already know the 3 roots
+// #define is_root(x) (get_rank(x) == 0)
+#define is_root(x) (x == pc || x == stack || x == FALSE)
 
 #define is_dirty(from, to) (get_rank(from) < (get_rank(to) - 1))
 
@@ -909,6 +904,8 @@ void add_cofriend(obj x, obj cfr, int j) {
   get_field(cfr, j+3) = tmp;
 }
 
+void foo(){}
+
 void remove_cofriend(obj x, obj cfr, int k) {
   // Should be named "remove_link" or something because we don't remove the
   // co-friend if there exist more than one ref from cfr to x
@@ -933,7 +930,7 @@ void remove_cofriend(obj x, obj cfr, int k) {
   if (curr == _NULL) {
     // FIXME cfr was not a co-friend of x, not sure if that's a bug
     /* if (cfr != null_rib) { */
-    /*   printf("couldn't find the cofriend when trying to remove\n\n"); */
+    /*   printf("couldn't find the cofriend when trying to remove\n"); */
     /* } */
     // exit(1);
     return;
@@ -947,36 +944,6 @@ void remove_cofriend(obj x, obj cfr, int k) {
     if (get_field(prev, i) == x){
       get_field(prev, i+3) = tmp;
     }
-  }
-}
-
-void clean_cofriends(obj x) {
-  obj prev = get_parent(x);
-  obj curr = next_cofriend(x, prev);
-
-  // parent's rank shouldn't be -1
-  
-  while (curr != _NULL) {
-    if (get_rank(curr) == -1) {
-
-      obj next = next_cofriend(x, curr);
-      
-      // link all prev mirror fields to next cofriend
-      for (int i = 0; i < 3; i++){
-        if (get_field(curr, i) == x){
-          get_field(curr, i+3) = _NULL;
-        }
-      }  
-
-      // set all mirror field (associated with ref to x in cfr) to the next co-friend
-      for (int i = 0; i < 3; i++){
-        if (get_field(prev, i) == x){
-          get_field(prev, i+3) = next;
-        }
-      }      
-    }
-    prev = curr;
-    curr = next_cofriend(x, curr);
   }
 }
 
@@ -1366,7 +1333,7 @@ void set_sym_tbl(obj new_sym_tbl) {
   obj old_sym_tbl = symbol_table;
   symbol_table = new_sym_tbl;
   remove_root(old_sym_tbl);
-  if (IS_RIB(symbol_table)) set_rank(symbol_table, 0);
+  if (IS_RIB(symbol_table)) set_rank(symbol_table, 1);
 
   update_ranks(symbol_table);
 }
@@ -1968,6 +1935,7 @@ obj prim(int no) {
 void run() { // evaluator
   while (1) {
     num instr = NUM(CAR(pc));
+    // gc();
     
     // @@(feature es-apply
     if (IS_RIB(TEMP4)) {
