@@ -1,3 +1,4 @@
+#!/bin/sh
 # This file execute tests for ribbit
 
 TEMP_DIR=".tests"
@@ -85,7 +86,12 @@ for tag in $(echo $TEST_TAGS | tr ' ' '\n'); do
       fi
 
       # Check output
-      sed -e '1,/;;;expected:/d' -e 's/^;;;//' $test_path | diff - $prog.out > $prog.diff 2>&1;
+      sed -e '1,/;;;expected:/d' -e 's/^;;;//' $test_path > $prog.expected;
+      if [ "$POST_TEST_VALIDATION" != "" ]; then
+        echo $POST_TEST_VALIDATION >> $prog.expected;
+      fi
+      cat $prog.expected | diff - $prog.out > $prog.diff 2>&1;
+
       if [ "$?" = "0" ]; then
         test_ran=1
       else
