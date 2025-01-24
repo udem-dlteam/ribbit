@@ -6,6 +6,7 @@
     (use es-apply)
     "{
   PRIM2();
+  set_rank(NIL, 1);
   TEMP4 = x; // protect x 
   add_ref(NIL, x, 1);
   int num_args = 0;
