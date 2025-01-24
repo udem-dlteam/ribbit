@@ -21,20 +21,20 @@
  * Bugs
  *  - tests/r4rs/6-7-string-op.scm
  *  - Fuzzy tests bugs (potentially)
- *  - Set_field: potential problem when protecting a cyclic object
  *
  *  - [Not a priority, happens rarely] co-friend not found in remove_cofriend
  *  - [Not a priority] is_root should work with just `get_rank(x) == 0`
+ *  - FIXMEs and TODOs in the code
  *  - Call a GC for every instruction to make sure everything is collected...
  *
  * Features
  *  - FINALIZERS
  *
- *  - [Not a priority] Adapt original encoding to ES
- *  - [Not a priority] Primitives: sys (+ maybe move them all in the same file)
- *  - [Not a priority] Missing features from the original rvm (make this rvm a 
- *    fully working one, we can make another one that just includes the even-
- *  - shiloach algorithm)
+ *  - [Not a priority] Add missing features from the original RVM (encoding, 
+ *    sys primitives, (DEBUG, NO_STD, lzss compression, ARG_V, clang support, 
+ *    stop & copy GC, DEFAULT_REPL_MIN, NOSTART, CHECK_ACCESS, etc.) and then
+ *    make it the official RVM for the C host (could have a version that also
+ *    contains the ES algorithm for the paper as well...)
  *  - [Not a priority] ... cleanup the code
  *
  * Priority Queue
@@ -72,7 +72,6 @@
  *
  * Optimizations
  *  - ... ?
- *
  * 
  * ... Should also optimize mark-and-sweep and stop-and-copy a little bit
  */
@@ -213,7 +212,18 @@ size_t pos = 0;
 
 #define TOS (CAR(stack))
 
-// Temp values that can be used to shield  pointers from the evil GC
+// Temp values that can be used to shield pointers from the evil GC
+
+// WARNING when using the ES garbage collector, the rank of a temporary
+// register must be set to the same rank as the rib's current parent (or
+// a lower rank) to avoid breaking the rank order invariant
+
+// FIXME if there's a bug with the `apply` primitive when using the ES
+// garbage collector, it might me because the rank should be set to 0
+// instead of 1 but the rank should be set back to 0 when clearing the
+// register (see the lib files). The rank must be reset before using
+// the registers because the IO primitives (among other things) use
+// TRUE/NIL which can change their rank.
 #define TEMP1 CAR(TRUE)
 #define TEMP2 CDR(TRUE)
 #define TEMP3 CAR(NIL)
@@ -1296,8 +1306,7 @@ void set_pc(obj new_pc) {
 void set_field(obj src, int i, obj dest) { // write barrier
   // The order differs a bit from the ref count version of the write barrier...
   // TODO explain why we're doing that this way
-  obj *ref = RIB(src)->fields;
-  
+  obj *ref = RIB(src)->fields;  
   if (IS_RIB(ref[i])) { // no need to dereference _NULL or a num
     if (next_cofriend(ref[i], src) == _NULL) {
       // We need to be more careful here since simply removing the edge
@@ -1306,16 +1315,14 @@ void set_field(obj src, int i, obj dest) { // write barrier
       // contains a reference to one of ref[i]'s children (or more) since
       // we'll deallocate a rib (or more) that shouldn't be deallocated.
       // We can get around that by using a temporary rib to point to ref[i]
-      // (if we give that temporary rib the same rank as src we avoid
-      // potentially changing the structure of our graph twice)
       obj tmp = ref[i];
       set_rank(NIL, get_rank(src));
-      TEMP3 = ref[i];
-      add_edge(NIL, ref[i], 0);
-      remove_ref(src, ref[i], i);
+      TEMP3 = ref[i]; // protect old dest
+      add_edge(NIL, ref[i], 0);      
+      remove_ref(src, ref[i], i); // new dest
       ref[i] = dest;
-      add_ref(src, dest, i);
-      remove_ref(NIL, tmp, 0);
+      add_ref(src, dest, i);      
+      remove_ref(NIL, tmp, 0); // unprotect old dest
       TEMP3 = _NULL;
       set_rank(NIL, 1);
       update_ranks(src);
@@ -1338,7 +1345,7 @@ void set_sym_tbl(obj new_sym_tbl) {
   obj old_sym_tbl = symbol_table;
   symbol_table = new_sym_tbl;
   remove_root(old_sym_tbl);
-  if (IS_RIB(symbol_table)) set_rank(symbol_table, 1);
+  if (IS_RIB(symbol_table)) set_rank(symbol_table, 0);
 
   update_ranks(symbol_table);
 }
