@@ -22,17 +22,20 @@
  *  - tests/r4rs/6-7-string-op.scm
  *  - Fuzzy tests bugs (potentially)
  *  - Set_field: potential problem when protecting a cyclic object
- *  - Cofriend not found in remove_cofriend (although this might happen because
- *    of dealloc_rib and when protecting a rib by linking it to the null rib)
+ *
+ *  - [Not a priority, happens rarely] co-friend not found in remove_cofriend
+ *  - [Not a priority] is_root should work with just `get_rank(x) == 0`
  *  - Call a GC for every instruction to make sure everything is collected...
  *
  * Features
- *  - Adapt original encoding to ES
- *  - Primitives: sys (+ maybe move them all in the same file)
- *  - Missing features from the original rvm (make this rvm a fully working one,
- *    we can make another one that just includes the even-shiloach algorithm)
  *  - FINALIZERS
- *  - ... cleanup the code
+ *
+ *  - [Not a priority] Adapt original encoding to ES
+ *  - [Not a priority] Primitives: sys (+ maybe move them all in the same file)
+ *  - [Not a priority] Missing features from the original rvm (make this rvm a 
+ *    fully working one, we can make another one that just includes the even-
+ *  - shiloach algorithm)
+ *  - [Not a priority] ... cleanup the code
  *
  * Priority Queue
  *  - Singly linked list using no additional fields?
@@ -46,6 +49,8 @@
  *  - Only protect a rib if it would get deallocated otherwise
  *  - Adopt
  *  - Get rid of _NULL ???
+ *  - Explore other ways to protect a popped rib than linking it to the null rib
+ *    (e.g. tagging the rank field, uncollectable region in memory, ...)
  *  - Check for places where we can deferr or avoid rank updates altogether
  *  - Micro optimizations in the code
  *  - ... PC and stack rank updates (pretty sure we have redundant drop phases 
@@ -1134,7 +1139,7 @@ void dealloc_rib(obj x){
           remove_parent(_x[i], x, i);
         }
       } else { // not a child, only need to remove x from co-friend's list
-        remove_cofriend(_x[i], x, i);
+        if (CFR(_x[i]) != _NULL) remove_cofriend(_x[i], x, i);
       }
     }
   }
@@ -1163,14 +1168,14 @@ void remove_edge(obj from, obj to, int i) {
     remove_cofriend(to, from, i);
     return;
   }
-    
+  
   remove_parent(to, from, i); // `to` is "parentless"
 
   // Second condition happens when we remove an edge between a node and his
   // parent but the parent points to the child more than once
   if (!is_root(to) && (!is_parent(to, from))) {
     // Q_INIT(); // drop queue i.e. "falling ribs"
-    // PQ_INIT(); // anchors i.e. potential "catchers"  
+    // PQ_INIT(); // anchors i.e. potential "catchers"
     q_enqueue(to);
     set_rank(to, -1); // loosen without removing
     // @@(location gc-start)@@
