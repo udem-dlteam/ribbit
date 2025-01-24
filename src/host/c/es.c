@@ -1087,7 +1087,7 @@ void drop() {
     }
     // identify x's co-friends that could be potential "catchers"
     while (cfr != _NULL) {
-      if (get_rank(cfr) != -1) { // potential anker?
+      if (get_rank(cfr) != -1) { // potential anchor?
         pq_enqueue(cfr);
       }
       cfr = next_cofriend(x, cfr);
@@ -1096,16 +1096,16 @@ void drop() {
 }
 
 void catch() {
-  // since we use a priority queue instead of a set for the ankers,
+  // since we use a priority queue instead of a set for the anchors,
   // we can re-use it (as is) for the catch queue...
   do {
-    obj anker = pq_dequeue();
-    obj *_anker = RIB(anker)->fields;
+    obj anchor = pq_dequeue();
+    obj *_anchor = RIB(anchor)->fields;
     for (int i = 0; i < 3; i++) {
-      if (IS_RIB(_anker[i]) && (get_rank(_anker[i]) == -1)) {
-        set_parent(_anker[i], anker, i);
-        set_rank(_anker[i], get_rank(anker)+1);
-        pq_enqueue(_anker[i]); // add rescued node to potential "catchers"
+      if (IS_RIB(_anchor[i]) && (get_rank(_anchor[i]) == -1)) {
+        set_parent(_anchor[i], anchor, i);
+        set_rank(_anchor[i], get_rank(anchor)+1);
+        pq_enqueue(_anchor[i]); // add rescued node to potential "catchers"
       }
     }
   } while (!PQ_IS_EMPTY());
@@ -1170,7 +1170,7 @@ void remove_edge(obj from, obj to, int i) {
   // parent but the parent points to the child more than once
   if (!is_root(to) && (!is_parent(to, from))) {
     // Q_INIT(); // drop queue i.e. "falling ribs"
-    // PQ_INIT(); // ankers i.e. potential "catchers"  
+    // PQ_INIT(); // anchors i.e. potential "catchers"  
     q_enqueue(to);
     set_rank(to, -1); // loosen without removing
     // @@(location gc-start)@@
