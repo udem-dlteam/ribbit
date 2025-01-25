@@ -16,16 +16,15 @@
 /* TODO (Even-Shiloach)
  * --------------------
  *
- * --> MODIFY THE ALGORITHM SO THAT WE DON'T MAINTAIN A MINIMUM SPANNING TREE!
- *
  * Bugs
- *  - tests/r4rs/6-7-string-op.scm
  *  - Fuzzy tests bugs (potentially)
+ *  - Rank update from deallocated object?
  *
  *  - [Not a priority, happens rarely] co-friend not found in remove_cofriend
  *  - [Not a priority] is_root should work with just `get_rank(x) == 0`
  *  - FIXMEs and TODOs in the code
  *  - Call a GC for every instruction to make sure everything is collected...
+ *     => Do that for the bootstrap, the test suite, and fuzzy tests
  *
  * Features
  *  - FINALIZERS
@@ -37,24 +36,20 @@
  *    contains the ES algorithm for the paper as well...)
  *  - [Not a priority] ... cleanup the code
  *
- * Priority Queue
- *  - Singly linked list using no additional fields?
- *  - Buckets
- *  - Red-black trees (Feeley has an implementation for Gambit)
- *  - Heap of some sort
- *  - Embedded array (Monnier's idea)
+ * Catch queue
+ *  - Pqueue with singly linked list and no remove operation
+ *  - Buckets with and without remove operation
  *  - Skip list
+ *  - Red-black tree or some other balanced tree
+ *  - Heap (min, binomial, fib, ...)
+ *  - Indexed array
+ *  - ... ???
  *
  * Optimizations
  *  - Only protect a rib if it would get deallocated otherwise
  *  - Adopt
- *  - Get rid of _NULL ???
- *  - Explore other ways to protect a popped rib than linking it to the null rib
- *    (e.g. tagging the rank field, uncollectable region in memory, ...)
- *  - Check for places where we can deferr or avoid rank updates altogether
- *  - Micro optimizations in the code
- *  - ... PC and stack rank updates (pretty sure we have redundant drop phases 
- *        when there's a set_stack followed by a set_pc)
+ *  - Redundant drop/catch
+ *  - Expensive drop phase in set_stack and decode
  */
 
 
@@ -86,14 +81,6 @@
 #define REF_COUNT
 // )@@
 
-// @@(feature buckets
-#define BUCKETS
-// )@@
-
-// @@(feature linked-list
-#define LINKED_LIST
-// )@@
-
 // @@(feature update-ranks
 #define UPDATE_RANKS
 // )@@
@@ -120,15 +107,52 @@ typedef unsigned long obj;
 // a number
 typedef long num;
 
+
+// Default data structure used for the anchors/catcher is a queue with a remove
+// operation that requires no additional field (than the drop queue).
+
+// Fastest seems to be the queue with no remove so far but...
+//   - Requires an extra field which annoys me
+//   - Doesn't rebalance the tree (or we can't guarantee that it will rebalance
+//     itself even partially) during the catch phase
+//   - I only tested with `fib 25`, the only program know to mankind 
+
+// @@(feature queue-no-remove
+// Queue with the remove in dequeue, faster but requires one extra field
+#define QUEUE_NO_REMOVE
+// )@@
+
+// @@(feature linked-list
+#define LINKED_LIST
+// )@@
+
+// @@(feature linked-list-no-remove
+#define LINKED_LIST_NO_REMOVE
+// )@@
+
+// @@(feature buckets
+#define BUCKETS
+// )@@
+
+// @@(feature buckets-no-remove
+#define BUCKETS_NO_REMOVE
+// )@@
+
 #ifdef REF_COUNT
 #define RIB_NB_FIELDS 4
 #else
-#if defined(BUCKETS) || defined(LINKED_LIST) 
+#ifdef BUCKETS_NO_REMOVE
 #define RIB_NB_FIELDS 11
 #else
-#define RIB_NB_FIELDS 9  // 10 reuse the queue field for the pqueue
+#if defined(QUEUE_NO_REMOVE) || defined(LINKED_LIST_NO_REMOVE) || defined(BUCKETS)
+#define RIB_NB_FIELDS 10
+#else
+// Queue with remove or priority queue (singly linked list) with remove
+#define RIB_NB_FIELDS 9
 #endif
 #endif
+#endif
+
 typedef struct {
   obj fields[RIB_NB_FIELDS];
 } rib;
@@ -146,19 +170,30 @@ typedef struct {
 #define CFR(x) RIB(x)->fields[6]
 #define RANK(x) RIB(x)->fields[7]
 // queue next
-#define Q_NEXT(x) RIB(x)->fields[8]  
+#define Q_NEXT(x) RIB(x)->fields[8]
 
-// priority queue
-#ifdef BUCKETS
+#ifdef BUCKETS_NO_REMOVE
 #define PQ_NEXT_RIB(x) RIB(x)->fields[9]
 #define PQ_NEXT_BKT(x) RIB(x)->fields[10]
 #else
-// singly linked list (use the same field for queue and pqueue)
-// #define PQ_NEXT(x) RIB(x)->fields[9]
-#define PQ_NEXT(x) Q_NEXT(x)
-// doubly linked list
+#ifdef BUCKETS
+#define PQ_NEXT_RIB(x) RIB(x)->fields[8]
+#define PQ_NEXT_BKT(x) RIB(x)->fields[9]
+#else
+#ifdef LINKED_LIST_NO_REMOVE
+#define PQ_NEXT(x) RIB(x)->fields[9]
+#else
 #ifdef LINKED_LIST
-#define PQ_PREV(x) RIB(x)->fields[10]
+#define PQ_NEXT(x) Q_NEXT(x)
+#else
+#ifdef QUEUE_NO_REMOVE
+#define PQ_NEXT(x) RIB(x)->fields[9]
+#else
+// Default: queue with remove
+#define PQ_NEXT(x) Q_NEXT(x)
+#endif
+#endif
+#endif
 #endif
 #endif
 #endif
@@ -422,7 +457,7 @@ void viz_heap(char* name){
 
 //==============================================================================
 
-// Data structures (ESTrees)
+// Data structures (ES Trees)
 
 
 // Queue
@@ -435,14 +470,19 @@ obj q_tail; // enqueue at tail => O(1)
 #define Q_IS_EMPTY() (q_head == _NULL)
 
 void q_enqueue(obj o) {
-  if (Q_NEXT(o) == _NULL && q_tail != o) { // no duplicates in the queue
+  // In theory there shouldn't be any reason as to why a rib gets enqueued
+  // twice in the queue given that its rank gets set to -1 and that we don't
+  // enqueue a rib that has a rank -1 (and that we don't reset its rank until
+  // we enter the catch phase... could change if we implement the "adopt"
+  // mechanism)
+  // if (Q_NEXT(o) == _NULL && q_head != o && q_tail != o) { // no duplicates in the queue
     if (Q_IS_EMPTY()){
       q_head = o;
     } else {
       Q_NEXT(q_tail) = o;
     }
     q_tail = o;
-  }
+    // }
 }
 
 obj q_dequeue() {
@@ -484,11 +524,6 @@ obj q_dequeue() {
 //
 //  - Something else...?
 
-
-// This section is a bit of a mess right now, I played with a lot of stuff,
-// need to cleanup and make sur the pqueue is implemented properly
-
-
 obj pq_head;
 obj pq_tail;
 
@@ -496,7 +531,16 @@ obj pq_tail;
 
 #define PQ_IS_EMPTY() (pq_head == _NULL)
 
+
+#ifdef BUCKETS_NO_REMOVE
+
+// TODO
+
+#else
+
 #ifdef BUCKETS
+
+// FIXME not sure if it's working
 
 void pq_enqueue(obj o) {
   if (IS_RIB(o)) {
@@ -598,70 +642,16 @@ void pq_remove(obj o) {
 
 #else
 
-#ifdef LINKED_LIST
+#ifdef LINKED_LIST_NO_REMOVE
 
-// Priority queue implemented with a doubly linked list
-
-void pq_enqueue(obj o) {
-  // the lower the rank, the closer the rib is to pq_head
-  if (PQ_PREV(o) == _NULL && pq_head != o) {
-    if (PQ_IS_EMPTY()){
-      pq_head = o;
-    }
-    else if (RANK(o) == 1) { // root (tagged rank)
-      PQ_PREV(pq_head) = o;
-      PQ_NEXT(o) = pq_head;
-      pq_head = o;
-    }
-    else {
-      // insert new rib after the first rib that has a lower rank
-      obj prev = pq_head;
-      obj curr = PQ_NEXT(pq_head);
-      while (curr != _NULL && RANK(curr) < RANK(o)) { 
-        prev = curr;
-        curr = PQ_NEXT(curr);
-      }
-      PQ_NEXT(prev) = o; // could be _NULL
-      if (curr != _NULL) { // o becomes the tail?
-        PQ_PREV(curr) = o;
-        PQ_NEXT(o) = _NULL;
-      }
-      PQ_PREV(o) = prev;
-    }
-  }
-}
-
-obj pq_dequeue() {
-  if (PQ_IS_EMPTY()){
-    return _NULL;
-  }
-  obj tmp = pq_head;
-  pq_head = PQ_NEXT(tmp);
-  if (pq_head != _NULL) {
-    PQ_PREV(pq_head) = _NULL;
-    PQ_NEXT(tmp) = _NULL;
-  }
-  return tmp;
-}
-
-// Set operations
-
-void pq_remove(obj o) {
-  if (PQ_PREV(o) != _NULL) { // in pqueue but not pq_head
-    PQ_NEXT(PQ_PREV(o)) = PQ_NEXT(o); // could be _NULL
-    if (PQ_NEXT(o) != _NULL) { // not last element in pqueue
-      PQ_PREV(PQ_NEXT(o)) = PQ_PREV(o);
-      PQ_NEXT(o) = _NULL;
-    }
-    PQ_PREV(o) = _NULL;
-  } else if (pq_head == o) { // pq_head, else o is not in set
-    pq_head = _NULL;
-  }
-}
+// TODO
 
 #else
 
-// Priority queue implemented with a singly linked list
+#ifdef LINKED_LIST
+
+// Priority queue implemented with a singly linked list and a remove
+// operation (requires no extra field)
 
 void pq_enqueue(obj o) {
   // the lower the rank, the closer the rib is to pq_head
@@ -678,7 +668,7 @@ void pq_enqueue(obj o) {
       // insert new rib after the first rib that has a lower rank
       obj prev = pq_head;
       obj curr = PQ_NEXT(pq_head);
-      while (curr != _NULL && RANK(curr) < RANK(o)){ 
+      while (curr != _NULL && RANK(curr) < RANK(o)){
         prev = curr;
         curr = PQ_NEXT(curr);
       }
@@ -704,7 +694,119 @@ obj pq_dequeue() {
   return tmp;
 }
 
-// Set operations
+void pq_remove(obj o) {
+  if ((PQ_NEXT(o) == _NULL && pq_head != o && pq_tail != o) || pq_head == _NULL) { // o not in set?
+    return;
+  }
+  if (pq_head == o) {
+    obj tmp = pq_head;
+    pq_head = PQ_NEXT(tmp);
+    if (pq_tail == o) {
+      pq_tail = _NULL;
+      return;
+    }
+    PQ_NEXT(tmp) = _NULL;
+  } else {
+    obj curr = PQ_NEXT(pq_head);
+    obj prev = pq_head;
+    // Assumes that PQ_NEXT of a rib can't contain a reference to itself
+    while (curr != o && curr != _NULL) {
+      prev = curr;
+      curr = PQ_NEXT(curr);
+    }
+    
+    // FIXME not sure why this still happens...
+    if (curr == _NULL) return;
+
+    if (curr == pq_tail) {
+      pq_tail = prev;
+    }
+    PQ_NEXT(prev) = PQ_NEXT(curr);
+    PQ_NEXT(curr) = _NULL;
+    PQ_NEXT(o) = _NULL;
+  }
+}
+
+#else
+
+#ifdef QUEUE_NO_REMOVE
+
+// Queue with no remove, requires an extra field since a falling rib could still
+// be in the anchor queue when we enqueue it in the drop queue
+
+void pq_enqueue(obj o) {
+  // In the case of the pqueue, we could attempt to add the
+  // same rib twice (e.g. if two ribs have the same co-friend)
+  if (PQ_NEXT(o) == _NULL && pq_head != o && pq_tail != o) {
+    if (PQ_IS_EMPTY()){
+      pq_head = o;
+    } else {
+      PQ_NEXT(pq_tail) = o;
+    }
+    pq_tail = o;
+  }
+}
+
+obj pq_dequeue() {
+  // Get rid of falling ribs
+  obj tmp;
+  while (!PQ_IS_EMPTY()) {
+    if (NUM(RANK(pq_head)) == -1) { // falling?
+      tmp = PQ_NEXT(pq_head);
+      PQ_NEXT(pq_head) = _NULL;
+      pq_head = tmp;
+    } else {
+      break; // found a non-falling rib
+    }
+  }
+  if (PQ_IS_EMPTY()){
+    pq_tail = _NULL;
+    return _NULL;
+  }
+  if (pq_head == pq_tail) {
+    pq_tail = _NULL;
+  }
+  tmp = pq_head;
+  pq_head = PQ_NEXT(tmp);
+  PQ_NEXT(tmp) = _NULL;
+  return tmp;
+}
+
+#define pq_remove(o) NULL
+
+
+#else
+
+// Default: queue with remove operation, requires no extra field
+// Seems to be faster than the priority queue implemented with a singly
+// linked list but potentially doesn't rebalance the spanning tree since
+// ribs are not dequeued by rank
+
+void pq_enqueue(obj o) {
+  // In the case of the pqueue, we could attempt to add the
+  // same rib twice (e.g. if two ribs have the same co-friend)
+  if (PQ_NEXT(o) == _NULL && pq_head != o && pq_tail != o) {
+    if (PQ_IS_EMPTY()){
+      pq_head = o;
+    } else {
+      PQ_NEXT(pq_tail) = o;
+    }
+    pq_tail = o;
+  }
+}
+
+obj pq_dequeue() {
+  if (PQ_IS_EMPTY()){
+    return _NULL;
+  }
+  if (pq_head == pq_tail) {
+    pq_tail = _NULL;
+  }
+  obj tmp = pq_head;
+  pq_head = PQ_NEXT(tmp);
+  PQ_NEXT(tmp) = _NULL;
+  return tmp;
+}
 
 void pq_remove(obj o) {
   if ((PQ_NEXT(o) == _NULL && pq_head != o && pq_tail != o) || pq_head == _NULL) { // o not in set?
@@ -741,7 +843,9 @@ void pq_remove(obj o) {
 
 #endif
 #endif
-
+#endif
+#endif
+#endif
 
 //==============================================================================
 
@@ -1115,6 +1219,12 @@ void catch() {
   // we can re-use it (as is) for the catch queue...
   do {
     obj anchor = pq_dequeue();
+#if defined(QUEUE_NO_REMOVE) || defined(LINKED_LIST_NO_REMOVE) || defined(BUCKETS_NO_REMOVE)
+    // When using the "no remove" version of a data structure, the catch queue
+    // could empty itself during the the pq_dequeue procedure, need to add an
+    // additional check here
+    if (anchor == _NULL) return;
+#endif
     obj *_anchor = RIB(anchor)->fields;
     for (int i = 0; i < 3; i++) {
       if (IS_RIB(_anchor[i]) && (get_rank(_anchor[i]) == -1)) {
@@ -1611,9 +1721,12 @@ void push2(obj car, obj tag) {
   *alloc++ = _NULL;      // co-friends
   *alloc++ = TAG_NUM(0); // rank will be 0 since it becomes the new stack
   *alloc++ = _NULL;      // queue and priority queue
-/* #if defined(BUCKETS) || defined(LINKED_LIST)  */
-/*   *alloc++ = _NULL; */
-/* #endif */
+#if defined(QUEUE_NO_REMOVE) || defined(LINKED_LIST_NO_REMOVE) || defined(BUCKETS)
+  *alloc++ = _NULL;
+#endif
+#ifdef BUCKETS_NO_REMOVE
+  *alloc++ = _NULL;
+#endif
 
   obj new_rib = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
 
@@ -1659,9 +1772,12 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   *alloc++ = _NULL;      // co-friends
   *alloc++ = TAG_NUM(0); 
   *alloc++ = _NULL;      // queue and priority queue
-/* #if defined(BUCKETS) || defined(LINKED_LIST)  */
-/*   *alloc++ = _NULL; */
-/* #endif */
+#if defined(QUEUE_NO_REMOVE) || defined(LINKED_LIST_NO_REMOVE) || defined(BUCKETS)
+  *alloc++ = _NULL;
+#endif
+#ifdef BUCKETS_NO_REMOVE
+  *alloc++ = _NULL;
+#endif
 
   obj new_rib =  TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
 
