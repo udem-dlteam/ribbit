@@ -18,7 +18,6 @@
  *
  * Bugs
  *  - Fuzzy tests bugs (potentially)
- *  - Rank update from deallocated object?
  *
  *  - [Not a priority, happens rarely] co-friend not found in remove_cofriend
  *  - [Not a priority] is_root should work with just `get_rank(x) == 0`
@@ -47,9 +46,11 @@
  *
  * Optimizations
  *  - Only protect a rib if it would get deallocated otherwise
- *  - Adopt
- *  - Redundant drop/catch
- *  - Expensive drop phase in set_stack and decode
+ *  - Redundant drop/catch (set_stack followed by set_pc)
+ *  - Expensive drop/catch (flat closures)
+ *
+ * Other version
+ *  - Push down the ribs and adopt
  */
 
 
@@ -86,6 +87,12 @@
 
 // @@(feature update-ranks
 #define UPDATE_RANKS
+// )@@
+
+// @@(feature unsafe
+// This is to activate some optimizations that I made that I'm not sure why they
+// work (or if they really do) or if they're safe to use
+#define UNSAFE
 // )@@
 
 // @@(feature debug/rib-viz
@@ -1344,7 +1351,17 @@ void set_stack(obj new_stack) {
       }
     }
   }
+  // AFAIK the only time where the old stack is reachable from... anything
+  // if when we have a closure, in which case it won't be deallocated so
+  // there's no point in doing the whole drop and catch phases...
+  // This is 10x time faster on programs with big boy recursion like `fib`
+  // but it causes some occasional memory leak (see the 3 tests that breaks).
+  // Potentially useless if we have flat closures
+#ifdef UNSAFE
+  if (IS_RIB(old_stack) && get_parent(old_stack) == _NULL) remove_root(old_stack);
+#else
   remove_root(old_stack);
+#endif
 }
 
 void set_pc(obj new_pc) {
@@ -1924,7 +1941,6 @@ obj prim(int no) {
   }
   return TAG_NUM(0);
 }
-
 
 #define ADVANCE_PC() set_pc(TAG(pc))
 
