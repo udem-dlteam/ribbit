@@ -2110,6 +2110,7 @@ void init_heap() {
   *scan = _NULL;
 #else
   null_rib = TAG_RIB((rib *)(scan));
+  scan -= RIB_NB_FIELDS; // skip the null rib
   // rank should always be 0 since popped values will be saved there temporarly
   set_rank(null_rib, 0);
 #endif
