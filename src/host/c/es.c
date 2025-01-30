@@ -1209,6 +1209,7 @@ void remove_edge(obj from, obj to, int i) {
 
 
 void remove_node(obj old_root) {
+  // @@(location gc-start)@@
   if (CFR(old_root) != _NULL) {
     set_rank(old_root, get_rank(CFR(old_root))+1);
   }
@@ -1221,9 +1222,11 @@ void remove_node(obj old_root) {
   if (CFR(old_root) == _NULL) {
     dealloc_rib(old_root);
   }
+  // @@(location gc-end)@@
 }
 
 void remove_or_adopt_node(obj old_root) {
+  // @@(location gc-start)@@
   if (CFR(old_root) != _NULL) {
     if (adopt(old_root)) {
       return;
@@ -1240,6 +1243,7 @@ void remove_or_adopt_node(obj old_root) {
   if (CFR(old_root) == _NULL) {
     dealloc_rib(old_root);
   }
+  // @@(location gc-end)@@
 }
 
 #define remove_root(old_root) if (IS_RIB(old_root)) remove_node(old_root)
