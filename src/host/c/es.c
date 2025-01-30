@@ -1407,10 +1407,12 @@ void set_stack(obj new_stack) {
   if (IS_RIB(old_stack) && get_parent(old_stack) == _NULL) remove_root(old_stack);
 #else
 #ifdef ADOPT
-  if (IS_RIB(old_stack) && get_parent(old_stack) == _NULL) {
-    remove_node(old_stack);
-  } else {
-    remove_or_adopt_node(old_stack);
+  if (IS_RIB(old_stack)) {
+    if (get_parent(old_stack) == _NULL) {
+      remove_node(old_stack);
+    } else {
+      remove_or_adopt_node(old_stack);
+    }
   }
 #else
   remove_root(old_stack);
@@ -1437,7 +1439,6 @@ void set_pc(obj new_pc) {
       }
     }
   }
-
   remove_root(old_pc);
 }
 
