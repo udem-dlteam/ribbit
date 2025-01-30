@@ -53,9 +53,6 @@
  *  - Only protect a rib if it would get deallocated otherwise
  *  - Redundant drop/catch (set_stack followed by set_pc)
  *  - Expensive drop/catch (flat closures)
- *
- * Other version
- *  - Push down the ribs and adopt
  */
 
 
@@ -97,6 +94,8 @@
 // @@(feature adopt
 #define ADOPT
 // )@@
+
+#define ADOPT
 
 // @@(feature unsafe
 // This is to activate some optimizations that I made that I'm not sure why they
@@ -1439,7 +1438,17 @@ void set_pc(obj new_pc) {
       }
     }
   }
+#ifdef ADOPT
+  if (IS_RIB(old_pc)) {
+    if (get_parent(old_pc) == _NULL) {
+      remove_node(old_pc);
+    } else {
+      remove_or_adopt_node(old_pc);
+    }
+  }
+#else
   remove_root(old_pc);
+#endif
 }
 
 #endif
