@@ -16,7 +16,12 @@
 /* TODO (Even-Shiloach)
  * --------------------
  *
+ * Explain my approach to adopt and why I don't set the rank of pc and stack 
+ * to 0 (too tired rn)
+ *
+ *
  * Bugs
+ *  - Co-friend loop?
  *  - Fuzzy tests bugs (potentially)
  *
  *  - [Not a priority, happens rarely] co-friend not found in remove_cofriend
@@ -87,6 +92,10 @@
 
 // @@(feature update-ranks
 #define UPDATE_RANKS
+// )@@
+
+// @@(feature adopt
+#define ADOPT
 // )@@
 
 // @@(feature unsafe
@@ -1040,6 +1049,20 @@ void add_edge(obj from, obj to, int i) {
 
 // Intuition: TODO
 
+bool adopt(obj x) {
+  int rank = get_rank(x);
+  obj cfr = get_parent(x);
+  while (cfr != _NULL) {
+    if (get_rank(cfr) < rank) {
+      set_parent(x, cfr, get_mirror_field(x, cfr)-3);
+      set_rank(x, get_rank(cfr)+1);
+      return 1;
+    }
+    cfr = next_cofriend(x, cfr);
+  }
+  return 0;
+}
+
 #define loosen(x) set_rank(x, -1); pq_remove(x)
 
 void drop() {
@@ -1200,6 +1223,25 @@ void remove_node(obj old_root) {
   }
 }
 
+void remove_or_adopt_node(obj old_root) {
+  if (CFR(old_root) != _NULL) {
+    if (adopt(old_root)) {
+      return;
+    } else {
+      set_rank(old_root, get_rank(CFR(old_root))+1);
+    }
+  }
+  q_enqueue(old_root);
+  set_rank(old_root, -1); // loosen without removing
+  drop();
+  if (!PQ_IS_EMPTY()) {
+    catch(); // avoid function call if no catchers
+  }
+  if (CFR(old_root) == _NULL) {
+    dealloc_rib(old_root);
+  }
+}
+
 #define remove_root(old_root) if (IS_RIB(old_root)) remove_node(old_root)
 
 // end of code specific to ESTrees
@@ -1333,7 +1375,7 @@ void set_sym_tbl(obj new_sym_tbl) {
 void set_stack(obj new_stack) {
   obj old_stack = stack;
   stack = new_stack;
-  if (IS_RIB(stack)) set_rank(stack, 0);
+  // if (IS_RIB(stack)) set_rank(stack, 0);
   
   if (IS_RIB(stack)) update_ranks(stack);
 
@@ -1360,14 +1402,22 @@ void set_stack(obj new_stack) {
 #ifdef UNSAFE
   if (IS_RIB(old_stack) && get_parent(old_stack) == _NULL) remove_root(old_stack);
 #else
+#ifdef ADOPT
+  if (IS_RIB(old_stack) && get_parent(old_stack) == _NULL) {
+    remove_node(old_stack);
+  } else {
+    remove_or_adopt_node(old_stack);
+  }
+#else
   remove_root(old_stack);
+#endif
 #endif
 }
 
 void set_pc(obj new_pc) {
   obj old_pc = pc;
   pc = new_pc;
-  set_rank(pc, 0);
+  // set_rank(pc, 0);
   
   update_ranks(pc);
 
