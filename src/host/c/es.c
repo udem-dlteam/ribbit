@@ -16,16 +16,11 @@
 /* TODO (Even-Shiloach)
  * --------------------
  *
- * Explain my approach to adopt and why I don't set the rank of pc and stack 
- * to 0 (too tired rn)
- *
- *
  * Bugs
  *  - Co-friend loop?
  *  - Fuzzy tests bugs (potentially)
  *
  *  - [Not a priority, happens rarely] co-friend not found in remove_cofriend
- *  - [Not a priority] is_root should work with just `get_rank(x) == 0`
  *  - FIXMEs and TODOs in the code
  *  - Call a GC for every instruction to make sure everything is collected...
  *     => Do that for the bootstrap, the test suite, and fuzzy tests
@@ -40,19 +35,10 @@
  *    contains the ES algorithm for the paper as well...)
  *  - [Not a priority] ... cleanup the code
  *
- * Catch queue
- *  - Pqueue with singly linked list and no remove operation
- *  - Buckets with and without remove operation
- *  - Skip list
- *  - Red-black tree or some other balanced tree
- *  - Heap (min, binomial, fib, ...)
- *  - Indexed array
- *  - ... ???
- *
  * Optimizations
- *  - Only protect a rib if it would get deallocated otherwise
- *  - Redundant drop/catch (set_stack followed by set_pc)
- *  - Expensive drop/catch (flat closures)
+ *  - Adoption (optimized and integrated in the co-friend traversal phase)
+ *  - Flat closures 
+ *  - Remove PC as a root
  */
 
 
@@ -67,11 +53,6 @@
  *  - Primitives: apply, io, and sys
  *  - Missing features from the original rvm 
  *  - ... cleanup the code
- *
- * Optimizations
- *  - ... ?
- * 
- * ... Should also optimize mark-and-sweep and stop-and-copy a little bit
  */
 
 // @@(location import)@@
@@ -91,16 +72,14 @@
 #define UPDATE_RANKS
 // )@@
 
-// @@(feature adopt
-#define ADOPT
+// @@(feature es-roots
+// FIXME causes a memory leak if used with adoption
+#define ES_ROOTS
+#define NO_ADOPT
 // )@@
 
-#define ADOPT
-
-// @@(feature unsafe
-// This is to activate some optimizations that I made that I'm not sure why they
-// work (or if they really do) or if they're safe to use
-#define UNSAFE
+// @@(feature no-adopt
+#define NO_ADOPT
 // )@@
 
 // @@(feature debug/rib-viz
@@ -891,8 +870,6 @@ void add_cofriend(obj x, obj cfr, int j) {
   get_field(cfr, j+3) = tmp;
 }
 
-void foo(){}
-
 void remove_cofriend(obj x, obj cfr, int k) {
   // Should be named "remove_link" or something because we don't remove the
   // co-friend if there exist more than one ref from cfr to x
@@ -1048,11 +1025,18 @@ void add_edge(obj from, obj to, int i) {
 
 // Intuition: TODO
 
+#ifdef NO_ADOPT
+
+#define adopt(x) false
+
+#else
+
 bool adopt(obj x) {
   int rank = get_rank(x);
   obj cfr = get_parent(x);
   while (cfr != _NULL) {
-    if (get_rank(cfr) < rank) {
+    // FIXME not sure about the second condition
+    if (get_rank(cfr) < rank && get_rank(cfr) > 0) {
       set_parent(x, cfr, get_mirror_field(x, cfr)-3);
       set_rank(x, get_rank(cfr)+1);
       return 1;
@@ -1062,12 +1046,15 @@ bool adopt(obj x) {
   return 0;
 }
 
+#endif
+
 #define loosen(x) set_rank(x, -1); pq_remove(x)
 
 void drop() {
   obj x; // current "falling" rib
   obj *_x;
   obj cfr;
+
   while (!Q_IS_EMPTY()) {
     x = q_dequeue();
     _x = RIB(x)->fields;
@@ -1078,7 +1065,7 @@ void drop() {
     // making x's children "fall" along with him
     for (int i = 0; i < 3; i++) {
       if (IS_RIB(_x[i]) && is_parent(_x[i], x) && (!is_root(_x[i]))) {
-        if (get_rank(_x[i]) != -1) {
+        if (get_rank(_x[i]) != -1 && (!adopt(_x[i]))) {
           // if we loosen here instead of when we dequeue, we can reuse the
           // queue field for the priority queue
           loosen(_x[i]);
@@ -1185,7 +1172,7 @@ void remove_edge(obj from, obj to, int i) {
 
   // Second condition happens when we remove an edge between a node and his
   // parent but the parent points to the child more than once
-  if (!is_root(to) && (!is_parent(to, from))) {
+  if (!is_root(to) && (!is_parent(to, from)) && (!adopt(to))) {
     // Q_INIT(); // drop queue i.e. "falling ribs"
     // PQ_INIT(); // anchors i.e. potential "catchers"
     q_enqueue(to);
@@ -1208,10 +1195,10 @@ void remove_edge(obj from, obj to, int i) {
 
 
 void remove_node(obj old_root) {
+  // FIXME assumes old_root is parentless, merge remove_or_adopt_node and
+  // remove_node together, no reason to have both
+  
   // @@(location gc-start)@@
-  if (CFR(old_root) != _NULL) {
-    set_rank(old_root, get_rank(CFR(old_root))+1);
-  }
   q_enqueue(old_root);
   set_rank(old_root, -1); // loosen without removing
   drop();
@@ -1226,13 +1213,7 @@ void remove_node(obj old_root) {
 
 void remove_or_adopt_node(obj old_root) {
   // @@(location gc-start)@@
-  if (CFR(old_root) != _NULL) {
-    if (adopt(old_root)) {
-      return;
-    } else {
-      set_rank(old_root, get_rank(CFR(old_root))+1);
-    }
-  }
+  if (adopt(old_root)) return;
   q_enqueue(old_root);
   set_rank(old_root, -1); // loosen without removing
   drop();
@@ -1369,19 +1350,34 @@ void set_field(obj src, int i, obj dest) { // write barrier
 void set_sym_tbl(obj new_sym_tbl) {
   obj old_sym_tbl = symbol_table;
   symbol_table = new_sym_tbl;
-  remove_root(old_sym_tbl);
+#ifdef ES_ROOTS
   if (IS_RIB(symbol_table)) set_rank(symbol_table, 0);
+#endif
 
   update_ranks(symbol_table);
+
+#ifdef NO_ADOPT
+  remove_root(old_sym_tbl);
+#else
+  if (IS_RIB(old_sym_tbl)) {
+    if (get_parent(old_sym_tbl) == _NULL) {
+      remove_node(old_sym_tbl);
+    } else {
+      remove_or_adopt_node(old_sym_tbl);
+    }
+  }
+#endif
 }
 
 void set_stack(obj new_stack) {
   obj old_stack = stack;
   stack = new_stack;
-  // if (IS_RIB(stack)) set_rank(stack, 0);
-  
+#ifdef ES_ROOTS
+  if (IS_RIB(stack)) set_rank(stack, 0);
+#endif
   if (IS_RIB(stack)) update_ranks(stack);
 
+#ifdef ES_ROOTS
   if (IS_RIB(stack)) {
     obj *_stack = RIB(stack)->fields;
     for (int i = 0; i < 3; i++) {
@@ -1396,16 +1392,10 @@ void set_stack(obj new_stack) {
       }
     }
   }
-  // AFAIK the only time where the old stack is reachable from... anything
-  // if when we have a closure, in which case it won't be deallocated so
-  // there's no point in doing the whole drop and catch phases...
-  // This is 10x time faster on programs with big boy recursion like `fib`
-  // but it causes some occasional memory leak (see the 3 tests that breaks).
-  // Potentially useless if we have flat closures
-#ifdef UNSAFE
-  if (IS_RIB(old_stack) && get_parent(old_stack) == _NULL) remove_root(old_stack);
+#endif
+#ifdef NO_ADOPT
+  remove_root(old_stack);
 #else
-#ifdef ADOPT
   if (IS_RIB(old_stack)) {
     if (get_parent(old_stack) == _NULL) {
       remove_node(old_stack);
@@ -1413,19 +1403,18 @@ void set_stack(obj new_stack) {
       remove_or_adopt_node(old_stack);
     }
   }
-#else
-  remove_root(old_stack);
-#endif
 #endif
 }
 
 void set_pc(obj new_pc) {
   obj old_pc = pc;
   pc = new_pc;
-  // set_rank(pc, 0);
-  
+#ifdef NO_ADOPT
+  set_rank(pc, 0);
+#endif
   update_ranks(pc);
 
+#ifdef ES_ROOTS
   obj *_pc = RIB(pc)->fields;
   for (int i = 0; i < 3; i++) {
     if (IS_RIB(_pc[i])) {
@@ -1438,7 +1427,10 @@ void set_pc(obj new_pc) {
       }
     }
   }
-#ifdef ADOPT
+#endif
+#ifdef NO_ADOPT
+  remove_root(old_pc);
+#else
   if (IS_RIB(old_pc)) {
     if (get_parent(old_pc) == _NULL) {
       remove_node(old_pc);
@@ -1446,8 +1438,6 @@ void set_pc(obj new_pc) {
       remove_or_adopt_node(old_pc);
     }
   }
-#else
-  remove_root(old_pc);
 #endif
 }
 
@@ -1557,7 +1547,6 @@ obj pop() {
     TEMP5 = tos;
     add_edge(null_rib, tos, 0);
   }
-  // if (IS_RIB(tos)) set_rank(tos, 0);
   set_stack(CDR(stack));
   return tos;
 }
@@ -1694,9 +1683,10 @@ void push2(obj car, obj tag) {
       }
     }
   }
-  
-  add_ref(new_rib, car, 0);
-  add_ref(new_rib, tag, 2);
+
+  // FIXME are these redundant now?
+  /* add_ref(new_rib, car, 0); */
+  /* add_ref(new_rib, tag, 2); */
   
   alloc = (obj *)tmp;
 }
@@ -2159,9 +2149,6 @@ void run() { // evaluator
       break;
     }
     case INSTR_HALT: { // halt
-      //printf("deallocation count = %d\n", d_count);
-      /* viz_heap("graph.dot"); */
-      /* viz_heap(); */
       gc();
       vm_exit(0);
     }
@@ -2352,6 +2339,7 @@ void decode() {
     obj c = TAG_RIB(alloc_rib(TAG_NUM(i), n, NUM_0));
     SET_TAG(c, TOS); //  c->fields[2] = TOS;
     SET_CAR(stack, c); // TOS = TAG_RIB(c);
+    // SET_CAR(stack, TAG_RIB(alloc_rib(TAG_NUM(i), n, TOS))); // TOS = TAG_RIB(c);
 #ifdef REF_COUNT
     DEC_COUNT(CDR(c)); // n
     DEC_COUNT(TOS); // c
