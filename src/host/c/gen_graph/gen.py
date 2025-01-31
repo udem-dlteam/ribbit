@@ -167,7 +167,7 @@ def get_node_path(nodes, node):
     root = nodes[node][1]
     return node_as_string(path, root)
 
-def write_graph_ribbit(G, T, main_root, nb_stack_roots, include_false_root, include_false_as_node, buffer):
+def write_graph_ribbit(G, T, main_root, nb_stack_roots, include_false_root, buffer):
 
     buffer.write("(define root ")
     print_tree(T, main_root, buffer)
@@ -211,8 +211,6 @@ def write_graph_ribbit(G, T, main_root, nb_stack_roots, include_false_root, incl
     
     if include_false_root:
         temp_1_root = r.choice(list(G.nodes()))
-
-        root = r.choice(list(G.nodes()))
         other_roots_nodes = [x[1] for x in other_roots]
 
         while temp_1_root == main_root or temp_1_root in other_roots_nodes:
@@ -266,8 +264,12 @@ def main():
     # Parse args
     n = int(sys.argv[1])
 
+    path = False
     if len(sys.argv) > 2:
-        buffer = open(sys.argv[2], "w")
+        path = sys.argv[2]
+        while path[-1] == "/":
+            path = path[:-1]
+        buffer = open(path, "w")
     else:
         buffer = sys.stdout
 
@@ -276,7 +278,12 @@ def main():
     while G == False:
         G, T, root = gen_tree(n)
 
-    write_graph_ribbit(G, T, root, 3, True, False, buffer)
+    if path != False:
+        nx.nx_pydot.write_dot(G, path + ".G.dot")
+        nx.nx_pydot.write_dot(T, path + ".T.dot")
+
+    write_graph_ribbit(G, T, root, 3, True, buffer)
+    buffer.close()
 
 main()
 
