@@ -93,7 +93,6 @@ def gen_tree(n):
 
     if not nx.is_connected(G.to_undirected()):
         return FAIL
-
     
     nx.nx_pydot.write_dot(G, "graph2.dot")
     G = label_edges(G)
@@ -146,7 +145,7 @@ def calculate_nodes(T, root):
     nodes = [0] * len(T.nodes())
 
     def dfs(node, path):
-        nodes[node] = path
+        nodes[node] = [path, "root"]
 
         for n in T.successors(node):
             field = T[node][n]['field']
@@ -163,17 +162,22 @@ def node_as_string(node, var):
     field = node[0]
     return node_as_string(node[1:], "(##field" + str(field) + " " + var + ")")
 
-def write_graph_ribbit(G, T, root, buffer):
+def get_node_path(nodes, node):
+    path = nodes[node][0]
+    root = nodes[node][1]
+    return node_as_string(path, root)
+
+def write_graph_ribbit(G, T, main_root, nb_other_roots, buffer):
 
     buffer.write("(define root ")
-    print_tree(T, root, buffer)
+    print_tree(T, main_root, buffer)
     buffer.write(")\n")
 
     buffer.write("(gc_check)")
 
     buffer.write("\n\n")
 
-    nodes = calculate_nodes(T, root)
+    nodes = calculate_nodes(T, main_root)
 
     for edge in G.edges(data=True):
         field = edge[2]['field']
@@ -181,37 +185,65 @@ def write_graph_ribbit(G, T, root, buffer):
         if T.has_edge(edge[0], edge[1]) and T[edge[0]][edge[1]]['field'] == field:
             continue
 
-        src = node_as_string(nodes[edge[0]], "root")
-        dst = node_as_string(nodes[edge[1]], "root")
+        src = get_node_path(nodes, edge[0])
+        dst = get_node_path(nodes, edge[1])
 
         buffer.write("(##field" + str(field) + "-set! " + src + " " + dst + f");; {edge[0]} -{field}-> {edge[1]}\n")
 
     buffer.write("(gc_check)")
-    buffer.write("\n\n")
 
-    while len(G.nodes()) > 1:
+    buffer.write("\n\n")
+    
+    other_roots = []
+    for i in range(nb_other_roots):
+        root = r.choice(list(G.nodes()))
+
+        while root == main_root or root in other_roots:
+            root = r.choice(list(G.nodes()))
+
+        other_roots.append(("root_" + str(i), root))
+
+    for root in other_roots:
+        src = get_node_path(nodes, root[1])
+
+        buffer.write(f"(define {root[0]} {src}) ;; set root {root[1]}\n")
+
+    while len(G.nodes()) > nb_other_roots + 1:
         edge_to_remove = r.choice(list(G.edges(data=True)))
         field = edge_to_remove[2]['field']
-        src = node_as_string(nodes[edge_to_remove[0]], "root")
+        src = get_node_path(nodes, edge_to_remove[0])
         buffer.write(f"(##field" + str(field) + "-set! " + src + f" 99) ;; {edge_to_remove[0]} -X{field}X-> {edge_to_remove[1]}\n")
         buffer.write("(gc_check)\n")
         G.remove_edge(edge_to_remove[0], edge_to_remove[1], key=field)
 
-        SP = nx.shortest_path(G, root)
+        for i in range(len(nodes)):
+            nodes[i] = False
 
-        reachable_nodes = list(SP.keys())
-        current_nodes = list(G.nodes())
-        for n in current_nodes:
-            if n not in reachable_nodes:
-                G.remove_node(n)
-            else:
-                new_path = []
-                for path_id in range(len(SP[n])-1):
-                    edge = G[SP[n][path_id]][SP[n][path_id+1]]
-                    field = list(edge.keys())[0]
-                    new_path.append(field)
-                nodes[n] = new_path
+        for root in [("root", main_root)] + other_roots:
+            root_name = root[0]
+            root_node = root[1]
+            SP = nx.shortest_path(G, root_node)
 
+            reachable_nodes = list(SP.keys())
+            current_nodes = list(G.nodes())
+            for n in current_nodes:
+                if n in reachable_nodes:
+                    new_path = []
+                    for path_id in range(len(SP[n])-1):
+                        edge = G[SP[n][path_id]][SP[n][path_id+1]]
+                        field = list(edge.keys())[0]
+                        new_path.append(field)
+                    nodes[n] = [new_path, root_name]
+
+        for node, path in enumerate(nodes):
+            if path == False and node in G.nodes():
+                G.remove_node(node)
+
+
+    for root in other_roots:
+        buffer.write(f"(##field0 {root[0]})\n")
+
+    buffer.write("(##field0 root)\n")
 
     buffer.write("\n\n")
 
@@ -230,7 +262,7 @@ def main():
     while G == False:
         G, T, root = gen_tree(n)
 
-    write_graph_ribbit(G, T, root, buffer)
+    write_graph_ribbit(G, T, root, 5, buffer)
 
 main()
 

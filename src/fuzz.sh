@@ -9,11 +9,11 @@ function run_fuzz {
   mkdir -p .fuzz
   mkdir -p .fuzz/errors
   echo "===== Generating random program"
-  time $(python3 ./host/c/gen_graph/gen.py 250 > .fuzz/temp.scm)
+  python3 ./host/c/gen_graph/gen.py 250 > .fuzz/temp.scm
   echo "===== Compiling random program"
-  time $(./rsc.exe --rvm ./host/c/es.c -t c -l test-es -f+ c/gc/es -x run-test .fuzz/temp.scm)
+  ./rsc.exe --rvm ./host/c/es.c -t c -l test-es -f+ c/gc/es -x run-test .fuzz/temp.scm
   echo "===== Running random program"
-  time $(./run-test > .fuzz/result.txt)
+  ./run-test > .fuzz/result.txt
   if [ "$?" != "0" ]; then \
     echo "===== ERROR"; \
   	n=`ls .fuzz/errors | wc -l`; \
