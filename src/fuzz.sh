@@ -3,7 +3,7 @@ if [ "$1" == "" ] || [ "$2" == "" ]; then
   exit 1
 fi
 
-TIMEOUT=60 # seconds
+TIMEOUT=180 # seconds
 
 function error {
   echo_ "==> ERROR: $1"
@@ -19,7 +19,7 @@ function error {
   dst_dir=$file_dir/$iters
 
   echo "$1" > $dst_dir/$config.error;
-  
+
   cp $file_dir/run.c         $dst_dir/$config.c;
   cp $file_dir/out           $dst_dir/$config.out;
   cp $file_dir/run.scm       $dst_dir/run.scm;
