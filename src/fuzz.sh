@@ -9,14 +9,16 @@ function error {
   echo_ "==> ERROR: $1"
   echo_ "  - Iteration: $3"
   echo_ "  - Config: $4"
-  echo_ "  - Saving files to $2"
 
   file_dir="$2"
   iters="$3"
   config="$4"
-
-  mkdir -p $file_dir/$iters
   dst_dir=$file_dir/$iters
+
+  echo_ "  - Saving files to $dst_dir"
+
+
+  mkdir -p $dst_dir
 
   echo "$1" > $dst_dir/$config.error;
 
@@ -107,7 +109,7 @@ i=$((num_iterations - 1))
 iterations=0
 while [ $i -ne 0 ]; do
   echo_ "==> Running $iterations"
-  run_fuzz $graph_size $FUZZ_RUN_DIR $num_iterations
+  run_fuzz $graph_size $FUZZ_RUN_DIR $iterations
   i=$((i - 1))
   iterations=$((iterations + 1))
 done
