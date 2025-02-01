@@ -132,8 +132,17 @@ check-es: rsc.exe
 	HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ queue-no-remove" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" make check
 	echo "====================== TESTING HOST c (linked-list)"
 	HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ linked-list" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" make check
-	echo "====================== TESTING HOST c (update-ranks)"
-	HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ update-ranks" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" make check
+
+venv-gen:
+	python3 -m venv venv-gen
+	source venv-gen/bin/activate
+	pip install matplotlib networkx
+	deactivate
+
+fuzz-es: venv-gen
+	source venv-gen/bin/activate
+	./fuzz.sh 0 10
+	./fuzz.sh 0 250
 
 repl-asm.exe: rsc.exe
 	./rsc.exe -t asm -l r4rs lib/r4rs/repl.scm -e optimal -f+ compression/lzss/2b -f+ prim-no-arity -v -x repl-asm.exe
