@@ -138,7 +138,7 @@ venv-gen:
 	. venv-gen/bin/activate && pip install matplotlib networkx pydot && deactivate
 
 fuzz-es: venv-gen
-	. venv-gen/bin/activate && parallel ./fuzz.sh 0 {} ::: 10 10 10 10 100 100 250 250
+	. venv-gen/bin/activate && parallel ./fuzz.sh 0 {} ::: 10 10 10 10 25 50 100 250
 
 repl-asm.exe: rsc.exe
 	./rsc.exe -t asm -l r4rs lib/r4rs/repl.scm -e optimal -f+ compression/lzss/2b -f+ prim-no-arity -v -x repl-asm.exe
