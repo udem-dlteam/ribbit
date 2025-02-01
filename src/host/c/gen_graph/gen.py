@@ -282,7 +282,9 @@ def main():
         nx.nx_pydot.write_dot(G, path + ".G.dot")
         nx.nx_pydot.write_dot(T, path + ".T.dot")
 
-    write_graph_ribbit(G, T, root, 3, True, buffer)
+
+    nb_roots = r.randint(1, n//10)
+    write_graph_ribbit(G, T, root, nb_roots, True, buffer)
     buffer.close()
 
 main()
