@@ -301,7 +301,7 @@ symtbl=NIL
 # The first byte of the bytecode tells the number of "empty symbols", meaning
 # symbols whose name is the empty string, or in ribs: [NIL, 0, 3]
 n = get_int(0)
-for n in range(n):
+for _ in range(n):
     # Appends an empty symbol [ FALSE, "" , 2 ] to the symbol table
     symtbl = [ [ FALSE, [ NIL, 0, 3] , 2 ], symtbl , 0]
 
@@ -324,7 +324,7 @@ while True:
     else:
         if c == ord(';'): # end of symbol table
             # Appends last symbol and leave
-            symbol_to_append = [FALSE, [symbol_name, n, 3], 2]
+            symbol_to_append = [FALSE, [symbol_name, symbol_name_len, 3], 2]
             symtbl=[symbol_to_append, symtbl, 0]
             break
 
