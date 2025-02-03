@@ -126,7 +126,19 @@ clean:
 	rm -f rsc-bootstrap*
 
 check-es: rsc.exe
+	echo "====================== TESTING HOST c"
 	HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" make check
+	echo "====================== TESTING HOST c (queue-no-remove)"
+	HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ queue-no-remove" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" make check
+	echo "====================== TESTING HOST c (linked-list)"
+	HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ linked-list" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" make check
+
+venv-gen:
+	python3 -m venv venv-gen
+	. venv-gen/bin/activate && pip install matplotlib networkx pydot && deactivate
+
+fuzz-es: venv-gen
+	. venv-gen/bin/activate && parallel ./fuzz.sh 0 {} ::: 10 10 10 10 25 50 100 250
 
 repl-asm.exe: rsc.exe
 	./rsc.exe -t asm -l r4rs lib/r4rs/repl.scm -e optimal -f+ compression/lzss/2b -f+ prim-no-arity -v -x repl-asm.exe
