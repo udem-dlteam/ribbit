@@ -751,14 +751,16 @@ void pq_remove(obj o) {
 // FIXME try to be a bit more consistant with the notation...
 #define get_field(x,i) RIB(x)->fields[i]
 
-int get_mirror_field(obj x, obj cfr) {
-  for (int i = 0; i < 3; i++){
-    if (get_field(cfr,i) == x) { // && get_field(cfr,i+3) != cfr) {
-      return i+3;
-    }
-  }
-  return -1; // cfr is not x's co-friend
-}
+/* int get_mirror_field(obj x, obj cfr) { */
+/*   for (int i = 0; i < 3; i++){ */
+/*     if (get_field(cfr,i) == x) { // && get_field(cfr,i+3) != cfr) { */
+/*       return i+3; */
+/*     } */
+/*   } */
+/*   return -1; // cfr is not x's co-friend */
+/* } */
+
+#define get_mirror_field(x, cfr) ((get_field(cfr,0) == x) ? 3 : (get_field(cfr,1) == x) ? 4 : 5)
 
 #define get_rank(x) (NUM(RANK(x)))
 #define set_rank(x, rank) (RANK(x) = TAG_NUM(rank))
@@ -1678,7 +1680,7 @@ void push2(obj car, obj tag) {
       // pointing to the same rib
       if (!is_parent(_stack[i], stack)) {
         set_parent(_stack[i], stack, i);
-        set_rank(_stack[i], 1);
+        // set_rank(_stack[i], 1);
         update_ranks(_stack[i]);
       }
     }
@@ -1873,7 +1875,7 @@ obj prim(int no) {
   {
     PRIM1();
     push2(CAR(x), PAIR_TAG);
-    DEC_PRIM1();
+    DEC_PRIM1();    
     break;
   } //)@@
   case 7: // @@(primitive (##field1 rib)
