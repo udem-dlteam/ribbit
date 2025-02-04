@@ -1040,7 +1040,7 @@ bool adopt(obj x) {
     // FIXME not sure about the second condition
     if (get_rank(cfr) < rank && get_rank(cfr) > 0) {
       set_parent(x, cfr, get_mirror_field(x, cfr)-3);
-      set_rank(x, get_rank(cfr)+1);
+      // set_rank(x, get_rank(cfr)+1);
       return 1;
     }
     cfr = next_cofriend(x, cfr);
