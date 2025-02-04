@@ -41,7 +41,6 @@
  *  - Remove PC as a root
  */
 
-
 /* TODO (Reference counting)
  * -------------------------
  * Bugs
@@ -1815,22 +1814,29 @@ obj bool2scm(bool x) { return x ? TRUE : FALSE; }
 
 
 // Primitive procedures
-obj prim(int no) {
+obj prim(int no) {  
   switch (no) { 
   // @@(primitives (gen "case " index ":" body)
   case 0: // @@(primitive (##rib a b c)
   {
-    PRIM3();
 #ifdef REF_COUNT
+    PRIM3();
     obj new_rib = TAG_RIB(alloc_rib(NUM_0, NUM_0, NUM_0));
     CAR(new_rib) = x;
     CDR(new_rib) = y;
     TAG(new_rib) = z;
     push2(new_rib, PAIR_TAG);
     DEC_COUNT(new_rib); // remove redundant new_rib count
-#else
-    push2(TAG_RIB(alloc_rib(x, y, z)), PAIR_TAG);
     DEC_PRIM3();
+#else
+    // No need to protect the 3 arguments since they'll  be reachable
+    // from the newly allocated rib
+    obj z = CAR(stack);
+    obj y = CAR(CDR(stack));
+    obj x = CAR(CDR(CDR(stack)));
+    obj r = TAG_RIB(alloc_rib(x, y, z));
+    set_stack(CDR(CDR(CDR(stack))));
+    push2(r, PAIR_TAG);
 #endif
     break;
   } // )@@
@@ -1869,16 +1875,22 @@ obj prim(int no) {
   } //)@@
   case 5: // @@(primitive (##rib? rib) (use bool2scm)
   {
-    PRIM1();
-    push2(bool2scm(IS_RIB(x)), PAIR_TAG);
-    DEC_PRIM1();
+    /* PRIM1(); */
+    /* push2(bool2scm(IS_RIB(x)), PAIR_TAG); */
+    /* DEC_PRIM1(); */
+
+    // No need to protect the 2 ribs on the TOS since we only want the
+    // result of an operation, saves some GC time
+    obj res = bool2scm(IS_RIB(CAR(stack)));
+    set_stack(CDR(stack));
+    push2(res, PAIR_TAG);
     break;
   } //)@@
   case 6: // @@(primitive (##field0 rib)
   {
     PRIM1();
     push2(CAR(x), PAIR_TAG);
-    DEC_PRIM1();    
+    DEC_PRIM1();
     break;
   } //)@@
   case 7: // @@(primitive (##field1 rib)
@@ -1930,9 +1942,15 @@ obj prim(int no) {
   } // )@@
   case 12:  // @@(primitive (##eqv? rib1 rib2) (use bool2scm)
   {
-    PRIM2();
-    push2(bool2scm(x == y), PAIR_TAG);
-    DEC_PRIM2();
+    /* PRIM2(); */
+    /* push2(bool2scm(x == y), PAIR_TAG); */
+    /* DEC_PRIM2(); */
+
+    // No need to protect the 2 ribs on the TOS since we only want the
+    // result of an operation, saves some GC time
+    obj res = bool2scm(CAR(stack) == CAR(CDR(stack)));
+    set_stack(CDR(CDR(stack)));
+    push2(res, PAIR_TAG);
     break;
   } //)@@
   case 13:  // @@(primitive (##< x y) (use bool2scm)
