@@ -1326,10 +1326,10 @@ void set_field(obj src, int i, obj dest) { // write barrier
       obj tmp = ref[i];
       set_rank(NIL, get_rank(src));
       TEMP3 = ref[i]; // protect old dest
-      add_edge(NIL, ref[i], 0);      
+      add_edge(NIL, ref[i], 0);
       remove_ref(src, ref[i], i); // new dest
       ref[i] = dest;
-      add_ref(src, dest, i);      
+      add_ref(src, dest, i);
       remove_ref(NIL, tmp, 0); // unprotect old dest
       TEMP3 = _NULL;
       set_rank(NIL, 1);
@@ -1669,12 +1669,16 @@ void push2(obj car, obj tag) {
 #endif
 
   obj new_rib = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
-
-  // Update stack without the drop
+  
   add_ref(new_rib, stack, 1);
   stack = new_rib;
+
+  add_ref(new_rib, car, 0);
+  add_ref(new_rib, tag, 2);
+
+#ifdef ES_ROOTS
   obj *_stack = RIB(stack)->fields;
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 2; i++) {
     if (IS_RIB(_stack[i])) {
       // FIXME not sure how this will behave when pc and stack are both
       // pointing to the same rib
@@ -1685,10 +1689,9 @@ void push2(obj car, obj tag) {
       }
     }
   }
-
-  // FIXME are these redundant now?
-  /* add_ref(new_rib, car, 0); */
-  /* add_ref(new_rib, tag, 2); */
+#else
+  if (IS_RIB(CDR(stack))) set_parent(CDR(stack), stack, 1);
+#endif
   
   alloc = (obj *)tmp;
 }
