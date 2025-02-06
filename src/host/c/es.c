@@ -17,7 +17,6 @@
  * --------------------
  *
  * Bugs
- *  - Co-friend loop?
  *  - Fuzzy tests bugs (potentially)
  *
  *  - [Not a priority, happens rarely] co-friend not found in remove_cofriend
@@ -37,8 +36,7 @@
  *
  * Optimizations
  *  - Adoption (optimized and integrated in the co-friend traversal phase)
- *  - Flat closures 
- *  - Remove PC as a root
+ *  - Remove PC as a root and flat closures?
  */
 
 /* TODO (Reference counting)
@@ -287,7 +285,6 @@ rib *heap_start;
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
 #define heap_top (heap_bot + (SPACE_SZ))
-
 
 //==============================================================================
 
@@ -764,11 +761,6 @@ void pq_remove(obj o) {
 #define get_rank(x) (NUM(RANK(x)))
 #define set_rank(x, rank) (RANK(x) = TAG_NUM(rank))
 
-// FIXME the condition `get_rank == 0` causes a segfault in the mark-and-sweep
-// GC when we check if all objects were collected because FALSE's rank was
-// modified at some point during the program's execution and gets collected.
-// This is not THAT big of a deal since we already know the 3 roots
-// #define is_root(x) (get_rank(x) == 0)
 #define is_root(x) (x == pc || x == stack || x == FALSE)
 
 #define is_dirty(from, to) (get_rank(from) < (get_rank(to) - 1))
@@ -780,6 +772,7 @@ void pq_remove(obj o) {
 
 
 void set_parent(obj child, obj new_parent, int k) {
+  if (child == new_parent) return; // ignore self-references
   obj old_parent = get_parent(child);
   if (old_parent == _NULL || old_parent == new_parent) { // parentless child
     CFR(child) = new_parent;
@@ -833,6 +826,10 @@ void remove_parent(obj x, obj p, int i) {
   get_field(p, i + 3) = _NULL; 
 }
 
+void wipe_parent(obj x, obj p, int i) {
+  // same as above but fully remove the parent regardless of the number of refs
+  get_field(p, i + 3) = _NULL; 
+}
 
 void add_cofriend(obj x, obj cfr, int j) {
   // FIXME do we want the co-friends to be ordered by rank? for now the new
@@ -854,7 +851,6 @@ void add_cofriend(obj x, obj cfr, int j) {
       return;
     }
   }
-
   // Other case, cfr is not already a cofriend of x
   // So we need to add it and potentally reupdate all occurences of mirroir field of x in p.
   int i = get_mirror_field(x, p);
@@ -884,6 +880,37 @@ void remove_cofriend(obj x, obj cfr, int k) {
       return;
     }
   }
+  // Else we need to find cfr in the list of co-friend and remove it (assumes
+  // cfr is not x's parent and that cfr could not be present in the list)
+  obj curr = get_parent(x);
+  obj prev;
+  while (curr != cfr && curr != _NULL) { // get co-friend and his predecessor
+    prev = curr;
+    curr = next_cofriend(x, curr);
+  }
+  if (curr == _NULL) {
+    // FIXME cfr was not a co-friend of x, not sure if that's a bug
+    /* if (cfr != null_rib) { */
+    /*   printf("couldn't find the cofriend when trying to remove\n"); */
+    /* } */
+    // exit(1);
+    return;
+  }
+  // remove reference to next co-friend
+  obj tmp = get_field(curr, k+3);
+  get_field(curr, k+3) = _NULL;
+
+  // set all mirror field (associated with ref to x in cfr) to the next co-friend
+  for (int i = 0; i < 3; i++){
+    if (get_field(prev, i) == x){
+      get_field(prev, i+3) = tmp;
+    }
+  }
+}
+
+void wipe_cofriend(obj x, obj cfr, int k) {
+  // same as above but fully remove the co-friends regardless of the number of refs
+
   // Else we need to find cfr in the list of co-friend and remove it (assumes
   // cfr is not x's parent and that cfr could not be present in the list)
   obj curr = get_parent(x);
@@ -999,8 +1026,8 @@ void update_ranks(obj root) {
 
 #endif
 
-
 void add_edge(obj from, obj to, int i) {
+  if (from == to) return; // ignore self-references
   add_cofriend(to, from, i);
   if (is_dirty(from, to)) {
     set_parent(to, from, i);
@@ -1126,10 +1153,12 @@ void dealloc_rib(obj x){
         } else if (get_rank(_x[i]) == -1) { // falling?
           dealloc_rib(_x[i]);
         } else { // child is a root
-          remove_parent(_x[i], x, i);
+
+          // FIXME ...shouldn't it be wipe_parent? why the segfault?
+          remove_parent(_x[i], x, i); 
         }
       } else { // not a child, only need to remove x from co-friend's list
-        if (CFR(_x[i]) != _NULL) remove_cofriend(_x[i], x, i);
+        if (CFR(_x[i]) != _NULL) wipe_cofriend(_x[i], x, i);
       }
     }
   }
@@ -1313,7 +1342,10 @@ void set_pc(obj new_pc) {
 void set_field(obj src, int i, obj dest) { // write barrier
   // The order differs a bit from the ref count version of the write barrier...
   // TODO explain why we're doing that this way
-  obj *ref = RIB(src)->fields;  
+  obj *ref = RIB(src)->fields;
+
+  if (ref[i] == dest) return; // src's i-th field already points to dest
+  
   if (IS_RIB(ref[i])) { // no need to dereference _NULL or a num
     if (next_cofriend(ref[i], src) == _NULL) {
       // We need to be more careful here since simply removing the edge
@@ -2024,6 +2056,7 @@ obj prim(int no) {
 void run() { // evaluator
   while (1) {
     num instr = NUM(CAR(pc));
+
     // gc();
     
     // @@(feature es-apply
@@ -2463,9 +2496,9 @@ void init_stack() {
   obj first = CDR(stack);
   CDR(stack) = NUM_0;
   TAG(stack) = first;
-#ifndef REF_COUNT
-  add_ref(stack, first, 2);
-#endif
+/* #ifndef REF_COUNT */
+/*   add_ref(stack, first, 2); */
+/* #endif */
 
   CAR(first) = TAG_NUM(INSTR_HALT);
   CDR(first) = NUM_0; 
