@@ -828,6 +828,7 @@ void remove_parent(obj x, obj p, int i) {
 
 void wipe_parent(obj x, obj p, int i) {
   // same as above but fully remove the parent regardless of the number of refs
+  get_parent(x) = get_field(p, i + 3); // next co-friend
   get_field(p, i + 3) = _NULL; 
 }
 
@@ -1153,9 +1154,7 @@ void dealloc_rib(obj x){
         } else if (get_rank(_x[i]) == -1) { // falling?
           dealloc_rib(_x[i]);
         } else { // child is a root
-
-          // FIXME ...shouldn't it be wipe_parent? why the segfault?
-          remove_parent(_x[i], x, i); 
+          wipe_parent(_x[i], x, i);
         }
       } else { // not a child, only need to remove x from co-friend's list
         if (CFR(_x[i]) != _NULL) wipe_cofriend(_x[i], x, i);
