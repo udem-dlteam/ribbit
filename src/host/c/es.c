@@ -39,7 +39,10 @@
  *  - Negative ranks (for make-list)
  *  - Rank spacing 
  *  - Adoption (optimized and integrated in the co-friend traversal phase)
+ *  - Allow for adoption with co-friend of same rank without leaking cycles
+ *    (in other words, find a way to keep the ranks stricly increasing)
  *  - Remove PC as a root and flat closures?
+ *  - Find a way to remove co-friends more efficiently
  *  - ...?
  */
 
@@ -1044,6 +1047,8 @@ void add_edge(obj from, obj to, int i) {
   if (from == to) return; // ignore self-references
   add_cofriend(to, from, i);
   if (is_dirty(from, to)) {
+    // More likely to have an adoption when the parent/child relationship
+    // is kept as dirty as possible (pls don't quote me on that)
     set_parent(to, from, i);
   }
   // The reference from a new root to an existing rib is not considered dirty
@@ -1077,11 +1082,11 @@ bool adopt(obj x) {
   int rank = get_rank(x);
   obj cfr = get_parent(x);
   while (cfr != _NULL) {
-    // FIXME not sure about the second condition
     // Note: because ranks are not strictly increasing (some ranks can be
     // equal, adoption must be done with a rib that has a smaller rank or
-    // else some cycles could be left uncollected)
-    if (get_rank(cfr) < rank && get_rank(cfr) > 0) {
+    // else some cycles could be left uncollected)...
+    // FIXME if we can find a way around that we would get more adoptions
+    if (get_rank(cfr) < rank && get_rank(cfr) > -1) {
       set_parent(x, cfr, get_mirror_field(x, cfr)-3);
       // set_rank(x, get_rank(cfr)+1);
       return 1;
