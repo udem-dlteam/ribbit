@@ -1076,6 +1076,8 @@ void add_edge(obj from, obj to, int i) {
 
 #define adopt(x) false
 
+#define _adopt(x) false
+
 #else
 
 bool adopt(obj x) {
@@ -1095,6 +1097,8 @@ bool adopt(obj x) {
   }
   return 0;
 }
+
+#define _adopt(x) ((get_parent(x) == _NULL) ? 0 : adopt(x))
 
 #endif
 
@@ -1245,25 +1249,10 @@ void remove_edge(obj from, obj to, int i) {
 
 
 void remove_node(obj old_root) {
-  // FIXME assumes old_root is parentless, merge remove_or_adopt_node and
-  // remove_node together, no reason to have both
-  
   // @@(location gc-start)@@
-  q_enqueue(old_root);
-  set_rank(old_root, -1); // loosen without removing
-  drop();
-  if (!PQ_IS_EMPTY()) {
-    catch(); // avoid function call if no catchers
-  }
-  if (CFR(old_root) == _NULL) {
-    dealloc_rib(old_root);
-  }
-  // @@(location gc-end)@@
-}
-
-void remove_or_adopt_node(obj old_root) {
-  // @@(location gc-start)@@
-  if (adopt(old_root)) return;
+#ifndef NO_ADOPT
+  if (_adopt(old_root)) return;
+#endif
   q_enqueue(old_root);
   set_rank(old_root, -1); // loosen without removing
   drop();
@@ -1365,11 +1354,7 @@ void set_pc(obj new_pc) {
   do {                                                                         \
     if (IS_RIB(o)) {                                                           \
       get_field(o,i) = UNMARK(get_field(o,i));                                 \
-        if (get_parent(o) == _NULL) {                                          \
-          remove_node(o);                                                      \
-        } else {                                                               \
-          remove_or_adopt_node(o);                                             \
-        }                                                                      \
+      remove_node(o);                                                          \
     }                                                                          \
   } while (0)
 
@@ -1433,17 +1418,7 @@ void set_sym_tbl(obj new_sym_tbl) {
 
   update_ranks(symbol_table);
 
-#ifdef NO_ADOPT
   remove_root(old_sym_tbl);
-#else
-  if (IS_RIB(old_sym_tbl)) {
-    if (get_parent(old_sym_tbl) == _NULL) {
-      remove_node(old_sym_tbl);
-    } else {
-      remove_or_adopt_node(old_sym_tbl);
-    }
-  }
-#endif
 }
 
 void set_stack(obj new_stack) {
@@ -1470,17 +1445,7 @@ void set_stack(obj new_stack) {
     }
   }
 #endif
-#ifdef NO_ADOPT
   remove_root(old_stack);
-#else
-  if (IS_RIB(old_stack)) {
-    if (get_parent(old_stack) == _NULL) {
-      remove_node(old_stack);
-    } else {
-      remove_or_adopt_node(old_stack);
-    }
-  }
-#endif
 }
 
 void set_pc(obj new_pc) {
@@ -1505,17 +1470,7 @@ void set_pc(obj new_pc) {
     }
   }
 #endif
-#ifdef NO_ADOPT
   remove_root(old_pc);
-#else
-  if (IS_RIB(old_pc)) {
-    if (get_parent(old_pc) == _NULL) {
-      remove_node(old_pc);
-    } else {
-      remove_or_adopt_node(old_pc);
-    }
-  }
-#endif
 }
 
 #endif
@@ -1645,21 +1600,16 @@ obj pop() {
 
 #define _pop(var, i)                                                            \
   obj var = CAR(stack);                                                         \
-  _protect(var, 7);                                                     \
-  set_stack(CDR(stack));
+  _protect(var, 7);                                                             \
+  set_stack(CDR(stack))
 
 #define PRIM1() _pop(x, 0)
 #define PRIM2() _pop(y, 1); PRIM1()
 #define PRIM3() _pop(z, 2); PRIM2()
 
-#define DEC_PRIM1()                                                             \
-  _unprotect(x, 7);
-#define DEC_PRIM2()                                                     \
-  _unprotect(y, 7);                                                     \
-  DEC_PRIM1()
-#define DEC_PRIM3()                                                             \
-  _unprotect(z, 7);                                                     \
-  DEC_PRIM2()
+#define DEC_PRIM1() _unprotect(x, 7);
+#define DEC_PRIM2() _unprotect(y, 7); DEC_PRIM1()
+#define DEC_PRIM3() _unprotect(z, 7); DEC_PRIM2()
 
 #else
 // FIXME!!! only protect a popped object if said object would get deallocated
