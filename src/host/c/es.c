@@ -1046,15 +1046,15 @@ void update_ranks(obj root) {
 void add_edge(obj from, obj to, int i) {
   if (from == to) return; // ignore self-references
   add_cofriend(to, from, i);
-  if (is_dirty(from, to)) {
+  // if (is_dirty(from, to) && !is_dirty(get_parent(to), to)) {
+  if (is_dirty(from, to) && get_rank(get_parent(to)) < get_rank(from)) {
     // More likely to have an adoption when the parent/child relationship
-    // is kept as dirty as possible (pls don't quote me on that)
+    // is kept as dirty as possible (pls don't quote me on that) but not
+    // sure if the set_parent is always worth it or if we're better off
+    // keeping the same parent when the rank difference is not big enough
+    // TODO benchmarks
     set_parent(to, from, i);
   }
-  // The reference from a new root to an existing rib is not considered dirty
-  // so we need to have the `is_parent` check to account for that situation
-  // (the check passes if the edge was dirty as well)... this shouldn't be a
-  // problem for ribbit but I'll leave it there for now
   if (is_parent(to, from)) {
     update_ranks(to);
   }
