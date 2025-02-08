@@ -1078,6 +1078,9 @@ bool adopt(obj x) {
   obj cfr = get_parent(x);
   while (cfr != _NULL) {
     // FIXME not sure about the second condition
+    // Note: because ranks are not strictly increasing (some ranks can be
+    // equal, adoption must be done with a rib that has a smaller rank or
+    // else some cycles could be left uncollected)
     if (get_rank(cfr) < rank && get_rank(cfr) > 0) {
       set_parent(x, cfr, get_mirror_field(x, cfr)-3);
       // set_rank(x, get_rank(cfr)+1);
