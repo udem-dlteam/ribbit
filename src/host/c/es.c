@@ -43,6 +43,8 @@
  *    (in other words, find a way to keep the ranks stricly increasing)
  *  - Remove PC as a root and flat closures?
  *  - Find a way to remove co-friends more efficiently
+ *  - Avoid duplicate co-friend removal when the same object is referred
+ *  - to by the same object twice (in dealloc_rib)
  *  - ...?
  */
 
@@ -1179,9 +1181,23 @@ void dealloc_rib(obj x){
         } else if (get_rank(_x[i]) == -1) { // falling?
           dealloc_rib(_x[i]);
         } else { // child is a root or protected
-          if (get_parent(_x[i]) != _NULL) wipe_parent(_x[i], x, i);
+          // Can't just wipe the parent or else we might remove the wrong parent
+          // if an object as two references to its child
+          // FIXME find  amore efficient way to deal with that
+          // if (get_parent(_x[i]) != _NULL) wipe_parent(_x[i], x, i);
+          if (get_parent(_x[i]) != _NULL) {
+            if (i == 0) {
+              wipe_parent(_x[i], x, i);
+            } else if (i == 1 && _x[1] != _x[0]) {
+              wipe_parent(_x[i], x, i);
+            } else if (i == 2 && _x[2] != _x[0] && _x[2] != _x[0]) {
+              wipe_parent(_x[i], x, i);
+            }
+          }
         }
       } else { // not a child, only need to remove x from co-friend's list
+        // FIXME we'll try to wipe the same co-friend twice if we have
+        // two or more references to the same object
         if (get_parent(_x[i]) != _NULL) wipe_cofriend(_x[i], x, i);
       }
     }
