@@ -79,8 +79,6 @@
 #define EXPERIMENTAL_ADOPTION
 // )@@
 
-#define EXPERIMENTAL_ADOPTION
-
 // @@(feature debug/rib-viz
 #define VIZ
 void viz_heap(char* name);
