@@ -908,14 +908,12 @@ void add_edge(obj from, obj to, int i) {
     // keeping the same parent when the rank difference is not big enough
     // TODO benchmarks
     set_parent(to, from, i);
+    // set_rank(to, get_rank(from)+1);
   }
 }
 
-// FIXME should we just assume that `from` is a rib to avoid the type check?
+// Assumes `from` is a rib
 #define add_ref(from, to, i) if (IS_RIB(to)) add_edge(from, to, i)
-
-// Only link the null rib if the the popped object would be deallocated
-#define add_ref_nr(from, to, i) if (IS_RIB(to) && M_CAR(stack) == _NULL) add_edge(from, to, i)
 
 //------------------------------------------------------------------------------
 
@@ -937,7 +935,7 @@ bool adopt(obj x) {
     // adopt with a cfr of the same rank as the parent
     if (!is_falling(cfr) && get_rank(cfr) <= rank) {
       set_parent(x, cfr, get_mirror_field(x, cfr)-3);
-      set_rank(x, get_rank(cfr)+1);
+      set_rank(x, get_rank(cfr)+1); // not sure FIXME
       return 1;
     }
     cfr = next_cofriend(x, cfr);
@@ -1179,7 +1177,7 @@ void set_pc(obj new_pc) {
   do {                                                                         \
     if (IS_RIB(o)) {                                                           \
       get_field(o,i) = UNMARK(get_field(o,i));                                 \
-      remove_node(o);                                                          \
+      remove_root(o);                                                          \
     }                                                                          \
   } while (0)
 
