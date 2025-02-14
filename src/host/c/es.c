@@ -16,15 +16,16 @@
  * --------------------
  *
  * Bugs
- *  - Deriv bug
- *  - Cleanup features, it's a mess
- *
+ *  - see discussion
+ * 
  *  - [Not a priority, happens rarely] co-friend not found in remove_cofriend
  *  - FIXMEs and TODOs in the code
  *  - Call a GC for every instruction to make sure everything is collected...
  *     => Do that for the bootstrap, the test suite, and fuzzy tests
  *
  * Features
+ *  - Overflow checks
+ *
  *  - [Not a priority] Finalizers
  *  - [Not a priority] Add missing features from the original RVM (encoding, 
  *    sys primitives, (DEBUG, NO_STD, lzss compression, ARG_V, clang support, 
@@ -37,7 +38,6 @@
  *  - Tagging (including roots, some ribs are not collected)
  *  - Allocation with predetermined rank
  *  - Negative ranks (for make-list)
- *  - Rank spacing 
  *  - Adoption (optimized and integrated in the co-friend traversal phase)
  *  - Allow for adoption with co-friend of same rank without leaking cycles
  *    (in other words, find a way to keep the ranks stricly increasing)
@@ -72,16 +72,6 @@
 
 // @@(feature ref-count
 #define REF_COUNT
-// )@@
-
-// @@(feature update-ranks
-#define UPDATE_RANKS
-// )@@
-
-// @@(feature es-roots
-// FIXME causes a memory leak if used with adoption
-#define ES_ROOTS
-#define NO_ADOPT
 // )@@
 
 // @@(feature no-adopt
@@ -121,16 +111,6 @@ typedef unsigned long obj;
 // a number
 typedef long num;
 
-
-// Default data structure used for the anchors/catcher is a queue with a remove
-// operation that requires no additional field (than the drop queue).
-
-// Fastest seems to be the queue with no remove so far but...
-//   - Requires an extra field which annoys me
-//   - Doesn't rebalance the tree (or we can't guarantee that it will rebalance
-//     itself even partially) during the catch phase
-//   - I only tested with `fib 25`, the only program know to mankind 
-
 // @@(feature queue-no-remove
 // Queue with the remove in dequeue, faster but requires one extra field
 #define QUEUE_NO_REMOVE
@@ -148,22 +128,14 @@ typedef long num;
 #define BUCKETS
 // )@@
 
-// @@(feature buckets-no-remove
-#define BUCKETS_NO_REMOVE
-// )@@
-
 #ifdef REF_COUNT
 #define RIB_NB_FIELDS 4
-#else
-#ifdef BUCKETS_NO_REMOVE
-#define RIB_NB_FIELDS 11
 #else
 #if defined(QUEUE_NO_REMOVE) || defined(LINKED_LIST_NO_REMOVE) || defined(BUCKETS)
 #define RIB_NB_FIELDS 10
 #else
 // Queue with remove or priority queue (singly linked list) with remove
 #define RIB_NB_FIELDS 9
-#endif
 #endif
 #endif
 
@@ -186,10 +158,6 @@ typedef struct {
 // queue next
 #define Q_NEXT(x) RIB(x)->fields[8]
 
-#ifdef BUCKETS_NO_REMOVE
-#define PQ_NEXT_RIB(x) RIB(x)->fields[9]
-#define PQ_NEXT_BKT(x) RIB(x)->fields[10]
-#else
 #ifdef BUCKETS
 #define PQ_NEXT_RIB(x) RIB(x)->fields[8]
 #define PQ_NEXT_BKT(x) RIB(x)->fields[9]
@@ -205,7 +173,6 @@ typedef struct {
 #else
 // Default: queue with remove
 #define PQ_NEXT(x) Q_NEXT(x)
-#endif
 #endif
 #endif
 #endif
@@ -295,23 +262,11 @@ obj null_rib; // temporary values
 obj *alloc;
 obj *scan;
 
-// keep track of number of deallocated objects for debugging
-int d_count = 0;
-
 rib *heap_start;
 #define MAX_NB_OBJS 1000000
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
 #define heap_top (heap_bot + (SPACE_SZ))
-
-//==============================================================================
-
-// Debugging
-
-// TODO
-// print_cfr
-// print_queue
-// print_pqueue
 
 
 #ifndef REF_COUNT
@@ -392,12 +347,6 @@ obj pq_tail;
 
 #define PQ_IS_EMPTY() (pq_head == _NULL)
 
-
-#ifdef BUCKETS_NO_REMOVE
-
-// TODO
-
-#else
 
 #ifdef BUCKETS
 
@@ -706,7 +655,6 @@ void pq_remove(obj o) {
 #endif
 #endif
 #endif
-#endif
 
 //==============================================================================
 
@@ -965,86 +913,6 @@ void wipe_cofriend(obj x, obj cfr, int k) {
 
 // Intuition: TODO
 
-
-#ifdef UPDATE_RANKS
-
-/* void update_ranks(obj root) { */
-/*   // FIXME integrate this in add_edge and stop the update as soon as the rank */
-/*   // of all children of a rib is clean (or else we just traverse the entire */
-/*   // subgraph for no reason) */
-/*   q_enqueue(root); */
-/*   int r; */
-/*   obj curr; */
-/*   obj *c; */
-/*   do { */
-/*     curr = q_dequeue(); */
-/*     c = RIB(curr)->fields; */
-/*     r = get_rank(curr)+1; */
-/*     for (int i = 0; i < 3; i++) { */
-
-/*       // FIXME the `c[i] != root` condition is necessary to sometimes avoid */
-/*       // an infinite loop when we update the ranks after setting a new root */
-/*       // but not sure if that should also be applied in add_edge? */
-/*       if (IS_RIB(c[i]) && c[i] != root && (!is_root(c[i]))) { */
-
-/*         // Only update ranks if the parent's rank was updated or if the edge */
-/*         // is dirty */
-/*         // FIXME we could avoid A LOT of overhead if we could avoid some updates */
-/*         // here without changing how many ribs gets collected, also should note */
-/*         // that the algorithm enqueues EVERY friends, which I don't do here to */
-/*         // avoid the insane overhead of doing that */
-/*         if (is_parent(c[i], curr) && (get_rank(curr) != (get_rank(c[i])+1))) { */
-/*           set_rank(c[i], r); */
-/*           q_enqueue(c[i]); */
-/*         } else if (is_dirty(curr, c[i])) { */
-/*           set_parent(c[i], curr, i); */
-/*           set_rank(c[i], r); */
-/*           q_enqueue(c[i]); */
-/*         } */
-/*       } */
-/*     } */
-/*   } while (!Q_IS_EMPTY()); */
-/* } */
-
-void update_ranks(obj root) {
-  // FIXME integrate this in add_edge and stop the update as soon as the rank
-  // of all children of a rib is clean (or else we just traverse the entire
-  // subgraph for no reason)
-  q_enqueue(root);
-  int r;
-  obj curr;
-  obj *c;
-  do {
-    curr = q_dequeue();
-    c = RIB(curr)->fields;
-    r = get_rank(curr)+1;
-    for (int i = 0; i < 3; i++) {
-      if (IS_RIB(c[i]) && (!is_root(c[i]))) {
-        // Only update ranks if the parent's rank was updated or if the edge
-        // is dirty
-        // FIXME we could avoid A LOT of overhead if we could avoid some updates
-        // here without changing how many ribs gets collected, also should note
-        // that the algorithm enqueues EVERY friends, which I don't do here to
-        // avoid the insane overhead of doing that
-        if (is_parent(c[i], curr) && (get_rank(curr) != (get_rank(c[i])+1))) {
-          set_rank(c[i], r);
-          if (c[i] != root) q_enqueue(c[i]);
-        } else if (is_dirty(curr, c[i])) {
-          set_parent(c[i], curr, i);
-          set_rank(c[i], r);
-          if (c[i] != root) q_enqueue(c[i]);
-        }
-      }
-    }
-  } while (!Q_IS_EMPTY());
-}
-
-#else
-
-#define update_ranks(o) NULL
-
-#endif
-
 void add_edge(obj from, obj to, int i) {
   if (from == to) return; // ignore self-references
   add_cofriend(to, from, i);
@@ -1056,9 +924,6 @@ void add_edge(obj from, obj to, int i) {
     // keeping the same parent when the rank difference is not big enough
     // TODO benchmarks
     set_parent(to, from, i);
-  }
-  if (is_parent(to, from)) {
-    update_ranks(to);
   }
 }
 
@@ -1144,7 +1009,7 @@ void catch() {
   // we can re-use it (as is) for the catch queue...
   do {
     obj anchor = pq_dequeue();
-#if defined(QUEUE_NO_REMOVE) || defined(LINKED_LIST_NO_REMOVE) || defined(BUCKETS_NO_REMOVE)
+#if defined(QUEUE_NO_REMOVE) || defined(LINKED_LIST_NO_REMOVE)
     // When using the "no remove" version of a data structure, the catch queue
     // could empty itself during the the pq_dequeue procedure, need to add an
     // additional check here
@@ -1204,7 +1069,6 @@ void dealloc_rib(obj x){
   }
   CAR(x) = (obj)alloc; // deallocate the rib by adding it to the freelist
   alloc = (obj *)x;
-  d_count++;
 
   _x[6] = _NULL; // no parent
 
@@ -1305,7 +1169,6 @@ void dec_count(obj o) {
   num count = NUM(ptr[3])-1;
   
   if (count < 1) {
-    d_count++;
     for (int i = 0; i < 3; i++) {
       if (IS_RIB(ptr[i])) {
         dec_count(ptr[i]);
@@ -1409,14 +1272,12 @@ void set_field(obj src, int i, obj dest) { // write barrier
       TEMP3 = _NULL;
       set_rank(NIL, 1);
 #endif
-      update_ranks(src);
       return;
     }
     remove_ref(src, ref[i], i);
   }
   ref[i] = dest;
   add_ref(src, dest, i);
-  if (IS_RIB(src)) update_ranks(src);
 }
 
 // FIXME assume `src` will always be a rib?
@@ -1428,64 +1289,18 @@ void set_field(obj src, int i, obj dest) { // write barrier
 void set_sym_tbl(obj new_sym_tbl) {
   obj old_sym_tbl = symbol_table;
   symbol_table = new_sym_tbl;
-#ifdef ES_ROOTS
-  if (IS_RIB(symbol_table)) set_rank(symbol_table, 0);
-#endif
-
-  update_ranks(symbol_table);
-
   remove_root(old_sym_tbl);
 }
 
 void set_stack(obj new_stack) {
   obj old_stack = stack;
   stack = new_stack;
-#ifdef ES_ROOTS
-  if (IS_RIB(stack)) set_rank(stack, 0);
-#endif
-  if (IS_RIB(stack)) update_ranks(stack);
-
-#ifdef ES_ROOTS
-  if (IS_RIB(stack)) {
-    obj *_stack = RIB(stack)->fields;
-    for (int i = 0; i < 3; i++) {
-      if (IS_RIB(_stack[i])) {
-        // FIXME not sure how this will behave when pc and stack are both
-        // pointing to the same rib
-        if (!is_parent(_stack[i], stack)) {
-          set_parent(_stack[i], stack, i);
-          set_rank(_stack[i], 1);
-          update_ranks(_stack[i]);
-        }
-      }
-    }
-  }
-#endif
   remove_root(old_stack);
 }
 
 void set_pc(obj new_pc) {
   obj old_pc = pc;
   pc = new_pc;
-#ifdef NO_ADOPT
-  set_rank(pc, 0);
-#endif
-  update_ranks(pc);
-
-#ifdef ES_ROOTS
-  obj *_pc = RIB(pc)->fields;
-  for (int i = 0; i < 3; i++) {
-    if (IS_RIB(_pc[i])) {
-      // FIXME not sure how this will behave when pc and stack are both
-      // pointing to the same rib
-      if (!is_parent(_pc[i], pc)) {
-        set_parent(_pc[i], pc, i);
-        set_rank(_pc[i], 1);
-        update_ranks(_pc[i]);
-      }
-    }
-  }
-#endif
   remove_root(old_pc);
 }
 
@@ -1736,9 +1551,6 @@ void push2(obj car, obj tag) {
 #if defined(QUEUE_NO_REMOVE) || defined(LINKED_LIST_NO_REMOVE) || defined(BUCKETS)
   *alloc++ = _NULL;
 #endif
-#ifdef BUCKETS_NO_REMOVE
-  *alloc++ = _NULL;
-#endif
 
   obj new_rib = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
   
@@ -1748,22 +1560,7 @@ void push2(obj car, obj tag) {
   add_ref(new_rib, car, 0);
   add_ref(new_rib, tag, 2);
 
-#ifdef ES_ROOTS
-  obj *_stack = RIB(stack)->fields;
-  for (int i = 0; i < 2; i++) {
-    if (IS_RIB(_stack[i])) {
-      // FIXME not sure how this will behave when pc and stack are both
-      // pointing to the same rib
-      if (!is_parent(_stack[i], stack)) {
-        set_parent(_stack[i], stack, i);
-        set_rank(_stack[i], 1);
-        update_ranks(_stack[i]);
-      }
-    }
-  }
-#else
   if (IS_RIB(CDR(stack))) set_parent(CDR(stack), stack, 1);
-#endif
   
   alloc = (obj *)tmp;
 }
@@ -1789,9 +1586,6 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   *alloc++ = TAG_NUM(0); 
   *alloc++ = _NULL;      // queue and priority queue
 #if defined(QUEUE_NO_REMOVE) || defined(LINKED_LIST_NO_REMOVE) || defined(BUCKETS)
-  *alloc++ = _NULL;
-#endif
-#ifdef BUCKETS_NO_REMOVE
   *alloc++ = _NULL;
 #endif
 
