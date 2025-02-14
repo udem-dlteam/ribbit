@@ -74,10 +74,6 @@
 #define REF_COUNT
 // )@@
 
-// @@(feature no-adopt
-#define NO_ADOPT
-// )@@
-
 // @@(feature tagging
 #define TAGGING
 // )@@
@@ -92,6 +88,7 @@ void viz_heap(char* name);
 #define CLEAN_RIBS
 #define UNALLOCATED_RIB_RANK 999999
 // )@@
+#define FALLING_RIB_RANK 999998
 
 // @@(feature (not compression/lzss/2b)
 // @@(replace "41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121" (encode-as-bytes "auto" "" "," "")
@@ -261,6 +258,8 @@ obj null_rib; // temporary values
 
 obj *alloc;
 obj *scan;
+
+int alloc_rank = 0; // FIXME use another type for the allocation rank
 
 rib *heap_start;
 #define MAX_NB_OBJS 1000000
@@ -561,7 +560,7 @@ obj pq_dequeue() {
   // Get rid of falling ribs
   obj tmp;
   while (!PQ_IS_EMPTY()) {
-    if (NUM(RANK(pq_head)) == -1) { // falling?
+    if (NUM(RANK(pq_head)) == FALLING_RIB_RANK) { // falling?
       tmp = PQ_NEXT(pq_head);
       PQ_NEXT(pq_head) = _NULL;
       pq_head = tmp;
@@ -813,11 +812,9 @@ void add_cofriend(obj x, obj cfr, int i) {
     // root's only co-friend, in practice this means that this operation should
     // have no impact on the root's rank (see the paper for a counter-example
     // where a cycle is created and an unsafe adoption occurs because of that)
-
-    // FIXME FIXME FIXME
-    // if (!is_root(x)) {
-    set_rank(x, get_rank(cfr)+1);
-    // }
+    if (!is_root(x)) {
+      set_rank(x, get_rank(cfr)+1);
+    }
     return;
   }
   // Case 2: `cfr` already has a reference to `x` and so the list of co-friends
@@ -924,17 +921,23 @@ void add_edge(obj from, obj to, int i) {
 
 // Edge deletion (i.e. removing a reference to a rib)
 
+#define fall(x) set_rank(x, FALLING_RIB_RANK)
+#define is_falling(x) (get_rank(x) == FALLING_RIB_RANK)
+
+#define deallocate(x) set_rank(x, UNALLOCATED_RIB_RANK)
+#define is_deallocated(x) (get_rank(x) == UNALLOCATED_RIB_RANK)
+
+#define loosen(x) fall(x); pq_remove(x)
+
 bool adopt(obj x) {
   int rank = get_rank(x);
   obj cfr = get_parent(x);
   while (cfr != _NULL) {
-    // Note: because ranks are not strictly increasing (some ranks can be
-    // equal, adoption must be done with a rib that has a smaller rank or
-    // else some cycles could be left uncollected)...
-    // FIXME if we can find a way around that we would get more adoptions
-    if (get_rank(cfr) < rank && get_rank(cfr) > -1) {
+    // FIXME need to make sure that the topological order is respected to
+    // adopt with a cfr of the same rank as the parent
+    if (!is_falling(cfr) && get_rank(cfr) <= rank) {
       set_parent(x, cfr, get_mirror_field(x, cfr)-3);
-      // set_rank(x, get_rank(cfr)+1);
+      set_rank(x, get_rank(cfr)+1);
       return 1;
     }
     cfr = next_cofriend(x, cfr);
@@ -943,8 +946,6 @@ bool adopt(obj x) {
 }
 
 #define _adopt(x) ((get_parent(x) == _NULL) ? 0 : adopt(x))
-
-#define loosen(x) set_rank(x, -1); pq_remove(x)
 
 void drop() {
   obj x; // current "falling" rib
@@ -955,13 +956,11 @@ void drop() {
     x = q_dequeue();
     _x = RIB(x)->fields;
     cfr = get_parent(x);
-
-    // loosen(x);
     
     // making x's children "fall" along with him
     for (int i = 0; i < 3; i++) {
       if (IS_RIB(_x[i]) && is_parent(_x[i], x) && (!is_root(_x[i]))) {
-        if (get_rank(_x[i]) != -1 && (!adopt(_x[i]))) {
+        if (!is_falling(_x[i]) && !adopt(_x[i])) {
           // if we loosen here instead of when we dequeue, we can reuse the
           // queue field for the priority queue
           loosen(_x[i]);
@@ -971,7 +970,7 @@ void drop() {
     }
     // identify x's co-friends that could be potential "catchers"
     while (cfr != _NULL) {
-      if (get_rank(cfr) != -1) { // potential anchor?
+      if (!is_falling(cfr)) { // potential anchor?
         pq_enqueue(cfr);
       }
       cfr = next_cofriend(x, cfr);
@@ -992,7 +991,7 @@ void catch() {
 #endif
     obj *_anchor = RIB(anchor)->fields;
     for (int i = 0; i < 3; i++) {
-      if (IS_RIB(_anchor[i]) && (get_rank(_anchor[i]) == -1)) {
+      if (IS_RIB(_anchor[i]) && is_falling(_anchor[i])) {
         set_parent(_anchor[i], anchor, i);
         set_rank(_anchor[i], get_rank(anchor)+1);
         pq_enqueue(_anchor[i]); // add rescued node to potential "catchers"
@@ -1002,23 +1001,16 @@ void catch() {
 }
 
 void dealloc_rib(obj x){
-  set_rank(x, -2); // deallocated rib, this way we just ignore cycles
+#ifndef REF_COUNT
+  deallocate(x); // deallocated rib, this way we just ignore cycles
+#endif
   obj *_x = RIB(x)->fields;
   for (int i = 0; i < 3; i++) {
     if (IS_RIB(_x[i])) {
-      /* if (get_rank(_x[i]) == -2) { // already deallocated, child or not */
-      /*          continue; */
-      /* } else if (get_rank(_x[i]) == -1) { // falling, child or not */
-      /*          dealloc_rib(_x[i]); */
-      /* } else if (is_parent(_x[i], x)) { // child is a root */
-      /*          remove_parent(_x[i], x, i); */
-      /* } else { // not a child, only need to remove x from co-friend's list */
-      /*   remove_cofriend(_x[i], x, i); */
-      /* } */
       if (is_parent(_x[i], x)) {
-        if (get_rank(_x[i]) == -2) { // already deallocated?
+        if (is_deallocated(_x[i])) { // already deallocated?
           continue;
-        } else if (get_rank(_x[i]) == -1) { // falling?
+        } else if (is_falling(_x[i])) { // falling?
           dealloc_rib(_x[i]);
         } else { // child is a root or protected
           // Can't just wipe the parent or else we might remove the wrong parent
@@ -1044,54 +1036,40 @@ void dealloc_rib(obj x){
   }
   CAR(x) = (obj)alloc; // deallocate the rib by adding it to the freelist
   alloc = (obj *)x;
-
-  _x[6] = _NULL; // no parent
-
+  _x[6] = _NULL; // no parent FIXME
+  
 #ifdef CLEAN_RIBS
   for (int i = 1; i < RIB_NB_FIELDS; i++) {
+    if (i == 7) continue; // don't set rank to _NULL
     _x[i] = _NULL;
   }
 #endif
-
-#ifndef REF_COUNT
-  set_rank(x, UNALLOCATED_RIB_RANK);
-#endif 
 }
   
 void remove_edge(obj from, obj to, int i) {
-  // `from` and `to` are assumed to be ribs
+  // `from` and `to` are assumed to be ribs, `i` is the index where `to` is
+  // expected to be found (there could be more than one reference from `from`
+  // to `to` and we need to handle the right mirror field)
 
-  // The integer i indicates the field where `to` was expected to be found
-  // in `from`... we need to do this (at least with my implementation) because
-  // the field is often set to another pointer before `remove_edge` is called
-  // and so we need to know what the position of `to` was to traverse the list
-  // of co-friends and set the mirror fields properly (or else get_mirror_field
-  // always return -1). There might be a more elegant way to deal with this but
-  // I think it does the job
-    
+  // Case 1: `from` is not `to`'s parent, and so the spanning tree remains the
+  // same, we only need to remove that reference (and potentially `from` from
+  // `to`'s co-friends if there was only one reference)
   if (!is_parent(to, from)) {
-    // nothing to do if `from` is not the parent of `of` other than remove
-    // `from` from `to`'s co-friends since the structure of the subgraph
-    // remains the same and `to` won't be deallocated
     remove_cofriend(to, from, i);
     return;
   }
-  
-  remove_parent(to, from, i); // `to` is "parentless"
-
-  // Second condition happens when we remove an edge between a node and his
-  // parent but the parent points to the child more than once
-  if (!is_root(to) && (!is_parent(to, from)) && (!adopt(to))) {
-    // Q_INIT(); // drop queue i.e. "falling ribs"
-    // PQ_INIT(); // anchors i.e. potential "catchers"
+  // Case 2: `from` is `to`'s parent, if there's only one reference from `from`
+  // to `to` (i.e. if the parent is removed), the spanning tree becomes
+  // disconnected and so a drop phase must ensue UNLESS `to` is protected or
+  // if `to` can be adopted right away
+  remove_parent(to, from, i); 
+  if (!is_root(to) && !is_parent(to, from) && !_adopt(to)) {
     q_enqueue(to);
-    set_rank(to, -1); // loosen without removing
+    fall(to); 
     // @@(location gc-start)@@
     drop();
-    if (!PQ_IS_EMPTY()) catch(); // avoid function call if no catchers
-    if (get_rank(to) == -1) {
-      dealloc_rib(to);
-    }
+    if (!PQ_IS_EMPTY()) catch(); 
+    if (is_falling(to)) dealloc_rib(to);
     // @@(location gc-end)@@
   }
 }
@@ -1105,22 +1083,15 @@ void remove_edge(obj from, obj to, int i) {
 
 void remove_node(obj old_root) {
   // @@(location gc-start)@@
-#ifndef NO_ADOPT
-  if (_adopt(old_root)) return;
-#endif
   q_enqueue(old_root);
-  set_rank(old_root, -1); // loosen without removing
+  fall(old_root);
   drop();
-  if (!PQ_IS_EMPTY()) {
-    catch(); // avoid function call if no catchers
-  }
-  if (CFR(old_root) == _NULL) {
-    dealloc_rib(old_root);
-  }
+  if (!PQ_IS_EMPTY()) catch();
+  if (CFR(old_root) == _NULL) dealloc_rib(old_root);
   // @@(location gc-end)@@
 }
 
-#define remove_root(old_root) if (IS_RIB(old_root)) remove_node(old_root)
+#define remove_root(old_root) if (IS_RIB(old_root) && !_adopt(old_root)) remove_node(old_root)
 
 // end of code specific to ESTrees
 #endif 
@@ -1521,11 +1492,13 @@ void push2(obj car, obj tag) {
   *alloc++ = _NULL;      // mirror 2
   *alloc++ = _NULL;      // mirror 3
   *alloc++ = _NULL;      // co-friends
-  *alloc++ = TAG_NUM(0); // rank will be 0 since it becomes the new stack
+  *alloc++ = TAG_NUM(alloc_rank); 
   *alloc++ = _NULL;      // queue and priority queue
 #if defined(QUEUE_NO_REMOVE) || defined(LINKED_LIST_NO_REMOVE) || defined(BUCKETS)
   *alloc++ = _NULL;
 #endif
+
+  alloc_rank--;
 
   obj new_rib = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
   
@@ -1558,11 +1531,13 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   *alloc++ = _NULL;      // mirror 2
   *alloc++ = _NULL;      // mirror 3
   *alloc++ = _NULL;      // co-friends
-  *alloc++ = TAG_NUM(0); 
+  *alloc++ = TAG_NUM(alloc_rank); 
   *alloc++ = _NULL;      // queue and priority queue
 #if defined(QUEUE_NO_REMOVE) || defined(LINKED_LIST_NO_REMOVE) || defined(BUCKETS)
   *alloc++ = _NULL;
 #endif
+
+  alloc_rank--;
 
   obj new_rib =  TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
 
