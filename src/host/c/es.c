@@ -36,15 +36,12 @@
  *
  * Optimizations
  *  - Tagging (including roots, some ribs are not collected)
- *  - Allocation with predetermined rank
- *  - Negative ranks (for make-list)
+ *  - Optimized negative ranks
  *  - Adoption (optimized and integrated in the co-friend traversal phase)
- *  - Allow for adoption with co-friend of same rank without leaking cycles
- *    (in other words, find a way to keep the ranks stricly increasing)
  *  - Remove PC as a root and flat closures?
  *  - Find a way to remove co-friends more efficiently
  *  - Avoid duplicate co-friend removal when the same object is referred
- *  - to by the same object twice (in dealloc_rib)
+ *    to by the same object twice (in dealloc_rib)
  *  - ...?
  */
 
@@ -77,6 +74,12 @@
 // @@(feature tagging
 #define TAGGING
 // )@@
+
+// @@(feature exp-adoption
+#define EXPERIMENTAL_ADOPTION
+// )@@
+
+#define EXPERIMENTAL_ADOPTION
 
 // @@(feature debug/rib-viz
 #define VIZ
@@ -180,18 +183,32 @@ typedef struct {
 #define get_field(x,i) RIB(x)->fields[i]
 
 // #define UNTAG(x) ((x) >> 1)
+#ifdef EXPERIMENTAL_ADOPTION
+#define UNTAG(x) ((x) >> 3)
+#else
 #define UNTAG(x) ((x) >> 2)
+#endif
 #define NUM(x) ((num)(UNTAG((num)(x))))
 #define RIB(x) ((rib *)(x))
 #define IS_NUM(x) ((x)&1)
 #define IS_RIB(x) (!IS_NUM(x) && x != _NULL)
 // #define TAG_NUM(num) ((((obj)(num)) << 1) | 1)
+#ifdef EXPERIMENTAL_ADOPTION
+#define TAG_NUM(num) ((((obj)(num)) << 3) | 1)
+#else
 #define TAG_NUM(num) ((((obj)(num)) << 2) | 1)
+#endif
 #define TAG_RIB(c_ptr) (((obj)(c_ptr)))
 
 #define MARK(x) ((x)|2) // assumes x is a tagged obj (ul)
 #define UNMARK(x) ((x)^2)
 #define IS_MARKED(x) ((x)&2)
+
+#ifdef EXPERIMENTAL_ADOPTION
+#define MARK2(x) ((x)|4) // assumes x is a tagged obj (ul)
+#define UNMARK2(x) ((x)^4)
+#define IS_MARKED2(x) ((x)&4)
+#endif
 
 #define is_protected(o, i) (IS_RIB(o) && IS_MARKED(get_field(o,i)))
 
@@ -919,10 +936,17 @@ void add_edge(obj from, obj to, int i) {
 
 // Edge deletion (i.e. removing a reference to a rib)
 
+#ifdef EXPERIMENTAL_ADOPTION
+#define fall(x) (get_field(x,7) = MARK2(get_field(x,7)))
+#define is_falling(x) (IS_MARKED2(get_field(x,7)))
+#define unfall(x) (get_field(x,7) = UNMARK2(get_field(x,7)))
+#else
 #define fall(x) set_rank(x, FALLING_RIB_RANK)
 #define is_falling(x) (get_rank(x) == FALLING_RIB_RANK)
+#define unfall(x) NULL
+#endif
 
-#define deallocate(x) set_rank(x, UNALLOCATED_RIB_RANK)
+#define deallocate(x) unfall(x); set_rank(x, UNALLOCATED_RIB_RANK)
 #define is_deallocated(x) (get_rank(x) == UNALLOCATED_RIB_RANK)
 
 #define loosen(x) fall(x); pq_remove(x)
@@ -944,6 +968,61 @@ bool adopt(obj x) {
 }
 
 #define _adopt(x) ((get_parent(x) == _NULL) ? 0 : adopt(x))
+
+#ifdef EXPERIMENTAL_ADOPTION
+
+// FIXME cleanup and give some context
+// The idea is to merge the adoption and "anchoring" phase to avoid traversing
+// the co-friends twice. The downside is that we might enter the catch phase
+// even if not necesary, need to evaluate if it's worth it
+
+void drop() {
+  obj x; // current "falling" rib
+  obj *_x;
+  obj cfr;
+  int r; // dequeued rib's rank
+  int r2;
+  obj adopter;
+
+  while (!Q_IS_EMPTY()) {
+    x = q_dequeue();
+    _x = RIB(x)->fields;
+    cfr = get_parent(x);
+    r = get_rank(x);
+    r2 = alloc_rank;
+    adopter = _NULL;
+
+    // identify x's co-friends that could be potential "catchers"
+    while (cfr != _NULL) {
+      if (!is_falling(cfr)) { // potential anchor?
+        if (get_rank(cfr) < r && get_rank(cfr) >= r2) {
+          r2 = get_rank(cfr);
+          adopter = cfr;
+        }
+        if (r2 == alloc_rank) pq_enqueue(cfr);
+      }
+      cfr = next_cofriend(x, cfr);
+    }
+    if (adopter != _NULL) {
+      set_parent(x, adopter, get_mirror_field(x, adopter)-3);
+      unfall(x);
+      pq_enqueue(x);
+      continue;
+    }
+    
+    // making x's children "fall" along with him
+    for (int i = 0; i < 3; i++) {
+      if (IS_RIB(_x[i]) && is_parent(_x[i], x) && (!is_root(_x[i]))) {
+        if (!is_falling(_x[i])) { 
+          loosen(_x[i]);
+          q_enqueue(_x[i]);
+        }
+      }
+    }
+  }
+}
+
+#else
 
 void drop() {
   obj x; // current "falling" rib
@@ -976,6 +1055,8 @@ void drop() {
   }
 }
 
+#endif
+
 void catch() {
   // since we use a priority queue instead of a set for the anchors,
   // we can re-use it (as is) for the catch queue...
@@ -990,6 +1071,9 @@ void catch() {
     obj *_anchor = RIB(anchor)->fields;
     for (int i = 0; i < 3; i++) {
       if (IS_RIB(_anchor[i]) && is_falling(_anchor[i])) {
+#ifdef EXPERIMENTAL_ADOPTION
+        unfall(_anchor[i]);
+#endif
         set_parent(_anchor[i], anchor, i);
         set_rank(_anchor[i], get_rank(anchor)+1);
         pq_enqueue(_anchor[i]); // add rescued node to potential "catchers"
@@ -1229,6 +1313,8 @@ void set_field(obj src, int i, obj dest) { // write barrier
 #define SET_CAR(src, dest) if (IS_RIB(src)) set_field(src, 0, dest)
 #define SET_CDR(src, dest) if (IS_RIB(src)) set_field(src, 1, dest)
 #define SET_TAG(src, dest) if (IS_RIB(src)) set_field(src, 2, dest)
+
+// FIXME use macros instead of functions for the root setters
 
 void set_sym_tbl(obj new_sym_tbl) {
   obj old_sym_tbl = symbol_table;
