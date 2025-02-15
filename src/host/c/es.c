@@ -1311,25 +1311,22 @@ void set_field(obj src, int i, obj dest) { // write barrier
 #define SET_CDR(src, dest) if (IS_RIB(src)) set_field(src, 1, dest)
 #define SET_TAG(src, dest) if (IS_RIB(src)) set_field(src, 2, dest)
 
-// FIXME use macros instead of functions for the root setters
-
-void set_sym_tbl(obj new_sym_tbl) {
-  obj old_sym_tbl = symbol_table;
-  symbol_table = new_sym_tbl;
-  remove_root(old_sym_tbl);
-}
+#define set_sym_tbl(new_st)                                                     \
+  obj old_st = symbol_table;                                                    \
+  symbol_table = new_st;                                                        \
+  remove_root(old_st)
 
 void set_stack(obj new_stack) {
+  // TODO make set_stack a macro as well (conflict with _pop)
   obj old_stack = stack;
   stack = new_stack;
   remove_root(old_stack);
 }
 
-void set_pc(obj new_pc) {
-  obj old_pc = pc;
-  pc = new_pc;
-  remove_root(old_pc);
-}
+#define set_pc(new_pc)                                                          \
+  obj old_pc = pc;                                                              \
+  pc = new_pc;                                                                  \
+  remove_root(old_pc)
 
 #endif
 
@@ -2009,7 +2006,7 @@ void run() { // evaluator
 #endif
           }
 #ifndef REF_COUNT
-          if (s != stack) set_stack(s); 
+          if (s != stack) { set_stack(s); }
 #endif
           
           nparams = nparams + vari; // @@(feature arity-check)@@
@@ -2030,9 +2027,9 @@ void run() { // evaluator
           }
 #ifdef REF_COUNT
           stack = new_stack;
-          obj new_pc = CAR(pc); // proc entry point
+          obj _new_pc = CAR(pc); // proc entry point
           SET_CAR(pc, TAG_NUM(instr));
-          set_pc(TAG(new_pc));
+          set_pc(TAG(_new_pc));
 #else
           set_pc(TAG(CAR(proc)));
           set_stack(new_stack);
