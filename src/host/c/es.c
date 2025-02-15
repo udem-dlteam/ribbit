@@ -4,58 +4,43 @@
  * Author: Frédéric Lahaie-Bertrand
  *
  * Implementation of the Ribbit Virtual Machine in C with an incremental 
- * garbage collector inspired by Even-Shiloach trees.
- *
- * This version of the RVM doesn't include all the features defined in the
- * original version (DEBUG, NO_STD, lzss compression, ARG_V, clang support, 
- * stop & copy GC, DEFAULT_REPL_MIN, NOSTART, CHECK_ACCESS, etc.) but can be
- *  used with the R4RS library.
+ * garbage collector inspired by Even-Shiloach trees
  */
 
-/* TODO (Even-Shiloach)
- * --------------------
+/* 
+ * TODO
  *
- * Bugs
- *  - see discussion
- * 
- *  - [Not a priority, happens rarely] co-friend not found in remove_cofriend
- *  - FIXMEs and TODOs in the code
- *  - Call a GC for every instruction to make sure everything is collected...
- *     => Do that for the bootstrap, the test suite, and fuzzy tests
+ * Priorities
+ * - Force a drop when a newly allocated object or structure gets connected
+ *   to an existing spanning tree (or recursively update the ranks) to
+ *   maintain the topological order invariant
+ *   ... also make sure that nothing else can break it (e.g. when a cycle
+ *   is created in a newly allocated structure before being connected to
+ *   a spanning tree)
+ * - Full support for tagging (inc. roots and protected ribs, maybe newly
+ *   ribs if necessary)
+ * - Crash on overflow (keep the basic negative rank approach for now, 
+ *   optimizing this is not a priority)
+ * - Benchmarks for the new adoption scheme
+ * - Ref count (make sure all non-cyclic ribs are collected, adapt io and sys
+ *   primitives, apply, ... you know, make it work)
+ * - Avoid duplicate co-friend removal in dealloc_rib
+ * - Flat closures
+ * - Call a GC for every instruction to make sure everything is collected...
+ *   (do that for the bootstrap, the test suite, and fuzzing)
+ * - Ask for a review by Stefan and Marc 
+ * - Cleanup the code and fix the FIXMEs and TODOs in the code
  *
- * Features
- *  - Overflow checks
- *
- *  - [Not a priority] Finalizers
- *  - [Not a priority] Add missing features from the original RVM (encoding, 
- *    sys primitives, (DEBUG, NO_STD, lzss compression, ARG_V, clang support, 
- *    stop & copy GC, DEFAULT_REPL_MIN, NOSTART, CHECK_ACCESS, etc.) and then
- *    make it the official RVM for the C host (could have a version that also
- *    contains the ES algorithm for the paper as well...)
- *  - [Not a priority] ... cleanup the code
- *
- * Optimizations
- *  - Tagging (including roots, some ribs are not collected)
- *  - Optimized negative ranks
- *  - Adoption (optimized and integrated in the co-friend traversal phase)
- *  - Remove PC as a root and flat closures?
- *  - Find a way to remove co-friends more efficiently
- *  - Avoid duplicate co-friend removal when the same object is referred
- *    to by the same object twice (in dealloc_rib)
- *  - ...?
- */
-
-/* TODO (Reference counting)
- * -------------------------
- * Bugs
- *  - Make sure that all (non-cyclic) ribs are collected, haven't fully tested 
- *
- * Features
- *  - Adapt original compression to RC
- *  - String, chars, and pair features
- *  - Primitives: apply, io, and sys
- *  - Missing features from the original rvm 
- *  - ... cleanup the code
+ * When the stars will align
+ * - Experiment with different data structures for the anchors/catchers
+ * - Experiment with ways to chain co-friends (e.g. double the number of
+ *   mirror fields) to reduce the cost of removing a co-friend 
+ * - Finalizers
+ * - Make it a full RVM: add missing features from the original RVM (encoding,
+ *   sys primitives, (DEBUG, NO_STD, lzss compression, ARG_V, clang support, 
+ *   stop & copy GC, DEFAULT_REPL_MIN, NOSTART, CHECK_ACCESS, etc.) 
+ * - ... missing bugs?
+ * - ... optimizations?
  */
 
 // @@(location import)@@
