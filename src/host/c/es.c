@@ -25,10 +25,11 @@
  * - Ref count (make sure all non-cyclic ribs are collected, adapt io and sys
  *   primitives, apply, ... you know, make it work)
  * - Avoid duplicate co-friend removal in dealloc_rib
+ * - Fuzzing with tagged roots
  * - Flat closures
  * - Call a GC for every instruction to make sure everything is collected...
  *   (do that for the bootstrap, the test suite, and fuzzing)
- * - Ask for a review by Stefan and Marc 
+ * - Ask Stefan and Marc to review the code
  * - Cleanup the code and fix the FIXMEs and TODOs in the code
  *
  * When the stars will align
