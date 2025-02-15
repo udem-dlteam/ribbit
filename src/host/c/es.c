@@ -17,11 +17,19 @@
  *   ... also make sure that nothing else can break it (e.g. when a cycle
  *   is created in a newly allocated structure before being connected to
  *   a spanning tree)
+ *   => SHOULDN'T BE A PROBLEM (in theory) except maybe for closures because
+ *      Ribbit can't build a cyclic structure in a primitive and the
+ *      resulting rib is linked directly to the stack so we can't break
+ *      the topological order invariant when building a structure if pushing
+ *      the stack is done with the global allocation rank and that the drop
+ *      will occur when the stack pointer will point to something else (might 
+ *      be different in another system when we return from a primitive and we 
+ *      need to force a drop)
  * - Full support for tagging (inc. roots and protected ribs, maybe newly
  *   allocated ribs if necessary)
  * - Crash on overflow (keep the basic negative rank approach for now, 
  *   optimizing this is not a priority)
- * - Benchmarks for the new adoption scheme
+ * - Benchmarks for the new adoption scheme and dirtiness check
  * - Ref count (make sure all non-cyclic ribs are collected, adapt io and sys
  *   primitives, apply, ... you know, make it work)
  * - Avoid duplicate co-friend removal in dealloc_rib
@@ -807,7 +815,7 @@ void add_cofriend(obj x, obj cfr, int i) {
   // corresponds to the situation where a newly allocated object or structure
   // gets connected to an existing spanning tree in the spanning forest
   if (p == _NULL) {
-    get_parent(x) = cfr;;
+    get_parent(x) = cfr;
     // Important: adding a new reference to a parentless root should be treated
     // the same as simply adding a new co-friend even if the referrer is the
     // root's only co-friend, in practice this means that this operation should
@@ -828,9 +836,24 @@ void add_cofriend(obj x, obj cfr, int i) {
       return;
     }
   }
-  // Case 3: `cfr` is not `x`'s co-friend and so must be added to `x`' list of
+  // Case 3 (previously handled in `add_edge`): `cfr` is a new co-friend and
+  // the new reference is dirty, `cfr` becomes the new parent to increase the
+  // number of possible adoptions. Note that we don't adjust the rank of `x`,
+  // this is because the rank gap allows a potential co-friend to insert
+  // himself there, adding a new adopter and avoiding another drop
+  // TODO need to benchmark to see if this is actually faster in practice
+  if (is_dirty (cfr, x)) {
+    get_field(cfr, i+3) = get_parent(x);
+    get_parent(x) = cfr;
+    return;
+  }
+  // Case 4: `cfr` is not `x`'s co-friend and so must be added to `x`' list of
   // co-friends. This is done by inserting `cfr` between `x`'s parent and the
   // next co-friend
+  // TODO should we keep the co-friends ordered by dirtiness (i.e. keep each
+  // potential adopters first in the list of co-friends and referrers with too
+  // big of a rank pushed in the back, this would make adoption faster and
+  // bring some of the cost of remove a reference here)
   obj tmp = get_field(p, get_mirror_field(x, p)); // old co-friend pointed by p
   for (int j = 0; j < 3; j++) { // set the parent's mirror fields
     if (get_field(p, j) == x) {
@@ -898,23 +921,13 @@ void wipe_cofriend(obj x, obj cfr, int i) {
 
 // Edge addition (i.e. add a reference to a rib)
 
-void add_edge(obj from, obj to, int i) {
-  if (from == to) return; // ignore self-references
-  add_cofriend(to, from, i);
-  // if (is_dirty(from, to) && !is_dirty(get_parent(to), to)) {
-  if (is_dirty(from, to)) {
-    // More likely to have an adoption when the parent/child relationship
-    // is kept as dirty as possible (pls don't quote me on that) but not
-    // sure if the set_parent is always worth it or if we're better off
-    // keeping the same parent when the rank difference is not big enough
-    // TODO benchmarks
-    set_parent(to, from, i);
-    // set_rank(to, get_rank(from)+1);
-  }
-}
+// The entire logic for handling new references was moved to `add_cofriend`
+// including the dirty check because it's much more efficient this way (we
+// set `from` as the parent of `to` right away if the edge is dirty)
+#define add_edge(from, to, i) add_cofriend(to, from, i)
 
-// Assumes `from` is a rib
-#define add_ref(from, to, i) if (IS_RIB(to)) add_edge(from, to, i)
+// Assumes `from` is a rib and we ignore self-references
+#define add_ref(from, to, i) if (IS_RIB(to) && from != to) add_edge(from, to, i)
 
 //------------------------------------------------------------------------------
 
