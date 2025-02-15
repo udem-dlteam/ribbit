@@ -25,10 +25,9 @@
  *      will occur when the stack pointer will point to something else (might 
  *      be different in another system when we return from a primitive and we 
  *      need to force a drop)
- * - Full support for tagging (inc. roots and protected ribs, maybe newly
- *   allocated ribs if necessary)
  * - Crash on overflow (keep the basic negative rank approach for now, 
  *   optimizing this is not a priority)
+ * - Tag Ribbit's 3 roots for faster collectable check?
  * - Benchmarks for the new adoption scheme and dirtiness check
  * - Ref count (make sure all non-cyclic ribs are collected, adapt io and sys
  *   primitives, apply, ... you know, make it work)
@@ -63,10 +62,6 @@
 
 // @@(feature ref-count
 #define REF_COUNT
-// )@@
-
-// @@(feature tagging
-#define TAGGING
 // )@@
 
 // @@(feature exp-adoption
@@ -202,7 +197,15 @@ typedef struct {
 #define IS_MARKED2(x) ((x)&4)
 #endif
 
-#define is_protected(o, i) (IS_RIB(o) && IS_MARKED(get_field(o,i)))
+#define protect(o) get_field(o,7) = MARK(RANK(o))
+#define is_protected(o) (IS_RIB(o) && IS_MARKED(RANK(o)))
+#define unprotect(o)                                                           \
+  do {                                                                         \
+    if (IS_RIB(o)) {                                                           \
+      get_field(o,7) = UNMARK(RANK(o));                                        \
+      remove_root(o);                                                          \
+    }                                                                          \
+  } while (0)
 
 #define INSTR_AP 0
 #define INSTR_SET 1
@@ -728,11 +731,9 @@ void pq_remove(obj o) {
 // ordering invariant AND `from` is NOT `to`'s parent
 #define is_dirty(from, to) ((get_rank(from) < get_rank(to)-1) && (get_rank(get_parent(to)) < get_rank(from)))
 
-#ifdef TAGGING
-#define is_root(x) (x == pc || x == stack || x == FALSE || is_protected(x, 7))
-#else
+#define is_collectable(x) (!is_root(x) && !is_protected(x))
+
 #define is_root(x) (x == pc || x == stack || x == FALSE)
-#endif
 
 #define is_parent(x, p) (CFR(x) == p)
 #define get_parent(x) CFR(x)
@@ -821,7 +822,7 @@ void add_cofriend(obj x, obj cfr, int i) {
     // root's only co-friend, in practice this means that this operation should
     // have no impact on the root's rank (see the paper for a counter-example
     // where a cycle is created and an unsafe adoption occurs because of that)
-    if (!is_root(x)) {
+    if (is_collectable(x)) {
       set_rank(x, get_rank(cfr)+1);
     }
     return;
@@ -1009,7 +1010,7 @@ void drop() {
     
     // making x's children "fall" along with him
     for (int i = 0; i < 3; i++) {
-      if (IS_RIB(_x[i]) && is_parent(_x[i], x) && (!is_root(_x[i]))) {
+      if (IS_RIB(_x[i]) && is_parent(_x[i], x) && (is_collectable(_x[i]))) {
         if (!is_falling(_x[i])) { 
           loosen(_x[i]);
           q_enqueue(_x[i]);
@@ -1033,7 +1034,7 @@ void drop() {
     
     // making x's children "fall" along with him
     for (int i = 0; i < 3; i++) {
-      if (IS_RIB(_x[i]) && is_parent(_x[i], x) && (!is_root(_x[i]))) {
+      if (IS_RIB(_x[i]) && is_parent(_x[i], x) && (is_collectable(_x[i]))) {
         if (!is_falling(_x[i]) && !adopt(_x[i])) {
           // if we loosen here instead of when we dequeue, we can reuse the
           // queue field for the priority queue
@@ -1142,7 +1143,7 @@ void remove_edge(obj from, obj to, int i) {
   // disconnected and so a drop phase must ensue UNLESS `to` is protected or
   // if `to` can be adopted right away
   remove_parent(to, from, i); 
-  if (!is_root(to) && !is_parent(to, from) && !_adopt(to)) {
+  if (is_collectable(to) && !is_parent(to, from) && !_adopt(to)) {
     // @@(location gc-start)@@
     q_enqueue(to);
     fall(to); 
@@ -1252,16 +1253,6 @@ void set_pc(obj new_pc) {
 
 #else
 
-#define protect(o, i) get_field(o,i) = MARK(get_field(o,i))
-
-#define unprotect(o, i)                                                        \
-  do {                                                                         \
-    if (IS_RIB(o)) {                                                           \
-      get_field(o,i) = UNMARK(get_field(o,i));                                 \
-      remove_root(o);                                                          \
-    }                                                                          \
-  } while (0)
-
 
 void set_field(obj src, int i, obj dest) { // write barrier
   // The order differs a bit from the ref count version of the write barrier...
@@ -1272,7 +1263,7 @@ void set_field(obj src, int i, obj dest) { // write barrier
   if (ref[i] == dest) return; // src's i-th field already points to dest
   
   if (IS_RIB(ref[i])) { // no need to dereference _NULL or a num
-    if (!is_root(ref[i]) && is_parent(ref[i], src) && next_cofriend(ref[i], src) == _NULL) {
+    if (is_collectable(ref[i]) && is_parent(ref[i], src) && next_cofriend(ref[i], src) == _NULL) {
       // We need to be more careful here since simply removing the edge
       // between src and ref[i] will deallocate ref[i] and potentially
       // some other ribs refered by ref[i]. This is problematic if dest
@@ -1280,23 +1271,11 @@ void set_field(obj src, int i, obj dest) { // write barrier
       // we'll deallocate a rib (or more) that shouldn't be deallocated.
       // We can get around that by using a temporary rib to point to ref[i]
       obj tmp = ref[i];
-#ifdef TAGGING
-      protect(tmp, 7);
-#else
-      set_rank(NIL, get_rank(src));
-      TEMP3 = ref[i]; // protect old dest
-      add_edge(NIL, ref[i], 0);
-#endif
+      protect(tmp);
       remove_ref(src, ref[i], i); // new dest
       ref[i] = dest;
       add_ref(src, dest, i);
-#ifdef TAGGING
-      unprotect(tmp, 7);
-#else
-      remove_ref(NIL, tmp, 0); // unprotect old dest
-      TEMP3 = _NULL;
-      set_rank(NIL, 1);
-#endif
+      unprotect(tmp);
       return;
     }
     remove_ref(src, ref[i], i);
@@ -1429,76 +1408,31 @@ obj pop() {
   obj tos = CAR(stack);
   if (IS_RIB(tos) && M_CAR(stack) == _NULL) {
     // protect TOS only if it gets deallocated otherwise
-#ifdef TAGGING
-    protect(tos, 7);
-#else
-    TEMP5 = tos;
-    add_edge(null_rib, tos, 0);
-#endif
+    protect(tos);
   }
   set_stack(CDR(stack));
   return tos;
 }
 
 // to avoid too many preprocessor instructions in the RVM code
-#ifdef TAGGING
-#define DEC_POP(o) if (IS_RIB(o) && is_protected(o, 7)) unprotect(o, 7)
-#else
-#define DEC_POP(o) if (TEMP5 == o) remove_ref_nr(o, 0)
-#endif
+#define DEC_POP(o) if (IS_RIB(o) && is_protected(o)) unprotect(o)
 
+#define _protect(var) if (IS_RIB(var) && M_CAR(stack) == _NULL) protect(var)
+#define _unprotect(var) if (IS_RIB(var) && is_protected(var)) unprotect(var)
 
-#ifdef TAGGING
-
-#define _protect(var, i) if (IS_RIB(var) && M_CAR(stack) == _NULL) protect(var, i)
-#define _unprotect(var, i) if (IS_RIB(var) && is_protected(var, i)) unprotect(var, i)
-
-#define _pop(var, i)                                                            \
+#define _pop(var)                                                               \
   obj var = CAR(stack);                                                         \
-  _protect(var, 7);                                                             \
+  _protect(var);                                                                \
   set_stack(CDR(stack))
 
-#define PRIM1() _pop(x, 0)
-#define PRIM2() _pop(y, 1); PRIM1()
-#define PRIM3() _pop(z, 2); PRIM2()
+#define PRIM1() _pop(x)
+#define PRIM2() _pop(y); PRIM1()
+#define PRIM3() _pop(z); PRIM2()
 
-#define DEC_PRIM1() _unprotect(x, 7);
-#define DEC_PRIM2() _unprotect(y, 7); DEC_PRIM1()
-#define DEC_PRIM3() _unprotect(z, 7); DEC_PRIM2()
+#define DEC_PRIM1() _unprotect(x);
+#define DEC_PRIM2() _unprotect(y); DEC_PRIM1()
+#define DEC_PRIM3() _unprotect(z); DEC_PRIM2()
 
-#else
-// FIXME!!! only protect a popped object if said object would get deallocated
-// otherwise (can easily be checked since M_CAR(stack) would be _NULL)
-
-#define _pop(var, i)                                                            \
-  obj var = CAR(stack);                                                         \
-  add_ref(null_rib, var, i);                                                    \
-  set_stack(CDR(stack));
-
-#define PRIM1() TEMP5 = CAR(stack); _pop(x, 0)
-#define PRIM2() TEMP6 = CAR(stack); _pop(y, 1); PRIM1()
-#define PRIM3() TEMP7 = CAR(stack); _pop(z, 2); PRIM2()
-
-#define CLEAR_NR()                                                              \
-  obj *nr_ptr = RIB(null_rib)->fields;                                          \
-  nr_ptr[3] = _NULL;                                                            \
-  nr_ptr[4] = _NULL;                                                            \
-  nr_ptr[5] = _NULL;
-
-#define DEC_PRIM1()                                                             \
-  remove_ref(null_rib, x, 0);                                                   \
-  TEMP5 = _NULL;                                                                \
-  CLEAR_NR()
-#define DEC_PRIM2()                                                             \
-  remove_ref(null_rib, y, 1);                                                   \
-  TEMP6 = _NULL;                                                                \
-  DEC_PRIM1()
-#define DEC_PRIM3()                                                             \
-  remove_ref(null_rib, z, 2);                                                   \
-  TEMP7 = _NULL;                                                                \
-  DEC_PRIM2()
-
-#endif
 #endif
 
 #ifdef REF_COUNT
