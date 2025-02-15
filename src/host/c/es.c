@@ -18,7 +18,7 @@
  *   is created in a newly allocated structure before being connected to
  *   a spanning tree)
  * - Full support for tagging (inc. roots and protected ribs, maybe newly
- *   ribs if necessary)
+ *   allocated ribs if necessary)
  * - Crash on overflow (keep the basic negative rank approach for now, 
  *   optimizing this is not a priority)
  * - Benchmarks for the new adoption scheme
@@ -830,7 +830,7 @@ void add_cofriend(obj x, obj cfr, int i) {
   }
   // Case 3: `cfr` is not `x`'s co-friend and so must be added to `x`' list of
   // co-friends. This is done by inserting `cfr` between `x`'s parent and the
-  // next co-friend 
+  // next co-friend
   obj tmp = get_field(p, get_mirror_field(x, p)); // old co-friend pointed by p
   for (int j = 0; j < 3; j++) { // set the parent's mirror fields
     if (get_field(p, j) == x) {
@@ -1130,9 +1130,9 @@ void remove_edge(obj from, obj to, int i) {
   // if `to` can be adopted right away
   remove_parent(to, from, i); 
   if (!is_root(to) && !is_parent(to, from) && !_adopt(to)) {
+    // @@(location gc-start)@@
     q_enqueue(to);
     fall(to); 
-    // @@(location gc-start)@@
     drop();
     if (!PQ_IS_EMPTY()) catch(); 
     if (is_falling(to)) dealloc_rib(to);
@@ -1153,7 +1153,7 @@ void remove_node(obj old_root) {
   fall(old_root);
   drop();
   if (!PQ_IS_EMPTY()) catch();
-  if (CFR(old_root) == _NULL) dealloc_rib(old_root);
+  if (is_falling(old_root)) dealloc_rib(old_root);
   // @@(location gc-end)@@
 }
 
