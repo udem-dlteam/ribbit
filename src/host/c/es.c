@@ -27,7 +27,7 @@
  *      need to force a drop)
  * - Crash on overflow (keep the basic negative rank approach for now, 
  *   optimizing this is not a priority)
- * - Tag Ribbit's 3 roots for faster collectable check? + bug tag/linked-list
+ * - Tag Ribbit's 3 roots for faster collectable check? 
  * - Benchmarks for the new adoption scheme and dirtiness check
  * - Ref count (make sure all non-cyclic ribs are collected, adapt io and sys
  *   primitives, apply, ... you know, make it work)
@@ -1510,16 +1510,21 @@ void push2(obj car, obj tag) {
   *alloc++ = _NULL;
 #endif
 
+  obj new_rib = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
+  obj old_stack = stack;
+  stack = new_rib;
+
+  // new stack becomes the parent of old stack (avoids the potential drop)
+  if (IS_RIB(old_stack)) {
+    get_field(new_rib, 4) = get_parent(old_stack);
+    get_parent(old_stack) = stack;
+    set_rank(stack, alloc_rank+1);    
+  }
   alloc_rank--;
 
-  obj old_stack = stack;
-
-  stack = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
-
-  add_ref(stack, old_stack, 1);
-  add_ref(stack, car, 0);
-  add_ref(stack, tag, 2);
-
+  add_ref(new_rib, car, 0);
+  add_ref(new_rib, tag, 2);
+  
   alloc = (obj *)tmp;
 }
 
