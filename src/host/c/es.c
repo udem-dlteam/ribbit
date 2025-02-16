@@ -27,7 +27,7 @@
  *      need to force a drop)
  * - Crash on overflow (keep the basic negative rank approach for now, 
  *   optimizing this is not a priority)
- * - Tag Ribbit's 3 roots for faster collectable check?
+ * - Tag Ribbit's 3 roots for faster collectable check? + bug tag/linked-list
  * - Benchmarks for the new adoption scheme and dirtiness check
  * - Ref count (make sure all non-cyclic ribs are collected, adapt io and sys
  *   primitives, apply, ... you know, make it work)
@@ -481,7 +481,7 @@ void pq_enqueue(obj o) {
       pq_head = o;
       pq_tail = o;
     }
-    else if (RANK(o) == 1) { // root (tagged rank)
+    else if (NUM(RANK(o)) == 1) { // root (tagged rank)
       PQ_NEXT(o) = pq_head;
       pq_head = o;
     }
@@ -1512,16 +1512,14 @@ void push2(obj car, obj tag) {
 
   alloc_rank--;
 
-  obj new_rib = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
-  
-  add_ref(new_rib, stack, 1);
-  stack = new_rib;
+  obj old_stack = stack;
 
-  add_ref(new_rib, car, 0);
-  add_ref(new_rib, tag, 2);
+  stack = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
 
-  if (IS_RIB(CDR(stack))) set_parent(CDR(stack), stack, 1);
-  
+  add_ref(stack, old_stack, 1);
+  add_ref(stack, car, 0);
+  add_ref(stack, tag, 2);
+
   alloc = (obj *)tmp;
 }
 
