@@ -75,7 +75,6 @@ void viz_heap(char* name);
 #define MAX_RANK 2147483645
 #define MIN_RANK -2147483648
 
-#define UNALLOCATED_RIB_RANK 2147483647
 // @@(feature debug/clean-ribs
 #define CLEAN_RIBS
 // )@@
