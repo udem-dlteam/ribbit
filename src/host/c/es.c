@@ -25,10 +25,9 @@
  *      will occur when the stack pointer will point to something else (might 
  *      be different in another system when we return from a primitive and we 
  *      need to force a drop)
- * - Benchmarks for the new adoption scheme and dirtiness check
+ * - Benchmarks for the new adoption scheme
  * - Ref count (make sure all non-cyclic ribs are collected, adapt io and sys
  *   primitives, apply, ... you know, make it work)
- * - Avoid duplicate co-friend removal in dealloc_rib
  * - Fuzzing with tagged roots
  * - Flat closures
  * - Call a GC for every instruction to make sure everything is collected...
@@ -582,7 +581,8 @@ void pq_remove(obj o) {
 #define get_rank(x) (NUM(RANK(x)))
 #define set_rank(x, rank) (RANK(x) = TAG_NUM(rank))
 
-// TODO need a faster overflow check and a "reranking" phase
+// TODO need a faster overflow check and a "reranking" phase when an overflow
+// is detected instead of just crashing
 #define ovf_set_rank(x, rank) (rank < MAX_RANK) ? set_rank(x, rank) : exit(1);
 #define dec_alloc_rank(x) if (alloc_rank-- == MIN_RANK) exit(1);
 
@@ -625,7 +625,7 @@ void set_parent(obj x, obj p, int i) {
     curr = next_cofriend(x, curr);
   }
   // Case 2: `p` was not a co-friend, it becomes the first co-friend
-  // FIXME need a faster way to detect that case
+  // TODO need a faster way to detect that case
   if (curr == _NULL) {
     get_field(p, i+3) = old_parent; // only need to set one mirror field
     get_parent(x) = p; 
@@ -709,7 +709,6 @@ void add_cofriend(obj x, obj cfr, int i) {
   // number of possible adoptions. Note that we don't adjust the rank of `x`,
   // this is because the rank gap allows a potential co-friend to insert
   // himself there, adding a new adopter and avoiding another drop
-  // TODO need to benchmark to see if this is actually faster in practice
   if (is_dirty (cfr, x)) {
     get_field(cfr, i+3) = get_parent(x);
     get_parent(x) = cfr;
@@ -721,7 +720,7 @@ void add_cofriend(obj x, obj cfr, int i) {
   // TODO should we keep the co-friends ordered by dirtiness (i.e. keep each
   // potential adopters first in the list of co-friends and referrers with too
   // big of a rank pushed in the back, this would make adoption faster and
-  // bring some of the cost of remove a reference here)
+  // bring some of the cost of removing a reference here)?
   obj tmp = get_field(p, get_mirror_field(x, p)); // old co-friend pointed by p
   for (int j = 0; j < 3; j++) { // set the parent's mirror fields
     if (get_field(p, j) == x) {
@@ -752,9 +751,6 @@ void remove_cofriend(obj x, obj cfr, int i) {
     prev = curr;
     curr = next_cofriend(x, curr);
   }
-  // FIXME `cfr` was not a co-friend
-  if (curr == _NULL) return;
-  
   obj tmp = get_field(cfr, i+3); // `cfr`'s successor, could be _NULL
   get_field(cfr, i+3) = _NULL; // remove ref from `cfr` to old successor
   for (int j = 0; j < 3; j++) { // link predecessor with `cfr`'s old successor
@@ -772,10 +768,7 @@ void wipe_cofriend(obj x, obj cfr, int i) {
   while (curr != cfr && curr != _NULL) { // find `cfr` and his predecessor
     prev = curr;
     curr = next_cofriend(x, curr);
-  }
-  // FIXME `cfr` was not a co-friend
-  if (curr == _NULL) return;
-  
+  }  
   obj tmp = get_field(cfr, i+3); // `cfr`'s successor, could be _NULL
   get_field(cfr, i+3) = _NULL; // remove ref from `cfr` to old successor
   for (int j = 0; j < 3; j++) { // link predecessor with `cfr`'s old successor
@@ -975,9 +968,16 @@ void dealloc_rib(obj x){
           }
         }
       } else { // not a child, only need to remove x from co-friend's list
-        // FIXME we'll try to wipe the same co-friend twice if we have
-        // two or more references to the same object
-        if (get_parent(_x[i]) != _NULL) wipe_cofriend(_x[i], x, i);
+        // TODO faster way to check if we try to wipe the same co-friend twice
+        if (get_parent(_x[i]) != _NULL) {
+          if (i == 0) {
+            wipe_cofriend(_x[i], x, i);
+          } else if (i == 1 && _x[1] != _x[0]) {
+            wipe_cofriend(_x[i], x, i);
+          } else if (i == 2 && _x[2] != _x[0] && _x[2] != _x[0]) {
+            wipe_cofriend(_x[i], x, i);
+          }
+        }
       }
     }
   }
