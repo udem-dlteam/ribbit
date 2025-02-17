@@ -106,18 +106,10 @@ typedef long num;
 #define LINKED_LIST
 // )@@
 
-// @@(feature linked-list-no-remove
-#define LINKED_LIST_NO_REMOVE
-// )@@
-
-// @@(feature buckets
-#define BUCKETS
-// )@@
-
 #ifdef REF_COUNT
 #define RIB_NB_FIELDS 4
 #else
-#if defined(QUEUE_NO_REMOVE) || defined(LINKED_LIST_NO_REMOVE) || defined(BUCKETS)
+#ifdef QUEUE_NO_REMOVE
 #define RIB_NB_FIELDS 10
 #else
 // Queue with remove or priority queue (singly linked list) with remove
@@ -144,13 +136,6 @@ typedef struct {
 // queue next
 #define Q_NEXT(x) RIB(x)->fields[8]
 
-#ifdef BUCKETS
-#define PQ_NEXT_RIB(x) RIB(x)->fields[8]
-#define PQ_NEXT_BKT(x) RIB(x)->fields[9]
-#else
-#ifdef LINKED_LIST_NO_REMOVE
-#define PQ_NEXT(x) RIB(x)->fields[9]
-#else
 #ifdef LINKED_LIST
 #define PQ_NEXT(x) Q_NEXT(x)
 #else
@@ -159,9 +144,6 @@ typedef struct {
 #else
 // Default: queue with remove
 #define PQ_NEXT(x) Q_NEXT(x)
-#endif
-#endif
-#endif
 #endif
 #endif
 
@@ -363,116 +345,6 @@ obj pq_tail;
 #define PQ_IS_EMPTY() (pq_head == _NULL)
 
 
-#ifdef BUCKETS
-
-// FIXME not sure if it's working
-
-void pq_enqueue(obj o) {
-  if (IS_RIB(o)) {
-    if (PQ_IS_EMPTY()){
-      PQ_NEXT_RIB(o) = _NULL;
-      PQ_NEXT_BKT(o) = _NULL;
-      pq_head = o;
-      return;
-    }
-    int r = NUM(RANK(o));
-    obj curr_bkt = pq_head;
-    obj next_bkt = PQ_NEXT_BKT(pq_head);
-    
-    // curr_bkt <= o <= next_bkt
-    while (next_bkt != _NULL && NUM(RANK(curr_bkt)) < r) {
-      curr_bkt = next_bkt;
-      next_bkt = PQ_NEXT_BKT(next_bkt);
-    }
-    // Note: only the first rib in the bucket keeps a reference
-    // to the first rib in the next bucket
-    if (NUM(RANK(curr_bkt)) == r) { // insertion in current bucket
-      PQ_NEXT_BKT(curr_bkt) = _NULL;
-      PQ_NEXT_RIB(o) = curr_bkt;
-      PQ_NEXT_BKT(o) = next_bkt;
-    } else if (next_bkt == _NULL) { // new bucket with highest rank
-      PQ_NEXT_BKT(curr_bkt) = o;
-      PQ_NEXT_RIB(o) = _NULL;
-      PQ_NEXT_BKT(o) = _NULL;
-    } else if (NUM(RANK(next_bkt)) == r) { // insertion in next bucket
-      PQ_NEXT_BKT(curr_bkt) = o;
-      PQ_NEXT_RIB(o) = next_bkt;
-      PQ_NEXT_BKT(o) = PQ_NEXT_BKT(next_bkt);
-      PQ_NEXT_BKT(next_bkt) = _NULL;
-    } else { // insertion in a new bucket between curr and next buckets
-      PQ_NEXT_BKT(curr_bkt) = o;
-      PQ_NEXT_RIB(o) = _NULL;
-      PQ_NEXT_BKT(o) = next_bkt;
-    }
-  }
-}
-
-obj pq_dequeue() {
-  if (PQ_IS_EMPTY()){
-    return _NULL;
-  }
-  obj tmp = pq_head;
-  if (PQ_NEXT_RIB(pq_head) == _NULL) {
-    pq_head = PQ_NEXT_BKT(pq_head); // could be _NULL
-  } else {
-    pq_head = PQ_NEXT_RIB(pq_head);
-  }
-  PQ_NEXT_RIB(tmp) = _NULL;
-  PQ_NEXT_BKT(tmp) = _NULL;
-  return tmp;
-}
-
-// Set operations
-
-void pq_remove(obj o) {
-  if (IS_RIB(o)) {
-    if (pq_head == _NULL) {
-      return;
-    }
-    else if (pq_head == o) {
-      // dequeue but we don't return the rib
-      obj tmp = pq_head;
-      if (PQ_NEXT_RIB(pq_head) == _NULL) {
-        pq_head = PQ_NEXT_BKT(pq_head); // could be _NULL
-      } else {
-        pq_head = PQ_NEXT_RIB(pq_head);
-      }
-      PQ_NEXT_RIB(tmp) = _NULL;
-      PQ_NEXT_BKT(tmp) = _NULL;
-    }
-    else {
-      int r = NUM(RANK(o));
-      obj curr = pq_head;
-      obj prev_bkt;
-      while (curr != _NULL && NUM(RANK(curr)) < r) { // find bucket
-        prev_bkt = curr;
-        curr = PQ_NEXT_BKT(curr);
-      }
-      if (curr == _NULL || NUM(RANK(curr)) > r) {
-        return; // no bucket of rank r;
-      }
-      // find rib in bucket
-      if (curr == o) { // first rib in the bucket
-        if (PQ_NEXT_RIB(curr) == _NULL) {
-          PQ_NEXT_BKT(prev_bkt) = PQ_NEXT_BKT(curr);
-        } else {
-          PQ_NEXT_BKT(prev_bkt) = PQ_NEXT_RIB(curr);
-        }
-        PQ_NEXT_RIB(curr) = _NULL;
-        PQ_NEXT_BKT(curr) = _NULL;
-      }
-    }
-  }
-}
-
-#else
-
-#ifdef LINKED_LIST_NO_REMOVE
-
-// TODO
-
-#else
-
 #ifdef LINKED_LIST
 
 // Priority queue implemented with a singly linked list and a remove
@@ -554,11 +426,6 @@ void pq_remove(obj o) {
 
 #else
 
-#ifdef QUEUE_NO_REMOVE
-
-// Queue with no remove, requires an extra field since a falling rib could still
-// be in the anchor queue when we enqueue it in the drop queue
-
 void pq_enqueue(obj o) {
   // In the case of the pqueue, we could attempt to add the
   // same rib twice (e.g. if two ribs have the same co-friend)
@@ -571,6 +438,11 @@ void pq_enqueue(obj o) {
     pq_tail = o;
   }
 }
+
+#ifdef QUEUE_NO_REMOVE
+
+// Queue with no remove, requires an extra field since a falling rib could still
+// be in the anchor queue when we enqueue it in the drop queue
 
 obj pq_dequeue() {
   // Get rid of falling ribs
@@ -606,19 +478,6 @@ obj pq_dequeue() {
 // Seems to be faster than the priority queue implemented with a singly
 // linked list but potentially doesn't rebalance the spanning tree since
 // ribs are not dequeued by rank
-
-void pq_enqueue(obj o) {
-  // In the case of the pqueue, we could attempt to add the
-  // same rib twice (e.g. if two ribs have the same co-friend)
-  if (PQ_NEXT(o) == _NULL && pq_head != o && pq_tail != o) {
-    if (PQ_IS_EMPTY()){
-      pq_head = o;
-    } else {
-      PQ_NEXT(pq_tail) = o;
-    }
-    pq_tail = o;
-  }
-}
 
 obj pq_dequeue() {
   if (PQ_IS_EMPTY()){
@@ -666,8 +525,6 @@ void pq_remove(obj o) {
   }
 }
 
-#endif
-#endif
 #endif
 #endif
 
@@ -1064,7 +921,7 @@ void catch() {
   // we can re-use it (as is) for the catch queue...
   do {
     obj anchor = pq_dequeue();
-#if defined(QUEUE_NO_REMOVE) || defined(LINKED_LIST_NO_REMOVE)
+#ifdef QUEUE_NO_REMOVE
     // When using the "no remove" version of a data structure, the catch queue
     // could empty itself during the the pq_dequeue procedure, need to add an
     // additional check here
@@ -1184,7 +1041,67 @@ void remove_node(obj old_root) {
 
 // Write barriers
 
-#ifdef REF_COUNT
+
+void set_field(obj src, int i, obj dest) { // write barrier
+  // The order differs a bit from the ref count version of the write barrier...
+  // TODO explain why we're doing that this way
+  
+  obj *ref = RIB(src)->fields;
+
+  if (ref[i] == dest) return; // src's i-th field already points to dest
+  
+  if (IS_RIB(ref[i])) { // no need to dereference _NULL or a num
+    if (is_collectable(ref[i]) && is_parent(ref[i], src) && next_cofriend(ref[i], src) == _NULL) {
+      // We need to be more careful here since simply removing the edge
+      // between src and ref[i] will deallocate ref[i] and potentially
+      // some other ribs refered by ref[i]. This is problematic if dest
+      // contains a reference to one of ref[i]'s children (or more) since
+      // we'll deallocate a rib (or more) that shouldn't be deallocated.
+      // We can get around that by using a temporary rib to point to ref[i]
+      obj tmp = ref[i];
+      protect(tmp);
+      remove_ref(src, ref[i], i); // new dest
+      ref[i] = dest;
+      add_ref(src, dest, i);
+      unprotect(tmp);
+      return;
+    }
+    remove_ref(src, ref[i], i);
+  }
+  ref[i] = dest;
+  add_ref(src, dest, i);
+}
+
+// FIXME assume `src` will always be a rib?
+
+#define SET_CAR(src, dest) if (IS_RIB(src)) set_field(src, 0, dest)
+#define SET_CDR(src, dest) if (IS_RIB(src)) set_field(src, 1, dest)
+#define SET_TAG(src, dest) if (IS_RIB(src)) set_field(src, 2, dest)
+
+#define set_sym_tbl(new_st)                                                     \
+  obj old_st = symbol_table;                                                    \
+  symbol_table = new_st;                                                        \
+  remove_root(old_st)
+
+void set_stack(obj new_stack) {
+  // TODO make set_stack a macro as well (conflict with _pop)
+  obj old_stack = stack;
+  stack = new_stack;
+  remove_root(old_stack);
+}
+
+#define set_pc(new_pc)                                                          \
+  obj old_pc = pc;                                                              \
+  pc = new_pc;                                                                  \
+  remove_root(old_pc)
+
+#else
+
+//==============================================================================
+
+// Reference counting
+
+// Write barries
 
 void inc_count(obj o) {
   // assumes o is a rib
@@ -1255,72 +1172,11 @@ void set_pc(obj new_pc) {
   DEC_COUNT(old_pc);
 }
 
-#else
-
-
-void set_field(obj src, int i, obj dest) { // write barrier
-  // The order differs a bit from the ref count version of the write barrier...
-  // TODO explain why we're doing that this way
-  
-  obj *ref = RIB(src)->fields;
-
-  if (ref[i] == dest) return; // src's i-th field already points to dest
-  
-  if (IS_RIB(ref[i])) { // no need to dereference _NULL or a num
-    if (is_collectable(ref[i]) && is_parent(ref[i], src) && next_cofriend(ref[i], src) == _NULL) {
-      // We need to be more careful here since simply removing the edge
-      // between src and ref[i] will deallocate ref[i] and potentially
-      // some other ribs refered by ref[i]. This is problematic if dest
-      // contains a reference to one of ref[i]'s children (or more) since
-      // we'll deallocate a rib (or more) that shouldn't be deallocated.
-      // We can get around that by using a temporary rib to point to ref[i]
-      obj tmp = ref[i];
-      protect(tmp);
-      remove_ref(src, ref[i], i); // new dest
-      ref[i] = dest;
-      add_ref(src, dest, i);
-      unprotect(tmp);
-      return;
-    }
-    remove_ref(src, ref[i], i);
-  }
-  ref[i] = dest;
-  add_ref(src, dest, i);
-}
-
-// FIXME assume `src` will always be a rib?
-
-#define SET_CAR(src, dest) if (IS_RIB(src)) set_field(src, 0, dest)
-#define SET_CDR(src, dest) if (IS_RIB(src)) set_field(src, 1, dest)
-#define SET_TAG(src, dest) if (IS_RIB(src)) set_field(src, 2, dest)
-
-#define set_sym_tbl(new_st)                                                     \
-  obj old_st = symbol_table;                                                    \
-  symbol_table = new_st;                                                        \
-  remove_root(old_st)
-
-void set_stack(obj new_stack) {
-  // TODO make set_stack a macro as well (conflict with _pop)
-  obj old_stack = stack;
-  stack = new_stack;
-  remove_root(old_stack);
-}
-
-#define set_pc(new_pc)                                                          \
-  obj old_pc = pc;                                                              \
-  pc = new_pc;                                                                  \
-  remove_root(old_pc)
-
 #endif
 
-
-//==============================================================================
-
-// RVM
-
-//------------------------------------------------------------------------------
-
-// Cycle detection and collection (ref count)
+// The basic mark-and-sweep GC is used mainly for collecting cyclic garbage
+// not reclaimed when using ref count but we also use if with the incremental
+// collector to see if any garbage was left uncollected when running the tests
 
 void mark(obj *o) { // Recursive version of marking phase
   if (IS_RIB(*o)) {
@@ -1378,35 +1234,15 @@ void gc() {
 #endif
 }
 
-//------------------------------------------------------------------------------
+
+//==============================================================================
+
+// RVM
+
 
 // Stack and heap management
 
-#ifdef REF_COUNT
-
-// The count of CAR(stack) must be increased before setting the stack to
-// CDR(stack) to make sure we don't dealloc the popped object. This also means
-// that the caller of pop must decrease the count when the object is no longer
-// needed... this is pretty tedious but that's how it is for now
-obj pop() {
-  obj x = CAR(stack);
-  INC_COUNT(x);
-  set_stack(CDR(stack));
-  return x;
-}
-
-// to avoid too many preprocessor instructions in the RVM code
-#define DEC_POP(o) DEC_COUNT(o)
-
-#define PRIM1() obj x = pop()
-#define PRIM2() obj y = pop(); PRIM1()
-#define PRIM3() obj z = pop(); PRIM2()
-
-#define DEC_PRIM1() DEC_COUNT(x)
-#define DEC_PRIM2() DEC_COUNT(y); DEC_PRIM1()
-#define DEC_PRIM3() DEC_COUNT(z); DEC_PRIM2()
- 
-#else
+#ifndef REF_COUNT
 
 obj pop() {
   obj tos = CAR(stack);
@@ -1437,9 +1273,103 @@ obj pop() {
 #define DEC_PRIM2() _unprotect(y); DEC_PRIM1()
 #define DEC_PRIM3() _unprotect(z); DEC_PRIM2()
 
+void push2(obj car, obj tag) {
+  obj tmp = *alloc; // next available slot in freelist
+  
+  // default stack frame is (value, ->, NUM_0)
+  *alloc++ = car;        // field 1
+  *alloc++ = stack;      // field 2
+  *alloc++ = tag;        // field 3
+  *alloc++ = _NULL;      // mirror 1
+  *alloc++ = _NULL;      // mirror 2
+  *alloc++ = _NULL;      // mirror 3
+  *alloc++ = _NULL;      // co-friends
+  *alloc++ = TAG_NUM(alloc_rank); 
+  *alloc++ = _NULL;      // queue and priority queue
+#ifdef QUEUE_NO_REMOVE
+  *alloc++ = _NULL;
 #endif
 
-#ifdef REF_COUNT
+  obj new_rib = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
+  obj old_stack = stack;
+  stack = new_rib;
+
+  // new stack becomes the parent of old stack (avoids the potential drop)
+  if (IS_RIB(old_stack)) {
+    get_field(new_rib, 4) = get_parent(old_stack);
+    get_parent(old_stack) = stack;
+    set_rank(old_stack, alloc_rank+1);
+  }
+  alloc_rank--;
+
+  add_ref(new_rib, car, 0);
+  add_ref(new_rib, tag, 2);
+  
+  alloc = (obj *)tmp;
+}
+
+// We don't need to link a newly allocated rib from the stack since we
+// don't trigger a GC cycle when allocating a new rib: since we deallocate
+// objects instantly when they're no longer needed (even if they're part of
+// a cycle) then the number of live objects at all time in the program
+// corresponds to the maximum number of objects allowed by the program.
+
+rib *alloc_rib(obj car, obj cdr, obj tag) {
+  // allocates a rib without protecting it from the GC
+
+  obj tmp = *alloc; // next available slot in freelist
+  
+  *alloc++ = car;        // field 1
+  *alloc++ = cdr;        // field 2
+  *alloc++ = tag;        // field 3
+  *alloc++ = _NULL;      // mirror 1
+  *alloc++ = _NULL;      // mirror 2
+  *alloc++ = _NULL;      // mirror 3
+  *alloc++ = _NULL;      // co-friends
+  *alloc++ = TAG_NUM(alloc_rank); 
+  *alloc++ = _NULL;      // queue and priority queue
+#ifdef QUEUE_NO_REMOVE
+  *alloc++ = _NULL;
+#endif
+
+  alloc_rank--;
+
+  obj new_rib =  TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
+
+  add_ref(new_rib, car, 0);
+  add_ref(new_rib, cdr, 1);
+  add_ref(new_rib, tag, 2);
+
+  alloc = (obj *)tmp;
+  
+  return RIB(new_rib);
+}
+
+#define alloc_rib2(car, cdr, tag) alloc_rib(car, cdr, tag)
+
+#else
+
+// The count of CAR(stack) must be increased before setting the stack to
+// CDR(stack) to make sure we don't dealloc the popped object. This also means
+// that the caller of pop must decrease the count when the object is no longer
+// needed... this is pretty tedious but that's how it is for now
+obj pop() {
+  obj x = CAR(stack);
+  INC_COUNT(x);
+  set_stack(CDR(stack));
+  return x;
+}
+
+// to avoid too many preprocessor instructions in the RVM code
+#define DEC_POP(o) DEC_COUNT(o)
+
+#define PRIM1() obj x = pop()
+#define PRIM2() obj y = pop(); PRIM1()
+#define PRIM3() obj z = pop(); PRIM2()
+
+#define DEC_PRIM1() DEC_COUNT(x)
+#define DEC_PRIM2() DEC_COUNT(y); DEC_PRIM1()
+#define DEC_PRIM3() DEC_COUNT(z); DEC_PRIM2()
 
 void push2(obj car, obj tag) {
   obj tmp = *alloc; // next available slot in freelist
@@ -1494,82 +1424,6 @@ rib *alloc_rib2(obj car, obj cdr, obj tag) {
 
   return RIB(allocated);
 }
-
-#else
-
-void push2(obj car, obj tag) {
-  obj tmp = *alloc; // next available slot in freelist
-  
-  // default stack frame is (value, ->, NUM_0)
-  *alloc++ = car;        // field 1
-  *alloc++ = stack;      // field 2
-  *alloc++ = tag;        // field 3
-  *alloc++ = _NULL;      // mirror 1
-  *alloc++ = _NULL;      // mirror 2
-  *alloc++ = _NULL;      // mirror 3
-  *alloc++ = _NULL;      // co-friends
-  *alloc++ = TAG_NUM(alloc_rank); 
-  *alloc++ = _NULL;      // queue and priority queue
-#if defined(QUEUE_NO_REMOVE) || defined(LINKED_LIST_NO_REMOVE) || defined(BUCKETS)
-  *alloc++ = _NULL;
-#endif
-
-  obj new_rib = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
-  obj old_stack = stack;
-  stack = new_rib;
-
-  // new stack becomes the parent of old stack (avoids the potential drop)
-  if (IS_RIB(old_stack)) {
-    get_field(new_rib, 4) = get_parent(old_stack);
-    get_parent(old_stack) = stack;
-    set_rank(old_stack, alloc_rank+1);
-  }
-  alloc_rank--;
-
-  add_ref(new_rib, car, 0);
-  add_ref(new_rib, tag, 2);
-  
-  alloc = (obj *)tmp;
-}
-
-// We don't need to link a newly allocated rib from the stack since we
-// don't trigger a GC cycle when allocating a new rib: since we deallocate
-// objects instantly when they're no longer needed (even if they're part of
-// a cycle) then the number of live objects at all time in the program
-// corresponds to the maximum number of objects allowed by the program.
-
-rib *alloc_rib(obj car, obj cdr, obj tag) {
-  // allocates a rib without protecting it from the GC
-
-  obj tmp = *alloc; // next available slot in freelist
-  
-  *alloc++ = car;        // field 1
-  *alloc++ = cdr;        // field 2
-  *alloc++ = tag;        // field 3
-  *alloc++ = _NULL;      // mirror 1
-  *alloc++ = _NULL;      // mirror 2
-  *alloc++ = _NULL;      // mirror 3
-  *alloc++ = _NULL;      // co-friends
-  *alloc++ = TAG_NUM(alloc_rank); 
-  *alloc++ = _NULL;      // queue and priority queue
-#if defined(QUEUE_NO_REMOVE) || defined(LINKED_LIST_NO_REMOVE) || defined(BUCKETS)
-  *alloc++ = _NULL;
-#endif
-
-  alloc_rank--;
-
-  obj new_rib =  TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
-
-  add_ref(new_rib, car, 0);
-  add_ref(new_rib, cdr, 1);
-  add_ref(new_rib, tag, 2);
-
-  alloc = (obj *)tmp;
-  
-  return RIB(new_rib);
-}
-
-#define alloc_rib2(car, cdr, tag) alloc_rib(car, cdr, tag)
 
 #endif
 
