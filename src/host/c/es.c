@@ -485,7 +485,7 @@ void pq_enqueue(obj o) {
       pq_head = o;
       pq_tail = o;
     }
-    else if (NUM(RANK(o)) == 1) { // root (tagged rank)
+    else if (NUM(RANK(o)) > NUM(RANK(pq_head))) { 
       PQ_NEXT(o) = pq_head;
       pq_head = o;
     }
@@ -493,7 +493,7 @@ void pq_enqueue(obj o) {
       // insert new rib after the first rib that has a lower rank
       obj prev = pq_head;
       obj curr = PQ_NEXT(pq_head);
-      while (curr != _NULL && RANK(curr) < RANK(o)){
+      while (curr != _NULL && RANK(curr) > RANK(o)){
         prev = curr;
         curr = PQ_NEXT(curr);
       }
