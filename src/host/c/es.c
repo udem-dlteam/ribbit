@@ -25,8 +25,6 @@
  *      will occur when the stack pointer will point to something else (might 
  *      be different in another system when we return from a primitive and we 
  *      need to force a drop)
- * - Crash on overflow (keep the basic negative rank approach for now, 
- *   optimizing this is not a priority)
  * - Benchmarks for the new adoption scheme and dirtiness check
  * - Ref count (make sure all non-cyclic ribs are collected, adapt io and sys
  *   primitives, apply, ... you know, make it work)
@@ -72,12 +70,16 @@
 void viz_heap(char* name);
 // )@@
 
-#define UNALLOCATED_RIB_RANK 999999
+// TODO use limits instead
+#define UNALLOCATED_RIB_RANK 2147483647
+#define FALLING_RIB_RANK 2147483646
+#define MAX_RANK 2147483645
+#define MIN_RANK -2147483648
+
+#define UNALLOCATED_RIB_RANK 2147483647
 // @@(feature debug/clean-ribs
 #define CLEAN_RIBS
-#define UNALLOCATED_RIB_RANK 999999
 // )@@
-#define FALLING_RIB_RANK 999998
 
 // @@(feature (not compression/lzss/2b)
 // @@(replace "41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121" (encode-as-bytes "auto" "" "," "")
@@ -257,7 +259,7 @@ obj null_rib; // temporary values
 obj *alloc;
 obj *scan;
 
-int alloc_rank = 0; // FIXME use another type for the allocation rank
+num alloc_rank = 0;
 
 rib *heap_start;
 #define MAX_NB_OBJS 1000000
@@ -580,6 +582,10 @@ void pq_remove(obj o) {
 #define get_rank(x) (NUM(RANK(x)))
 #define set_rank(x, rank) (RANK(x) = TAG_NUM(rank))
 
+// TODO need a faster overflow check and a "reranking" phase
+#define ovf_set_rank(x, rank) (rank < MAX_RANK) ? set_rank(x, rank) : exit(1);
+#define dec_alloc_rank(x) if (alloc_rank-- == MIN_RANK) exit(1);
+
 // Returns the index of `cfr`'s mirror field of the FIRST field that contains a
 // reference to `x`, should only be used to get a reference to `cfr`'s successor
 // when `cfr` is known to have at least one reference to `x`
@@ -684,7 +690,7 @@ void add_cofriend(obj x, obj cfr, int i) {
     // have no impact on the root's rank (see the paper for a counter-example
     // where a cycle is created and an unsafe adoption occurs because of that)
     if (is_collectable(x)) {
-      set_rank(x, get_rank(cfr)+1);
+      ovf_set_rank(x, get_rank(cfr)+1);
     }
     return;
   }
@@ -811,14 +817,14 @@ void wipe_cofriend(obj x, obj cfr, int i) {
 #define loosen(x) fall(x); pq_remove(x)
 
 bool adopt(obj x) {
-  int rank = get_rank(x);
+  num rank = get_rank(x);
   obj cfr = get_parent(x);
   while (cfr != _NULL) {
     // FIXME need to make sure that the topological order is respected to
     // adopt with a cfr of the same rank as the parent
     if (!is_falling(cfr) && get_rank(cfr) <= rank) {
       set_parent(x, cfr, get_mirror_field(x, cfr)-3);
-      set_rank(x, get_rank(cfr)+1); // not sure FIXME
+      ovf_set_rank(x, get_rank(cfr)+1); // not sure FIXME
       return 1;
     }
     cfr = next_cofriend(x, cfr);
@@ -839,8 +845,8 @@ void drop() {
   obj x; // current "falling" rib
   obj *_x;
   obj cfr;
-  int r; // dequeued rib's rank
-  int r2;
+  num r; // dequeued rib's rank
+  num r2;
   obj adopter;
 
   while (!Q_IS_EMPTY()) {
@@ -934,7 +940,7 @@ void catch() {
         unfall(_anchor[i]);
 #endif
         set_parent(_anchor[i], anchor, i);
-        set_rank(_anchor[i], get_rank(anchor)+1);
+        ovf_set_rank(_anchor[i], get_rank(anchor)+1);
         pq_enqueue(_anchor[i]); // add rescued node to potential "catchers"
       }
     }
@@ -1879,9 +1885,6 @@ void run() { // evaluator
 
 void init_heap() {
   heap_start = malloc(sizeof(obj) * SPACE_SZ); // (SPACE_SZ+1));
-
-  // calloc is faster with gcc
-  // heap_start = calloc(SPACE_SZ, sizeof(obj)); 
   if (!heap_start) {
     vm_exit(EXIT_NO_MEMORY);
   }
