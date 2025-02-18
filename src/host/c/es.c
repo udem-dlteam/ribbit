@@ -814,9 +814,9 @@ bool adopt(obj x) {
   while (cfr != _NULL) {
     // FIXME need to make sure that the topological order is respected to
     // adopt with a cfr of the same rank as the parent
-    if (!is_falling(cfr) && get_rank(cfr) <= rank) {
+    if (!is_falling(cfr) && get_rank(cfr) < rank) {
       set_parent(x, cfr, get_mirror_field(x, cfr)-3);
-      ovf_set_rank(x, get_rank(cfr)+1); // not sure FIXME
+      // ovf_set_rank(x, get_rank(cfr)+1); // not sure FIXME
       return 1;
     }
     cfr = next_cofriend(x, cfr);
