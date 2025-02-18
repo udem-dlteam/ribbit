@@ -25,10 +25,8 @@
  *      will occur when the stack pointer will point to something else (might 
  *      be different in another system when we return from a primitive and we 
  *      need to force a drop)
- * - Benchmarks for the new adoption scheme
  * - Ref count (make sure all non-cyclic ribs are collected, adapt io and sys
  *   primitives, apply, ... you know, make it work)
- * - Fuzzing with tagged roots
  * - Flat closures
  * - Call a GC for every instruction to make sure everything is collected...
  *   (do that for the bootstrap, the test suite, and fuzzing)
@@ -58,10 +56,6 @@
 
 // @@(feature ref-count
 #define REF_COUNT
-// )@@
-
-// @@(feature exp-adoption
-#define EXPERIMENTAL_ADOPTION
 // )@@
 
 // @@(feature debug/rib-viz
@@ -150,33 +144,17 @@ typedef struct {
 // FIXME try to be a bit more consistant with the notation...
 #define get_field(x,i) RIB(x)->fields[i]
 
-// #define UNTAG(x) ((x) >> 1)
-#ifdef EXPERIMENTAL_ADOPTION
-#define UNTAG(x) ((x) >> 3)
-#else
 #define UNTAG(x) ((x) >> 2)
-#endif
 #define NUM(x) ((num)(UNTAG((num)(x))))
 #define RIB(x) ((rib *)(x))
 #define IS_NUM(x) ((x)&1)
 #define IS_RIB(x) (!IS_NUM(x) && x != _NULL)
-// #define TAG_NUM(num) ((((obj)(num)) << 1) | 1)
-#ifdef EXPERIMENTAL_ADOPTION
-#define TAG_NUM(num) ((((obj)(num)) << 3) | 1)
-#else
 #define TAG_NUM(num) ((((obj)(num)) << 2) | 1)
-#endif
 #define TAG_RIB(c_ptr) (((obj)(c_ptr)))
 
 #define MARK(x) ((x)|2) // assumes x is a tagged obj (ul)
 #define UNMARK(x) ((x)^2)
 #define IS_MARKED(x) ((x)&2)
-
-#ifdef EXPERIMENTAL_ADOPTION
-#define MARK2(x) ((x)|4) // assumes x is a tagged obj (ul)
-#define UNMARK2(x) ((x)^4)
-#define IS_MARKED2(x) ((x)&4)
-#endif
 
 // Note that these can't be used to protect a program's root because `DEC_POP`
 // will unprotect them if they're passed as an argument to a primitive. This is
@@ -592,13 +570,7 @@ void pq_remove(obj o) {
 
 #define next_cofriend(x, cfr) (get_field(cfr, get_mirror_field(x, cfr)))
 
-// An edge between two ribs `from` and `to` is said to be dirty if `from` is
-// `to`'s co-friend with the maximal rank that doesn't break the topological
-// ordering invariant AND `from` is NOT `to`'s parent
-#define is_dirty(from, to) ((get_rank(from) < get_rank(to)-1) && (get_rank(get_parent(to)) < get_rank(from)))
-
 #define is_collectable(x) (!is_root(x) && !is_protected(x))
-
 #define is_root(x) (x == pc || x == stack || x == FALSE)
 
 #define is_parent(x, p) (CFR(x) == p)
@@ -615,7 +587,6 @@ void set_parent(obj x, obj p, int i) {
     get_parent(x) = p;
     return;
   }
-
   // Find `p` and its predecessor in `x`'s list of co-friends
   obj prev;
   obj curr = old_parent;
@@ -703,23 +674,10 @@ void add_cofriend(obj x, obj cfr, int i) {
       return;
     }
   }
-  // Case 3 (previously handled in `add_edge`): `cfr` is a new co-friend and
-  // the new reference is dirty, `cfr` becomes the new parent to increase the
-  // number of possible adoptions. Note that we don't adjust the rank of `x`,
-  // this is because the rank gap allows a potential co-friend to insert
-  // himself there, adding a new adopter and avoiding another drop
-  if (is_dirty (cfr, x)) {
-    get_field(cfr, i+3) = get_parent(x);
-    get_parent(x) = cfr;
-    return;
-  }
-  // Case 4: `cfr` is not `x`'s co-friend and so must be added to `x`' list of
+  // Case 3: `cfr` is not `x`'s co-friend and so must be added to `x`' list of
   // co-friends. This is done by inserting `cfr` between `x`'s parent and the
-  // next co-friend
-  // TODO should we keep the co-friends ordered by dirtiness (i.e. keep each
-  // potential adopters first in the list of co-friends and referrers with too
-  // big of a rank pushed in the back, this would make adoption faster and
-  // bring some of the cost of removing a reference here)?
+  // next co-friend (trying to keep co-friends ordered is useless since a
+  // co-friend's rank might change after a drop)
   obj tmp = get_field(p, get_mirror_field(x, p)); // old co-friend pointed by p
   for (int j = 0; j < 3; j++) { // set the parent's mirror fields
     if (get_field(p, j) == x) {
@@ -793,22 +751,19 @@ void wipe_cofriend(obj x, obj cfr, int i) {
 
 // Edge deletion (i.e. removing a reference to a rib)
 
-#ifdef EXPERIMENTAL_ADOPTION
-#define fall(x) (get_field(x,7) = MARK2(get_field(x,7)))
-#define is_falling(x) (IS_MARKED2(get_field(x,7)))
-#define unfall(x) (get_field(x,7) = UNMARK2(get_field(x,7)))
-#else
+
 #define fall(x) set_rank(x, FALLING_RIB_RANK)
 #define is_falling(x) (get_rank(x) == FALLING_RIB_RANK)
-#define unfall(x) NULL
-#endif
 
-#define deallocate(x) unfall(x); set_rank(x, UNALLOCATED_RIB_RANK)
+#define deallocate(x) set_rank(x, UNALLOCATED_RIB_RANK)
 #define is_deallocated(x) (get_rank(x) == UNALLOCATED_RIB_RANK)
 
 #define loosen(x) fall(x); pq_remove(x)
 
 bool adopt(obj x) {
+  // Take the first co-friend with a rank lower than `x` and make it `x`'s
+  // parent (doesn't matter which one we pick if we don't set the rank of
+  // `x` during adoption)
   num rank = get_rank(x);
   obj cfr = get_parent(x);
   while (cfr != _NULL) {
@@ -825,61 +780,6 @@ bool adopt(obj x) {
 }
 
 #define _adopt(x) ((get_parent(x) == _NULL) ? 0 : adopt(x))
-
-#ifdef EXPERIMENTAL_ADOPTION
-
-// FIXME cleanup and give some context
-// The idea is to merge the adoption and "anchoring" phase to avoid traversing
-// the co-friends twice. The downside is that we might enter the catch phase
-// even if not necesary, need to evaluate if it's worth it
-
-void drop() {
-  obj x; // current "falling" rib
-  obj *_x;
-  obj cfr;
-  num r; // dequeued rib's rank
-  num r2;
-  obj adopter;
-
-  while (!Q_IS_EMPTY()) {
-    x = q_dequeue();
-    _x = RIB(x)->fields;
-    cfr = get_parent(x);
-    r = get_rank(x);
-    r2 = alloc_rank;
-    adopter = _NULL;
-
-    // identify x's co-friends that could be potential "catchers"
-    while (cfr != _NULL) {
-      if (!is_falling(cfr)) { // potential anchor?
-        if (get_rank(cfr) < r && get_rank(cfr) >= r2) {
-          r2 = get_rank(cfr);
-          adopter = cfr;
-        }
-        if (r2 == alloc_rank) pq_enqueue(cfr);
-      }
-      cfr = next_cofriend(x, cfr);
-    }
-    if (adopter != _NULL) {
-      set_parent(x, adopter, get_mirror_field(x, adopter)-3);
-      unfall(x);
-      pq_enqueue(x);
-      continue;
-    }
-    
-    // making x's children "fall" along with him
-    for (int i = 0; i < 3; i++) {
-      if (IS_RIB(_x[i]) && is_parent(_x[i], x) && (is_collectable(_x[i]))) {
-        if (!is_falling(_x[i])) { 
-          loosen(_x[i]);
-          q_enqueue(_x[i]);
-        }
-      }
-    }
-  }
-}
-
-#else
 
 void drop() {
   obj x; // current "falling" rib
@@ -912,8 +812,6 @@ void drop() {
   }
 }
 
-#endif
-
 void catch() {
   // since we use a priority queue instead of a set for the anchors,
   // we can re-use it (as is) for the catch queue...
@@ -928,9 +826,6 @@ void catch() {
     obj *_anchor = RIB(anchor)->fields;
     for (int i = 0; i < 3; i++) {
       if (IS_RIB(_anchor[i]) && is_falling(_anchor[i])) {
-#ifdef EXPERIMENTAL_ADOPTION
-        unfall(_anchor[i]);
-#endif
         set_parent(_anchor[i], anchor, i);
         ovf_set_rank(_anchor[i], get_rank(anchor)+1);
         pq_enqueue(_anchor[i]); // add rescued node to potential "catchers"
