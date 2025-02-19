@@ -1044,6 +1044,151 @@
 
 (define tail (c-rib jump/call-op '##id 0)) ;; jump
 
+(define (list-union lst1 lst2)
+  (fold
+    (lambda (x acc)
+      (if (memq x acc)
+        acc
+        (cons x acc)))
+    lst1
+    lst2))
+
+;; Free variable analysis
+(define (fv-analysis expr bounded host-config)
+  (cond
+    ((symbol? expr)
+     (if (memq expr bounded) ;; Is the symbol is already bounded?
+         '()
+         (list expr)))
+
+    ((pair? expr)
+     (let ((first (car expr)))
+       (cond ((eqv? first 'quote) '())
+             ((eqv? first 'define-primitive) '())
+             ((eqv? first 'define-feature) '())
+             ((eqv? first 'use-feature) '())
+
+             ((eqv? first 'if-feature)
+              (let* ((feature-expr (cadr expr))
+                     (then-expr (caddr expr))
+                     (else-expr (cadddr expr)))
+                (if (eval-feature feature-expr (host-config-features host-config))
+                  (fv-analysis then-expr val bounded host-config)
+                  (fv-analysis else-expr val bounded host-config))))
+
+             ((eqv? first 'set!) 
+              (let ((var (cadr expr))
+                    (val (caddr expr)))
+
+              (list-union (list var) (fv-analysis val bounded host-config))))
+
+             ((eqv? first 'if)
+              (let ((test (cadr expr))
+                    (then (caddr expr))
+                    (else (cadddr expr)))
+
+                (list-union (fv-analysis test bounded host-config)
+                            (list-union (fv-analysis then bounded host-config)
+                                        (fv-analysis else bounded host-config)))))
+             ((eqv? first 'lambda)
+              (let* ((params (cadr expr))
+                     (variadic (or (symbol? params) (not (null? (last-item params)))))
+                     (params-lst ;; make sure that the params is a proper list
+                       (if variadic
+                         (improper-list->list params '())
+                         params))
+                     (body `(begin (cddr expr))))
+
+                (fv-analysis body (list-union params-lst bounded) host-config)))
+
+             ((eqv? first 'let)
+              (let ((bindings (cadr expr))
+                    (vars (map car bindings))
+                    (var-body (map cadr bindings))
+                    (body (cddr expr))
+                    (new-bounded (list-union vars bounded)))
+
+                (list-union
+                  (fold  ;; Add all variables in the bindings
+                    (lambda (x acc)
+                      (list-union (fv-analysis x bounded host-config) acc))
+                    var-body)
+                  (fv-analysis body new-bounded host-config))))
+
+             ((eqv? first 'begin)
+              (fold
+                (lambda (x acc)
+                  (list-union (fv-analysis x bounded host-config) acc))
+                '()
+                (cdr expr)))
+             
+             (else
+               (fold
+                 (lambda (x acc)
+                   (list-union (fv-analysis x bounded host-config) acc))
+                 '()
+                 expr)))))
+    (else '())))
+
+
+(define (gen-free-vars fv ctx cont)
+  ;; This function constructs a list of free variable.
+  ;; The list is constructed in a special order to optimize the size of
+  ;; the code generation:
+  ;;
+  ;;  1. First all contents of the free variables are pushed to the stack
+  ;;  2. Then, we push the null rib
+  ;;  3. Finally, we push the value 0 followed by a call to the rib function
+  ;;
+  ;; In other words, lets say we want to create the list '(1 2). One way to do it is:
+  ;;
+  ;;  PUSH 1
+  ;;  PUSH 2
+  ;;  PUSH NULL
+  ;;  PUSH 0
+  ;;  CALL RIB
+  ;;  PUSH 0
+  ;;  CALL RIB
+  ;;
+  ;; In our case, 1 and 2 are replace by the value of the free variables (call to get).
+
+  (define (add-final-closing-lst n cont)
+    (let loop ((n n))
+      (if (> n 0)
+        (c-rib const-op 0
+               (add-nb-args 
+                 #t 
+                 ctx 
+                 3 
+                 (gen-call (use-symbol ctx '##rib)
+                           (loop (- n 1)))))
+        cont)))
+
+  (define (add-free-vars fv cont)
+    (let loop ((fv fv) (index-offset 1)) ;; start at 1 because the closure rib is on the stack
+      (if (pair? fv)
+        (let ((v (lookup (car fv) (ctx-cte ctx) index-offset)))
+          (c-rib get-op v
+                 (loop (cdr fv) (+ index-offset 1))))
+        cont)))
+
+  (gen-call
+    (use-symbol ctx '##field0)
+    (add-free-vars 
+      fv 
+      (c-rib 
+        get-op
+        'nil
+        (add-final-closing-lst 
+          (length fv) 
+          (c-rib 
+            const-op
+            1
+            (gen-call 
+              (use-symbol ctx '##rib)
+              cont)))))))
+
+
 
 (define (comp ctx expr cont)
   ;; (cond-expand (ribbit (pp expr)) (else ""))
@@ -1083,6 +1228,7 @@
                             (comp ctx val (gen-assign ctx v cont)))))))
 
                  ((eqv? first 'define-primitive)
+                  ;; TODO: do this pass before compiling to avoid having an unkown `set!`
                   (let* ((name (caadr expr))
                          (index-pair (cadddr expr))
                          (prim-index
@@ -1145,7 +1291,36 @@
                          (params
                            (if variadic
                              (improper-list->list params '())
-                             params)))
+                             params))
+
+                         (closure-code-and-free-vars
+                           (if (ctx-live-feature? ctx 'flat-closure)
+                             ;; With flat closures enabled, we perform a free variable analysis
+                             ;; and create our own closure.
+                             (let ((fv (fv-analysis 
+                                         `(begin ,(cddr expr)) 
+                                         ;; Bounded variables are the parameters of the lambda 
+                                         ;; and global variables (live)
+                                         (list-union params (map car (ctx-live ctx))) 
+                                         host-config)))
+                               (cons
+                                 (gen-free-vars fv ctx cont)
+                                 fv))
+                                
+
+                             ;; Without flat closure, we just use the ##close primitive
+                             ;; The free vars are just the values on the stack
+                             (cons (add-nb-args 
+                                     #t 
+                                     ctx 
+                                     1
+                                     (gen-call (use-symbol ctx '##close)
+                                             cont))
+                                   (ctx-cte ctx))))
+
+                         (closure-code (car closure-code-and-free-vars))
+                         (free-vars (cdr closure-code-and-free-vars)))
+
                     (c-rib const-op
                            (c-make-procedure
                              (c-rib (+ (* 2 nb-params) (if variadic 1 0))
@@ -1153,20 +1328,15 @@
                                     (comp-begin (ctx-cte-set
                                                   ctx
                                                   (extend params
-                                                          (cons #f
-                                                                (cons #f
-                                                                      (ctx-cte ctx)))))
+                                                          ;; Keep one spot for the continuation
+                                                          ;; rib, and one for the procedure being created
+                                                          (cons #f (cons #f free-vars))))
                                                 (cddr expr)
                                                 tail))
                              '())
-                           (if (null? (ctx-cte ctx))
+                           (if (null? free-vars)
                              cont
-                             (add-nb-args
-                               #t
-                               ctx
-                               1
-                               (gen-call (use-symbol ctx '##close)
-                                         cont))))))
+                             closure-code))))
 
                  ((eqv? first 'begin)
                   (comp-begin ctx (cdr expr) cont))
@@ -2353,7 +2523,10 @@
 
                    ((eqv? first 'lambda)
                     ;; ##close is used by lambda constructs
-                    (live-env-add-live! env '##close)
+                    (if (not (live-env-live-feature? env 'flat-closure))
+                      (live-env-add-live! env '##close)
+                      (begin
+                        (live-env-add-live! env '##field0)))
                     (let ((params (cadr expr)))
                       (if (improper-list? params)
                         (begin
