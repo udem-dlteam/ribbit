@@ -561,7 +561,7 @@ void pq_remove(obj o) {
 // TODO need a faster overflow check and a "reranking" phase when an overflow
 // is detected instead of just crashing
 #define ovf_set_rank(x, rank) (rank < MAX_RANK) ? set_rank(x, rank) : exit(1);
-#define dec_alloc_rank(x) if (alloc_rank-- == MIN_RANK) exit(1);
+#define dec_alloc_rank() if (alloc_rank-- == MIN_RANK) exit(1);
 
 // Returns the index of `cfr`'s mirror field of the FIRST field that contains a
 // reference to `x`, should only be used to get a reference to `cfr`'s successor
@@ -1198,9 +1198,9 @@ void push2(obj car, obj tag) {
   if (IS_RIB(old_stack)) {
     get_field(new_rib, 4) = get_parent(old_stack);
     get_parent(old_stack) = stack;
-    set_rank(old_stack, alloc_rank+1);
+    // set_rank(old_stack, alloc_rank+1);
   }
-  alloc_rank--;
+  dec_alloc_rank();
 
   add_ref(new_rib, car, 0);
   add_ref(new_rib, tag, 2);
@@ -1232,7 +1232,7 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   *alloc++ = _NULL;
 #endif
 
-  alloc_rank--;
+  dec_alloc_rank();
 
   obj new_rib =  TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
 
