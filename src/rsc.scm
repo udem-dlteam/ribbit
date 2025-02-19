@@ -1054,10 +1054,10 @@
     lst2))
 
 ;; Free variable analysis
-(define (fv-analysis expr bounded host-config)
+(define (fv-analysis expr bounded host-config only-mutable?)
   (cond
     ((symbol? expr)
-     (if (memq expr bounded) ;; Is the symbol is already bounded?
+     (if (or only-mutable? (memq expr bounded)) ;; Is the symbol is already bounded?
          '()
          (list expr)))
 
@@ -1073,23 +1073,23 @@
                      (then-expr (caddr expr))
                      (else-expr (cadddr expr)))
                 (if (eval-feature feature-expr (host-config-features host-config))
-                  (fv-analysis then-expr val bounded host-config)
-                  (fv-analysis else-expr val bounded host-config))))
+                  (fv-analysis then-expr val bounded host-config only-mutable?)
+                  (fv-analysis else-expr val bounded host-config only-mutable?))))
 
              ((eqv? first 'set!) 
               (let ((var (cadr expr))
                     (val (caddr expr)))
 
-              (list-union (list var) (fv-analysis val bounded host-config))))
+              (list-union (list var) (fv-analysis val bounded host-config only-mutable?))))
 
              ((eqv? first 'if)
               (let ((test (cadr expr))
                     (then (caddr expr))
                     (else (cadddr expr)))
 
-                (list-union (fv-analysis test bounded host-config)
-                            (list-union (fv-analysis then bounded host-config)
-                                        (fv-analysis else bounded host-config)))))
+                (list-union (fv-analysis test bounded host-config only-mutable?)
+                            (list-union (fv-analysis then bounded host-config only-mutable?)
+                                        (fv-analysis else bounded host-config only-mutable?)))))
              ((eqv? first 'lambda)
               (let* ((params (cadr expr))
                      (variadic (or (symbol? params) (not (null? (last-item params)))))
@@ -1099,7 +1099,7 @@
                          params))
                      (body `(begin (cddr expr))))
 
-                (fv-analysis body (list-union params-lst bounded) host-config)))
+                (fv-analysis body (list-union params-lst bounded) host-config only-mutable?)))
 
              ((eqv? first 'let)
               (let ((bindings (cadr expr))
@@ -1111,21 +1111,21 @@
                 (list-union
                   (fold  ;; Add all variables in the bindings
                     (lambda (x acc)
-                      (list-union (fv-analysis x bounded host-config) acc))
+                      (list-union (fv-analysis x bounded host-config only-mutable?) acc))
                     var-body)
-                  (fv-analysis body new-bounded host-config))))
+                  (fv-analysis body new-bounded host-config only-mutable?))))
 
              ((eqv? first 'begin)
               (fold
                 (lambda (x acc)
-                  (list-union (fv-analysis x bounded host-config) acc))
+                  (list-union (fv-analysis x bounded host-config only-mutable?) acc))
                 '()
                 (cdr expr)))
              
              (else
                (fold
                  (lambda (x acc)
-                   (list-union (fv-analysis x bounded host-config) acc))
+                   (list-union (fv-analysis x bounded host-config only-mutable?) acc))
                  '()
                  expr)))))
     (else '())))
@@ -1296,13 +1296,15 @@
                          (closure-code-and-free-vars
                            (if (ctx-live-feature? ctx 'flat-closure)
                              ;; With flat closures enabled, we perform a free variable analysis
-                             ;; and create our own closure.
+                             ;; and create our own list of closure.
                              (let ((fv (fv-analysis 
                                          `(begin ,(cddr expr)) 
                                          ;; Bounded variables are the parameters of the lambda 
                                          ;; and global variables (live)
                                          (list-union params (map car (ctx-live ctx))) 
-                                         host-config)))
+                                         host-config
+                                         #f)))
+
                                (cons
                                  (gen-free-vars fv ctx cont)
                                  fv))
@@ -1316,7 +1318,7 @@
                                      1
                                      (gen-call (use-symbol ctx '##close)
                                              cont))
-                                   (ctx-cte ctx))))
+                                   (cons #f (ctx-cte ctx)))))
 
                          (closure-code (car closure-code-and-free-vars))
                          (free-vars (cdr closure-code-and-free-vars)))
@@ -1330,7 +1332,7 @@
                                                   (extend params
                                                           ;; Keep one spot for the continuation
                                                           ;; rib, and one for the procedure being created
-                                                          (cons #f (cons #f free-vars))))
+                                                          (cons #f free-vars)))
                                                 (cddr expr)
                                                 tail))
                              '())
