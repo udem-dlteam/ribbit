@@ -91,6 +91,10 @@ typedef unsigned long obj;
 // a number
 typedef long num;
 
+// @@(feature parent-field
+#define PARENT_FIELD
+// )@@
+
 // @@(feature queue-no-remove
 // Queue with the remove in dequeue, faster but requires one extra field
 #define QUEUE_NO_REMOVE
@@ -104,10 +108,17 @@ typedef long num;
 #define RIB_NB_FIELDS 4
 #else
 #ifdef QUEUE_NO_REMOVE
+#ifdef PARENT_FIELD
+#define RIB_NB_FIELDS 11
+#else
+#define RIB_NB_FIELDS 10
+#endif
+#else
+#ifdef PARENT_FIELD
 #define RIB_NB_FIELDS 10
 #else
-// Queue with remove or priority queue (singly linked list) with remove
 #define RIB_NB_FIELDS 9
+#endif
 #endif
 #endif
 
@@ -130,15 +141,15 @@ typedef struct {
 // queue next
 #define Q_NEXT(x) RIB(x)->fields[8]
 
-#ifdef LINKED_LIST
-#define PQ_NEXT(x) Q_NEXT(x)
-#else
 #ifdef QUEUE_NO_REMOVE
 #define PQ_NEXT(x) RIB(x)->fields[9]
 #else
-// Default: queue with remove
 #define PQ_NEXT(x) Q_NEXT(x)
 #endif
+
+#ifdef PARENT_FIELD
+// FIXME insert this between CFR and RANK
+#define PAR(x) RIB(x)->fields[RIB_NB_FIELDS-1]
 #endif
 
 // FIXME try to be a bit more consistant with the notation...
@@ -573,6 +584,138 @@ void pq_remove(obj o) {
 #define is_collectable(x) (!is_root(x) && !is_protected(x))
 #define is_root(x) (x == pc || x == stack || x == FALSE)
 
+
+#ifdef PARENT_FIELD
+
+// TODO need to document this section, the comments are the same as the ones
+// for the no parent field version
+
+#define is_parent(x, p) (PAR(x) == p)
+#define get_parent(x) PAR(x)
+#define set_parent(x,p,i) get_parent(x) = p
+
+void add_cofriend(obj x, obj cfr, int i) {
+  // Case 1: `x` is parentless, `cfr` becomes the parent by default. This
+  // corresponds to the situation where a newly allocated object or structure
+  // gets connected to an existing spanning tree in the spanning forest
+  if (CFR(x) == _NULL) {
+    CFR(x) = cfr;
+    // Important: adding a new reference to a parentless root should be treated
+    // the same as simply adding a new co-friend even if the referrer is the
+    // root's only co-friend, in practice this means that this operation should
+    // have no impact on the root's rank (see the paper for a counter-example
+    // where a cycle is created and an unsafe adoption occurs because of that)
+    if (is_collectable(x)) {
+      get_parent(x) = cfr;
+      ovf_set_rank(x, get_rank(cfr)+1);
+    }
+    return;
+  }
+  // Case 2: `cfr` already has a reference to `x` and so the list of co-friends
+  // is already valid, only need to add a reference to `cfr` from `x`'s i'th
+  // mirror field
+  for (int j = 0; j < 3; j++) {
+    if (j == i) continue; 
+    if (get_field(cfr, j) == x) {
+      get_field(cfr, i+3) = get_field(cfr, j+3);
+      return;
+    }
+  }
+  get_field(cfr, i+3) = CFR(x);
+  CFR(x) = cfr;
+}
+
+
+void remove_cofriend(obj x, obj cfr, int i) {
+  // Should be called "remove_cfr_reference" or something because `cfr` is
+  // removed from `x`'s list of co-friend iff `cfr` only has one ref to `x`
+
+  // Case 1: `cfr` has more than one reference to `x`, the i'th mirror field
+  // should be set to _NULL but `cfr` is not removed from `x`'s co-friends
+  for (int j = 0; j < 3; j++) {
+    if (j == i) continue;
+    if (get_field(cfr, j) == x) {
+      get_field(cfr, i+3) = _NULL;
+      return;
+    }
+  }
+  if (CFR(x) == cfr) {
+    CFR(x) = get_field(cfr, i+3);
+    get_field(cfr, i+3) = _NULL;
+    return;
+  }
+  // Case 2: `cfr` only has one reference to `x` and so must be removed from
+  // `x`'s co-friends
+  obj curr = CFR(x); // assumes `cfr` is not the parent
+  obj prev;
+  while (curr != cfr && curr != _NULL) { // find `cfr` and his predecessor
+    prev = curr;
+    curr = next_cofriend(x, curr);
+  }
+  obj tmp = get_field(cfr, i+3); // `cfr`'s successor, could be _NULL
+  get_field(cfr, i+3) = _NULL; // remove ref from `cfr` to old successor
+  for (int j = 0; j < 3; j++) { // link predecessor with `cfr`'s old successor
+    if (get_field(prev, j) == x) {
+      get_field(prev, j+3) = tmp;
+    }
+  }
+}
+
+void wipe_cofriend(obj x, obj cfr, int i) {
+  // Same as above but fully removes the co-friend regardless of the number of
+  // references from `cfr` to `x`
+  if (CFR(x) == cfr) {
+    CFR(x) = get_field(cfr, i+3);
+    for (int j = 0; j < 3; j++) { // link predecessor with `cfr`'s old successor
+      if (get_field(cfr, j) == x) {
+        get_field(cfr, j+3) = _NULL;
+      }
+    }
+    return;
+  }
+  obj curr = CFR(x); // assumes `cfr` is not the parent
+  obj prev;
+  while (curr != cfr && curr != _NULL) { // find `cfr` and his predecessor
+    prev = curr;
+    curr = next_cofriend(x, curr);
+  }  
+  obj tmp = get_field(cfr, i+3); // `cfr`'s successor, could be _NULL
+  get_field(cfr, i+3) = _NULL; // remove ref from `cfr` to old successor
+  for (int j = 0; j < 3; j++) { // link predecessor with `cfr`'s old successor
+    if (get_field(prev, j) == x) {
+      get_field(prev, j+3) = tmp;
+    }
+  }
+}
+
+void remove_parent(obj x, obj p, int i) {
+  // Should be called "remove_parent_reference" or something because the
+  // parent `p` is removed iff `p` only has one reference to `x`
+  
+  // Case 1: The parent `p` has more than one reference to the child `x`,
+  // the i'th mirror field is set to _NULL but we don't remove the parent
+  for (int j = 0; j < 3; j++) {
+    if (j == i) continue;
+    if (get_field(p, j) == x) {
+      get_field(p, i+3) = _NULL;
+      return;
+    }
+  }
+  // Case 2: The parent `p` only has one reference to the child `x`, `p` must
+  // be removed from the list of co-friends. Because the next co-friend
+  // temporarily becomes `x`'s new parent (i.e. the spanning tree encoded by
+  // the parent/child relationship is restructured), this operation should be
+  // considered "unsafe" and so this function should only be called before a
+  // drop phase (like in `remove_edge`)
+  wipe_cofriend(x, p, i);
+  get_parent(x) = _NULL; // get_field(p, i+3); // next co-friend becomes the parent
+  get_field(p, i+3) = _NULL;
+}
+
+#define wipe_parent(x,p,i) wipe_cofriend(x,p,i); get_parent(x) = _NULL; get_field(p, i+3) = _NULL
+
+#else
+
 #define is_parent(x, p) (CFR(x) == p)
 #define get_parent(x) CFR(x)
 
@@ -735,6 +878,8 @@ void wipe_cofriend(obj x, obj cfr, int i) {
   }
 }
 
+#endif
+
 //------------------------------------------------------------------------------
 
 // Edge addition (i.e. add a reference to a rib)
@@ -765,7 +910,7 @@ bool adopt(obj x) {
   // parent (doesn't matter which one we pick if we don't set the rank of
   // `x` during adoption)
   num rank = get_rank(x);
-  obj cfr = get_parent(x);
+  obj cfr = CFR(x);
   while (cfr != _NULL) {
     // FIXME need to make sure that the topological order is respected to
     // adopt with a cfr of the same rank as the parent
@@ -779,7 +924,7 @@ bool adopt(obj x) {
   return 0;
 }
 
-#define _adopt(x) ((get_parent(x) == _NULL) ? 0 : adopt(x))
+#define _adopt(x) ((CFR(x) == _NULL) ? 0 : adopt(x))
 
 void drop() {
   obj x; // current "falling" rib
@@ -789,7 +934,7 @@ void drop() {
   while (!Q_IS_EMPTY()) {
     x = q_dequeue();
     _x = RIB(x)->fields;
-    cfr = get_parent(x);
+    cfr = CFR(x);
     
     // making x's children "fall" along with him
     for (int i = 0; i < 3; i++) {
@@ -851,7 +996,7 @@ void dealloc_rib(obj x){
           // if an object as two references to its child
           // FIXME find  amore efficient way to deal with that
           // if (get_parent(_x[i]) != _NULL) wipe_parent(_x[i], x, i);
-          if (get_parent(_x[i]) != _NULL) {
+          if (CFR(_x[i]) != _NULL) {
             if (i == 0) {
               wipe_parent(_x[i], x, i);
             } else if (i == 1 && _x[1] != _x[0]) {
@@ -863,7 +1008,7 @@ void dealloc_rib(obj x){
         }
       } else { // not a child, only need to remove x from co-friend's list
         // TODO faster way to check if we try to wipe the same co-friend twice
-        if (get_parent(_x[i]) != _NULL) {
+        if (CFR(_x[i]) != _NULL) {
           if (i == 0) {
             wipe_cofriend(_x[i], x, i);
           } else if (i == 1 && _x[1] != _x[0]) {
@@ -877,7 +1022,10 @@ void dealloc_rib(obj x){
   }
   CAR(x) = (obj)alloc; // deallocate the rib by adding it to the freelist
   alloc = (obj *)x;
-  _x[6] = _NULL; // no parent FIXME
+  _x[6] = _NULL;
+#ifdef PARENT_FIELD
+  _x[RIB_NB_FIELDS-1] = _NULL;
+#endif
   
 #ifdef CLEAN_RIBS
   for (int i = 1; i < RIB_NB_FIELDS; i++) {
@@ -1189,6 +1337,9 @@ void push2(obj car, obj tag) {
 #ifdef QUEUE_NO_REMOVE
   *alloc++ = _NULL;
 #endif
+#ifdef PARENT_FIELD
+  *alloc++ = _NULL;
+#endif
 
   obj new_rib = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
   obj old_stack = stack;
@@ -1196,8 +1347,11 @@ void push2(obj car, obj tag) {
 
   // new stack becomes the parent of old stack (avoids the potential drop)
   if (IS_RIB(old_stack)) {
-    get_field(new_rib, 4) = get_parent(old_stack);
+    get_field(new_rib, 4) = CFR(old_stack);
+    CFR(old_stack) = stack;
+#ifdef PARENT_FIELD
     get_parent(old_stack) = stack;
+#endif
     // set_rank(old_stack, alloc_rank+1);
   }
   dec_alloc_rank();
@@ -1230,6 +1384,9 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   *alloc++ = _NULL;      // queue and priority queue
 #ifdef QUEUE_NO_REMOVE
   *alloc++ = _NULL;
+#endif
+#ifdef PARENT_FIELD
+    *alloc++ = _NULL;
 #endif
 
   dec_alloc_rank();
