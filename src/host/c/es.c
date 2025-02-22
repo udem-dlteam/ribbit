@@ -151,6 +151,7 @@ typedef struct {
 // FIXME insert this between CFR and RANK
 #define PAR(x) RIB(x)->fields[RIB_NB_FIELDS-1]
 #endif
+#endif
 
 // FIXME try to be a bit more consistant with the notation...
 #define get_field(x,i) RIB(x)->fields[i]
@@ -1082,8 +1083,6 @@ void remove_node(obj old_root) {
 
 #define remove_root(old_root) if (IS_RIB(old_root) && !_adopt(old_root)) remove_node(old_root)
 
-// end of code specific to ESTrees
-#endif 
 
 //------------------------------------------------------------------------------
 
