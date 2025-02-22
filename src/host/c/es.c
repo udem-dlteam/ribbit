@@ -993,19 +993,22 @@ void dealloc_rib(obj x){
         } else if (is_falling(_x[i])) { // falling?
           dealloc_rib(_x[i]);
         } else { // child is a root or protected
+#ifdef PARENT_FIELD
+          // Parent field will be set to _NULL, no ambiguity with 1st cofriend
+          if (get_parent(_x[i]) != _NULL) wipe_parent(_x[i], x, i);
+#else
           // Can't just wipe the parent or else we might remove the wrong parent
           // if an object as two references to its child
-          // FIXME find  amore efficient way to deal with that
-          // if (get_parent(_x[i]) != _NULL) wipe_parent(_x[i], x, i);
           if (CFR(_x[i]) != _NULL) {
             if (i == 0) {
               wipe_parent(_x[i], x, i);
             } else if (i == 1 && _x[1] != _x[0]) {
               wipe_parent(_x[i], x, i);
-            } else if (i == 2 && _x[2] != _x[0] && _x[2] != _x[0]) {
+            } else if (i == 2 && _x[2] != _x[0] && _x[2] != _x[1]) {
               wipe_parent(_x[i], x, i);
             }
           }
+#endif
         }
       } else { // not a child, only need to remove x from co-friend's list
         // TODO faster way to check if we try to wipe the same co-friend twice
@@ -1014,7 +1017,7 @@ void dealloc_rib(obj x){
             wipe_cofriend(_x[i], x, i);
           } else if (i == 1 && _x[1] != _x[0]) {
             wipe_cofriend(_x[i], x, i);
-          } else if (i == 2 && _x[2] != _x[0] && _x[2] != _x[0]) {
+          } else if (i == 2 && _x[2] != _x[0] && _x[2] != _x[1]) {
             wipe_cofriend(_x[i], x, i);
           }
         }
