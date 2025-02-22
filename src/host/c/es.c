@@ -569,10 +569,10 @@ void pq_remove(obj o) {
 #define get_rank(x) (NUM(RANK(x)))
 #define set_rank(x, rank) (RANK(x) = TAG_NUM(rank))
 
-// TODO need a faster overflow check and a "reranking" phase when an overflow
-// is detected instead of just crashing
-#define ovf_set_rank(x, rank) (rank < MAX_RANK) ? set_rank(x, rank) : exit(1);
-#define dec_alloc_rank() if (alloc_rank-- == MIN_RANK) exit(1);
+// TODO need a more descriptive crash and a "reranking" phase when an overflow
+// is detected instead of just crashing (if possible)
+#define ovf_set_rank(x, rank) (rank ^ MAX_RANK) ? set_rank(x, rank) : exit(1);
+#define dec_alloc_rank() (alloc_rank ^ MIN_RANK) ? alloc_rank-- : exit(1);
 
 // Returns the index of `cfr`'s mirror field of the FIRST field that contains a
 // reference to `x`, should only be used to get a reference to `cfr`'s successor
