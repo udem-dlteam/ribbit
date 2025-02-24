@@ -2,7 +2,7 @@
   (gambit
    (define putchar (lambda (x) (write-char (integer->char x))))))
 
-(define z 
+(define z
   (lambda (x)
     (lambda () x)))
 
@@ -11,8 +11,8 @@
 (##putchar (zz))
 
 (##putchar 10)
- 
-;;;flat-closures-run: -l max
-;;;flat-closures-run:
+
+;;;flat-closure-run: -l max
+;;;flat-closure-run:
 ;;;expected:
 ;;;*

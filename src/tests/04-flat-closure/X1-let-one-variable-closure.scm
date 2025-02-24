@@ -2,13 +2,13 @@
   (gambit
    (define putchar (lambda (x) (write-char (integer->char x))))))
 
-(define x (lambda () 43))
-(set! x (lambda () 42))
+(let ((x 42))
+  (let ((y (lambda () x)))
+    (##putchar (y))))
 
-(##putchar (x))
 (##putchar 10)
 
-;;;flat-closures-run: -l max
-;;;flat-closures-run:
+;;;flat-closure-run: -l max
+;;;flat-closure-run:
 ;;;expected:
 ;;;*

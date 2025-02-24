@@ -7,7 +7,7 @@
 (##putchar (x))
 (##putchar 10)
 
-;;;flat-closures-run: -l max
-;;;flat-closures-run:
+;;;flat-closure-run: -l max
+;;;flat-closure-run:
 ;;;expected:
 ;;;*
