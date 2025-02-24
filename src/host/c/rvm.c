@@ -1011,7 +1011,8 @@ void run() {
             num nargs = NUM(pop()); // @@(feature arity-check)@@
             obj s2 = TAG_RIB(alloc_rib(NUM_0, proc, PAIR_TAG));
             proc = CDR(s2);
-            CAR(pc) = CAR(proc); // save the proc from the mighty gc
+            CDR(s2) = CDR(proc); // @@(feature flat-closure)@@
+            CAR(pc) = CAR(proc); // save the proc from the mighty gcrvm.c
 
 
             num nparams_vari = NUM(CAR(code));
