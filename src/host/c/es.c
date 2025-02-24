@@ -1057,13 +1057,11 @@ void remove_edge(obj from, obj to, int i) {
   // if `to` can be adopted right away
   remove_parent(to, from, i); 
   if (is_collectable(to) && !is_parent(to, from) && !_adopt(to)) {
-    // @@(location gc-start)@@
     q_enqueue(to);
     fall(to); 
     drop();
     if (!PQ_IS_EMPTY()) catch(); 
     if (is_falling(to)) dealloc_rib(to);
-    // @@(location gc-end)@@
   }
 }
 
@@ -1075,13 +1073,11 @@ void remove_edge(obj from, obj to, int i) {
 
 
 void remove_node(obj old_root) {
-  // @@(location gc-start)@@
   q_enqueue(old_root);
   fall(old_root);
   drop();
   if (!PQ_IS_EMPTY()) catch();
   if (is_falling(old_root)) dealloc_rib(old_root);
-  // @@(location gc-end)@@
 }
 
 #define remove_root(old_root) if (IS_RIB(old_root) && !_adopt(old_root)) remove_node(old_root)
