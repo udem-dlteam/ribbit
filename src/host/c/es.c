@@ -1012,7 +1012,7 @@ void dealloc_rib(obj x){
         }
       } else { // not a child, only need to remove x from co-friend's list
         // TODO faster way to check if we try to wipe the same co-friend twice
-        if (CFR(_x[i]) != _NULL) {
+        if (!is_falling(_x[i]) && CFR(_x[i]) != _NULL) {
           if (i == 0) {
             wipe_cofriend(_x[i], x, i);
           } else if (i == 1 && _x[1] != _x[0]) {
@@ -1068,7 +1068,7 @@ void remove_edge(obj from, obj to, int i) {
 }
 
 // FIXME should we just assume that `from` is a rib to avoid the type check?
-#define remove_ref(from, to, i) if (IS_RIB(to)) remove_edge(from, to, i)
+#define remove_ref(from, to, i) if (IS_RIB(to) && from != to) remove_edge(from, to, i)
 
 // FIXME need to generalize this so that it works with any protected field
 #define remove_ref_nr(to, i) remove_edge(null_rib, to, i); TEMP5 = _NULL;
