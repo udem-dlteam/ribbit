@@ -1053,6 +1053,155 @@
     lst1
     lst2))
 
+(define (list-diff lst1 lst2)
+  (filter
+    (lambda (x)
+      (not (memq x lst2)))
+    lst1))
+
+
+(define global_gensym_counter 0)
+(define gensym_prefix "__gen_")
+(define (ribbit-gensym)
+  (set! global_gensym_counter (+ 1 global_gensym_counter))
+  (string->symbol (string-append gensym_prefix (number->string global_gensym_counter))))
+
+
+;; Mutability source-to-source transformation
+(define (mv-expand expr bounded mutable-vars host-config)
+  (cond
+    ((symbol? expr)
+     (let ((mut-var (assq expr mutable-vars)))
+       (if mut-var
+         `(##field0 ,(cdr mut-var))
+         expr)))
+
+    ((pair? expr)
+     (let ((first (car expr)))
+       (cond ((eqv? first 'quote) expr)
+             ((eqv? first 'define-primitive) expr)
+             ((eqv? first 'define-feature) expr)
+             ((eqv? first 'use-feature) expr)
+
+             ((eqv? first 'if-feature)
+              (let* ((feature-expr (cadr expr))
+                     (then-expr (caddr expr))
+                     (else-expr (cadddr expr))
+                     (feature-value
+                       (eval-feature feature-expr (host-config-features host-config))))
+                ;; TODO: this is a big hack. We should be extending the liveness analysis
+                ;;  way earlier.
+                `(if-feature ,feature-expr
+                             ,(if feature-value (mv-expand then-expr bounded mutable-vars host-config) then-expr)
+                             ,(if (not feature-value) (mv-expand else-expr bounded mutable-vars host-config) else-expr)
+                            )))
+
+             ((eqv? first 'set!)
+              (let* ((var (cadr expr))
+                     (val (mv-expand (caddr expr) bounded mutable-vars host-config))
+                     (mutable-var (assq var mutable-vars)))
+                (if mutable-var
+                  `(##field0-set! ,(cdr mutable-var) ,val)
+                  `(set! ,var ,val))))
+
+             ((eqv? first 'if)
+              (let ((test (cadr expr))
+                    (then (caddr expr))
+                    (else (cadddr expr)))
+
+                `(if ,(mv-expand test bounded mutable-vars host-config)
+                     ,(mv-expand then bounded mutable-vars host-config)
+                     ,(mv-expand else bounded mutable-vars host-config))))
+
+             ((eqv? first 'lambda)
+              (let* ((params (cadr expr))
+                     (variadic (or (symbol? params) (not (null? (last-item params)))))
+                     (params-lst ;; make sure that the params is a proper list
+                       (if variadic
+                         (improper-list->list params '())
+                         params))
+                     (body (cddr expr))
+                     (new-mutable-vars (fv-analysis `(begin ,body) bounded host-config #t))
+                     (introduced-mutable-vars
+                       (map
+                         (lambda (x) (cons x (ribbit-gensym)))
+                         (filter
+                           (lambda (x) (memq x params-lst))
+                           new-mutable-vars)))
+                     (cont-lst
+                       (map
+                         (lambda (x)
+                           (mv-expand
+                             x
+                             (list-union params-lst bounded)
+                             (append introduced-mutable-vars mutable-vars)
+                             host-config))
+                          body)))
+
+                (define (introduce-vars mv cont-lst)
+                  (if (pair? mv)
+                    (let ((elem (car mv)))
+                      `(let ((,(cdr elem) (##rib ,(car elem) 0 0)))
+                         ,@(if (pair? (cdr mv))
+                             (list (introduce-vars (cdr mv)))
+                             cont-lst)))))
+
+                (if (pair? introduced-mutable-vars)
+                  `(lambda ,params
+                     ,(introduce-vars introduced-mutable-vars cont-lst))
+                  `(lambda ,params
+                     ,@cont-lst))))
+
+             ((eqv? first 'let)
+              (let* ((bindings (cadr expr))
+                     (vars (map car bindings))
+                     (var-body (map cadr bindings))
+                     (body (cddr expr))
+                     (new-bounded (list-union vars bounded))
+                     (new-mutable-vars (fv-analysis body bounded host-config #t))
+                     (introduced-mutable-vars
+                       (map
+                         (lambda (x) (cons x x))
+                         (filter
+                           (lambda (x) (memq x vars))
+                           new-mutable-vars))))
+                `(let (,@(map
+                           (lambda (x)
+                             `(,(car x)
+                                ,(if (memq
+                                       (car x)
+                                       new-mutable-vars)
+                                   `(##rib
+                                     ,(mv-expand (cadr x) bounded mutable-vars host-config)
+                                     0
+                                     0)
+                                   (mv-expand (cadr x) bounded mutable-vars host-config))))
+                           bindings)
+                      )
+                       ,@(map
+                          (lambda (x)
+                            (mv-expand
+                              x
+                              new-bounded
+                              (append introduced-mutable-vars mutable-vars)
+                              host-config))
+                          body))
+
+                ))
+
+             ((eqv? first 'begin)
+              `(begin
+                 ,@(map
+                     (lambda (x) (mv-expand x bounded mutable-vars host-config))
+                     (cdr expr))))
+
+             (else
+               (map
+                 (lambda (x)
+                   (mv-expand x bounded mutable-vars host-config))
+                 expr)))))
+    (else expr)))
+
 ;; Free variable analysis
 (define (fv-analysis expr bounded host-config only-mutable?)
   (cond
@@ -1073,14 +1222,16 @@
                      (then-expr (caddr expr))
                      (else-expr (cadddr expr)))
                 (if (eval-feature feature-expr (host-config-features host-config))
-                  (fv-analysis then-expr val bounded host-config only-mutable?)
-                  (fv-analysis else-expr val bounded host-config only-mutable?))))
+                  (fv-analysis then-expr bounded host-config only-mutable?)
+                  (fv-analysis else-expr bounded host-config only-mutable?))))
 
-             ((eqv? first 'set!) 
+             ((eqv? first 'set!)
               (let ((var (cadr expr))
                     (val (caddr expr)))
 
-              (list-union (list var) (fv-analysis val bounded host-config only-mutable?))))
+                (if (memq var bounded)
+                  (fv-analysis val bounded host-config only-mutable?)
+                  (list-union (list var) (fv-analysis val bounded host-config only-mutable?)))))
 
              ((eqv? first 'if)
               (let ((test (cadr expr))
@@ -1097,21 +1248,22 @@
                        (if variadic
                          (improper-list->list params '())
                          params))
-                     (body `(begin (cddr expr))))
+                     (body `(begin ,(cddr expr))))
 
                 (fv-analysis body (list-union params-lst bounded) host-config only-mutable?)))
 
              ((eqv? first 'let)
-              (let ((bindings (cadr expr))
-                    (vars (map car bindings))
-                    (var-body (map cadr bindings))
-                    (body (cddr expr))
-                    (new-bounded (list-union vars bounded)))
+              (let* ((bindings (cadr expr))
+                     (vars (map car bindings))
+                     (var-body (map cadr bindings))
+                     (body (cddr expr))
+                     (new-bounded (list-union vars bounded)))
 
                 (list-union
                   (fold  ;; Add all variables in the bindings
                     (lambda (x acc)
                       (list-union (fv-analysis x bounded host-config only-mutable?) acc))
+                    '()
                     var-body)
                   (fv-analysis body new-bounded host-config only-mutable?))))
 
@@ -1156,10 +1308,10 @@
     (let loop ((n n))
       (if (> n 0)
         (c-rib const-op 0
-               (add-nb-args 
-                 #t 
-                 ctx 
-                 3 
+               (add-nb-args
+                 #t
+                 ctx
+                 3
                  (gen-call (use-symbol ctx '##rib)
                            (loop (- n 1)))))
         cont)))
@@ -1172,21 +1324,29 @@
                  (loop (cdr fv) (+ index-offset 1))))
         cont)))
 
-  (gen-call
-    (use-symbol ctx '##field0)
-    (add-free-vars 
-      fv 
-      (c-rib 
-        get-op
-        'nil
-        (add-final-closing-lst 
-          (length fv) 
-          (c-rib 
-            const-op
-            1
-            (gen-call 
-              (use-symbol ctx '##rib)
-              cont)))))))
+  (add-nb-args
+    #t
+    ctx
+    1
+    (gen-call
+      (use-symbol ctx '##field0)
+      (add-free-vars
+        fv
+        (c-rib
+          get-op
+          'nil
+          (add-final-closing-lst
+            (length fv)
+            (c-rib
+              const-op
+              1
+              (add-nb-args
+                #t
+                ctx
+                1
+                (gen-call
+                  (use-symbol ctx '##rib)
+                  cont)))))))))
 
 
 
@@ -1297,24 +1457,26 @@
                            (if (ctx-live-feature? ctx 'flat-closure)
                              ;; With flat closures enabled, we perform a free variable analysis
                              ;; and create our own list of closure.
-                             (let ((fv (fv-analysis 
-                                         `(begin ,(cddr expr)) 
-                                         ;; Bounded variables are the parameters of the lambda 
+                             (let ((fv (fv-analysis
+                                         `(begin ,@(cddr expr))
+                                         ;; Bounded variables are the parameters of the lambda
                                          ;; and global variables (live)
-                                         (list-union params (map car (ctx-live ctx))) 
+                                         (list-diff
+                                           (list-union
+                                             params
+                                             (map car (ctx-live ctx)))
+                                           (filter symbol? (ctx-cte ctx)))
                                          host-config
                                          #f)))
-
                                (cons
                                  (gen-free-vars fv ctx cont)
                                  fv))
-                                
 
                              ;; Without flat closure, we just use the ##close primitive
                              ;; The free vars are just the values on the stack
-                             (cons (add-nb-args 
-                                     #t 
-                                     ctx 
+                             (cons (add-nb-args
+                                     #t
+                                     ctx
                                      1
                                      (gen-call (use-symbol ctx '##close)
                                              cont))
@@ -1594,6 +1756,13 @@
                         (cons var var)))
                     live-globals)))
          (host-config-ctx (make-host-config live-features '() '()))
+
+         ;; Do mutability analysis when flat-closure is enabled
+         (expansion
+           (if (host-config-feature-live? host-config-ctx 'flat-closure)
+             (mv-expand expansion (map car live-globals) '() host-config-ctx)
+             expansion))
+
          (ctx (make-ctx '() live-globals exports live-features))
          (return (make-vector 3)))
 
@@ -2396,7 +2565,6 @@
   (assq feature (live-env-forced-features live-env)))
 
 (define (live-env-add-live! live-env var)
-
   (if (live-env-live? live-env var)
     live-env
     (begin
@@ -2489,6 +2657,9 @@
            (let ((first (car expr)))
 
              (cond ((eqv? first 'quote)
+                    ;; TODO: A little bit of an abuse here.
+                    ;; We consider that quoted values are live because we might
+                    ;; need to export their string representation.
                     (let ((val (cadr expr)))
                       (add-val val)))
 
@@ -2528,7 +2699,9 @@
                     (if (not (live-env-live-feature? env 'flat-closure))
                       (live-env-add-live! env '##close)
                       (begin
-                        (live-env-add-live! env '##field0)))
+                        (live-env-add-live! env '##field0)
+                        (live-env-add-live! env '##field0-set!)
+                        ))
                     (let ((params (cadr expr)))
                       (if (improper-list? params)
                         (begin
