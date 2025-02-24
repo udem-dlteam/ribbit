@@ -33,87 +33,93 @@ debug = False
 # )@@
 
 
-# @@(feature debug 
-tracing = False                                                         # DEBUG
-step_count = 0                                                          # DEBUG
-start_tracing = 0                                                       # DEBUG
-next_stamp = 0                                                          # DEBUG
-def show(obj):                                                          # DEBUG
- if not is_rib(obj): return str(obj)                                    # DEBUG
- type = obj[2]                                                          # DEBUG
- if type == 4: return "#" + show(obj[0])                                # DEBUG
- result = ""                                                            # DEBUG
- if type == 0:                                                          # DEBUG
-  n = 1                                                                 # DEBUG
-  result += "(" + show(obj[0])                                          # DEBUG
-  obj = obj[1]                                                          # DEBUG
-  while is_rib(obj) and obj[2] == 0:                                    # DEBUG
-   if n > 4:                                                            # DEBUG
-    result += " ..."                                                    # DEBUG
-    obj = NIL                                                           # DEBUG
-    break                                                               # DEBUG
-   result += " " + show(obj[0])                                         # DEBUG
-   obj = obj[1]                                                         # DEBUG
-   n += 1                                                               # DEBUG
-  if obj is not NIL:                                                    # DEBUG
-   result += " . " + show(obj)                                          # DEBUG
-  result += ")"                                                         # DEBUG
- elif type == 1:                                                        # DEBUG
-  if is_rib(obj[0]):                                                    # DEBUG
-   result += "#<procedure nparams=" + str(obj[0][0]) + ">"              # DEBUG
-  else:                                                                 # DEBUG
-   result += "#<primitive " + str(obj[0]) + ">"                         # DEBUG
- elif type == 2:                                                        # DEBUG
-  obj = obj[1]                                                          # DEBUG
-  if is_rib(obj) and obj[2] == 3 and obj[1] > 0:                        # DEBUG
-   obj = obj[0]                                                         # DEBUG
-   while is_rib(obj) and obj[2] == 0:                                   # DEBUG
-    result += chr(obj[0])                                               # DEBUG
-    obj = obj[1]                                                        # DEBUG
-  else:                                                                 # DEBUG
-   result += "#<symbol " + show(obj) + ">"                              # DEBUG
- elif type == 3:                                                        # DEBUG
-  result += "\""                                                        # DEBUG
-  obj = obj[0]                                                          # DEBUG
-  while is_rib(obj) and obj[2] == 0:                                    # DEBUG
-   c = chr(obj[0])                                                      # DEBUG
-   if c == "\n": c = "n"; result += "\\"                                # DEBUG
-   elif c == "\r": c = "r"; result += "\\"                              # DEBUG
-   elif c == "\t": c = "t"; result += "\\"                              # DEBUG
-   elif c == "\\" or c == "\"": result += "\\"                          # DEBUG
-   result += c                                                          # DEBUG
-   obj = obj[1]                                                         # DEBUG
-  result += "\""                                                        # DEBUG
- elif type == 5:                                                        # DEBUG
-  if obj is FALSE:                                                      # DEBUG
-   result += "#f"                                                       # DEBUG
-  elif obj is TRUE:                                                     # DEBUG
-   result += "#t"                                                       # DEBUG
-  elif obj is NIL:                                                      # DEBUG
-   result += "()"                                                       # DEBUG
-  else:                                                                 # DEBUG
-   result += "["+show(obj[0])+","+show(obj[1])+","+show(obj[2])+"]"     # DEBUG
- else:                                                                  # DEBUG
-  result += "["+show(obj[0])+","+show(obj[1])+","+show(obj[2])+"]"      # DEBUG
- return result                                                          # DEBUG
-                                                                        # DEBUG
-def start_step():                                                       # DEBUG
- global step_count, tracing, next_stamp                                 # DEBUG
- step_count += 1                                                        # DEBUG
- if step_count >= start_tracing: tracing = True                         # DEBUG
- if not tracing:                                                        # DEBUG
-  if step_count >= next_stamp:                                          # DEBUG
-   next_stamp = int(next_stamp * 1.01 + 1)                              # DEBUG
-   print("@" + str(step_count))                                         # DEBUG
-  return                                                                # DEBUG
- s = stack                                                              # DEBUG
- result = "@" + str(step_count) + " STACK = ("                          # DEBUG
- sep = ""                                                               # DEBUG
- while s[1]!=0: result += sep + show(s[0]); sep = " "; s=s[1]           # DEBUG
- result += ")"                                                          # DEBUG
- print(result)                                                          # DEBUG
+# @@(feature debug
+tracing = False
+step_count = 0
+start_tracing = 0
+next_stamp = 0
+def show(obj, seen=[]):
+ for x in seen:
+  if obj is x: return "#<circ>"
 
-# )@@ 
+ if not is_rib(obj): return str(obj)
+ type = obj[2]
+ if type == 4: return "#" + show(obj[0], seen + [obj])
+ result = ""
+ if type == 0:
+  n = 1
+  result += "(" + show(obj[0], seen+ [obj])
+  obj = obj[1]
+  while is_rib(obj) and obj[2] == 0:
+   if n > 4:
+    result += " ..."
+    obj = NIL
+    break
+   result += " " + show(obj[0], seen+ [obj])
+   obj = obj[1]
+   n += 1
+  if obj is not NIL:
+   result += " . " + show(obj, seen+[obj])
+  result += ")"
+ elif type == 1:
+  if is_rib(obj[0]):
+   result += "#<procedure nparams=" + str(obj[0][0]) + ">"
+  else:
+   result += "#<primitive " + str(obj[0]) + ">"
+ elif type == 2:
+  obj = obj[1]
+  if is_rib(obj) and obj[2] == 3 and obj[1] > 0:
+   obj = obj[0]
+   while is_rib(obj) and obj[2] == 0:
+    result += chr(obj[0])
+    obj = obj[1]
+  else:
+   result += "#<symbol " + show(obj, seen+[obj]) + ">"
+ elif type == 3:
+  result += "\""
+  obj = obj[0]
+  while is_rib(obj) and obj[2] == 0:
+   c = chr(obj[0])
+   if c == "\n": c = "n"; result += "\\"
+   elif c == "\r": c = "r"; result += "\\"
+   elif c == "\t": c = "t"; result += "\\"
+   elif c == "\\" or c == "\"": result += "\\"
+   result += c
+   obj = obj[1]
+  result += "\""
+ elif type == 5:
+  if obj is FALSE:
+   result += "#f"
+  elif obj is TRUE:
+   result += "#t"
+  elif obj is NIL:
+   result += "()"
+  else:
+   result += "["+show(obj[0], seen+[obj])+","+show(obj[1], seen+[obj])+","+show(obj[2], seen+[obj])+"]"
+ else:
+  result += "["+show(obj[0], seen+[obj])+","+show(obj[1], seen+[obj])+","+show(obj[2], seen+[obj])+"]"
+ return result
+
+def start_step():
+ global step_count, tracing, next_stamp
+ step_count += 1
+ if step_count >= start_tracing: tracing = True
+ if not tracing:
+  if step_count >= next_stamp:
+   next_stamp = int(next_stamp * 1.01 + 1)
+   print("@" + str(step_count))
+  return
+ s = stack
+ result = "@" + str(step_count) + " STACK = ("
+ sep = ""
+ if s == 0:
+  result += "EMPTY (probably an error)"
+ else:
+  while s[1]!=0: result += sep + show(s[0]); sep = " "; s=s[1]
+ result += ")"
+ print(result)
+
+# )@@
 
 # @@(location decl)@@
 
@@ -301,7 +307,8 @@ while 1:
    c=o[0]
    if is_rib(c):
     nargs=pop(); # @@(feature arity-check)@@
-    c2=[0,o,0]
+    c2=[0,o[1],0] # @@(feature flat-closure)@@
+    c2=[0,o,0] # @@(feature (not flat-closure))@@
     s2=c2
     nparams=c[0]>>1
     # @@(feature arity-check 
