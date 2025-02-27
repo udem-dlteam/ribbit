@@ -1792,6 +1792,7 @@ void run() { // evaluator
           num nargs = NUM(pop()); // @@(feature arity-check)@@
           obj new_stack = TAG_RIB(alloc_rib(NUM_0, proc, PAIR_TAG));
           proc = CDR(new_stack);
+          SET_CDR(new_stack, CDR(proc)); // @@(feature flat-closure)@@
 #ifdef REF_COUNT
           // No need to save the procedure for ES
           SET_CAR(pc, CAR(proc)); // save the proc from the mighty gc
