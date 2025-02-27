@@ -139,8 +139,10 @@
                         (eval@comp-begin
                           (eval@extend params
                                        (cons #f
-                                             (cons #f
-                                                   cte)))
+                                             (if-feature flat-closure
+                                                         cte
+                                                         (cons #f
+                                                               cte))))
                           (cddr expr)
                           eval@tail))
                        '())
