@@ -9,39 +9,26 @@
 
 /* 
  * TODO
- *
- * Priorities
- * - Force a drop when a newly allocated object or structure gets connected
- *   to an existing spanning tree (or recursively update the ranks) to
- *   maintain the topological order invariant
- *   ... also make sure that nothing else can break it (e.g. when a cycle
- *   is created in a newly allocated structure before being connected to
- *   a spanning tree)
- *   => SHOULDN'T BE A PROBLEM (in theory) except maybe for closures because
- *      Ribbit can't build a cyclic structure in a primitive and the
- *      resulting rib is linked directly to the stack so we can't break
- *      the topological order invariant when building a structure if pushing
- *      the stack is done with the global allocation rank and that the drop
- *      will occur when the stack pointer will point to something else (might 
- *      be different in another system when we return from a primitive and we 
- *      need to force a drop)
  * - Ref count (make sure all non-cyclic ribs are collected, adapt io and sys
  *   primitives, apply, ... you know, make it work)
- * - Flat closures
+ * - Mirror fields with offset
+ * - Double mirror fields
  * - Call a GC for every instruction to make sure everything is collected...
  *   (do that for the bootstrap, the test suite, and fuzzing)
- * - Ask Stefan and Marc to review the code
  * - Cleanup the code and fix the FIXMEs and TODOs in the code
  *
  * When the stars will align
- * - Experiment with different data structures for the anchors/catchers
- * - Experiment with ways to chain co-friends (e.g. double the number of
- *   mirror fields) to reduce the cost of removing a co-friend 
+ * - Queues implemented directly on the heap with (potentially) a sorting phase
+ * - Allocation strategy using ref count rather than ranks
+ * - Don't link TRUE, NIL, and FALSE
+ * - Better system for negative ranks
+ * - Reranking phase
  * - Finalizers
+ * - Concurrent or parallel deallocation (probably won't happen for ribbit)
+ * - Memory transactions for mutations
  * - Make it a full RVM: add missing features from the original RVM (encoding,
  *   sys primitives, (DEBUG, NO_STD, lzss compression, ARG_V, clang support, 
- *   stop & copy GC, DEFAULT_REPL_MIN, NOSTART, CHECK_ACCESS, etc.) 
- * - ... missing bugs?
+ *   stop & copy GC, DEFAULT_REPL_MIN, NOSTART, CHECK_ACCESS, etc.)
  * - ... optimizations?
  */
 
