@@ -933,6 +933,14 @@ void drop() {
           loosen(_x[i]);
           q_enqueue(_x[i]);
         }
+        
+        else {
+          #ifndef LINKED_LIST
+          // object may have been removed from anchor queue when pushed into main queue
+          // so we conservatively add it to anchor queue
+          pq_enqueue(_x[i]);
+          #endif
+        }
       }
     }
     // identify x's co-friends that could be potential "catchers"
