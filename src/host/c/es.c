@@ -329,7 +329,7 @@ obj pq_tail;
 
 void pq_enqueue(obj o) {
   // the lower the rank, the closer the rib is to pq_head
-  if (PQ_NEXT(o) == _NULL && pq_head != o && pq_tail != o) {
+  if (PQ_NEXT(o) == _NULL && pq_tail != o) {
     if (PQ_IS_EMPTY()){
       pq_head = o;
       pq_tail = o;
@@ -369,7 +369,7 @@ obj pq_dequeue() {
 }
 
 void pq_remove(obj o) {
-  if ((PQ_NEXT(o) == _NULL && pq_head != o && pq_tail != o) || pq_head == _NULL) { // o not in set?
+  if (PQ_NEXT(o) == _NULL && pq_tail != o) { // o not in set?
     return;
   }
   if (pq_head == o) {
@@ -406,7 +406,7 @@ void pq_remove(obj o) {
 void pq_enqueue(obj o) {
   // In the case of the pqueue, we could attempt to add the
   // same rib twice (e.g. if two ribs have the same co-friend)
-  if (PQ_NEXT(o) == _NULL && pq_head != o && pq_tail != o) {
+  if (PQ_NEXT(o) == _NULL && pq_tail != o) {
     if (PQ_IS_EMPTY()){
       pq_head = o;
     } else {
@@ -470,7 +470,7 @@ obj pq_dequeue() {
 }
 
 void pq_remove(obj o) {
-  if ((PQ_NEXT(o) == _NULL && pq_head != o && pq_tail != o) || pq_head == _NULL) { // o not in set?
+  if ((PQ_NEXT(o) == _NULL && pq_tail != o)) { // o not in set?
     return;
   }
   if (pq_head == o) {
