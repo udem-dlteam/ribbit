@@ -11,7 +11,7 @@
  * TODO
  * - Ref count (make sure all non-cyclic ribs are collected, adapt io and sys
  *   primitives, apply, ... you know, make it work)
- * - Mirror fields with offset
+ * - Mirror fields with offset or with explicit mirror fields
  * - Double mirror fields
  * - Call a GC for every instruction to make sure everything is collected...
  *   (do that for the bootstrap, the test suite, and fuzzing)
@@ -19,13 +19,15 @@
  *
  * When the stars will align
  * - Queues implemented directly on the heap with (potentially) a sorting phase
+ *   OR make the heap dynamic
  * - Allocation strategy using ref count rather than ranks
- * - Don't link TRUE, NIL, and FALSE
+ * - Don't chain FALSE's referrers
  * - Better system for negative ranks
  * - Reranking phase
  * - Finalizers
  * - Concurrent or parallel deallocation (probably won't happen for ribbit)
  * - Memory transactions for mutations
+ * - Ref count / mark-and-sweep: last object should be a "null rib", not _NULL
  * - Make it a full RVM: add missing features from the original RVM (encoding,
  *   sys primitives, (DEBUG, NO_STD, lzss compression, ARG_V, clang support, 
  *   stop & copy GC, DEFAULT_REPL_MIN, NOSTART, CHECK_ACCESS, etc.)
@@ -200,8 +202,17 @@ obj symbol_table = NUM_0;
 
 size_t pos = 0;
 
-#define TRUE (CAR(FALSE))
-#define NIL (CDR(FALSE))
+// TRUE and NIL are always live objects so there's no need to chain their
+// referrers (they will never be dropped since they're always reachable from
+// FALSE, for the check to work in `add_ref`, TRUE and NIL must be defined
+// before FALSE become an object, this also allows for FALSE to become their
+// parent before we stop chaining their referrers
+// FIXME apply the same logic to FALSE, something causes a leak if I don't
+// chain FALSE for the moment, not sure why that is
+obj TRUE = NUM_0;
+obj NIL = NUM_0;
+/* #define TRUE (CAR(FALSE)) */
+/* #define NIL (CDR(FALSE)) */
 
 #define TOS (CAR(stack))
 
@@ -388,10 +399,6 @@ void pq_remove(obj o) {
       prev = curr;
       curr = PQ_NEXT(curr);
     }
-    
-    // FIXME not sure why this still happens...
-    if (curr == _NULL) return;
-
     if (curr == pq_tail) {
       pq_tail = prev;
     }
@@ -489,10 +496,6 @@ void pq_remove(obj o) {
       prev = curr;
       curr = PQ_NEXT(curr);
     }
-    
-    // FIXME not sure why this still happens...
-    if (curr == _NULL) return;
-
     if (curr == pq_tail) {
       pq_tail = prev;
     }
@@ -571,6 +574,9 @@ void pq_remove(obj o) {
 
 #define is_collectable(x) (!is_root(x) && !is_protected(x))
 #define is_root(x) (x == pc || x == stack || x == FALSE)
+
+// FIXME add FALSE 
+#define is_immortal(x) (x == TRUE || x == NIL)
 
 
 #ifdef PARENT_FIELD
@@ -877,8 +883,8 @@ void wipe_cofriend(obj x, obj cfr, int i) {
 // set `from` as the parent of `to` right away if the edge is dirty)
 #define add_edge(from, to, i) add_cofriend(to, from, i)
 
-// Assumes `from` is a rib and we ignore self-references
-#define add_ref(from, to, i) if (IS_RIB(to) && from != to) add_edge(from, to, i)
+// Assumes `from` is a rib and we ignore self-references (and refs to TRUE/NIL)
+#define add_ref(from, to, i) if (IS_RIB(to) && !is_immortal(to) && from != to) add_edge(from, to, i)
 
 //------------------------------------------------------------------------------
 
@@ -999,7 +1005,7 @@ void dealloc_rib(obj x){
         }
       } else { // not a child, only need to remove x from co-friend's list
         // TODO faster way to check if we try to wipe the same co-friend twice
-        if (!is_falling(_x[i]) && CFR(_x[i]) != _NULL) {
+        if (!is_immortal(_x[i]) && !is_falling(_x[i]) && CFR(_x[i]) != _NULL) {
           if (i == 0) {
             wipe_cofriend(_x[i], x, i);
           } else if (i == 1 && _x[1] != _x[0]) {
@@ -1053,7 +1059,7 @@ void remove_edge(obj from, obj to, int i) {
 }
 
 // FIXME should we just assume that `from` is a rib to avoid the type check?
-#define remove_ref(from, to, i) if (IS_RIB(to) && from != to) remove_edge(from, to, i)
+#define remove_ref(from, to, i) if (IS_RIB(to) && !is_immortal(to) && from != to) remove_edge(from, to, i)
 
 // FIXME need to generalize this so that it works with any protected field
 #define remove_ref_nr(to, i) remove_edge(null_rib, to, i); TEMP5 = _NULL;
@@ -1940,8 +1946,6 @@ void init_heap() {
     alloc = scan; // alloc <- address of previous slot
     scan -= RIB_NB_FIELDS; // scan <- address of next rib slot
     *scan = (obj)alloc; // CAR(next rib) <- address of previous slot
-#ifndef REF_COUNT
-#endif
   }
   alloc = scan;
   stack = NUM_0;
@@ -1950,7 +1954,9 @@ void init_heap() {
 #define INIT_FALSE()                                                           \
   FALSE = TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),   \
                             TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),   \
-                            SINGLETON_TAG));
+                            SINGLETON_TAG));                                   \
+  TRUE = CAR(FALSE);                                                           \
+  NIL = CDR(FALSE)
 
 // Build symbol table
 
