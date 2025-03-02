@@ -47,17 +47,7 @@
 #define REF_COUNT
 // )@@
 
-// @@(feature parent-field
 #define PARENT_FIELD
-// )@@
-
-// @@(feature queue-no-remove
-#define QUEUE_NO_REMOVE
-// )@@
-
-// @@(feature linked-list
-#define LINKED_LIST
-// )@@
 
 // @@(feature debug/rib-viz
 #define VIZ
@@ -92,6 +82,19 @@ typedef unsigned long obj;
 // a number
 typedef long num;
 
+// @@(feature parent-field
+#define PARENT_FIELD
+// )@@
+
+// @@(feature queue-no-remove
+// Queue with the remove in dequeue, faster but requires one extra field
+#define QUEUE_NO_REMOVE
+// )@@
+
+// @@(feature linked-list
+#define LINKED_LIST
+// )@@
+
 #ifdef REF_COUNT
 #define RIB_NB_FIELDS 4
 #else
@@ -111,17 +114,7 @@ typedef long num;
 #endif
 
 typedef struct {
-  obj fields[3];   // fields, references or nums
-  obj m_fields[3]; // mirror fields
-  obj refs;        // list of referrers
-  obj rank;        // object's rank
-  obj queue;       // drop and anchor/catch queue field
-#ifdef QUEUE_NO_REMOVE
-  obj catch_queue; // anchor/catch field
-#endif
-#ifdef PARENT_FIELD
-  obj p_field;     // explicit parent field
-#endif
+  obj fields[RIB_NB_FIELDS];
 } rib;
 
 #define CAR(x) RIB(x)->fields[0]
@@ -129,24 +122,30 @@ typedef struct {
 #define TAG(x) RIB(x)->fields[2]
 
 #ifndef REF_COUNT
-#define M_CAR(x) RIB(x)->m_fields[0]
-#define M_CDR(x) RIB(x)->m_fields[1]
-#define M_TAG(x) RIB(x)->m_fields[2]
-#define CFR(x) RIB(x)->refs
-#ifdef PARENT_FIELD
-#define PAR(x) RIB(x)->p_field
-#endif
-#define RANK(x) RIB(x)->rank
-#define Q_NEXT(x) RIB(x)->queue
+// mirror fields
+#define M_CAR(x) RIB(x)->fields[3]
+#define M_CDR(x) RIB(x)->fields[4]
+#define M_TAG(x) RIB(x)->fields[5]
+ // co-friends
+#define CFR(x) RIB(x)->fields[6]
+#define RANK(x) RIB(x)->fields[7]
+// queue next
+#define Q_NEXT(x) RIB(x)->fields[8]
+
 #ifdef QUEUE_NO_REMOVE
-#define PQ_NEXT(x) RIB(x)->catch_queue
+#define PQ_NEXT(x) RIB(x)->fields[9]
 #else
 #define PQ_NEXT(x) Q_NEXT(x)
 #endif
+
+#ifdef PARENT_FIELD
+// FIXME insert this between CFR and RANK
+#define PAR(x) RIB(x)->fields[RIB_NB_FIELDS-1]
+#endif
 #endif
 
+// FIXME try to be a bit more consistant with the notation...
 #define get_field(x,i) RIB(x)->fields[i]
-#define get_m_field(x,i) RIB(x)->m_fields[i]
 
 #define UNTAG(x) ((x) >> 2)
 #define NUM(x) ((num)(UNTAG((num)(x))))
@@ -165,12 +164,12 @@ typedef struct {
 // not a big deal for Ribbit since the roots are known (and there's very few of
 // them) but a different mechanism (or another bit should be used) in another
 // system to avoid this problem
-#define protect(o) RANK(o) = MARK(RANK(o))
+#define protect(o) get_field(o,7) = MARK(RANK(o))
 #define is_protected(o) (IS_RIB(o) && IS_MARKED(RANK(o)))
 #define unprotect(o)                                                           \
   do {                                                                         \
     if (IS_RIB(o)) {                                                           \
-      RANK(o) = UNMARK(RANK(o));                                               \
+      get_field(o,7) = UNMARK(RANK(o));                                        \
       remove_root(o);                                                          \
     }                                                                          \
   } while (0)
@@ -571,9 +570,14 @@ void pq_remove(obj o) {
 // Returns the index of `cfr`'s mirror field of the FIRST field that contains a
 // reference to `x`, should only be used to get a reference to `cfr`'s successor
 // when `cfr` is known to have at least one reference to `x`
-#define get_mirror_index(x, cfr) ((get_field(cfr,0) == x) ? 0 : (get_field(cfr,1) == x) ? 1 : 2)
+#define get_mirror_field(x, cfr) ((get_field(cfr,0) == x) ? 3 : (get_field(cfr,1) == x) ? 4 : 5)
 
-#define next_cofriend(x, cfr) (get_m_field(cfr, get_mirror_index(x, cfr)))
+
+// the referrer itself minus the mirror field offset
+#define referrer(ref) ((ref)&(~7))
+#define mirror_field(ref, i) ((ref)|(i+3))
+
+#define next_cofriend(x, cfr) (get_field(cfr, get_mirror_field(x, cfr)))
 
 #define is_collectable(x) (!is_root(x) && !is_protected(x))
 #define is_root(x) (x == pc || x == stack || x == FALSE)
@@ -589,6 +593,8 @@ void pq_remove(obj o) {
 
 #define is_parent(x, p) (PAR(x) == p)
 #define get_parent(x) PAR(x)
+
+// Don't offset parent field
 #define set_parent(x,p,i) get_parent(x) = p
 
 void add_cofriend(obj x, obj cfr, int i) {
@@ -596,14 +602,14 @@ void add_cofriend(obj x, obj cfr, int i) {
   // corresponds to the situation where a newly allocated object or structure
   // gets connected to an existing spanning tree in the spanning forest
   if (CFR(x) == _NULL) {
-    CFR(x) = cfr;
+    CFR(x) = mirror_field(cfr, i);
     // Important: adding a new reference to a parentless root should be treated
     // the same as simply adding a new co-friend even if the referrer is the
     // root's only co-friend, in practice this means that this operation should
     // have no impact on the root's rank (see the paper for a counter-example
     // where a cycle is created and an unsafe adoption occurs because of that)
     if (is_collectable(x)) {
-      get_parent(x) = cfr;
+      set_parent(x, cfr, i);
       ovf_set_rank(x, get_rank(cfr)+1);
     }
     return;
@@ -612,16 +618,16 @@ void add_cofriend(obj x, obj cfr, int i) {
   // is already valid, only need to add a reference to `cfr` from `x`'s i'th
   // mirror field
   for (int j = 0; j < 3; j++) {
-    if (j == i) continue; 
+    if (j == i) continue;
     if (get_field(cfr, j) == x) {
-      get_m_field(cfr, i) = get_m_field(cfr, j);
+      get_field(cfr, i+3) = get_field(cfr, j+3);
       return;
     }
   }
-  get_m_field(cfr, i) = CFR(x);
-  CFR(x) = cfr;
+  // Case 3
+  get_field(cfr, i+3) = CFR(x); // no offset, already pointing to right mirror
+  CFR(x) = mirror_field(cfr, i);
 }
-
 
 void remove_cofriend(obj x, obj cfr, int i) {
   // Should be called "remove_cfr_reference" or something because `cfr` is
@@ -632,28 +638,33 @@ void remove_cofriend(obj x, obj cfr, int i) {
   for (int j = 0; j < 3; j++) {
     if (j == i) continue;
     if (get_field(cfr, j) == x) {
-      get_m_field(cfr, i) = _NULL;
+      get_field(cfr, i+3) = _NULL;
+      // FIXME shouldn't return here, we should find the previous object
+      // and change its corresponding mirror field if necessary
       return;
     }
   }
-  if (CFR(x) == cfr) {
-    CFR(x) = get_m_field(cfr, i);
-    get_m_field(cfr, i) = _NULL;
+  
+  // Only one reference and it's the first referrer, make referrer pointer point to
+  // corresponding mirror field of first referrer
+  if (referrer(CFR(x)) == cfr) {
+    CFR(x) = get_field(cfr, i+3);
+    get_field(cfr, i+3) = _NULL;
     return;
   }
   // Case 2: `cfr` only has one reference to `x` and so must be removed from
   // `x`'s co-friends
-  obj curr = CFR(x); // assumes `cfr` is not the parent
-  obj prev;
-  while (curr != cfr && curr != _NULL) { // find `cfr` and his predecessor
-    prev = curr;
-    curr = next_cofriend(x, curr);
+  obj curr = CFR(x); // next after first co-friend
+  obj prev; // first referrer
+  while (referrer(curr) != cfr && referrer(curr) != _NULL) { // find `cfr` and his predecessor
+    prev = referrer(curr);
+    curr = get_field(prev, curr-prev);// get_field(prev, curr-prev); // next_cofriend(x, curr);
   }
-  obj tmp = get_m_field(cfr, i); // `cfr`'s successor, could be _NULL
-  get_m_field(cfr, i) = _NULL; // remove ref from `cfr` to old successor
+  obj tmp = get_field(cfr, i+3); // `cfr`'s successor (mirror field), could be _NULL
+  get_field(cfr, i+3) = _NULL; // remove ref from `cfr` to old successor
   for (int j = 0; j < 3; j++) { // link predecessor with `cfr`'s old successor
     if (get_field(prev, j) == x) {
-      get_m_field(prev, j) = tmp;
+      get_field(prev, j+3) = tmp;
     }
   }
 }
@@ -661,26 +672,26 @@ void remove_cofriend(obj x, obj cfr, int i) {
 void wipe_cofriend(obj x, obj cfr, int i) {
   // Same as above but fully removes the co-friend regardless of the number of
   // references from `cfr` to `x`
-  if (CFR(x) == cfr) {
-    CFR(x) = get_m_field(cfr, i);
+  if (referrer(CFR(x)) == cfr) {
+    CFR(x) = get_field(cfr, i+3);
     for (int j = 0; j < 3; j++) { // link predecessor with `cfr`'s old successor
       if (get_field(cfr, j) == x) {
-        get_m_field(cfr, j) = _NULL;
+        get_field(cfr, j+3) = _NULL;
       }
     }
     return;
   }
-  obj curr = CFR(x); // assumes `cfr` is not the parent
-  obj prev;
-  while (curr != cfr && curr != _NULL) { // find `cfr` and his predecessor
-    prev = curr;
-    curr = next_cofriend(x, curr);
-  }  
-  obj tmp = get_m_field(cfr, i); // `cfr`'s successor, could be _NULL
-  get_m_field(cfr, i) = _NULL; // remove ref from `cfr` to old successor
+  obj curr = CFR(x); // next after first co-friend
+  obj prev; // first referrer  
+  while (referrer(curr) != cfr && referrer(curr) != _NULL) { // find `cfr` and his predecessor
+    prev = referrer(curr);
+    curr = get_field(prev, curr-prev); // next_cofriend(x, curr);
+  }
+  obj tmp = get_field(cfr, i+3); // `cfr`'s successor (mirror field), could be _NULL
+  get_field(cfr, i+3) = _NULL; // remove ref from `cfr` to old successor
   for (int j = 0; j < 3; j++) { // link predecessor with `cfr`'s old successor
     if (get_field(prev, j) == x) {
-      get_m_field(prev, j) = tmp;
+      get_field(prev, j+3) = tmp;
     }
   }
 }
@@ -694,7 +705,7 @@ void remove_parent(obj x, obj p, int i) {
   for (int j = 0; j < 3; j++) {
     if (j == i) continue;
     if (get_field(p, j) == x) {
-      get_m_field(p, i) = _NULL;
+      get_field(p, i+3) = _NULL;
       return;
     }
   }
@@ -705,11 +716,12 @@ void remove_parent(obj x, obj p, int i) {
   // considered "unsafe" and so this function should only be called before a
   // drop phase (like in `remove_edge`)
   wipe_cofriend(x, p, i);
-  get_parent(x) = _NULL; // get_field(p, i+3); // next co-friend becomes the parent
-  get_m_field(p, i) = _NULL;
+  get_parent(x) = _NULL; 
+  get_field(p, i+3) = _NULL; // FIXME already set to _NULL?
 }
 
-#define wipe_parent(x,p,i) wipe_cofriend(x,p,i); get_parent(x) = _NULL; get_m_field(p, i) = _NULL
+// FIXME mirror field already set to _NULL?
+#define wipe_parent(x,p,i) wipe_cofriend(x,p,i); get_parent(x) = _NULL; get_field(p, i+3) = _NULL
 
 #else
 
@@ -737,7 +749,7 @@ void set_parent(obj x, obj p, int i) {
   // Case 2: `p` was not a co-friend, it becomes the first co-friend
   // TODO need a faster way to detect that case
   if (curr == _NULL) {
-    get_m_field(p, i) = old_parent; // only need to set one mirror field
+    get_field(p, i+3) = old_parent; // only need to set one mirror field
     get_parent(x) = p; 
     return;
   }
@@ -746,12 +758,12 @@ void set_parent(obj x, obj p, int i) {
   get_parent(x) = p;
   for (int j = 0; j < 3; j++) { // set `p`'s mirror fields
     if (get_field(p, j) == x) {
-      get_m_field(p, j) = old_parent;
+      get_field(p, j+3) = old_parent;
     }
   }
   for (int j = 0; j < 3; j++) { // link predecessor with `p`'s old successor
     if (get_field(prev, j) == x) {
-      get_m_field(prev, j) = next;
+      get_field(prev, j+3) = next;
     }
   }
 }
@@ -765,7 +777,7 @@ void remove_parent(obj x, obj p, int i) {
   for (int j = 0; j < 3; j++) {
     if (j == i) continue;
     if (get_field(p, j) == x) {
-      get_m_field(p, i) = _NULL;
+      get_field(p, i+3) = _NULL;
       return;
     }
   }
@@ -775,15 +787,15 @@ void remove_parent(obj x, obj p, int i) {
   // the parent/child relationship is restructured), this operation should be
   // considered "unsafe" and so this function should only be called before a
   // drop phase (like in `remove_edge`)
-  get_parent(x) = get_m_field(p, i); // next co-friend becomes the parent
-  get_m_field(p, i) = _NULL;
+  get_parent(x) = get_field(p, i+3); // next co-friend becomes the parent
+  get_field(p, i+3) = _NULL;
 }
 
 void wipe_parent(obj x, obj p, int i) {
   // Same as above but fully removes the parent regardless of the number of
   // references from `p` to `x`
-  get_parent(x) = get_m_field(p, i); // next co-friend becomes the parent
-  get_m_field(p, i) = _NULL;
+  get_parent(x) = get_field(p, i+3); // next co-friend becomes the parent
+  get_field(p, i+3) = _NULL;
 }
 
 void add_cofriend(obj x, obj cfr, int i) {
@@ -806,11 +818,11 @@ void add_cofriend(obj x, obj cfr, int i) {
   }
   // Case 2: `cfr` already has a reference to `x` and so the list of co-friends
   // is already valid, only need to add a reference to `cfr` from `x`'s i'th
-  // mirror field
+  // mirror field  
   for (int j = 0; j < 3; j++) {
     if (j == i) continue; 
     if (get_field(cfr, j) == x) {
-      get_m_field(cfr, i) = get_m_field(cfr, j);
+      get_field(cfr, i+3) = get_field(cfr, j+3);
       return;
     }
   }
@@ -818,13 +830,13 @@ void add_cofriend(obj x, obj cfr, int i) {
   // co-friends. This is done by inserting `cfr` between `x`'s parent and the
   // next co-friend (trying to keep co-friends ordered is useless since a
   // co-friend's rank might change after a drop)
-  obj tmp = get_m_field(p, get_mirror_index(x, p)); // old co-friend pointed by p
+  obj tmp = get_field(p, get_mirror_field(x, p)); // old co-friend pointed by p
   for (int j = 0; j < 3; j++) { // set the parent's mirror fields
     if (get_field(p, j) == x) {
-      get_m_field(p, j) = cfr;
+      get_field(p, j+3) = cfr;
     }
   }
-  get_m_field(cfr, i) = tmp; // set `cfr` mirror field
+  get_field(cfr, i+3) = tmp; // set `cfr` mirror field
 }
 
 void remove_cofriend(obj x, obj cfr, int i) {
@@ -836,7 +848,7 @@ void remove_cofriend(obj x, obj cfr, int i) {
   for (int j = 0; j < 3; j++) {
     if (j == i) continue;
     if (get_field(cfr, j) == x) {
-      get_m_field(cfr, i) = _NULL;
+      get_field(cfr, i+3) = _NULL;
       return;
     }
   }
@@ -848,11 +860,11 @@ void remove_cofriend(obj x, obj cfr, int i) {
     prev = curr;
     curr = next_cofriend(x, curr);
   }
-  obj tmp = get_m_field(cfr, i); // `cfr`'s successor, could be _NULL
-  get_m_field(cfr, i) = _NULL; // remove ref from `cfr` to old successor
+  obj tmp = get_field(cfr, i+3); // `cfr`'s successor, could be _NULL
+  get_field(cfr, i+3) = _NULL; // remove ref from `cfr` to old successor
   for (int j = 0; j < 3; j++) { // link predecessor with `cfr`'s old successor
     if (get_field(prev, j) == x) {
-      get_m_field(prev, j) = tmp;
+      get_field(prev, j+3) = tmp;
     }
   }
 }
@@ -866,11 +878,11 @@ void wipe_cofriend(obj x, obj cfr, int i) {
     prev = curr;
     curr = next_cofriend(x, curr);
   }  
-  obj tmp = get_m_field(cfr, i); // `cfr`'s successor, could be _NULL
-  get_m_field(cfr, i) = _NULL; // remove ref from `cfr` to old successor
+  obj tmp = get_field(cfr, i+3); // `cfr`'s successor, could be _NULL
+  get_field(cfr, i+3) = _NULL; // remove ref from `cfr` to old successor
   for (int j = 0; j < 3; j++) { // link predecessor with `cfr`'s old successor
     if (get_field(prev, j) == x) {
-      get_m_field(prev, j) = tmp;
+      get_field(prev, j+3) = tmp;
     }
   }
 }
@@ -907,16 +919,18 @@ bool adopt(obj x) {
   // parent (doesn't matter which one we pick if we don't set the rank of
   // `x` during adoption)
   num rank = get_rank(x);
-  obj cfr = CFR(x);
+  obj cfr = referrer(CFR(x));
+  obj mirror = CFR(x);
   while (cfr != _NULL) {
     // FIXME need to make sure that the topological order is respected to
     // adopt with a cfr of the same rank as the parent
     if (!is_falling(cfr) && get_rank(cfr) < rank) {
-      set_parent(x, cfr, get_mirror_index(x, cfr)-3);
+      set_parent(x, cfr, get_mirror_field(x, cfr)-3);
       // ovf_set_rank(x, get_rank(cfr)+1); // not sure FIXME
       return 1;
     }
-    cfr = next_cofriend(x, cfr);
+    mirror = get_field(cfr, mirror-cfr);
+    cfr = referrer(mirror);
   }
   return 0;
 }
@@ -927,11 +941,13 @@ void drop() {
   obj x; // current "falling" rib
   obj *_x;
   obj cfr;
+  obj mirror;
 
   while (!Q_IS_EMPTY()) {
     x = q_dequeue();
     _x = RIB(x)->fields;
-    cfr = CFR(x);
+    cfr = referrer(CFR(x));
+    mirror = CFR(x);
     
     // making x's children "fall" along with him
     for (int i = 0; i < 3; i++) {
@@ -949,7 +965,8 @@ void drop() {
       if (!is_falling(cfr)) { // potential anchor?
         pq_enqueue(cfr);
       }
-      cfr = next_cofriend(x, cfr);
+      mirror = get_field(cfr, mirror-cfr);
+      cfr = referrer(mirror);
     }
   }
 }
@@ -995,7 +1012,7 @@ void dealloc_rib(obj x){
 #else
           // Can't just wipe the parent or else we might remove the wrong parent
           // if an object as two references to its child
-          if (CFR(_x[i]) != _NULL) {
+          if (referrer(CFR(_x[i])) != _NULL) {
             if (i == 0) {
               wipe_parent(_x[i], x, i);
             } else if (i == 1 && _x[1] != _x[0]) {
@@ -1341,8 +1358,8 @@ void push2(obj car, obj tag) {
 
   // new stack becomes the parent of old stack (avoids the potential drop)
   if (IS_RIB(old_stack)) {
-    get_m_field(new_rib, 1) = CFR(old_stack);
-    CFR(old_stack) = stack;
+    get_field(new_rib, 4) = CFR(old_stack);
+    CFR(old_stack) = mirror_field(stack,1);
 #ifdef PARENT_FIELD
     get_parent(old_stack) = stack;
 #endif
