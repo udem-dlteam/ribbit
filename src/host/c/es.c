@@ -921,7 +921,47 @@ bool adopt(obj x) {
   return 0;
 }
 
-#define _adopt(x) ((CFR(x) == _NULL) ? 0 : adopt(x))
+#define close_enough(ref) true
+
+bool upward_adopt(obj from, obj to, num d) {
+  if (from == to) return false;
+
+  if (!is_collectable(from)) {
+    set_rank(from, get_rank(from)-d);
+    return true;
+  } else {
+    if (upward_adopt(get_parent(from), to, d)) {
+      set_rank(from, get_rank(from)-d);
+      return true;
+    }
+    return false;
+  }
+}
+
+bool adUpt(obj x) {
+  // adoption with the possibility of an upward adoption for mutations
+  if (adopt(x)) return true;
+  num rank = get_rank(x);
+  obj cfr = CFR(x);
+  
+  // any way to merge this with the previous adoption loop?
+  cfr = CFR(x);
+  while (cfr != _NULL) {
+    if (close_enough(cfr) && upward_adopt(cfr, x, get_rank(cfr)-get_rank(x)+1)) {
+      get_parent(x) = cfr;
+      return 1;
+    }
+    cfr = next_cofriend(x, cfr);
+  }
+  return 0;
+}
+
+// FIXME
+// #define close_enough(ref) true
+/* #define close_enough(ref) (get_rank(ref) - get_rank(stack) < MAX_RANK) */
+
+// First adopt
+#define _adUpt(x) ((CFR(x) == _NULL) ? 0 : adUpt(x))
 
 void drop() {
   obj x; // current "falling" rib
@@ -1052,7 +1092,7 @@ void remove_edge(obj from, obj to, int i) {
   // disconnected and so a drop phase must ensue UNLESS `to` is protected or
   // if `to` can be adopted right away
   remove_parent(to, from, i); 
-  if (is_collectable(to) && !is_parent(to, from) && !_adopt(to)) {
+  if (is_collectable(to) && !is_parent(to, from) && !_adUpt(to)) {
     q_enqueue(to);
     fall(to); 
     drop();
@@ -1076,7 +1116,7 @@ void remove_node(obj old_root) {
   if (is_falling(old_root)) dealloc_rib(old_root);
 }
 
-#define remove_root(old_root) if (IS_RIB(old_root) && !_adopt(old_root)) remove_node(old_root)
+#define remove_root(old_root) if (IS_RIB(old_root) && !_adUpt(old_root)) remove_node(old_root)
 
 
 //------------------------------------------------------------------------------
