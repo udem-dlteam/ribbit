@@ -47,8 +47,9 @@
 #define REF_COUNT
 // )@@
 
-// @@(feature parent-field
 #define PARENT_FIELD
+// @@(feature not-parent-field
+#undef PARENT_FIELD
 // )@@
 
 // @@(feature queue-no-remove
@@ -69,6 +70,7 @@ void viz_heap(char* name);
 #define FALLING_RIB_RANK 1152921504606846975
 #define MAX_RANK 1152921504606846974
 #define MIN_RANK -1152921504606846976
+#define MAX_ADUPT_TRIES 10
 
 // @@(feature debug/clean-ribs
 #define CLEAN_RIBS
@@ -924,30 +926,25 @@ bool adopt(obj x) {
 #define close_enough(ref) true
 
 bool upward_adopt(obj from, obj to, num d) {
+  if (from == _NULL) return false;
   if (from == to) return false;
+  if (is_falling(from)) return false;
 
-  if (!is_collectable(from)) {
+  if (is_root(from) || upward_adopt(get_parent(from), to, d)) {
     set_rank(from, get_rank(from)-d);
     return true;
-  } else {
-    if (upward_adopt(get_parent(from), to, d)) {
-      set_rank(from, get_rank(from)-d);
-      return true;
-    }
-    return false;
   }
+  return false;
 }
 
 bool adUpt(obj x) {
   // adoption with the possibility of an upward adoption for mutations
-  if (adopt(x)) return true;
-  num rank = get_rank(x);
+  if (adopt(x)) return 1;
   obj cfr = CFR(x);
   
   // any way to merge this with the previous adoption loop?
-  cfr = CFR(x);
   while (cfr != _NULL) {
-    if (close_enough(cfr) && upward_adopt(cfr, x, get_rank(cfr)-get_rank(x)+1)) {
+    if (upward_adopt(cfr, x, get_rank(cfr)-get_rank(x)+1)) {
       get_parent(x) = cfr;
       return 1;
     }
@@ -968,6 +965,8 @@ void drop() {
   obj *_x;
   obj cfr;
 
+  long adUpt_tries = 0;
+
   while (!Q_IS_EMPTY()) {
     x = q_dequeue();
     _x = RIB(x)->fields;
@@ -976,7 +975,7 @@ void drop() {
     // making x's children "fall" along with him
     for (int i = 0; i < 3; i++) {
       if (IS_RIB(_x[i]) && is_parent(_x[i], x) && (is_collectable(_x[i]))) {
-        if (!is_falling(_x[i]) && !adopt(_x[i])) {
+        if (!is_falling(_x[i]) && !(adUpt_tries++ < MAX_ADUPT_TRIES && adUpt(_x[i]))) {
           // if we loosen here instead of when we dequeue, we can reuse the
           // queue field for the priority queue
           loosen(_x[i]);
