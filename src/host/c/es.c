@@ -65,10 +65,6 @@
 void viz_heap(char* name);
 // )@@
 
-// @@(feature limit-adopt
-#define LIMIT_ADOPT
-// )@@
-
 // TODO use limits instead
 #define UNALLOCATED_RIB_RANK 1152921504606846976
 #define FALLING_RIB_RANK 1152921504606846975
@@ -978,13 +974,7 @@ void drop() {
     for (int i = 0; i < 3; i++) {
       obj child = _x[i];
       if (IS_RIB(child) && is_parent(child, x) && (is_collectable(child))) {
-        if (!is_falling(child) &&
-#ifdef LIMIT_ADOPT
-          !(adUpt_tries++ < MAX_ADUPT_TRIES && adUpt(child))
-#else
-          !(adUpt_tries++ < MAX_ADUPT_TRIES ? adUpt(child) : adopt(child))
-#endif
-          )
+        if (!is_falling(child) && !(adUpt_tries++ < MAX_ADUPT_TRIES ? adUpt(child) : adopt(child)))
         {
           // if we loosen here instead of when we dequeue, we can reuse the
           // queue field for the priority queue
