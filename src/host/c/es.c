@@ -906,7 +906,7 @@ void wipe_cofriend(obj x, obj cfr, int i) {
 #define deallocate(x) set_rank(x, UNALLOCATED_RIB_RANK)
 #define is_deallocated(x) (get_rank(x) == UNALLOCATED_RIB_RANK)
 
-#define loosen(x) fall(x); pq_remove(x)
+//#define loosen(x) fall(x); pq_remove(x)
 
 bool adopt(obj x) {
   // Take the first co-friend with a rank lower than `x` and make it `x`'s
@@ -976,19 +976,21 @@ void drop() {
     
     // making x's children "fall" along with him
     for (int i = 0; i < 3; i++) {
-      if (IS_RIB(_x[i]) && is_parent(_x[i], x) && (is_collectable(_x[i]))) {
-        if (!is_falling(_x[i]) &&
+      obj child = _x[i];
+      if (IS_RIB(child) && is_parent(child, x) && (is_collectable(child))) {
+        if (!is_falling(child) &&
 #ifdef LIMIT_ADOPT
-          !(adUpt_tries++ < MAX_ADUPT_TRIES && adUpt(_x[i]))
+          !(adUpt_tries++ < MAX_ADUPT_TRIES && adUpt(child))
 #else
-          !(adUpt_tries++ < MAX_ADUPT_TRIES ? adUpt(_x[i]) : adopt(_x[i]))
+          !(adUpt_tries++ < MAX_ADUPT_TRIES ? adUpt(child) : adopt(child))
 #endif
           )
         {
           // if we loosen here instead of when we dequeue, we can reuse the
           // queue field for the priority queue
-          loosen(_x[i]);
-          q_enqueue(_x[i]);
+          fall(child); 
+          pq_remove(child);
+          q_enqueue(child);
         }
       }
     }
