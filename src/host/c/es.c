@@ -65,6 +65,10 @@
 void viz_heap(char* name);
 // )@@
 
+// @@(feature always-adupt
+#define ALWAYS_ADUPT
+// )@@
+
 // TODO use limits instead
 #define UNALLOCATED_RIB_RANK 1152921504606846976
 #define FALLING_RIB_RANK 1152921504606846975
@@ -973,8 +977,14 @@ void drop() {
     // making x's children "fall" along with him
     for (int i = 0; i < 3; i++) {
       obj child = _x[i];
-      if (IS_RIB(child) && is_parent(child, x) && (is_collectable(child))) {
-        if (!is_falling(child) && !(adUpt_tries++ < MAX_ADUPT_TRIES ? adUpt(child) : adopt(child)))
+      if (IS_RIB(child) && is_parent(child, x) && is_collectable(child)) {
+        if (!is_falling(child) && 
+#ifdef ALWAYS_ADUPT
+            !adUpt(child)
+#else
+            !(adUpt_tries++ < MAX_ADUPT_TRIES ? adUpt(child) : adopt(child))
+#endif
+        )
         {
           // if we loosen here instead of when we dequeue, we can reuse the
           // queue field for the priority queue
