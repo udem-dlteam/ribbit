@@ -128,8 +128,8 @@ clean:
 check-es: rsc.exe
 	echo "====================== TESTING HOST c"
 	HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" make check
-	echo "====================== TESTING HOST c (limit-adopt)"
-	HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ limit-adopt" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" make check
+	echo "====================== TESTING HOST c (always-adupt)"
+	HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ always-adupt" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" make check
 	echo "====================== TESTING HOST c (queue-no-remove)"
 	HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ queue-no-remove" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" make check
 
