@@ -1463,7 +1463,7 @@ void push2(obj car, obj tag) {
   *alloc++ = _NULL;      // mirror 2
   *alloc++ = _NULL;      // mirror 3
   *alloc++ = _NULL;      // co-friends
-#ifdef global_rank_counter
+#ifdef GLOBAL_RANK_COUNTER
   *alloc++ = TAG_NUM(alloc_rank); 
 #else
   *alloc++ = TAG_NUM(0); 
@@ -1515,7 +1515,7 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   *alloc++ = _NULL;      // mirror 2
   *alloc++ = _NULL;      // mirror 3
   *alloc++ = _NULL;      // co-friends
-#ifdef global_rank_counter
+#ifdef GLOBAL_RANK_COUNTER
   *alloc++ = TAG_NUM(alloc_rank); 
 #else
   *alloc++ = TAG_NUM(0); 
