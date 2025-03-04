@@ -69,6 +69,11 @@ void viz_heap(char* name);
 #define ALWAYS_ADUPT
 // )@@
 
+#define GLOBAL_RANK_COUNTER
+// @@(feature no-global-rank-counter
+#undef GLOBAL_RANK_COUNTER
+// )@@
+
 // TODO use limits instead
 #define UNALLOCATED_RIB_RANK 1152921504606846976
 #define FALLING_RIB_RANK 1152921504606846975
@@ -1376,7 +1381,11 @@ void push2(obj car, obj tag) {
   *alloc++ = _NULL;      // mirror 2
   *alloc++ = _NULL;      // mirror 3
   *alloc++ = _NULL;      // co-friends
+#ifdef global_rank_counter
   *alloc++ = TAG_NUM(alloc_rank); 
+#else
+  *alloc++ = TAG_NUM(0); 
+#endif
   *alloc++ = _NULL;      // queue and priority queue
 #ifdef QUEUE_NO_REMOVE
   *alloc++ = _NULL;
@@ -1424,7 +1433,12 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   *alloc++ = _NULL;      // mirror 2
   *alloc++ = _NULL;      // mirror 3
   *alloc++ = _NULL;      // co-friends
+#ifdef global_rank_counter
   *alloc++ = TAG_NUM(alloc_rank); 
+#else
+  *alloc++ = TAG_NUM(0); 
+#endif
+
   *alloc++ = _NULL;      // queue and priority queue
 #ifdef QUEUE_NO_REMOVE
   *alloc++ = _NULL;
