@@ -619,6 +619,8 @@ void pq_wipe() {
 // TODO need to document this section, the comments are the same as the ones
 // for the no parent field version
 
+void remove_node(obj x);
+
 #define is_parent(x, p) (PAR(x) == p)
 #define get_parent(x) PAR(x)
 #define set_parent(x,p,i) get_parent(x) = p
@@ -635,8 +637,9 @@ void add_cofriend(obj x, obj cfr, int i) {
     // have no impact on the root's rank (see the paper for a counter-example
     // where a cycle is created and an unsafe adoption occurs because of that)
     if (is_collectable(x)) {
-      get_parent(x) = cfr;
-      ovf_set_rank(x, get_rank(cfr)+1);
+      remove_node(x);
+      //get_parent(x) = cfr;
+      //ovf_set_rank(x, get_rank(cfr)+1);
     }
     return;
   }
