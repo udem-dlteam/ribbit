@@ -1070,13 +1070,19 @@ void set_stack(obj new_stack) {
   // TODO make set_stack a macro as well (conflict with _pop)
   obj old_stack = stack;
   stack = new_stack;
+  if (stack != NUM_0){
+    get_parent(stack) = _NULL;
+  }
   remove_root(old_stack);
 }
 
 #define set_pc(new_pc)                                                          \
   obj old_pc = pc;                                                              \
   pc = new_pc;                                                                  \
-  remove_root(old_pc)
+  if (pc != NUM_0){                                                             \
+    get_parent(pc) = _NULL;                                                       \
+  }                                                                            \
+  remove_root(old_pc);
 
 #else
 
