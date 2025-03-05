@@ -59,10 +59,15 @@
 #define LINKED_LIST
 // )@@
 
+// @@(feature debug-field
+#define DEBUG_FIELD
+// )@@
+
 // @@(feature debug/rib-viz
 #define VIZ
 void viz_heap(char* name);
 // )@@
+
 
 // @@(feature always-adupt
 #define ALWAYS_ADUPT
@@ -102,14 +107,22 @@ typedef unsigned long obj;
 // a number
 typedef long num;
 
+#ifdef QUEUE_NO_REMOVE
+#define QUEUE_NO_REMOVE_count 1
+#else
+#define QUEUE_NO_REMOVE_count 0
+#endif
+
+#ifdef DEBUG_FIELD
+#define DEBUG_FIELD_count 1
+#else
+#define DEBUG_FIELD_count 0
+#endif
+
 #ifdef REF_COUNT
 #define RIB_NB_FIELDS 4
 #else
-#ifdef QUEUE_NO_REMOVE
-#define RIB_NB_FIELDS 11
-#else
-#define RIB_NB_FIELDS 10
-#endif
+#define RIB_NB_FIELDS (10+QUEUE_NO_REMOVE_count+DEBUG_FIELD_count)
 #endif
 
 typedef struct {
@@ -122,6 +135,9 @@ typedef struct {
   obj catch_queue; // anchor/catch field
 #endif
   obj p_field;     // explicit parent field
+#ifdef DEBUG_FIELD
+  obj debug;       // debug field
+#endif
 } rib;
 
 #define CAR(x) RIB(x)->fields[0]
@@ -1283,6 +1299,9 @@ void push2(obj car, obj tag) {
   *alloc++ = _NULL;
 #endif
   *alloc++ = _NULL;
+#ifdef DEBUG_FIELD
+  *alloc++ = _NULL; // debug field
+#endif
 
   obj new_rib = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
   obj old_stack = stack;
@@ -1332,6 +1351,9 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   *alloc++ = _NULL;
 #endif
   *alloc++ = _NULL;
+#ifdef DEBUG_FIELD
+  *alloc++ = _NULL; // debug field
+#endif
 
   dec_alloc_rank();
 
