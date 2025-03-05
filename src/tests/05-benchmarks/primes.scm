@@ -1,3 +1,5 @@
+(define-macro (time . args)
+  `(begin ,@args))
 (define-macro (when c . body) `(if ,c (begin ,@body)))
 
 (define-macro (unless c . body) `(if (not ,c) (begin ,@body)))
@@ -69,3 +71,6 @@
     (lambda (r) (and (equal? (length r) 1229) (equal? (list-ref r 123) 683))))
 
 ((lambda (x) (if (null? x) x (car x))) %_____junk-data_____)
+;;;bench-run: -l define-macro -l r4rs
+;;;expected:
+;;;ok

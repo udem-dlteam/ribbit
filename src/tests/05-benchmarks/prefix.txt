@@ -1,0 +1,2 @@
+(define-macro (time . args)
+  `(begin ,@args))

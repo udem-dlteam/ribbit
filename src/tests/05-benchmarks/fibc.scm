@@ -1,3 +1,5 @@
+(define-macro (time . args)
+  `(begin ,@args))
 (define-macro (when c . body) `(if ,c (begin ,@body)))
 
 (define-macro (unless c . body) `(if (not ,c) (begin ,@body)))
@@ -63,3 +65,6 @@
     (lambda () (call-with-current-continuation (lambda (c) (fibc 20 c))))
     (lambda (result) (= result 6765)))
 ((lambda (x) (if (null? x) x (car x))) %_____junk-data_____)
+;;;bench-run: -l define-macro -l r4rs
+;;;expected:
+;;;ok
