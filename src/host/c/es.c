@@ -1332,7 +1332,8 @@ void push2(obj car, obj tag) {
   if (IS_RIB(old_stack)) {
     get_m_field(new_rib, 1) = CFR(old_stack);
     CFR(old_stack) = stack;
-    get_parent(old_stack) = stack;
+    //get_parent(old_stack) = stack;
+    remove_node(old_stack);
     // set_rank(old_stack, alloc_rank+1);
   }
   dec_alloc_rank();
