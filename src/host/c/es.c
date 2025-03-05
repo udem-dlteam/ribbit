@@ -68,6 +68,14 @@
 void viz_heap(char* name);
 // )@@
 
+// @@(feature dprint
+#define DPRINT
+#define dprint(...) printf(__VA_ARGS__)
+// )@@
+
+#ifndef DPRINT
+#define dprint(...) 0
+#endif
 
 // @@(feature check-spanning-tree (use debug/rib-viz debug-field)
 #define CHECK_SPANNING_TREE
@@ -1747,8 +1755,17 @@ obj prim(int no) {
 
 #define ADVANCE_PC() set_pc(TAG(pc))
 
+#ifdef DPRINT
+int irun = 0;
+#endif
+
 void run() { // evaluator
+  dprint("Entering run\n");
   while (1) {
+#ifdef DPRINT
+    if(irun == -1) { raise(SIGINT); }
+    dprint("Running... %d\n", irun++);
+#endif
     check_spanning_tree();
     num instr = NUM(CAR(pc));
     
@@ -2034,8 +2051,12 @@ rib *inst_tail(rib *lst, num i){
   return (i == 0) ? lst : inst_tail(RIB(lst->fields[2]), i - 1);
 }
 
+#ifdef DPRINT
+int idecode = 0;
+#endif
 // @@(feature encoding/optimal
 void decode() {
+  dprint("Entering decoding...\n");
   // @@(replace "{1,2,3}" (list->host encoding/optimal/start "{" "," "}")
   int weights[] = {1,2,3};
   // )@@
@@ -2044,6 +2065,10 @@ void decode() {
   int op;
   int i;
   while (1) {
+#ifdef DPRINT
+    if(irun == -1) { raise(SIGINT); }
+    dprint("Decoding... %d\n", idecode++);
+#endif
     check_spanning_tree();
     num x = GET_CODE();
     n = x;
@@ -2399,6 +2424,30 @@ void check_spanning_tree_impl(){
     viz_show_tree("after.dot", FALSE);
     raise(SIGINT);
   }
+}
+
+#endif
+
+#ifdef DPRINT
+
+num drank(obj o){
+  return NUM(RIB(o)->rank);
+}
+
+obj df(obj o, int i){
+  return RIB(o)->fields[i];
+}
+
+obj dref(obj o){
+  return RIB(o)->refs;
+}
+
+obj dpar(obj o){
+  return RIB(o)->p_field;
+}
+
+rib* r(obj o){
+  return RIB(o);
 }
 
 #endif
