@@ -1,3 +1,5 @@
+(define-macro (time . args)
+  `(begin ,@args))
 (define-macro (when c . body) `(if ,c (begin ,@body)))
 
 (define-macro (unless c . body) `(if (not ,c) (begin ,@body)))
@@ -80,10 +82,13 @@
 
 (run-bench
     (lambda ()
-      (mas (hide 600 '(24 23 22 21 20 19 18 17 16 15 14 13 12 11
+      (mas (hide 600 '(19 18 17 16 15 14 13 12 11
                        10  9  8  7  6  5  4  3  2  1))
            (hide 4 '(16 15 14 13 12 11 10  9  8  7  6  5  4  3  2  1))
            (hide 1 '(8 7 6  5  4  3  2  1))))
-    (lambda (r) (equal? r '(9 8 7 6 5 4 3 2 1))))
+    (lambda (r) (equal? r '(16 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1))))
 
 ((lambda (x) (if (null? x) x (car x))) %_____junk-data_____)
+;;;bench-run: -l define-macro -l r4rs
+;;;expected:
+;;;ok
