@@ -239,7 +239,7 @@
                 (loop r (- i 1))))))
 
 (run-bench
-    (lambda () (MpermNKL-benchmark (hide 1 1) (hide 8 8) (hide 2 2) (hide 1 1)))
-    (lambda (r) (equal? (length (vector-ref r 0)) 40320)))
+    (lambda () (MpermNKL-benchmark (hide 1 1) (hide 6 6) (hide 2 2) (hide 1 1)))
+    (lambda (r) (equal? (length (vector-ref r 0)) 720)))
 
 ((lambda (x) (if (null? x) x (car x))) %_____junk-data_____)

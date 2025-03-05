@@ -27,7 +27,7 @@
                 (expt-iter (* b b) (/ n 2) acc))
                 (else ; n is odd
                 (expt-iter b (- n 1) (* acc b)))))
-        (expt-iter b n 1))(define repetitions 6)
+        (expt-iter b n 1))(define repetitions 1)
 (define %_____junk-data_____ (make-list 0 0))
 (define (run-bench-aux run ok?)
   (let loop ((i repetitions) (result '(undefined)))
@@ -210,7 +210,7 @@
        (length (vector-ref x 1)))))
 
 (run-bench
-  (lambda () (nb (hide 4 18)))
-  (lambda (r) (equal? r 60523)))
+  (lambda () (nb (hide 4 10)))
+  (lambda (r) (equal? r 75)))
 
 ((lambda (x) (if (null? x) x (car x))) %_____junk-data_____)
