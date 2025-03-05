@@ -93,6 +93,10 @@ void check_spanning_tree_impl();
 #define ALWAYS_ADUPT
 // )@@
 
+// @@(feature no-adupt
+#define NO_ADUPT
+// )@@
+
 #define GLOBAL_RANK_COUNTER
 // @@(feature no-global-rank-counter
 #undef GLOBAL_RANK_COUNTER
@@ -892,10 +896,14 @@ void drop() {
       obj child = _x[i];
       if (IS_RIB(child) && is_parent(child, x) && is_collectable(child)) {
         if (!is_falling(child) && 
+#ifdef NO_ADUPT
+            !adopt(child)
+#else
 #ifdef ALWAYS_ADUPT
             !adUpt(child)
 #else
             !(adUpt_tries++ < MAX_ADUPT_TRIES ? adUpt(child) : adopt(child))
+#endif
 #endif
         )
         {
