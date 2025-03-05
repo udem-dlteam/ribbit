@@ -27,7 +27,7 @@
                 (expt-iter (* b b) (/ n 2) acc))
                 (else ; n is odd
                 (expt-iter b (- n 1) (* acc b)))))
-        (expt-iter b n 1))(define repetitions 7)
+        (expt-iter b n 1))(define repetitions 1)
 (define %_____junk-data_____ (make-list 0 0))
 (define (run-bench-aux run ok?)
   (let loop ((i repetitions) (result '(undefined)))
