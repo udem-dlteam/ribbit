@@ -69,6 +69,18 @@ void viz_heap(char* name);
 // )@@
 
 
+// @@(feature check-spanning-tree (use debug/rib-viz debug-field)
+#define CHECK_SPANNING_TREE
+void check_spanning_tree_impl();
+#define check_spanning_tree() check_spanning_tree_impl()
+#include <signal.h>
+// )@@
+
+#ifndef CHECK_SPANNING_TREE
+#define check_spanning_tree() 0
+#endif
+
+
 // @@(feature always-adupt
 #define ALWAYS_ADUPT
 // )@@
@@ -972,7 +984,8 @@ void dealloc_rib(obj x){
   CAR(x) = (obj)alloc; // deallocate the rib by adding it to the freelist
   alloc = (obj *)x;
   _x[6] = _NULL;
-  _x[RIB_NB_FIELDS-1] = _NULL;
+  get_parent(x) = _NULL;
+  //_x[RIB_NB_FIELDS-1] = _NULL;
   
 #ifdef CLEAN_RIBS
   for (int i = 1; i < RIB_NB_FIELDS; i++) {
@@ -1736,6 +1749,7 @@ obj prim(int no) {
 
 void run() { // evaluator
   while (1) {
+    check_spanning_tree();
     num instr = NUM(CAR(pc));
     
     // gc();
@@ -2030,6 +2044,7 @@ void decode() {
   int op;
   int i;
   while (1) {
+    check_spanning_tree();
     num x = GET_CODE();
     n = x;
     op = -1;
@@ -2200,6 +2215,8 @@ void init() {
 }
 
 
+
+
 #ifdef VIZ
 
 FILE* current_graph;
@@ -2232,58 +2249,62 @@ void viz_add_dot_edge_red(FILE* graph, obj from, obj to){
   fprintf(graph, "%ld -> %ld [style=dotted, color=red]\n ", from, to);
 }
 
-/* void viz_add_rib_label(FILE* graph, obj rib, obj car, obj cdr, obj tag, obj rank){ */
-/*   // write the value of the rib */
-/*   char* car_prefix = IS_RIB(car) ? "r" : ""; */
-/*   char* cdr_prefix = IS_RIB(cdr) ? "r" : ""; */
-/*   char* tag_prefix = IS_RIB(tag) ? "r" : ""; */
-/*   long rib_value = rib - ((long)heap_start); */
-/*   long car_value = IS_RIB(car) ? car-((long)heap_start) : NUM(car); */
-/*   long cdr_value = IS_RIB(cdr) ? cdr-((long)heap_start) : NUM(cdr); */
-/*   long tag_value = IS_RIB(tag) ? tag-((long)heap_start) : NUM(tag); */
-/*   long rank_value = NUM(rank); */
-/*   fprintf( */
-/*       graph, */
-/*       "%ld [label=\"%ld : [%s%ld,%s%ld,%s%ld] -- %ld\"]\n", */
-/*       rib, */
-/*       rib_value, */
-/*       car_prefix, car_value, */
-/*       cdr_prefix, cdr_value, */
-/*       tag_prefix, tag_value, */
-/*       rank_value); */
-/* } */
+void viz_add_node(FILE* graph, obj node, long rank, bool error){
+  // write the node "node"
+  char* color = error ? "red" : "black";
+  char* label = "";
+  if (node == stack) label = " stack";
+  if (node == pc) label = " pc";
+  if (node == FALSE) label = " FALSE";
+  if (node == TRUE) label = " TRUE";
+  if (node == NIL) label = " NIL";
+  fprintf(graph, "%ld [label=\"%ld %s\", color=%s]\n", node, rank,label, color);
+}
 
-/* void viz_heap(){ */
-/*   // to check manually if the tests are working properly */
-/*   current_graph = viz_start_graph("graph.dot"); */
-/*   scan=heap_top; */
-  
-/*   for (int i = 0; i <= MAX_NB_OBJS; i++) { */
-/* #ifdef REF_COUNT */
-/*     obj rank = scan[3]; */
-/* #else */
-/*     obj rank = scan[7]; */
-/* #endif */
-/*     if (IS_RIB(scan[0])) viz_add_edge(current_graph, scan, scan[0]); */
-/*     if (IS_RIB(scan[1])) viz_add_edge(current_graph, scan, scan[1]); */
-/*     if (IS_RIB(scan[2])) viz_add_edge(current_graph, scan, scan[2]); */
-/*     // viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank); */
-/*     if (scan == stack) { */
-/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-33)); */
-/*     } else if (scan == pc) { */
-/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-444)); */
-/*     } else if (scan == FALSE || scan == TRUE || scan == NIL) { */
-/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-5555)); */
-/*     } else if (scan == symbol_table) { */
-/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], TAG_NUM(-66666)); */
-/*     } else { */
-/*       viz_add_rib_label(current_graph, scan, scan[0], scan[1], scan[2], rank); */
-/*     } */
-/*     scan-=RIB_NB_FIELDS; */
-/*   } */
-/*   viz_end_graph(current_graph); */
-/*   // exit(1); */
-/* } */
+int _viz_show_tree(FILE* graph, obj root, int version){
+
+  // write the tree rooted at "root"
+  if (IS_RIB(root)) {
+    rib* r = RIB(root);
+
+    if(r->debug == version) return true;
+    r->debug = version;
+
+    bool error = r->p_field != _NULL && get_rank(PAR(r)) > get_rank(r);
+    if(error){
+      if (graph==NULL)
+        return false;
+      //printf("Found an error!\n");
+    }
+
+    if (graph!=NULL) viz_add_node(graph, root, NUM(r->rank), error);
+    for (int i = 0; i < 3; i++){
+      if (IS_RIB(r->fields[i]) && is_parent(r->fields[i], root)) {
+        if (graph!=NULL) {
+          viz_add_edge(graph, root, r->fields[i]);
+        }
+        if(!_viz_show_tree(graph, r->fields[i], version)) return false;
+      }
+    }
+  }
+  return true;
+}
+
+int viz_version = 0;
+
+// A bit confusing, but if name is NULL, the function will only test
+// if the graph is valid without writing to it.
+int viz_show_tree(char* name, obj root){
+  viz_version++;
+  if (name != NULL){
+    FILE* graph = viz_start_graph(name);
+    bool x = _viz_show_tree(graph, root, TAG_NUM(viz_version));
+    viz_end_graph(graph);
+    return x;
+  }
+  return _viz_show_tree(NULL, root, TAG_NUM(viz_version));
+}
+
 
 void viz_add_rib_label(FILE* graph, obj rib, obj car, obj cdr, obj tag, obj m_car, obj m_cdr, obj m_tag, obj p, obj rank){
   // write the value of the rib
@@ -2326,7 +2347,7 @@ void viz_heap(char* name){
   scan=heap_top;
   
   for (int i = 0; i <= MAX_NB_OBJS; i++) {
-    int rank = get_rank(scan);
+    obj rank = get_rank(scan);
 
     // skip unallocated ribs
     if (rank == UNALLOCATED_RIB_RANK) {
@@ -2357,6 +2378,27 @@ void viz_heap(char* name){
   }
   viz_end_graph(current_graph);
   // exit(1);
+}
+
+#endif
+
+#ifdef CHECK_SPANNING_TREE
+
+void check_spanning_tree_impl(){
+  if(!viz_show_tree(NULL, pc)){
+    viz_show_tree("after.dot", pc);
+    raise(SIGINT);
+  }
+
+  if(!viz_show_tree(NULL, stack)){
+    viz_show_tree("after.dot", stack);
+    raise(SIGINT);
+  }
+
+  if(!viz_show_tree(NULL, FALSE)){
+    viz_show_tree("after.dot", FALSE);
+    raise(SIGINT);
+  }
 }
 
 #endif
