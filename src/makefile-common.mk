@@ -146,7 +146,7 @@ check:
 		RSC_COMPILER="${RSC_COMPILER}" \
 		TEST_TAGS="${TEST_TAGS}" \
 		TEST_FEATURES="${TEST_FEATURES}" \
-		./run_test.sh $$prog; \
+		time ./run_test.sh $$prog; \
 		if [ $$? != 0 ]; then \
 			succeded=0; \
 		fi; \
