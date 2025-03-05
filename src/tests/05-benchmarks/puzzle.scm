@@ -1,3 +1,5 @@
+(define-macro (time . args)
+  `(begin ,@args))
 (define-macro (when c . body) `(if ,c (begin ,@body)))
 
 (define-macro (unless c . body) `(if (not ,c) (begin ,@body)))
@@ -179,6 +181,9 @@
           (my-iota (+ typemax 1)))
 
 (run-bench
-    (lambda () (start (hide 51 511)))
+    (lambda () (start (hide 51 211)))
     (lambda (r) (equal? r 2005)))
 ((lambda (x) (if (null? x) x (car x))) %_____junk-data_____)
+;;;bench-run: -l define-macro -l r4rs
+;;;expected:
+;;;ok

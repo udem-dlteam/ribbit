@@ -1,0 +1,3 @@
+;;;bench-run: -l define-macro -l r4rs
+;;;expected:
+;;;ok

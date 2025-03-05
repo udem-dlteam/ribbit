@@ -1,3 +1,5 @@
+(define-macro (time . args)
+  `(begin ,@args))
 (define-macro (when c . body) `(if ,c (begin ,@body)))
 
 (define-macro (unless c . body) `(if (not ,c) (begin ,@body)))
@@ -38,15 +40,20 @@
             (error "wrong result")))))
 
 (define (run-bench run ok?)
-  (time (run-bench-aux run ok?)))(define (run-benchmark2 name thunk)
-(display name)
-(newline)
-(thunk))
+  (time (run-bench-aux run ok?)))
+
+(define (run-benchmark2 name thunk)
+  ;(display name)
+  ;(newline)
+  (thunk))
 
 (define (PrintDiagnostics)
-(display " Total memory available= ???????? bytes")
-(display "  Free memory= ???????? bytes")
-(newline))
+  0
+
+;(display " Total memory available= ???????? bytes")
+;(display "  Free memory= ???????? bytes")
+;(newline)
+)
 
 (define (gcbench kStretchTreeDepth)
 
@@ -128,8 +135,8 @@
         (vector-set! obj 4 new)
         (error "node.j-set!: not a classNode" obj)))
 
-  (display "Don't listen to what the logs say, the benchmark was adapted for Ribbit")
-  (newline)
+  ;(display "Don't listen to what the logs say, the benchmark was adapted for Ribbit")
+  ;(newline)
 
   (let ((make-empty-node (lambda () (make-node-raw 0 0 0 0)))
     (make-node (lambda (l r) (make-node-raw l r 0 0))))
@@ -153,11 +160,11 @@
 
     (define (TimeConstruction depth)
       (let ((iNumIters (NumIters depth)))
-        (display (string-append "Creating "
-                                (number->string iNumIters)
-                                " trees of depth "
-                                (number->string depth)))
-        (newline)
+        ;;(display (string-append "Creating "
+        ;;                        (number->string iNumIters)
+        ;;                        " trees of depth "
+        ;;                        (number->string depth)))
+        ;;(newline)
         (run-benchmark2
          "GCBench: Top down construction"
          (lambda ()
@@ -172,12 +179,12 @@
              (MakeTree depth))))))
 
     (define (run-benchmark-x)
-      (display "Garbage Collector Test")
-      (newline)
-      (display (string-append
-                " Stretching memory with a binary tree of depth "
-                (number->string kStretchTreeDepth)))
-      (newline)
+      ;(display "Garbage Collector Test")
+      ;(newline)
+      ;(display (string-append
+      ;          " Stretching memory with a binary tree of depth "
+      ;          (number->string kStretchTreeDepth)))
+      ;(newline)
       (PrintDiagnostics)
       (run-benchmark2
        "GCBench: Main"
@@ -186,19 +193,19 @@
          (MakeTree kStretchTreeDepth)
 
          ;;  Create a long lived object
-         (display (string-append
-                   " Creating a long-lived binary tree of depth "
-                   (number->string kLongLivedTreeDepth)))
-         (newline)
+         ;(display (string-append
+         ;          " Creating a long-lived binary tree of depth "
+         ;          (number->string kLongLivedTreeDepth)))
+         ;(newline)
          (let ((longLivedTree (make-empty-node)))
            (Populate kLongLivedTreeDepth longLivedTree)
 
            ;;  Create long-lived array, filling half of it
-           (display (string-append
-                     " Creating a long-lived array of "
-                     (number->string kArraySize)
-                     " inexact reals"))
-           (newline)
+           ;(display (string-append
+           ;          " Creating a long-lived array of "
+           ;          (number->string kArraySize)
+           ;          " inexact reals"))
+           ;(newline)
            (let ((array (make-vector kArraySize 0)))
              (do ((i 0 (+ i 1)))
                  ((>= i (quotient kArraySize 2)))
@@ -216,7 +223,8 @@
                                       1))))
                        (not (= (vector-ref array n)
                                (/ 100 (+ n 1))))))
-                 (begin (display "Failed") (newline)))
+                 (begin (display "Failed") (newline))
+                 )
              ;;  fake reference to LongLivedTree
              ;;  and array
              ;;  to keep them from being optimized away
@@ -229,3 +237,6 @@
     (lambda () (gcbench 10))
     (lambda (r) #t))
 ((lambda (x) (if (null? x) x (car x))) %_____junk-data_____)
+;;;bench-run: -l define-macro -l r4rs
+;;;expected:
+;;;ok
