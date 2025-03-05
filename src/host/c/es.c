@@ -2301,14 +2301,20 @@ int _viz_show_tree(FILE* graph, obj root, int version){
   if (IS_RIB(root)) {
     rib* r = RIB(root);
 
-    if(r->debug == version) return true;
+    if(r->debug == version) {
+      printf("A cycle was found in the spanning tree!");
+      if (graph==NULL){
+        return false;
+      }
+    }
     r->debug = version;
 
     bool error = r->p_field != _NULL && get_rank(PAR(r)) > get_rank(r);
     if(error){
-      if (graph==NULL)
+      printf("An invalid rank was found in the spanning tree\n");
+      if (graph==NULL){
         return false;
-      //printf("Found an error!\n");
+      }
     }
 
     if (graph!=NULL) viz_add_node(graph, root, NUM(r->rank), error);
