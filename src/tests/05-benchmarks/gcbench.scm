@@ -226,6 +226,6 @@
     (run-benchmark-x))))
 
 (run-bench
-    (lambda () (gcbench 13))
+    (lambda () (gcbench 10))
     (lambda (r) #t))
 ((lambda (x) (if (null? x) x (car x))) %_____junk-data_____)

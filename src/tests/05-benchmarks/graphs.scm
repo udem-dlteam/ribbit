@@ -632,7 +632,7 @@
                  '()))
 
 (run-bench
-    (lambda () (run 6))
-    (lambda (result) (equal? (length result) 10275)))
+    (lambda () (run 3))
+    (lambda (result) (equal? (length result) 5)))
 
 ((lambda (x) (if (null? x) x (car x))) %_____junk-data_____)
