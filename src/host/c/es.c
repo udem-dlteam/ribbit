@@ -201,7 +201,6 @@ typedef struct {
 #define IS_MARKED(x) ((x)&2)
 
 
-
 #define INSTR_AP 0
 #define INSTR_SET 1
 #define INSTR_GET 2
@@ -609,8 +608,8 @@ void pq_wipe() {
 
 // TODO need a more descriptive crash and a "reranking" phase when an overflow
 // is detected instead of just crashing (if possible)
-#define ovf_set_rank(x, rank) (rank ^ MAX_RANK) ? set_rank(x, rank) : exit(1);
-#define dec_alloc_rank() (alloc_rank ^ MIN_RANK) ? alloc_rank-- : exit(1);
+#define ovf_set_rank(x, rank) (rank ^ MAX_RANK) ? set_rank(x, rank) : exit(8);
+#define dec_alloc_rank() (alloc_rank ^ MIN_RANK) ? alloc_rank-- : exit(8);
 
 // Returns the index of `cfr`'s mirror field of the FIRST field that contains a
 // reference to `x`, should only be used to get a reference to `cfr`'s successor
@@ -646,6 +645,15 @@ void remove_node(obj x);
 #define _adUpt(x) ((CFR(x) == _NULL) ? 0 : adUpt(x))
 #define remove_root(old_root) if (IS_RIB(old_root) && !_adUpt(old_root)) remove_node(old_root)
 
+/* #define protect(o) RANK(o) = MARK(RANK(o)) */
+/* #define unprotect(o)                                                           \ */
+/*   do {                                                                         \ */
+/*     if (IS_RIB(o) && is_protected(o)) {                                             \ */
+/*       RANK(o) = UNMARK(RANK(o));                                               \ */
+/*       remove_root(o);                                                          \ */
+/*     }                                                                          \ */
+/*   } while (0) */
+
 void protect(obj o) {
   if (IS_RIB(o)) {
     if (!IS_MARKED(RANK(o))) {
@@ -658,12 +666,6 @@ void protect(obj o) {
   }
 }
 
-
-#define is_protected(o) (IS_RIB(o) && IS_MARKED(RANK(o)))
-int is_protected_func(obj o){
-  return is_protected(o);
-}
-
 bool adUpt(obj x); // needed by unprotect
 
 void unprotect(obj o) {
@@ -671,9 +673,9 @@ void unprotect(obj o) {
     if (IS_MARKED(RANK(o))) {
       int new_count = NUM(get_parent(o)) - 1;
       if (new_count == 0) {
-	      RANK(o) = UNMARK(RANK(o));
-	      get_parent(o) = _NULL;
-	      remove_root(o);
+        RANK(o) = UNMARK(RANK(o));
+        get_parent(o) = _NULL;
+        remove_root(o);
       }
       else{
         get_parent(o) = TAG_NUM(new_count);
@@ -685,9 +687,6 @@ void unprotect(obj o) {
     }
   }
 }
-
-
-
 
 void add_cofriend(obj x, obj cfr, int i) {
   // Case 1: `x` is parentless, `cfr` becomes the parent by default. This
@@ -701,7 +700,7 @@ void add_cofriend(obj x, obj cfr, int i) {
     // have no impact on the root's rank (see the paper for a counter-example
     // where a cycle is created and an unsafe adoption occurs because of that)
     if (is_collectable(x)) {
-      remove_node(x);
+      remove_root(x);
       //get_parent(x) = cfr;
       //ovf_set_rank(x, get_rank(cfr)+1);
     }
@@ -887,7 +886,7 @@ bool adopt(obj x) {
   return 0;
 }
 
-bool upward_adopt(obj from, obj to, num d) {
+bool upward_adopt(obj from, obj to, int d) {
   if (from == _NULL) return false;
   if (from == to) return false;
   if (is_falling(from)) return false;
@@ -1126,6 +1125,7 @@ void set_field(obj src, int i, obj dest) { // write barrier
       // contains a reference to one of ref[i]'s children (or more) since
       // we'll deallocate a rib (or more) that shouldn't be deallocated.
       // We can get around that by using a temporary rib to point to ref[i]
+      
       obj tmp = ref[i];
       protect(tmp);
       remove_ref(src, ref[i], i); // new dest
@@ -1382,8 +1382,8 @@ void push2(obj car, obj tag) {
     CFR(old_stack) = stack;
     get_parent(old_stack) = stack;
 
-    ovf_set_rank(new_rib, get_rank(old_stack)-1);
-    // remove_node(old_stack);
+    // ovf_set_rank(new_rib, get_rank(old_stack)-1);
+    remove_root(old_stack);
     // set_rank(old_stack, alloc_rank+1);
   }
   dec_alloc_rank();
@@ -1794,6 +1794,7 @@ obj prim(int no) {
   {
     PRIM1();
     vm_exit(NUM(x));
+    DEC_PRIM1();
     break;
   } // )@@
   // )@@
@@ -2179,9 +2180,8 @@ void decode() {
     DEC_COUNT(CDR(c)); // n
     DEC_COUNT(TOS); // c
 #else
-    // Force remove n
     DEC_POP(n);
-#endif
+#endif 
   }
   set_pc(TAG(CAR(n)));
 #ifdef REF_COUNT
