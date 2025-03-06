@@ -71,6 +71,7 @@ void viz_heap(char* name);
 // @@(feature dprint
 #define DPRINT
 #define dprint(...) printf(__VA_ARGS__)
+#define IRUN_COUNTER
 // )@@
 
 #ifndef DPRINT
@@ -82,6 +83,7 @@ void viz_heap(char* name);
 void check_spanning_tree_impl();
 #define check_spanning_tree() check_spanning_tree_impl()
 #include <signal.h>
+#define IRUN_COUNTER
 // )@@
 
 #ifndef CHECK_SPANNING_TREE
@@ -1802,18 +1804,27 @@ obj prim(int no) {
 
 #define ADVANCE_PC() set_pc(TAG(pc))
 
-#ifdef DPRINT
+#ifdef IRUN_COUNTER
 int irun = 0;
 #endif
 
 void run() { // evaluator
   dprint("Entering run\n");
   while (1) {
+#ifdef IRUN_COUNTER
+    irun++;
+#endif
+
+
 #ifdef DPRINT
     if(irun == -1) { raise(SIGINT); }
-    dprint("Running... %d\n", irun++);
+    dprint("Running... %d\n", irun);
 #endif
-    check_spanning_tree();
+#ifdef CHECK_SPANNING_TREE
+    if (irun < 50000 || irun % 5000 == 0){
+      check_spanning_tree();
+    }
+#endif
     num instr = NUM(CAR(pc));
     
     // gc();
