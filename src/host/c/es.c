@@ -2303,7 +2303,7 @@ int _viz_show_tree(FILE* graph, obj root, int version){
     rib* r = RIB(root);
 
     if(r->debug == version) {
-      printf("A cycle was found in the spanning tree!");
+      printf("A cycle was found in the spanning tree!\n");
       if (graph==NULL){
         return false;
       }
@@ -2321,6 +2321,16 @@ int _viz_show_tree(FILE* graph, obj root, int version){
     if (graph!=NULL) viz_add_node(graph, root, NUM(r->rank), error);
     for (int i = 0; i < 3; i++){
       if (IS_RIB(r->fields[i]) && is_parent(r->fields[i], root)) {
+
+        // Check duplicate
+        bool is_duplicate = false;
+        for (int j = 0; j < i; j++){
+          if (IS_RIB(r->fields[j]) && r->fields[j] == r->fields[i]){
+            is_duplicate = true;
+          }
+        }
+        if (is_duplicate) continue;
+
         if (graph!=NULL) {
           viz_add_edge(graph, root, r->fields[i]);
         }
