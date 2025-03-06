@@ -848,6 +848,7 @@ bool upward_adopt(obj from, obj to, num d) {
   if (from == _NULL) return false;
   if (from == to) return false;
   if (is_falling(from)) return false;
+  if (is_protected(from)) return false;
 
   if (is_root(from) || upward_adopt(get_parent(from), to, d)) {
     set_rank(from, get_rank(from)-d);
