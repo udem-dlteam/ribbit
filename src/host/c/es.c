@@ -654,8 +654,9 @@ void remove_node(obj x);
 /*     }                                                                          \ */
 /*   } while (0) */
 
+
 void protect(obj o) {
-  if (IS_RIB(o)) {
+  if (IS_RIB(o) && !is_root(o)) {
     if (!IS_MARKED(RANK(o))) {
       RANK(o) = MARK(RANK(o));
       get_parent(o) = TAG_NUM(1);
@@ -671,19 +672,19 @@ bool adUpt(obj x); // needed by unprotect
 void unprotect(obj o) {
   if (IS_RIB(o)) {
     if (IS_MARKED(RANK(o))) {
-      int new_count = NUM(get_parent(o)) - 1;
-      if (new_count == 0) {
+      if (IS_RIB(get_parent(o))) {
         RANK(o) = UNMARK(RANK(o));
-        get_parent(o) = _NULL;
-        remove_root(o);
+      } else {
+        int new_count = NUM(get_parent(o)) - 1;
+        if (new_count == 0) {
+          RANK(o) = UNMARK(RANK(o));
+          get_parent(o) = _NULL;
+          remove_root(o);
+        }
+        else{
+          get_parent(o) = TAG_NUM(new_count);
+        }
       }
-      else{
-        get_parent(o) = TAG_NUM(new_count);
-      }
-    }
-    else{
-      printf("Error, calling unprotect on unprotected node");
-
     }
   }
 }
@@ -1286,7 +1287,12 @@ void gc() {
 #ifdef REF_COUNT
       if (RIB((obj)scan)->fields[3] != 0) leftovers++;
 #else
-      if (get_rank((obj)scan) != UNALLOCATED_RIB_RANK) leftovers++;
+      if (get_rank((obj)scan) != UNALLOCATED_RIB_RANK){
+        if (!is_root((obj)scan) && !is_immortal((obj)scan) && is_protected((obj)scan)){ // <--- ICI on check
+          printf("Found protected value!! => count = %lu\n", get_parent((obj)scan));
+        }
+        leftovers++;
+      }
 #endif
       *scan = (obj)alloc;
       alloc = scan;
@@ -1320,7 +1326,7 @@ void gc() {
 
 obj pop() {
   obj tos = CAR(stack);
-  if (IS_RIB(tos) && M_CAR(stack) == _NULL) {
+  if (IS_RIB(tos)) {
     // protect TOS only if it gets deallocated otherwise
     protect(tos);
   }
@@ -1329,10 +1335,10 @@ obj pop() {
 }
 
 // to avoid too many preprocessor instructions in the RVM code
-#define DEC_POP(o) if (IS_RIB(o) && is_protected(o)) unprotect(o)
+#define DEC_POP(o) if (IS_RIB(o)) unprotect(o)
 
-#define _protect(var) if (IS_RIB(var) && M_CAR(stack) == _NULL) protect(var)
-#define _unprotect(var) if (IS_RIB(var) && is_protected(var)) unprotect(var)
+#define _protect(var) if (IS_RIB(var)) protect(var)
+#define _unprotect(var) if (IS_RIB(var)) unprotect(var)
 
 #define _pop(var)                                                               \
   obj var = CAR(stack);                                                         \
@@ -1972,10 +1978,10 @@ void run() { // evaluator
       break;
     }
     case INSTR_IF: { // if
-      // obj p = pop();
-      set_pc((CAR(stack) != FALSE) ? CDR(pc) : TAG(pc));
-      // DEC_POP(p);
-      set_stack(CDR(stack));
+      obj p = pop();
+      set_pc(p != FALSE ? CDR(pc) : TAG(pc));
+      DEC_POP(p);
+      // set_stack(CDR(stack));
       break;
     }
     case INSTR_HALT: { // halt
@@ -2125,6 +2131,7 @@ void decode() {
   int d;
   int op;
   int i;
+  int check = 0;
   while (1) {
 #ifdef DPRINT
     if(irun == -1) { raise(SIGINT); }
@@ -2170,6 +2177,7 @@ void decode() {
     }
     else if (op < 25){
       n = pop();
+      check = 1;
       i=4;
     }
     obj c = TAG_RIB(alloc_rib(TAG_NUM(i), n, NUM_0));
@@ -2180,7 +2188,7 @@ void decode() {
     DEC_COUNT(CDR(c)); // n
     DEC_COUNT(TOS); // c
 #else
-    DEC_POP(n);
+    if (check == 1) { DEC_POP(n); check = 0; }
 #endif 
   }
   set_pc(TAG(CAR(n)));
