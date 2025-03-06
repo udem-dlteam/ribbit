@@ -198,20 +198,7 @@ typedef struct {
 #define UNMARK(x) ((x)^2)
 #define IS_MARKED(x) ((x)&2)
 
-// Note that these can't be used to protect a program's root because `DEC_POP`
-// will unprotect them if they're passed as an argument to a primitive. This is
-// not a big deal for Ribbit since the roots are known (and there's very few of
-// them) but a different mechanism (or another bit should be used) in another
-// system to avoid this problem
-#define protect(o) RANK(o) = MARK(RANK(o))
-#define is_protected(o) (IS_RIB(o) && IS_MARKED(RANK(o)))
-#define unprotect(o)                                                           \
-  do {                                                                         \
-    if (IS_RIB(o)) {                                                           \
-      RANK(o) = UNMARK(RANK(o));                                               \
-      remove_root(o);                                                          \
-    }                                                                          \
-  } while (0)
+
 
 #define INSTR_AP 0
 #define INSTR_SET 1
@@ -646,6 +633,60 @@ void remove_node(obj x);
 #define get_parent(x) PAR(x)
 #define set_parent(x,p,i) get_parent(x) = p
 
+
+// Note that these can't be used to protect a program's root because `DEC_POP`
+// will unprotect them if they're passed as an argument to a primitive. This is
+// not a big deal for Ribbit since the roots are known (and there's very few of
+// them) but a different mechanism (or another bit should be used) in another
+// system to avoid this problem
+#define is_protected(o) (IS_RIB(o) && IS_MARKED(RANK(o)))
+
+#define _adUpt(x) ((CFR(x) == _NULL) ? 0 : adUpt(x))
+#define remove_root(old_root) if (IS_RIB(old_root) && !_adUpt(old_root)) remove_node(old_root)
+
+void protect(obj o) {
+  if (IS_RIB(o)) {
+    if (!IS_MARKED(RANK(o))) {
+      RANK(o) = MARK(RANK(o));
+      get_parent(o) = TAG_NUM(1);
+    }
+    else{
+      get_parent(o) = TAG_NUM(NUM(get_parent(o)) + 1);
+    }
+  }
+}
+
+
+#define is_protected(o) (IS_RIB(o) && IS_MARKED(RANK(o)))
+int is_protected_func(obj o){
+  return is_protected(o);
+}
+
+bool adUpt(obj x); // needed by unprotect
+
+void unprotect(obj o) {
+  if (IS_RIB(o)) {
+    if (IS_MARKED(RANK(o))) {
+      int new_count = NUM(get_parent(o)) - 1;
+      if (new_count == 0) {
+	      RANK(o) = UNMARK(RANK(o));
+	      get_parent(o) = _NULL;
+	      remove_root(o);
+      }
+      else{
+        get_parent(o) = TAG_NUM(new_count);
+      }
+    }
+    else{
+      printf("Error, calling unprotect on unprotected node");
+
+    }
+  }
+}
+
+
+
+
 void add_cofriend(obj x, obj cfr, int i) {
   // Case 1: `x` is parentless, `cfr` becomes the parent by default. This
   // corresponds to the situation where a newly allocated object or structure
@@ -877,8 +918,6 @@ bool adUpt(obj x) {
 // #define close_enough(ref) true
 /* #define close_enough(ref) (get_rank(ref) - get_rank(stack) < MAX_RANK) */
 
-// First adopt
-#define _adUpt(x) ((CFR(x) == _NULL) ? 0 : adUpt(x))
 
 void drop() {
   obj x; // current "falling" rib
@@ -1062,8 +1101,6 @@ void remove_node(obj old_root) {
 #endif
   }
 }
-
-#define remove_root(old_root) if (IS_RIB(old_root) && !_adUpt(old_root)) remove_node(old_root)
 
 
 //------------------------------------------------------------------------------
