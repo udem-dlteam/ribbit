@@ -602,9 +602,7 @@ void pq_remove(obj o) {
 
 #define is_collectable(x) (!is_root(x) && !is_protected(x))
 #define is_root(x) (x == pc || x == stack || x == FALSE)
-
-// FIXME add FALSE 
-#define is_immortal(x) (x == TRUE || x == NIL)
+#define is_immortal(x) (x == TRUE || x == NIL || x == FALSE)
 
 
 // TODO need to document this section, the comments are the same as the ones
@@ -948,13 +946,13 @@ void dealloc_rib(obj x){
           dealloc_rib(_x[i]);
         } else { // child is a root or protected
           // Parent field will be set to _NULL, no ambiguity with 1st cofriend
-          if (get_parent(_x[i]) != _NULL && CFR(_x[i]) != _NULL) {
+          if (get_parent(_x[i]) != _NULL && CFR(_x[i]) != _NULL && _x[i] != FALSE) {
             wipe_parent(_x[i], x, i);
           }
         }
       } else { // not a child, only need to remove x from co-friend's list
         // TODO faster way to check if we try to wipe the same co-friend twice
-        if (!is_immortal(_x[i]) && !is_falling(_x[i]) && CFR(_x[i]) != _NULL ) {
+        if (!is_immortal(_x[i]) && !is_falling(_x[i]) && CFR(_x[i]) != _NULL) {
           if (i == 0) {
             wipe_cofriend(_x[i], x, i);
           } else if (i == 1 && _x[1] != _x[0]) {
@@ -970,7 +968,6 @@ void dealloc_rib(obj x){
   alloc = (obj *)x;
   _x[6] = _NULL;
   get_parent(x) = _NULL;
-  //_x[RIB_NB_FIELDS-1] = _NULL;
   
 #ifdef CLEAN_RIBS
   for (int i = 1; i < RIB_NB_FIELDS; i++) {
@@ -1755,7 +1752,7 @@ void run() { // evaluator
     }
 #endif
     num instr = NUM(CAR(pc));
-    
+
     // gc();
     
     // @@(feature es-apply
