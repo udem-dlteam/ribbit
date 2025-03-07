@@ -64,21 +64,24 @@
 void viz_heap(char* name);
 // )@@
 
-// @@(feature dprint
+// @@(feature dprint (use include-signal)
 #define DPRINT
 #define dprint(...) printf(__VA_ARGS__)
 #define IRUN_COUNTER
+// )@@
+
+// @@(feature include-signal
+#include <signal.h>
 // )@@
 
 #ifndef DPRINT
 #define dprint(...) 0
 #endif
 
-// @@(feature check-spanning-tree (use debug/rib-viz debug-field)
+// @@(feature check-spanning-tree (use debug/rib-viz debug-field include-signal)
 #define CHECK_SPANNING_TREE
 void check_spanning_tree_impl();
 #define check_spanning_tree() check_spanning_tree_impl()
-#include <signal.h>
 #define IRUN_COUNTER
 // )@@
 
