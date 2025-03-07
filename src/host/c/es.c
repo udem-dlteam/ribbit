@@ -1745,6 +1745,7 @@ void run() { // evaluator
 #ifdef DPRINT
     if(irun == -1) { raise(SIGINT); }
     dprint("Running... %d\n", irun);
+    fflush(stdout);
 #endif
 #ifdef CHECK_SPANNING_TREE
     if (irun < 50000 || irun % 5000 == 0){
@@ -2053,6 +2054,7 @@ void decode() {
 #ifdef DPRINT
     if(irun == -1) { raise(SIGINT); }
     dprint("Decoding... %d\n", idecode++);
+    fflush(stdout);
 #endif
     check_spanning_tree();
     num x = GET_CODE();
