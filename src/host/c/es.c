@@ -51,10 +51,6 @@
 #define QUEUE_NO_REMOVE
 // )@@
 
-// @@(feature collect-queue
-#define COLLECT_QUEUE
-// )@@
-
 // @@(feature linked-list
 #define LINKED_LIST
 // )@@
@@ -331,7 +327,7 @@ obj q_dequeue() {
 
 //------------------------------------------------------------------------------
 
-// Catch queue & collect queue
+// Catch queue 
 
 // Picking the right data structure to implement the priority queue is pretty
 // important since the complexity of deleting an edge depends a lot on that...
@@ -540,20 +536,6 @@ void pq_remove(obj o) {
 #endif
 
 
-#ifdef COLLECT_QUEUE
-// Wipe out the collect queue after dealloc phase
-void pq_wipe() {
-  obj tmp;
-  while (!PQ_IS_EMPTY()){
-    obj tmp = pq_head;
-    pq_head = PQ_NEXT(pq_head);
-    PQ_NEXT(tmp) = _NULL;
-  }
-  pq_tail = _NULL;
-}
-#endif
-
-
 //==============================================================================
 
 // Even-Shiloach trees
@@ -757,36 +739,6 @@ void remove_cofriend(obj x, obj cfr, int i) {
   }
 }
 
-#ifdef COLLECT_QUEUE
-
-void wipe_cofriend(obj x, obj cfr, int i) {
-  // TODO cleanup
-  obj curr = CFR(x); // assumes `cfr` is not the parent
-  obj prev = _NULL;
-  obj next;
-  while (curr != _NULL) { // find `cfr` and his predecessor
-    next = next_cofriend(x, curr);
-    if (get_rank(curr) == FALLING_RIB_RANK || get_rank(curr) == UNALLOCATED_RIB_RANK) {
-      if (prev == _NULL) {
-        CFR(x) = next_cofriend(x, curr);
-        curr = CFR(x);
-        continue;
-      }
-      for (int j = 0; j < 3; j++) { // link predecessor with `cfr`'s old successor
-        if (get_field(prev, j) == x) {
-          get_m_field(prev, j) = next;
-        }
-      }
-      curr = next;
-      continue;
-    }
-    prev = curr;
-    curr = next;
-  }
-}
-
-#else
-
 void wipe_cofriend(obj x, obj cfr, int i) {
   // Same as above but fully removes the co-friend regardless of the number of
   // references from `cfr` to `x`
@@ -808,8 +760,6 @@ void wipe_cofriend(obj x, obj cfr, int i) {
   }
 }
 
-#endif
-
 void remove_parent(obj x, obj p, int i) {
   // Should be called "remove_parent_reference" or something because the
   // parent `p` is removed iff `p` only has one reference to `x`
@@ -829,12 +779,7 @@ void remove_parent(obj x, obj p, int i) {
   // the parent/child relationship is restructured), this operation should be
   // considered "unsafe" and so this function should only be called before a
   // drop phase (like in `remove_edge`)
-#ifdef COLLECT_QUEUE
-  // FIXME double check for multiple references
-  remove_cofriend(x, p, i);
-#else
   wipe_cofriend(x, p, i);
-#endif
   get_parent(x) = _NULL;
   get_m_field(p, i) = _NULL;
 }
@@ -1003,30 +948,13 @@ void dealloc_rib(obj x){
           dealloc_rib(_x[i]);
         } else { // child is a root or protected
           // Parent field will be set to _NULL, no ambiguity with 1st cofriend
-          if (get_parent(_x[i]) != _NULL && CFR(_x[i]) != _NULL 
-#ifdef COLLECT_QUEUE
-              // FIXME won't work fast enough if we remove from FALSE 
-              && PQ_NEXT(_x[i]) == _NULL && pq_tail != _x[i] && _x[i] != FALSE 
-#endif
-              ) {
+          if (get_parent(_x[i]) != _NULL && CFR(_x[i]) != _NULL) {
             wipe_parent(_x[i], x, i);
-#ifdef COLLECT_QUEUE
-            pq_enqueue(_x[i]);
-#endif
           }
         }
       } else { // not a child, only need to remove x from co-friend's list
         // TODO faster way to check if we try to wipe the same co-friend twice
-        if (!is_immortal(_x[i]) && !is_falling(_x[i]) && CFR(_x[i]) != _NULL
-#ifdef COLLECT_QUEUE
-            // FIXME won't work fast enough if we remove from FALSE
-            && PQ_NEXT(_x[i]) == _NULL && pq_tail != _x[i] && _x[i] != FALSE
-#endif
-            ) {
-#ifdef COLLECT_QUEUE
-          wipe_cofriend(_x[i], x, i);
-          pq_enqueue(_x[i]);
-#else
+        if (!is_immortal(_x[i]) && !is_falling(_x[i]) && CFR(_x[i]) != _NULL ) {
           if (i == 0) {
             wipe_cofriend(_x[i], x, i);
           } else if (i == 1 && _x[1] != _x[0]) {
@@ -1034,7 +962,6 @@ void dealloc_rib(obj x){
           } else if (i == 2 && _x[2] != _x[0] && _x[2] != _x[1]) {
             wipe_cofriend(_x[i], x, i);
           }
-#endif
         }
       }
     }
@@ -1077,9 +1004,6 @@ void remove_edge(obj from, obj to, int i) {
     if (!PQ_IS_EMPTY()) catch(); 
     if (is_falling(to)) {
       dealloc_rib(to);
-#ifdef COLLECT_QUEUE
-      pq_wipe();
-#endif
     }
   }
 }
@@ -1098,9 +1022,6 @@ void remove_node(obj old_root) {
   if (!PQ_IS_EMPTY()) catch();
   if (is_falling(old_root)) {
     dealloc_rib(old_root);
-#ifdef COLLECT_QUEUE
-    pq_wipe();
-#endif
   }
 }
 
@@ -1125,8 +1046,7 @@ void set_field(obj src, int i, obj dest) { // write barrier
       // some other ribs refered by ref[i]. This is problematic if dest
       // contains a reference to one of ref[i]'s children (or more) since
       // we'll deallocate a rib (or more) that shouldn't be deallocated.
-      // We can get around that by using a temporary rib to point to ref[i]
-      
+      // We can get around that by using a temporary rib to point to ref[i]      
       obj tmp = ref[i];
       protect(tmp);
       remove_ref(src, ref[i], i); // new dest
