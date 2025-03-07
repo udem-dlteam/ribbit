@@ -127,11 +127,11 @@ clean:
 
 check-es: rsc.exe
 	echo "====================== TESTING HOST c (check-spanning-tree)"
-	HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ check-spanning-tree" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" make check
-	echo "====================== TESTING HOST c (check-spanning-tree)"
-	HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ check-spanning-tree" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" TEST_TAGS="bench" make check
-	echo "====================== TESTING HOST c (check-spanning-tree)"
-	HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ always-adupt" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" TEST_TAGS="bench" make check
+	HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ check-spanning-tree" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" TEST_TAGS="c core variadics r4rs flat-closure bench" make check
+	echo "====================== TESTING HOST c (always-adupt)"
+	HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ always-adupt" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" TEST_TAGS="c core variadics r4rs flat-closure bench" make check
+	echo "====================== TESTING HOST c (always-adupt & check-spanning-tree)"
+	HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ check-spanning-tree -f+ always-adupt" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" TEST_TAGS="c core variadics r4rs flat-closure bench" make check
 
 check-es-bench: rsc.exe
 	echo "====================== TESTING HOST c (check-spanning-tree)"
