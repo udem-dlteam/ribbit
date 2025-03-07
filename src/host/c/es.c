@@ -830,7 +830,7 @@ bool adopt(obj x) {
   return 0;
 }
 
-bool upward_adopt(obj from, obj to, int d) {
+bool upward_adopt(obj from, obj to, num d) {
   if (from == _NULL) return false;
   if (from == to) return false;
   if (is_falling(from)) return false;
