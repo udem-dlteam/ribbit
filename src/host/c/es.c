@@ -593,7 +593,7 @@ void pq_remove(obj o) {
 
 // TODO need a more descriptive crash and a "reranking" phase when an overflow
 // is detected instead of just crashing (if possible)
-#define ovf_set_rank(x, rank) (rank ^ MAX_RANK) ? set_rank(x, rank) : exit(8);
+#define ovf_inc_rank(x) (get_rank(x) ^ MAX_RANK) ? set_rank(x, get_rank(x)+1) : exit(8);
 #define dec_alloc_rank() (alloc_rank ^ MIN_RANK) ? alloc_rank-- : exit(8);
 
 // Returns the index of `cfr`'s mirror field of the FIRST field that contains a
@@ -686,7 +686,6 @@ void add_cofriend(obj x, obj cfr, int i) {
     if (is_collectable(x)) {
       remove_root(x);
       //get_parent(x) = cfr;
-      //ovf_set_rank(x, get_rank(cfr)+1);
     }
     return;
   }
@@ -825,7 +824,6 @@ bool adopt(obj x) {
     // adopt with a cfr of the same rank as the parent
     if (!is_falling(cfr) && get_rank(cfr) < rank) {
       set_parent(x, cfr, get_mirror_index(x, cfr)-3);
-      // ovf_set_rank(x, get_rank(cfr)+1); // not sure FIXME
       return 1;
     }
     cfr = next_cofriend(x, cfr);
@@ -928,7 +926,8 @@ void catch() {
     for (int i = 0; i < 3; i++) {
       if (IS_RIB(_anchor[i]) && is_falling(_anchor[i])) {
         set_parent(_anchor[i], anchor, i);
-        ovf_set_rank(_anchor[i], get_rank(anchor)+1);
+        set_rank(_anchor[i], get_rank(anchor));
+        ovf_inc_rank(_anchor[i]);
         pq_enqueue(_anchor[i]); // add rescued node to potential "catchers"
       }
     }
@@ -1308,7 +1307,6 @@ void push2(obj car, obj tag) {
     CFR(old_stack) = stack;
     get_parent(old_stack) = stack;
 
-    // ovf_set_rank(new_rib, get_rank(old_stack)-1);
     remove_root(old_stack);
     // set_rank(old_stack, alloc_rank+1);
   }
