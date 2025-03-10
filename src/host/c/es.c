@@ -863,10 +863,20 @@ bool upward_adopt(obj from, obj to, num d) {
 
   ASSERT(d>0, "d is positive.");
 
-  if (is_root(from) || upward_adopt(get_parent(from), to, d)) {
+  if (is_root(from)) {
     und_sub_rank(from, d);
     return true;
+  } else {
+    obj parent = get_parent(from);
+    if(parent == _NULL)
+      return false;
+    num nd = d - get_rank(from) + get_rank(parent) + 1;
+    if (nd <= 0 || upward_adopt(parent, to, nd)){
+      und_sub_rank(from, d);
+      return true;
+    }
   }
+
   return false;
 }
 
