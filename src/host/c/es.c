@@ -607,6 +607,19 @@ void pq_remove(obj o) {
 #define ovf_inc_rank(x) (get_rank(x) ^ MAX_RANK) ? set_rank(x, get_rank(x)+1) : exit(8);
 #define dec_alloc_rank() (alloc_rank ^ MIN_RANK) ? alloc_rank-- : exit(8);
 
+void und_sub_rank(obj x, num d){
+
+  ASSERT(d>0, "Substracting negative rang");
+
+  num new_rank = get_rank(x) - d;
+  if (new_rank < MIN_RANK){
+    ASSERT(false, "Underflow when setting rank");
+    exit(8);
+  }
+
+  set_rank(x, new_rank);
+}
+
 // Returns the index of `cfr`'s mirror field of the FIRST field that contains a
 // reference to `x`, should only be used to get a reference to `cfr`'s successor
 // when `cfr` is known to have at least one reference to `x`
@@ -851,7 +864,7 @@ bool upward_adopt(obj from, obj to, num d) {
   ASSERT(d>0, "d is positive.");
 
   if (is_root(from) || upward_adopt(get_parent(from), to, d)) {
-    set_rank(from, get_rank(from)-d);
+    und_sub_rank(from, d);
     return true;
   }
   return false;
