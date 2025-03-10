@@ -108,7 +108,23 @@ void check_spanning_tree_impl();
 #define FALLING_RIB_RANK 1152921504606846975
 #define MAX_RANK 1152921504606846974
 #define MIN_RANK -1152921504606846976
+
+#define MAX_ADUPT_TRIES 10 // default value
+
+// @@(feature adupt-10-first
 #define MAX_ADUPT_TRIES 10
+// )@@
+
+// @@(feature adupt-100-first
+#define MAX_ADUPT_TRIES 100
+// )@@
+
+// @@(feature adupt-1000-first
+#define MAX_ADUPT_TRIES 1000
+// )@@
+
+
+
 
 // @@(feature debug/clean-ribs
 #define CLEAN_RIBS
