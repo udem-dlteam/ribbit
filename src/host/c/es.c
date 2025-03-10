@@ -114,6 +114,17 @@ void check_spanning_tree_impl();
 #define CLEAN_RIBS
 // )@@
 
+
+// @@(feature runtime-checks (use check-spanning-tree)
+#define ASSERT(cond, msg) if(!(cond)){ printf("Runtime assert violated on line %d: %s", __LINE__, msg); exit(7); }
+// )@@
+
+#ifndef ASSERT
+#define ASSERT(cond, msg) 0
+#endif
+
+
+
 // @@(feature (not compression/lzss/2b)
 // @@(replace "41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121" (encode-as-bytes "auto" "" "," "")
 unsigned char input[] = {41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121,0}; // RVM code that prints HELLO!
@@ -836,6 +847,8 @@ bool upward_adopt(obj from, obj to, num d) {
   if (from == to) return false;
   if (is_falling(from)) return false;
   if (is_protected(from)) return false;
+
+  ASSERT(d>0, "d is positive.");
 
   if (is_root(from) || upward_adopt(get_parent(from), to, d)) {
     set_rank(from, get_rank(from)-d);
