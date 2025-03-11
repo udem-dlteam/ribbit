@@ -43,6 +43,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// basic def. of a boolean
+typedef unsigned char bool;
+
+// an unsigned byte value for the REPL's code
+typedef unsigned char byte;
+
+// a tagged value
+typedef unsigned long obj;
+
+// a number
+typedef long num;
+
 // @@(feature ref-count
 #define REF_COUNT
 // )@@
@@ -89,15 +101,6 @@ void check_spanning_tree_impl();
 #define check_spanning_tree() 0
 #endif
 
-
-// @@(feature always-adupt
-#define ALWAYS_ADUPT
-// )@@
-
-// @@(feature no-adupt
-#define NO_ADUPT
-// )@@
-
 #define GLOBAL_RANK_COUNTER
 // @@(feature no-global-rank-counter
 #undef GLOBAL_RANK_COUNTER
@@ -109,21 +112,56 @@ void check_spanning_tree_impl();
 #define MAX_RANK 1152921504606846974
 #define MIN_RANK -1152921504606846976
 
-#define MAX_ADUPT_TRIES 10 // default value
-
-// @@(feature adupt-10-first
-#define MAX_ADUPT_TRIES 10
+// DEFAULT: no adupt
+// @@(feature adupt-drop-depth-5
+#define ADUPT_DROP_DEPTH 5
+// )@@
+// @@(feature adupt-drop-depth-25
+#define ADUPT_DROP_DEPTH 25
+// )@@
+// @@(feature adupt-drop-depth-100
+#define ADUPT_DROP_DEPTH 100
+// )@@
+// @@(feature adupt-drop-depth-500
+#define ADUPT_DROP_DEPTH 500
+// )@@
+// @@(feature adupt-drop-depth-always
+#define ADUPT_DROP_DEPTH_ALWAYS
 // )@@
 
-// @@(feature adupt-100-first
-#define MAX_ADUPT_TRIES 100
+static inline bool adupt_start_heuristic(obj adoptee, int depth) {
+  #ifdef ADUPT_DROP_DEPTH_ALWAYS
+  return true;
+  #endif
+
+  #ifdef ADUPT_DROP_DEPTH
+  return depth < ADUPT_DROP_DEPTH;
+  #endif
+
+  return false;
+}
+
+// DEFAULT: rerank searches until found or root reached
+// @@(feature adupt-rerank-depth-5
+#define ADUPT_RERANK_DEPTH 5
+// )@@
+// @@(feature adupt-rerank-depth-25
+#define ADURERANK_DEPTH 25
+// )@@
+// @@(feature adupt-rerank-depth-100
+#define ADUPT_RERANK_DEPTH 100
+// )@@
+// @@(feature adupt-rerank-depth-500
+#define ADUPT_RERANK_DEPTH 500
 // )@@
 
-// @@(feature adupt-1000-first
-#define MAX_ADUPT_TRIES 1000
-// )@@
+static inline bool adupt_continue_heuristic(int depth) {
+  #ifdef ADUPT_RERANK_DEPTH
+  return depth < ADUPT_RERANK_DEPTH;
+  #endif
 
-
+  return true;
+}
 
 
 // @@(feature debug/clean-ribs
@@ -146,18 +184,6 @@ void check_spanning_tree_impl();
 unsigned char input[] = {41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121,0}; // RVM code that prints HELLO!
 // )@@
 // )@@
-
-// basic def. of a boolean
-typedef unsigned char bool;
-
-// an unsigned byte value for the REPL's code
-typedef unsigned char byte;
-
-// a tagged value
-typedef unsigned long obj;
-
-// a number
-typedef long num;
 
 #ifdef QUEUE_NO_REMOVE
 #define QUEUE_NO_REMOVE_count 1
@@ -665,8 +691,8 @@ void remove_node(obj x);
 // system to avoid this problem
 #define is_protected(o) (IS_RIB(o) && IS_MARKED(RANK(o)))
 
-#define _adUpt(x) ((CFR(x) == _NULL) ? 0 : adUpt(x))
-#define remove_root(old_root) if (IS_RIB(old_root) && !_adUpt(old_root)) remove_node(old_root)
+#define _adUpt(x, depth) ((CFR(x) == _NULL) ? 0 : adUpt(x, depth))
+#define remove_root(old_root) if (IS_RIB(old_root) && !_adUpt(old_root, 0)) remove_node(old_root)
 
 /* #define protect(o) RANK(o) = MARK(RANK(o)) */
 /* #define unprotect(o)                                                           \ */
@@ -690,7 +716,7 @@ void protect(obj o) {
   }
 }
 
-bool adUpt(obj x); // needed by unprotect
+bool adUpt(obj x, int depth); // needed by unprotect
 
 void unprotect(obj o) {
   if (IS_RIB(o)) {
@@ -871,8 +897,10 @@ bool adopt(obj x) {
   return 0;
 }
 
-bool upward_adopt(obj from, obj to, num d) {
-  if (from == _NULL) return false;
+bool upward_adopt(obj from, obj to, num d, int depth) {
+  if (!adupt_continue_heuristic(depth)) { return false; }
+
+  // if (from == _NULL) return false; // obsolete since checked before entering?
   if (from == to) return false;
   if (is_falling(from)) return false;
   if (is_protected(from)) return false;
@@ -887,7 +915,7 @@ bool upward_adopt(obj from, obj to, num d) {
     if(parent == _NULL)
       return false;
     num nd = d - get_rank(from) + get_rank(parent) + 1;
-    if (nd <= 0 || upward_adopt(parent, to, nd)){
+    if (nd <= 0 || upward_adopt(parent, to, nd, depth + 1)){
       und_sub_rank(from, d);
       return true;
     }
@@ -896,14 +924,16 @@ bool upward_adopt(obj from, obj to, num d) {
   return false;
 }
 
-bool adUpt(obj x) {
+bool adUpt(obj x, int depth) {
   // adoption with the possibility of an upward adoption for mutations
   if (adopt(x)) return 1;
   obj cfr = CFR(x);
+
+  if (!adupt_start_heuristic(x, depth)) { return false; }
   
   // any way to merge this with the previous adoption loop?
   while (cfr != _NULL) {
-    if (upward_adopt(cfr, x, get_rank(cfr)-get_rank(x)+1)) {
+    if (upward_adopt(cfr, x, get_rank(cfr)-get_rank(x)+1, 0)) {
       get_parent(x) = cfr;
       return 1;
     }
@@ -922,33 +952,34 @@ void drop() {
   obj *_x;
   obj cfr;
 
-  long adUpt_tries = 0;
+  int depth = 0;
+  int level_size = 1;
+  int next_level_size = 0;
 
   while (!Q_IS_EMPTY()) {
     x = q_dequeue();
     _x = RIB(x)->fields;
     cfr = CFR(x);
+
+    level_size--;
+    if (level_size == 0) {
+      level_size = next_level_size;
+      depth++;
+      next_level_size = 0;
+    }
+
     
     // making x's children "fall" along with him
     for (int i = 0; i < 3; i++) {
       obj child = _x[i];
       if (IS_RIB(child) && is_parent(child, x) && is_collectable(child)) {
-        if (!is_falling(child) && 
-#ifdef NO_ADUPT
-            !adopt(child)
-#else
-#ifdef ALWAYS_ADUPT
-            !adUpt(child)
-#else
-            !(adUpt_tries++ < MAX_ADUPT_TRIES ? adUpt(child) : adopt(child))
-#endif
-#endif
-        )
+        if (!is_falling(child) && !adUpt(child, depth))
         {
           // if we loosen here instead of when we dequeue, we can reuse the
           // queue field for the priority queue
           fall(child); 
           pq_remove(child);
+          next_level_size++;
           q_enqueue(child);
         }
       }
@@ -1048,7 +1079,7 @@ void remove_edge(obj from, obj to, int i) {
   // disconnected and so a drop phase must ensue UNLESS `to` is protected or
   // if `to` can be adopted right away
   remove_parent(to, from, i); 
-  if (is_collectable(to) && !is_parent(to, from) && !_adUpt(to)) {
+  if (is_collectable(to) && !is_parent(to, from) && !_adUpt(to, 0)) {
     q_enqueue(to);
     fall(to); 
     drop();
