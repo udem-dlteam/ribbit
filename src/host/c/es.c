@@ -146,7 +146,7 @@ static inline bool adupt_start_heuristic(obj adoptee, int depth) {
 #define ADUPT_RERANK_DEPTH 5
 // )@@
 // @@(feature adupt-rerank-depth-25
-#define ADURERANK_DEPTH 25
+#define ADUPT_RERANK_DEPTH 25
 // )@@
 // @@(feature adupt-rerank-depth-100
 #define ADUPT_RERANK_DEPTH 100
@@ -155,9 +155,9 @@ static inline bool adupt_start_heuristic(obj adoptee, int depth) {
 #define ADUPT_RERANK_DEPTH 500
 // )@@
 
-#define INCREMENT_RERANK_DEPTH(rib, i) i + 1
+#define INCREMENT_RERANK_DEPTH(rib, i) ((i) + 1)
 // @@(feature adupt-avoid-lists
-#define INCREMENT_RERANK_DEPTH(rib, i) get_field(rib, 2) == PAIR_TAG ? i + 1 : i
+#define INCREMENT_RERANK_DEPTH(rib, i) (get_field(rib, 2) == PAIR_TAG ? (i) + 1 : (i))
 #ifndef ADUPT_RERANK_DEPTH
 #define ADUPT_RERANK_DEPTH 3
 #endif
