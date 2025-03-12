@@ -155,6 +155,14 @@ static inline bool adupt_start_heuristic(obj adoptee, int depth) {
 #define ADUPT_RERANK_DEPTH 500
 // )@@
 
+#define INCREMENT_RERANK_DEPTH(rib, i) i + 1
+// @@(feature adupt-avoid-lists
+#define INCREMENT_RERANK_DEPTH(rib, i) get_field(rib, 2) == PAIR_TAG ? i + 1 : i
+#ifndef ADUPT_RERANK_DEPTH
+#define ADUPT_RERANK_DEPTH 3
+#endif
+// )@@
+
 static inline bool adupt_continue_heuristic(int depth) {
   #ifdef ADUPT_RERANK_DEPTH
   return depth < ADUPT_RERANK_DEPTH;
@@ -915,7 +923,7 @@ bool upward_adopt(obj from, obj to, num d, int depth) {
     if(parent == _NULL)
       return false;
     num nd = d - get_rank(from) + get_rank(parent) + 1;
-    if (nd <= 0 || upward_adopt(parent, to, nd, depth + 1)){
+    if (nd <= 0 || upward_adopt(parent, to, nd, INCREMENT_RERANK_DEPTH(from, depth))){
       und_sub_rank(from, d);
       return true;
     }
