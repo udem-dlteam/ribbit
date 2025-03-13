@@ -1,33 +1,35 @@
-(define-primitive
-  (##stdin-fd)
-  (use c/stdio)
-  "{
-  FILE* file = fdopen(0, \"r\");
-  push2((long) file | 1, PAIR_TAG);
-  break;
-}")
-
-(define-primitive
-  (##stdout-fd)
-  (use c/stdio)
-  "{
-  FILE* file = fdopen(1, \"w\");
-  push2((long) file | 1, PAIR_TAG);
-  break;
-}")
 
 (if-feature c/gc/es
-            
-  ;; ref count or even-shiloach gc          
+
+  ;; ref count or even-shiloach gc
   (begin
-    (define-primitive 
+
+    (define-primitive
+      (##stdin-fd)
+      (use c/stdio)
+      "{
+      FILE* file = fdopen(0, \"r\");
+      push((long) file | 1);
+      break;
+    }")
+
+    (define-primitive
+      (##stdout-fd)
+      (use c/stdio)
+      "{
+      FILE* file = fdopen(1, \"w\");
+      push((long) file | 1);
+      break;
+    }")
+
+    (define-primitive
       (##get-fd-input-file filename)
       (use c/stdio scm2str)
       "{
   PRIM1();
   char* filename = scm2str(x);
   FILE* file = fopen(filename, \"r\");
-  push2(file ? (long) file | 1 : FALSE, PAIR_TAG);
+  push(file ? (long) file | 1 : FALSE);
   free((void*) filename);
   DEC_PRIM1();
   break;
@@ -40,7 +42,7 @@
   PRIM1();
   char* filename = scm2str(x);
   FILE* file = fopen(filename, \"w\");
-  push2((long) file | 1, PAIR_TAG);
+  push((long) file | 1);
   free((void *) filename);
   DEC_PRIM1();
   break;
@@ -54,8 +56,8 @@
   FILE* file = (FILE*) ((long) x ^ 1);
   char buffer[1];
   int bytes_read = fread(buffer, 1, 1, file);
-  if (!bytes_read) push2(NIL, PAIR_TAG);
-  else push2(TAG_NUM(buffer[0]), PAIR_TAG);
+  if (!bytes_read) push(NIL);
+  else push(TAG_NUM(buffer[0]));
   DEC_PRIM1();
   break;
 }")
@@ -72,7 +74,7 @@
   perror(\"Cannot write to file.\");
   }
   fflush(file);
-  push2(TRUE, PAIR_TAG);
+  push(TRUE);
   DEC_PRIM2();
   break;
 }")
@@ -90,7 +92,26 @@
 
   ;; mark-and-sweep or stop-and-copy gc
   (begin
-    (define-primitive 
+
+    (define-primitive
+      (##stdin-fd)
+      (use c/stdio)
+      "{
+      FILE* file = fdopen(0, \"r\");
+      push2((long) file | 1, PAIR_TAG);
+      break;
+    }")
+
+    (define-primitive
+      (##stdout-fd)
+      (use c/stdio)
+      "{
+      FILE* file = fdopen(1, \"w\");
+      push2((long) file | 1, PAIR_TAG);
+      break;
+    }")
+
+    (define-primitive
       (##get-fd-input-file filename)
       (use c/stdio scm2str)
       "{

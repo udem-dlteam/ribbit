@@ -129,7 +129,7 @@ check-es: rsc.exe
 	HOST=c \
 	RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ check-spanning-tree -f+ runtime-checks" \
 	POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" \
-	TEST_FEATURES="-f+ adupt-drop-depth-25 -f+ adupt-rerank-depth-25,-f+ adupt-avoid-lists,-f+ adupt-drop-depth-always" \
+	TEST_FEATURES="-f+ adupt-drop-depth-25 -f+ adupt-rerank-depth-25,-f+ adupt-avoid-lists,-f+ adupt-drop-depth-always, -f+ stack-pair-tag" \
 	TEST_TAGS="c core variadics r4rs flat-closure bench" \
 	make check
 

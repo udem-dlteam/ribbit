@@ -54,7 +54,7 @@ if(should_clock_gc == 1) {
     printf(\"***error while grabbing time...\");
     exit(1);
   };
-  push2(TAG_NUM(0), PAIR_TAG);
+  push(TAG_NUM(0));
   break;
   }")
 
@@ -68,7 +68,7 @@ if(should_clock_gc == 1) {
   };
 
   should_clock_gc = 0;
-  push2(TAG_NUM(0), PAIR_TAG);
+  push(TAG_NUM(0));
   break;
 }")
 
@@ -82,7 +82,7 @@ printf(
   ((double)time_difference_ns) / 1000000,
   ((double)time_gc_accumulated) / 1000000, gc_invocations
 );
-push2(TAG_NUM(0), PAIR_TAG);
+push(TAG_NUM(0));
 break;
 }")
 
