@@ -135,7 +135,7 @@ void check_spanning_tree_impl();
 
 static inline bool adupt_start_heuristic(obj adoptee, int depth) {
   #ifdef NO_RERANK_FROM_ATOMIC
-  obj tag = get_field(rib, 2);
+  obj tag = get_field(adoptee, 2);
   if (tag != PAIR_TAG || tag != CLOSURE_TAG) {
     return false;
   }
