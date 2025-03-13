@@ -572,6 +572,11 @@ void push2(obj car, obj tag) {
 #endif
 }
 
+// Simple version of push for stack operations
+static inline void push(obj car){
+  push2(car, PAIR_TAG);
+}
+
 /**
  * Allocate a rib that is not kept on the stack (can be linked
  * from anywhere). The car and cdr can be live references to other
