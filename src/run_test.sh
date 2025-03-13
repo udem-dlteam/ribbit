@@ -37,22 +37,26 @@ prog=$TEMP_DIR/$(basename $1)
 echo "-------------------- $test_path : \c"
 test_ran="0"
 success="1"
-for tag in $(echo $TEST_TAGS | tr ' ' '\n'); do 
-  if [ "$tag" = "core" ]; then
-    runs=`get_attribute $test_path "run"`
-  else
-    runs=`get_attribute $test_path "$tag-run"`
-  fi
 
-  for feature in "" $(echo $TEST_FEATURES | tr ',' '\n' | sed -e "s/ /,/g" ); do
+ifeature=0
+for feature in "" $(echo $TEST_FEATURES | tr ',' '\n' | sed -e "s/ /,/g" ); do
+  feature=`echo $feature | sed -e "s/,/ /g"`
+
+  ifeature=$(($ifeature + 1))
+  for tag in $(echo $TEST_TAGS | tr ' ' '\n'); do
+    if [ "$tag" = "core" ]; then
+      runs=`get_attribute $test_path "run"`
+    else
+      runs=`get_attribute $test_path "$tag-run"`
+    fi
+
     for run in $(echo $runs | tr ',' '\n' | sed -e "s/ /,/g"); do
-      echo ".\c"
+      echo "$ifeature\c"
       run=`echo $run | sed -e "s/,/ /g"`
-      feature=`echo $feature | sed -e "s/,/ /g"`
-      
+
       # Compile test
       cmd="$RSC_COMPILER -t $HOST $run $feature -o $prog.$HOST $test_path"
-      `$cmd` > $prog.err  2>&1 
+      `$cmd` > $prog.err  2>&1
       if [ "$?" != "0" ]; then
         if [ "$success" = "1" ]; then
           success=0

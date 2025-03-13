@@ -138,6 +138,25 @@ check-repl:
 
 check:
 	@cd ../..; \
+  echo "Running tests with these options:"; \
+  echo " - Host: $$HOST"; \
+  echo " - Ribbit Compiler: $$RSC_COMPILER"; \
+	if [ "${HOST_COMPILER}" != "" ]; then \
+  echo " - Host Compiler: $$HOST_COMPILER"; \
+	else \
+  echo " - Host Interpreter: $$HOST_INTERPRETER"; \
+	fi; \
+  echo " - Tags: $$TEST_TAGS"; \
+  echo " - Options:"; \
+	echo "  1. (no option)"; \
+  ifeature=1; \
+  for feature in $$(echo ${TEST_FEATURES} | tr ' ' '_' | tr ',' ' '); do \
+    ifeature=$$(($$ifeature + 1)); \
+    feature=`echo $$feature | sed -e "s/,/ /g" | sed -e "s/_/ /g"`; \
+    echo "  $$ifeature. '$$feature'"; \
+	done; \
+	echo "Printed numbers are related to the current option being tested from the list above. Tests themselves can be run with different libraries causing numbers to appear multiple times."; \
+	echo ""; \
 	succeded=1; \
 	for prog in `ls ${TEST_DIR}/**/${TEST_FILTER}.scm host/${HOST}/tests/${TEST_FILTER}.scm`; do \
 		HOST="${HOST}" \
