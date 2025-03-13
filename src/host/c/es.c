@@ -156,7 +156,8 @@ static inline bool adupt_start_heuristic(obj adoptee, int depth) {
 // )@@
 
 #define INCREMENT_RERANK_DEPTH(rib, i) ((i) + 1)
-// @@(feature adupt-avoid-lists
+
+// @@(feature adupt-avoid-lists (use stack-pair-tag)
 #undef INCREMENT_RERANK_DEPTH
 #define INCREMENT_RERANK_DEPTH(rib, i) (get_field(rib, 2) == PAIR_TAG ? (i) + 1 : (i))
 #ifndef ADUPT_RERANK_DEPTH
@@ -277,6 +278,12 @@ typedef struct {
 #define SYMBOL_TAG TAG_NUM(2)
 #define STRING_TAG TAG_NUM(3)
 #define SINGLETON_TAG TAG_NUM(5)
+
+#define STACK_PAIR_TAG PAIR_TAG
+
+// @@(feature stack-pair-tag
+#define STACK_PAIR_TAG TAG_NUM(6)
+// )@@
 
 #define _NULL ((obj)NULL)
 
@@ -1364,6 +1371,7 @@ obj pop() {
 #define DEC_PRIM2() _unprotect(y); DEC_PRIM1()
 #define DEC_PRIM3() _unprotect(z); DEC_PRIM2()
 
+
 void push2(obj car, obj tag) {
   obj tmp = *alloc; // next available slot in freelist
   
@@ -1408,6 +1416,11 @@ void push2(obj car, obj tag) {
   add_ref(new_rib, tag, 2);
   
   alloc = (obj *)tmp;
+}
+
+// Simple version of push for stack operations
+static inline void push(obj car){
+  push2(car, STACK_PAIR_TAG);
 }
 
 // We don't need to link a newly allocated rib from the stack since we
@@ -1626,7 +1639,7 @@ obj prim(int no) {
     CAR(new_rib) = x;
     CDR(new_rib) = y;
     TAG(new_rib) = z;
-    push2(new_rib, PAIR_TAG);
+    push(new_rib);
     DEC_COUNT(new_rib); // remove redundant new_rib count
     DEC_PRIM3();
 #else
@@ -1637,14 +1650,14 @@ obj prim(int no) {
     obj x = CAR(CDR(CDR(stack)));
     obj r = TAG_RIB(alloc_rib(x, y, z));
     set_stack(CDR(CDR(CDR(stack))));
-    push2(r, PAIR_TAG);
+    push(r);
 #endif
     break;
   } // )@@
   case 1: // @@(primitive (##id x)
   {
     PRIM1();
-    push2(x, PAIR_TAG);
+    push(x);
     DEC_PRIM1();
     break;
   } // )@@
@@ -1656,7 +1669,7 @@ obj prim(int no) {
   case 3: // @@(primitive (##arg2 x y)
   {
     PRIM2();
-    push2(y, PAIR_TAG);
+    push(y);
     DEC_PRIM2();
     break;
   } //)@@
@@ -1684,27 +1697,27 @@ obj prim(int no) {
     // result of an operation, saves some GC time
     obj res = bool2scm(IS_RIB(CAR(stack)));
     set_stack(CDR(stack));
-    push2(res, PAIR_TAG);
+    push(res);
     break;
   } //)@@
   case 6: // @@(primitive (##field0 rib)
   {
     PRIM1();
-    push2(CAR(x), PAIR_TAG);
+    push(CAR(x));
     DEC_PRIM1();
     break;
   } //)@@
   case 7: // @@(primitive (##field1 rib)
   {
     PRIM1();
-    push2(CDR(x), PAIR_TAG);
+    push(CDR(x));
     DEC_PRIM1();
     break;
   } //)@@
   case 8:  // @@(primitive (##field2 rib)
   {
     PRIM1();
-    push2(TAG(x), PAIR_TAG);
+    push(TAG(x));
     DEC_PRIM1();
     break;
   } //)@@
@@ -1712,7 +1725,7 @@ obj prim(int no) {
   { 
     PRIM2();
     SET_CAR(x, y);
-    push2(y, PAIR_TAG);
+    push(y);
 #ifdef REF_COUNT
     DEC_COUNT(y);
 #endif
@@ -1723,7 +1736,7 @@ obj prim(int no) {
   {
     PRIM2();
     SET_CDR(x, y);
-    push2(y, PAIR_TAG);
+    push(y);
 #ifdef REF_COUNT
     DEC_COUNT(y);
 #endif
@@ -1734,7 +1747,7 @@ obj prim(int no) {
   {
     PRIM2();
     SET_TAG(x, y);
-    push2(y, PAIR_TAG);
+    push(y);
 #ifdef REF_COUNT
     DEC_COUNT(y);
 #endif
@@ -1751,41 +1764,41 @@ obj prim(int no) {
     // result of an operation, saves some GC time
     obj res = bool2scm(CAR(stack) == CAR(CDR(stack)));
     set_stack(CDR(CDR(stack)));
-    push2(res, PAIR_TAG);
+    push(res);
     break;
   } //)@@
   case 13:  // @@(primitive (##< x y) (use bool2scm)
   {
     PRIM2();
-    push2(bool2scm(NUM(x) < NUM(y)), PAIR_TAG);
+    push(bool2scm(NUM(x) < NUM(y)));
     DEC_PRIM2();
     break;
   } //)@@
   case 14:  // @@(primitive (##+ x y)
   {
     PRIM2();
-    push2(x + y - 1, PAIR_TAG);
+    push(x + y - 1);
     DEC_PRIM2();
     break;
   } //)@@
   case 15:  // @@(primitive (##- x y)
   {
     PRIM2();
-    push2(x - y + 1, PAIR_TAG);
+    push(x - y + 1);
     DEC_PRIM2();
     break;
   } //)@@
   case 16:  // @@(primitive (##* x y)
   {
     PRIM2();
-    push2(TAG_NUM((NUM(x) * NUM(y))), PAIR_TAG);
+    push(TAG_NUM((NUM(x) * NUM(y))));
     DEC_PRIM2();
     break;
   } // )@@
   case 17:  // @@(primitive (##quotient x y)
   {
     PRIM2();
-    push2(TAG_NUM((NUM(x) / NUM(y))), PAIR_TAG);
+    push(TAG_NUM((NUM(x) / NUM(y))));
     DEC_PRIM2();
     break;
   } // )@@
@@ -1794,7 +1807,7 @@ obj prim(int no) {
     int read;
     read = getchar();
     if (EOF == read) read = -1;
-    push2(TAG_NUM(read), PAIR_TAG);
+    push(TAG_NUM(read));
     break;
   } // )@@
   case 19:  // @@(primitive (##putchar c)
@@ -1802,7 +1815,7 @@ obj prim(int no) {
     PRIM1();
     putchar((char)NUM(x));
     fflush(stdout);
-    push2(x, PAIR_TAG);
+    push(x);
     DEC_PRIM1();
     break;
   } // )@@
@@ -1880,7 +1893,7 @@ void run() { // evaluator
 
         else { // calling a lambda
           num nargs = NUM(pop()); // @@(feature arity-check)@@
-          obj new_stack = TAG_RIB(alloc_rib(NUM_0, proc, PAIR_TAG));
+          obj new_stack = TAG_RIB(alloc_rib(NUM_0, proc, STACK_PAIR_TAG));
           proc = CDR(new_stack);
           SET_CDR(new_stack, CDR(proc)); // @@(feature flat-closure)@@
 #ifdef REF_COUNT
@@ -1916,7 +1929,7 @@ void run() { // evaluator
               s = CDR(s);
 #endif
             }
-            new_stack = TAG_RIB(alloc_rib(rest, new_stack, PAIR_TAG));
+            new_stack = TAG_RIB(alloc_rib(rest, new_stack, STACK_PAIR_TAG));
 #ifdef REF_COUNT
             DEC_COUNT(CAR(new_stack)); // rest
             DEC_COUNT(CDR(new_stack)); // old new stack
@@ -1929,7 +1942,7 @@ void run() { // evaluator
             DEC_COUNT(CDR(new_stack)); // old new stack
             DEC_POP(CAR(new_stack));
 #else
-            new_stack = TAG_RIB(alloc_rib(CAR(s), new_stack, PAIR_TAG));
+            new_stack = TAG_RIB(alloc_rib(CAR(s), new_stack, STACK_PAIR_TAG));
             s = CDR(s);
 #endif
           }
@@ -1979,12 +1992,12 @@ void run() { // evaluator
       break;
     }
     case INSTR_GET: { // get
-      push2(get_opnd(CDR(pc)), PAIR_TAG);
+      push(get_opnd(CDR(pc)));
       ADVANCE_PC();
       break;
     }
     case INSTR_CONST: { // const
-      push2(CDR(pc), PAIR_TAG);
+      push(CDR(pc));
       ADVANCE_PC();
       break;
     }
@@ -2302,7 +2315,7 @@ void init_stack() {
 
   CAR(first) = TAG_NUM(INSTR_HALT);
   CDR(first) = NUM_0; 
-  TAG(first) = PAIR_TAG;
+  TAG(first) = STACK_PAIR_TAG;
 }
 
 void init() {
