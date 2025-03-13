@@ -282,6 +282,7 @@ typedef struct {
 #define STACK_PAIR_TAG PAIR_TAG
 
 // @@(feature stack-pair-tag
+#undef STACK_PAIR_TAG
 #define STACK_PAIR_TAG TAG_NUM(6)
 // )@@
 
@@ -1571,7 +1572,7 @@ obj get_opnd(obj o) {
 
 obj get_cont() {
   obj s = stack;
-  while (!NUM(TAG(s))) {
+  while (TAG(s) == STACK_PAIR_TAG) {
     s = CDR(s);
   }
   return s;
