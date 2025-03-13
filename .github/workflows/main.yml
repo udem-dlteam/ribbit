@@ -649,5 +649,5 @@ jobs:
 
       - name: Run RVM tests
         run: |
-          cd src; make -i check-es; exit 1;
+          cd src; make check-es;
 
