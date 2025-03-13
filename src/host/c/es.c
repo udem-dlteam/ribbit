@@ -129,6 +129,10 @@ void check_spanning_tree_impl();
 #define ADUPT_DROP_DEPTH_ALWAYS
 // )@@
 
+// @@(feature adupt-no-rerank-from-atomic (use stack-pair-tag)
+#define NO_RERANK_FROM_ATOMIC
+// )
+
 static inline bool adupt_start_heuristic(obj adoptee, int depth) {
   #ifdef NO_RERANK_FROM_ATOMIC
   obj tag = get_field(rib, 2);
@@ -171,10 +175,6 @@ static inline bool adupt_start_heuristic(obj adoptee, int depth) {
 #define ADUPT_RERANK_DEPTH 3
 #endif
 // )@@
-
-// @@(feature adupt-no-rerank-from-atomic (use stack-pair-tag)
-#define NO_RERANK_FROM_ATOMIC
-// )
 
 static inline bool adupt_continue_heuristic(int depth) {
   #ifdef ADUPT_RERANK_DEPTH
