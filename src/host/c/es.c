@@ -112,89 +112,6 @@ void check_spanning_tree_impl();
 #define MAX_RANK 1152921504606846974
 #define MIN_RANK -1152921504606846976
 
-// DEFAULT: no adupt
-// @@(feature adupt-drop-depth-5
-#define ADUPT_DROP_DEPTH 5
-// )@@
-// @@(feature adupt-drop-depth-25
-#define ADUPT_DROP_DEPTH 25
-// )@@
-// @@(feature adupt-drop-depth-100
-#define ADUPT_DROP_DEPTH 100
-// )@@
-// @@(feature adupt-drop-depth-500
-#define ADUPT_DROP_DEPTH 500
-// )@@
-// @@(feature adupt-drop-depth-always
-#define ADUPT_DROP_DEPTH_ALWAYS
-// )@@
-
-static inline bool adupt_start_heuristic(obj adoptee, int depth) {
-  #ifdef ADUPT_DROP_DEPTH_ALWAYS
-  return true;
-  #endif
-
-  #ifdef ADUPT_DROP_DEPTH
-  return depth < ADUPT_DROP_DEPTH;
-  #endif
-
-  return false;
-}
-
-// DEFAULT: rerank searches until found or root reached
-// @@(feature adupt-rerank-depth-5
-#define ADUPT_RERANK_DEPTH 5
-// )@@
-// @@(feature adupt-rerank-depth-25
-#define ADUPT_RERANK_DEPTH 25
-// )@@
-// @@(feature adupt-rerank-depth-100
-#define ADUPT_RERANK_DEPTH 100
-// )@@
-// @@(feature adupt-rerank-depth-500
-#define ADUPT_RERANK_DEPTH 500
-// )@@
-
-#define INCREMENT_RERANK_DEPTH(rib, i) ((i) + 1)
-
-// @@(feature adupt-avoid-lists (use stack-pair-tag)
-#undef INCREMENT_RERANK_DEPTH
-#define INCREMENT_RERANK_DEPTH(rib, i) (get_field(rib, 2) == PAIR_TAG ? (i) + 1 : (i))
-#ifndef ADUPT_RERANK_DEPTH
-#define ADUPT_RERANK_DEPTH 3
-#endif
-// )@@
-
-static inline bool adupt_continue_heuristic(int depth) {
-  #ifdef ADUPT_RERANK_DEPTH
-  return depth < ADUPT_RERANK_DEPTH;
-  #endif
-
-  return true;
-}
-
-
-// @@(feature debug/clean-ribs
-#define CLEAN_RIBS
-// )@@
-
-
-// @@(feature runtime-checks (use check-spanning-tree)
-#define ASSERT(cond, msg) if(!(cond)){ printf("Runtime assert violated on line %d: %s", __LINE__, msg); exit(7); }
-// )@@
-
-#ifndef ASSERT
-#define ASSERT(cond, msg) 0
-#endif
-
-
-
-// @@(feature (not compression/lzss/2b)
-// @@(replace "41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121" (encode-as-bytes "auto" "" "," "")
-unsigned char input[] = {41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121,0}; // RVM code that prints HELLO!
-// )@@
-// )@@
-
 #ifdef QUEUE_NO_REMOVE
 #define QUEUE_NO_REMOVE_count 1
 #else
@@ -273,6 +190,10 @@ typedef struct {
 #define EXIT_ILLEGAL_INSTR 6
 #define EXIT_NO_MEMORY 7
 
+#define _NULL ((obj)NULL)
+
+#define NUM_0 (TAG_NUM(0))
+
 #define PAIR_TAG TAG_NUM(0)
 #define CLOSURE_TAG TAG_NUM(1)
 #define SYMBOL_TAG TAG_NUM(2)
@@ -286,9 +207,101 @@ typedef struct {
 #define STACK_PAIR_TAG TAG_NUM(6)
 // )@@
 
-#define _NULL ((obj)NULL)
+// DEFAULT: no adupt
+// @@(feature adupt-drop-depth-5
+#define ADUPT_DROP_DEPTH 5
+// )@@
+// @@(feature adupt-drop-depth-25
+#define ADUPT_DROP_DEPTH 25
+// )@@
+// @@(feature adupt-drop-depth-100
+#define ADUPT_DROP_DEPTH 100
+// )@@
+// @@(feature adupt-drop-depth-500
+#define ADUPT_DROP_DEPTH 500
+// )@@
+// @@(feature adupt-drop-depth-always
+#define ADUPT_DROP_DEPTH_ALWAYS
+// )@@
 
-#define NUM_0 (TAG_NUM(0))
+// @@(feature adupt-no-rerank-from-atomic (use stack-pair-tag)
+#define NO_RERANK_FROM_ATOMIC
+// )@@
+
+static inline bool adupt_start_heuristic(obj adoptee, int depth) {
+  #ifdef NO_RERANK_FROM_ATOMIC
+  obj tag = get_field(adoptee, 2);
+  if (tag != PAIR_TAG || tag != CLOSURE_TAG) {
+    return false;
+  }
+  #endif
+  
+  #ifdef ADUPT_DROP_DEPTH_ALWAYS
+  return true;
+  #endif
+
+  #ifdef ADUPT_DROP_DEPTH
+  return depth < ADUPT_DROP_DEPTH;
+  #endif
+
+  return false;
+}
+
+// DEFAULT: rerank searches until found or root reached
+// @@(feature adupt-rerank-depth-5
+#define ADUPT_RERANK_DEPTH 5
+// )@@
+// @@(feature adupt-rerank-depth-25
+#define ADUPT_RERANK_DEPTH 25
+// )@@
+// @@(feature adupt-rerank-depth-100
+#define ADUPT_RERANK_DEPTH 100
+// )@@
+// @@(feature adupt-rerank-depth-500
+#define ADUPT_RERANK_DEPTH 500
+// )@@
+
+#define INCREMENT_RERANK_DEPTH(rib, i) ((i) + 1)
+
+// @@(feature adupt-avoid-lists (use stack-pair-tag)
+#undef INCREMENT_RERANK_DEPTH
+#define INCREMENT_RERANK_DEPTH(rib, i) (get_field(rib, 2) == PAIR_TAG ? (i) + 1 : (i))
+#ifndef ADUPT_RERANK_DEPTH
+#define ADUPT_RERANK_DEPTH 3
+#endif
+// )@@
+
+static inline bool adupt_continue_heuristic(int depth) {
+  #ifdef ADUPT_RERANK_DEPTH
+  return depth < ADUPT_RERANK_DEPTH;
+  #endif
+
+  return true;
+}
+
+
+// @@(feature debug/clean-ribs
+#define CLEAN_RIBS
+// )@@
+
+
+// @@(feature runtime-checks (use check-spanning-tree)
+#define ASSERT(cond, msg) if(!(cond)){ printf("Runtime assert violated on line %d: %s", __LINE__, msg); exit(7); }
+// )@@
+
+#ifndef ASSERT
+#define ASSERT(cond, msg) 0
+#endif
+
+
+
+// @@(feature (not compression/lzss/2b)
+// @@(replace "41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121" (encode-as-bytes "auto" "" "," "")
+unsigned char input[] = {41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121,0}; // RVM code that prints HELLO!
+// )@@
+// )@@
+
+
 
 // the only three roots allowed
 obj stack = NUM_0;
