@@ -13,6 +13,27 @@
 (define-const input-port-type 8)
 (define-const output-port-type 9)
 
+
+(if-feature hybrid
+(define-primitive (##rc-rib x y z)
+  "{
+  obj z = CAR(stack);
+    obj y = CAR(CDR(stack));
+    obj x = CAR(CDR(CDR(stack)));
+    obj r = TAG_RIB(alloc_rib(x, y, z, 1));
+    set_stack(CDR(CDR(CDR(stack))));
+    push(r);
+break;
+}
+")
+(define ##rc-rib ##rib))
+
+(define (rc-list-copy lst)
+  (let loop ((x lst) )
+    (if (null? x)
+	'()
+	(##rc-rib (car x) (loop (cdr x)) pair-type))))
+
 (define (instance? type) (lambda (o) (and (##rib? o) (##eqv? (##field2 o) type))))
 
 (define pair? (instance? pair-type))
@@ -77,7 +98,7 @@
 (define (char->integer x) (##field0 x))
 (define (integer->char n) (##rib n 0 char-type))
 
-(define (##list->string lst) (##rib lst (length lst) string-type))
+(define (##list->string lst) (##rc-rib (rc-list-copy lst) (length lst) string-type))
 (define (##string->list x) (##field0 x))
 
 (define (##map proc lst)

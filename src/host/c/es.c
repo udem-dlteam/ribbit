@@ -59,6 +59,10 @@ typedef long num;
 #define REF_COUNT
 // )@@
 
+// @@(feature hybrid
+#define HYBRID
+// )@@
+
 // @@(feature queue-no-remove
 #define QUEUE_NO_REMOVE
 // )@@
@@ -179,6 +183,24 @@ typedef struct {
 #define UNMARK(x) ((x)^2)
 #define IS_MARKED(x) ((x)&2)
 
+#ifdef HYBRID
+#define get_count(x) Q_NEXT(x)
+
+#define inc_count(x) (get_count(x) = TAG_NUM(NUM(get_count(x))+1))
+
+void dealloc_string(obj str);
+
+void dec_count(obj x) {
+  get_count(x) = TAG_NUM(NUM(get_count(x))-1);
+  if (NUM(get_count(x)) == 0) {
+    dealloc_string(x);
+  }
+}
+
+#define INC_COUNT(o) if (IS_RIB(o)) inc_count(o)
+#define DEC_COUNT(o) if (IS_RIB(o)) dec_count(o)
+
+#endif
 
 #define INSTR_AP 0
 #define INSTR_SET 1
@@ -703,6 +725,10 @@ void und_sub_rank(obj x, num d){
 #define is_root(x) (x == pc || x == stack || x == FALSE)
 #define is_immortal(x) (x == TRUE || x == NIL || x == FALSE)
 
+#ifdef HYBRID
+#define is_acyclic(x) (TAG(x) == STRING_TAG)
+#endif
+
 
 // TODO need to document this section, the comments are the same as the ones
 // for the no parent field version
@@ -721,8 +747,28 @@ void remove_node(obj x);
 // system to avoid this problem
 #define is_protected(o) (IS_RIB(o) && IS_MARKED(RANK(o)))
 
+bool adUpt(obj x, int depth);
+
 #define _adUpt(x, depth) ((CFR(x) == _NULL) ? 0 : adUpt(x, depth))
+
+
+#ifdef HYBRID
+void remove_root(obj old_root) {
+  if (IS_RIB(old_root)) {
+    if (is_acyclic(old_root)) {
+      if (NUM(get_count(old_root)) == 0) {
+        dealloc_string(old_root);
+      }
+    } else {
+      if (!_adUpt(old_root, 0)) {
+        remove_node(old_root);
+      }
+    }
+  }
+}
+#else
 #define remove_root(old_root) if (IS_RIB(old_root) && !_adUpt(old_root, 0)) remove_node(old_root)
+#endif
 
 /* #define protect(o) RANK(o) = MARK(RANK(o)) */
 /* #define unprotect(o)                                                           \ */
@@ -733,6 +779,12 @@ void remove_node(obj x);
 /*     }                                                                          \ */
 /*   } while (0) */
 
+// bool adUpt(obj x, int depth); // needed by unprotect
+
+/* #ifdef HYBRID */
+
+
+/* #else */
 
 void protect(obj o) {
   if (IS_RIB(o) && !is_root(o)) {
@@ -745,8 +797,6 @@ void protect(obj o) {
     }
   }
 }
-
-bool adUpt(obj x, int depth); // needed by unprotect
 
 void unprotect(obj o) {
   if (IS_RIB(o)) {
@@ -768,7 +818,17 @@ void unprotect(obj o) {
   }
 }
 
+/* #endif */
+
 void add_cofriend(obj x, obj cfr, int i) {
+
+#ifdef HYBRID
+  if (is_acyclic(x)) {
+    INC_COUNT(x);
+    return;
+  }
+#endif
+  
   // Case 1: `x` is parentless, `cfr` becomes the parent by default. This
   // corresponds to the situation where a newly allocated object or structure
   // gets connected to an existing spanning tree in the spanning forest
@@ -989,6 +1049,7 @@ void drop() {
   while (!Q_IS_EMPTY()) {
     x = q_dequeue();
     _x = RIB(x)->fields;
+    
     cfr = CFR(x);
 
     level_size--;
@@ -1002,6 +1063,12 @@ void drop() {
     // making x's children "fall" along with him
     for (int i = 0; i < 3; i++) {
       obj child = _x[i];
+#ifdef HYBRID
+      // Only want to decrement the count, and possibly deallocate the string
+      // if its reference is dropped, so we can let the dealloc phase take care
+      // of that 
+      if (IS_RIB(child) && is_acyclic(child)) continue;
+#endif
       if (IS_RIB(child) && is_parent(child, x) && is_collectable(child)) {
         if (!is_falling(child) && !adUpt(child, depth))
         {
@@ -1054,6 +1121,13 @@ void dealloc_rib(obj x){
   obj *_x = RIB(x)->fields;
   for (int i = 0; i < 3; i++) {
     if (IS_RIB(_x[i])) {
+#ifdef HYBRID
+      if (is_acyclic(_x[i])) {
+        // dec_count will take care of the deallocation if need be
+        DEC_COUNT(_x[i]); 
+        continue;
+      }
+#endif
       if (is_parent(_x[i], x)) {
         if (is_deallocated(_x[i])) { // already deallocated?
           continue;
@@ -1097,6 +1171,13 @@ void remove_edge(obj from, obj to, int i) {
   // expected to be found (there could be more than one reference from `from`
   // to `to` and we need to handle the right mirror field)
 
+#ifdef HYBRID
+  if (is_acyclic(to)) {
+    DEC_COUNT(to);
+    return;
+  }
+#endif
+
   // Case 1: `from` is not `to`'s parent, and so the spanning tree remains the
   // same, we only need to remove that reference (and potentially `from` from
   // `to`'s co-friends if there was only one reference)
@@ -1111,7 +1192,7 @@ void remove_edge(obj from, obj to, int i) {
   remove_parent(to, from, i); 
   if (is_collectable(to) && !is_parent(to, from) && !_adUpt(to, 0)) {
     q_enqueue(to);
-    fall(to); 
+    fall(to);
     drop();
     if (!PQ_IS_EMPTY()) catch(); 
     if (is_falling(to)) {
@@ -1126,7 +1207,21 @@ void remove_edge(obj from, obj to, int i) {
 // FIXME need to generalize this so that it works with any protected field
 #define remove_ref_nr(to, i) remove_edge(null_rib, to, i); TEMP5 = _NULL;
 
-
+/* #ifdef HYBRID */
+/* void remove_node(obj old_root) { */
+/*   if (is_acyclic(old_root) && get_count(old_root) == 0) { */
+/*     dealloc_string(old_root); */
+/*     return; */
+/*   } */
+/*   q_enqueue(old_root); */
+/*   fall(old_root); */
+/*   drop(); */
+/*   if (!PQ_IS_EMPTY()) catch(); */
+/*   if (is_falling(old_root)) { */
+/*     dealloc_rib(old_root); */
+/*   } */
+/* } */
+/* #else */
 void remove_node(obj old_root) {
   q_enqueue(old_root);
   fall(old_root);
@@ -1136,7 +1231,20 @@ void remove_node(obj old_root) {
     dealloc_rib(old_root);
   }
 }
+/* #endif */
 
+#ifdef HYBRID
+void dealloc_string(obj str) {
+  obj curr = CAR(str);
+  CAR(str) = (obj)alloc; // deallocate the rib by adding it to the freelist
+  alloc = (obj *)str;
+  while (curr != NIL) {
+    CAR(curr) = (obj)alloc; // deallocate the rib by adding it to the freelist
+    alloc = (obj *)curr;
+    curr = CDR(curr);
+  }
+}
+#endif
 
 //------------------------------------------------------------------------------
 
@@ -1443,7 +1551,7 @@ static inline void push(obj car){
 // a cycle) then the number of live objects at all time in the program
 // corresponds to the maximum number of objects allowed by the program.
 
-rib *alloc_rib(obj car, obj cdr, obj tag) {
+rib *alloc_rib(obj car, obj cdr, obj tag, int rc) {
   // allocates a rib without protecting it from the GC
 
   obj tmp = *alloc; // next available slot in freelist
@@ -1474,6 +1582,13 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
 
   obj new_rib =  TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
 
+#ifdef HYBRID
+  if (rc) {
+    // FIXME 
+    get_count(new_rib) = TAG_NUM(0);
+  }
+#endif
+
   add_ref(new_rib, car, 0);
   add_ref(new_rib, cdr, 1);
   add_ref(new_rib, tag, 2);
@@ -1483,7 +1598,7 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   return RIB(new_rib);
 }
 
-#define alloc_rib2(car, cdr, tag) alloc_rib(car, cdr, tag)
+#define alloc_rib2(car, cdr, tag, rc) alloc_rib(car, cdr, tag, rc)
 
 #else
 
@@ -1619,9 +1734,9 @@ obj str2scm(char* s) { // FIXME not tested
     // Construct list by the tail
     i = len;
     while (i--) 
-      chrs = TAG_RIB(alloc_rib(TAG_NUM(s[i]), chrs, PAIR_TAG));
+      chrs = TAG_RIB(alloc_rib(TAG_NUM(s[i]), chrs, PAIR_TAG, 1));
 
-    return TAG_RIB(alloc_rib(chrs, TAG_NUM(len), STRING_TAG));
+    return TAG_RIB(alloc_rib(chrs, TAG_NUM(len), STRING_TAG, 1));
 }
 // )@@
 
@@ -1630,7 +1745,7 @@ obj str2scm(char* s) { // FIXME not tested
 obj list2scm(char **s, int length) { // FIXME not tested
     obj list = NIL;
     for (int i = length - 1; i >= 0; i--)
-        list = TAG_RIB(alloc_rib(str2scm(s[i]), list, PAIR_TAG));
+      list = TAG_RIB(alloc_rib(str2scm(s[i]), list, PAIR_TAG, 0));
     
     return list;
 };
@@ -1662,7 +1777,7 @@ obj prim(int no) {
     obj z = CAR(stack);
     obj y = CAR(CDR(stack));
     obj x = CAR(CDR(CDR(stack)));
-    obj r = TAG_RIB(alloc_rib(x, y, z));
+    obj r = TAG_RIB(alloc_rib(x, y, z, 0));
     set_stack(CDR(CDR(CDR(stack))));
     push(r);
 #endif
@@ -1691,7 +1806,7 @@ obj prim(int no) {
   {
     obj x = CAR(TOS); // code
     obj y = CDR(stack); // stack (env)
-    obj closure = TAG_RIB(alloc_rib(x, y, CLOSURE_TAG));
+    obj closure = TAG_RIB(alloc_rib(x, y, CLOSURE_TAG, 0));
     // x and y count increased in push2 and the newly allocated rib as
     // well but need to decrease the count of the initial TOS
     SET_CAR(stack, closure);
@@ -1907,7 +2022,7 @@ void run() { // evaluator
 
         else { // calling a lambda
           num nargs = NUM(pop()); // @@(feature arity-check)@@
-          obj new_stack = TAG_RIB(alloc_rib(NUM_0, proc, STACK_PAIR_TAG));
+          obj new_stack = TAG_RIB(alloc_rib(NUM_0, proc, STACK_PAIR_TAG, 0));
           proc = CDR(new_stack);
           SET_CDR(new_stack, CDR(proc)); // @@(feature flat-closure)@@
 #ifdef REF_COUNT
@@ -1939,11 +2054,11 @@ void run() { // evaluator
               DEC_COUNT(CDR(rest)); // old rest
               DEC_POP(CAR(rest));
 #else
-              rest = TAG_RIB(alloc_rib(CAR(s), rest, PAIR_TAG));
+              rest = TAG_RIB(alloc_rib(CAR(s), rest, PAIR_TAG, 0));
               s = CDR(s);
 #endif
             }
-            new_stack = TAG_RIB(alloc_rib(rest, new_stack, STACK_PAIR_TAG));
+            new_stack = TAG_RIB(alloc_rib(rest, new_stack, STACK_PAIR_TAG, 0));
 #ifdef REF_COUNT
             DEC_COUNT(CAR(new_stack)); // rest
             DEC_COUNT(CDR(new_stack)); // old new stack
@@ -1956,7 +2071,7 @@ void run() { // evaluator
             DEC_COUNT(CDR(new_stack)); // old new stack
             DEC_POP(CAR(new_stack));
 #else
-            new_stack = TAG_RIB(alloc_rib(CAR(s), new_stack, STACK_PAIR_TAG));
+            new_stack = TAG_RIB(alloc_rib(CAR(s), new_stack, STACK_PAIR_TAG, 0));
             s = CDR(s);
 #endif
           }
@@ -2063,9 +2178,9 @@ void init_heap() {
 }
 
 #define INIT_FALSE()                                                           \
-  FALSE = TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),   \
-                            TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),   \
-                            SINGLETON_TAG));                                   \
+  FALSE = TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG, 0)), \
+                            TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG, 0)), \
+                            SINGLETON_TAG, 0));                         \
   TRUE = CAR(FALSE);                                                           \
   NIL = CDR(FALSE)
 
@@ -2102,12 +2217,12 @@ obj lst_length(obj list) {
 }
 
 rib *create_sym(obj name) {
-  rib *list = alloc_rib(name, lst_length(name), STRING_TAG);
-  rib *sym = alloc_rib(FALSE, TAG_RIB(list), SYMBOL_TAG);
+  rib *list = alloc_rib(name, lst_length(name), STRING_TAG, 1);
+  rib *sym = alloc_rib(FALSE, TAG_RIB(list), SYMBOL_TAG, 0);
 #ifdef REF_COUNT
   DEC_COUNT(CDR(sym)); // redundant count
 #endif
-  rib *root = alloc_rib(TAG_RIB(sym), symbol_table, PAIR_TAG);
+  rib *root = alloc_rib(TAG_RIB(sym), symbol_table, PAIR_TAG, 0);
 #ifdef REF_COUNT
   DEC_COUNT(CAR(root)); // redundant count
   DEC_COUNT(CDR(root)); // redundant count
@@ -2134,7 +2249,7 @@ void build_sym_table() {
     }
     if (c == 59)
       break;
-    accum = TAG_RIB(alloc_rib(TAG_NUM(c), TAG_RIB(accum), PAIR_TAG));
+    accum = TAG_RIB(alloc_rib(TAG_NUM(c), TAG_RIB(accum), PAIR_TAG, 1));
 #ifdef REF_COUNT
     DEC_COUNT(CDR(accum));
 #endif
@@ -2192,11 +2307,11 @@ void decode() {
 #endif
     }
     else if (op < 22) {
-      obj r = TAG_RIB(alloc_rib2(TAG_NUM(n), NUM_0, pop()));
+      obj r = TAG_RIB(alloc_rib2(TAG_NUM(n), NUM_0, pop(), 0));
 #ifndef REF_COUNT
       DEC_POP(TAG(r));
 #endif
-      n = TAG_RIB(alloc_rib(r, NIL, CLOSURE_TAG));
+      n = TAG_RIB(alloc_rib(r, NIL, CLOSURE_TAG, 0));
 #ifdef REF_COUNT
       DEC_COUNT(TAG(r));
       DEC_COUNT(r);
@@ -2219,7 +2334,7 @@ void decode() {
       check = 1;
       i=4;
     }
-    obj c = TAG_RIB(alloc_rib(TAG_NUM(i), n, NUM_0));
+    obj c = TAG_RIB(alloc_rib(TAG_NUM(i), n, NUM_0, 0));
     SET_TAG(c, TOS); //  c->fields[2] = TOS;
     SET_CAR(stack, c); // TOS = TAG_RIB(c);
     // SET_CAR(stack, TAG_RIB(alloc_rib(TAG_NUM(i), n, TOS))); // TOS = TAG_RIB(c);
@@ -2270,7 +2385,7 @@ void decode() {
       }
       if (op > 4) {
         n = TAG_RIB(
-            alloc_rib(TAG_RIB(alloc_rib2(n, NUM_0, pop())), NIL, CLOSURE_TAG));
+                    alloc_rib(TAG_RIB(alloc_rib2(n, NUM_0, pop())), NIL, CLOSURE_TAG));
         if (stack == NUM_0) {
           break;
         }
@@ -2300,7 +2415,7 @@ void set_global(obj c) {
 // initialize primitive 0, FALSE, TRUE, and NIL
 #ifdef REF_COUNT
 #define INIT_GLOBAL()                                                          \
-  obj tmp = TAG_RIB(alloc_rib(NUM_0, symbol_table, CLOSURE_TAG));              \
+  obj tmp = TAG_RIB(alloc_rib(NUM_0, symbol_table, CLOSURE_TAG));       \
   DEC_COUNT(CDR(tmp));                                                         \
   set_global(tmp);                                                             \
   DEC_COUNT(tmp);                                                              \
@@ -2309,7 +2424,7 @@ void set_global(obj c) {
   set_global(NIL)
 #else
 #define INIT_GLOBAL()                                                          \
-  obj tmp = TAG_RIB(alloc_rib(NUM_0, symbol_table, CLOSURE_TAG));              \
+  obj tmp = TAG_RIB(alloc_rib(NUM_0, symbol_table, CLOSURE_TAG, 0));    \
   set_global(tmp);                                                             \
   set_global(FALSE);                                                           \
   set_global(TRUE);                                                            \
