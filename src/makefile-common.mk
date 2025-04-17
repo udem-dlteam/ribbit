@@ -29,6 +29,8 @@ BENCH_DIR ?= benchmarks
 BENCH_FILTER ?= *
 TEMP_DIR ?= .tests
 
+RUN_TEST_SCRIPT ?= "scripts/run_test.sh"
+
 BOOT_FILE ?= rsc.scm
 BOOT_FILE2 ?= ${BOOT_FILE}
 BOOT_HOST ?= ${HOST}
@@ -146,7 +148,7 @@ check:
 		RSC_COMPILER="${RSC_COMPILER}" \
 		TEST_TAGS="${TEST_TAGS}" \
 		TEST_FEATURES="${TEST_FEATURES}" \
-		./run_test.sh $$prog; \
+		./scripts/run_test.sh $$prog; \
 		if [ $$? != 0 ]; then \
 			succeded=0; \
 		fi; \
