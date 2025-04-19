@@ -72,7 +72,6 @@ def verify(word):
         print("error")
         exit()
         
-   
 
 if __name__=="__main__":        
     input_stream = sys.stdin.read()
