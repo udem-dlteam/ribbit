@@ -620,4 +620,4 @@ jobs:
       - name: Run RVM tests
         run: |
           cd src; HOST=zig make check RSC_COMPILER="./rsc.exe"
-
+  java_rvm:
