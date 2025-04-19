@@ -471,7 +471,7 @@ jobs:
       - name: Run RVM tests
         run: |
           cd src; HOST=pro make check RSC_COMPILER="./rsc.exe"
-
+  
   ps_rvm:
     runs-on: ubuntu-latest
     needs: compile_RSC
@@ -504,7 +504,7 @@ jobs:
       - name: Run RVM tests
         run: |
           cd src; HOST=ps make check RSC_COMPILER="./rsc.exe"
-
+          
   scala_rvm:
     runs-on: ubuntu-latest
     needs: compile_RSC
