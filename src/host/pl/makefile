@@ -4,4 +4,3 @@ TEST_TAGS ?=pl core variadics
 TEST_FEATURES ?= -m
 
 include ../../makefile-common.mk
-
