@@ -1,0 +1,2 @@
+#!/bin/sh
+sed -e '/.*% DEBUG.*/d' | python3 ./host/ps/minify.py
