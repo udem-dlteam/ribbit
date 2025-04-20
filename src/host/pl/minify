@@ -1,0 +1,60 @@
+#!/bin/sh
+sed -e '/.*#[[:space:]]*debug.*/d' |
+  $(dirname "$0")/../../scripts/minify.scm \
+    --comment-char "#" \
+    --ident-chars "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789" \
+    "sub" "if" "else" "elsif" "unless" "while" "until" "for" "foreach" \
+    "given" "when" "continue" "break" "last" "next" "redo" "goto" \
+    "return" "do" "my" "our" "local" "state" "package" "use" "no" \
+    "require" "import" "eval" "caller" "die" "warn" "exit" "defined" \
+    "undef" "exists" "delete" "bless" "ref" "wantarray" "localtime" \
+    "gmtime" "time" "rand" "srand" "sleep" "alarm" "fork" "wait" \
+    "waitpid" "system" "exec" "qx" "system" "open" "close" "read" \
+    "write" "print" "printf" "say" "chdir" "mkdir" "rmdir" "unlink" \
+    "rename" "link" "symlink" "readlink" "stat" "lstat" "flock" "fcntl" \
+    "ioctl" "seek" "tell" "eof" "eof" "truncate" "utime" "chmod" "chown" \
+    "umask" "sysopen" "sysseek" "sysread" "syswrite" "pipe" "socket" \
+    "socketpair" "bind" "connect" "listen" "accept" "shutdown" "\@_" \
+    "@ARGV" "@INC" "@ENV" "@ISA" "@EXPORT" "@EXPORT_OK" "@EXPORT_FAIL" \
+    "@EXPORT_TAGS" "$@" "$_" "q" "strict" "_" "warnings" "Data::dump" \
+    "Data::Dumper" "qw" "__DATA__" "__END__" "__FILE__" "__LINE__" \
+    "__PACKAGE__" "__SUB__" "BEGIN" "BINMODE" "CORE" "DESTROY" "END" \
+    "INIT" "CHECK" "UNITCHECK" "bless" "dbmclose" "dbmopen" "die" "do" \
+    "dump" "eval" "exit" "goto" "import" "last" "local" "my" "next" "no" \
+    "our" "package" "redo" "require" "reset" "return" "undef" "use" \
+    "wantarray" "chdir" "chmod" "chomp" "chop" "chown" "chr" "chroot" \
+    "close" "closedir" "connect" "continue" "cos" "crypt" "dbmclose" \
+    "dbmopen" "defined" "delete" "die" "do" "dump" "each" "else" "elsif" \
+    "endgrent" "endhostent" "endnetent" "endprotoent" "endpwent" \
+    "endservent" "eof" "eval" "exec" "exists" "exit" "exp" "fc" "fcntl" \
+    "fileno" "flock" "fork" "format" "formline" "getc" "getgrent" \
+    "getgrgid" "getgrnam" "gethostbyaddr" "gethostbyname" "gethostent" \
+    "getlogin" "getnetbyaddr" "getnetbyname" "getnetent" "getpeername" \
+    "getpgrp" "getppid" "getpriority" "getprotobyname" \
+    "getprotobynumber" "getprotoent" "getpwent" "getpwnam" "getpwuid" \
+    "getservbyname" "getservbyport" "getservent" "getsockname" \
+    "getsockopt" "glob" "gmtime" "goto" "grep" "hex" "if" "index" "int" \
+    "ioctl" "join" "keys" "kill" "last" "lc" "lcfirst" "length" "link" \
+    "listen" "local" "localtime" "log" "lstat" "m" "map" "mkdir" \
+    "msgctl" "msgget" "msgrcv" "msgsnd" "my" "next" "no" "oct" "open" \
+    "opendir" "ord" "our" "pack" "package" "pipe" "pop" "pos" "print" \
+    "printf" "prototype" "push" "q" "qq" "qr" "quotemeta" "qw" "qx" \
+    "rand" "read" "readdir" "readline" "readlink" "readpipe" "recv" \
+    "redo" "ref" "rename" "require" "reset" "return" "reverse" \
+    "rewinddir" "rindex" "rmdir" "s" "say" "scalar" "seek" "seekdir" \
+    "select" "semctl" "semget" "semop" "send" "setgrent" "sethostent" \
+    "setnetent" "setpgrp" "setpriority" "setprotoent" "setpwent" \
+    "setservent" "setsockopt" "shift" "shmctl" "shmget" "shmread" \
+    "shmwrite" "shutdown" "sin" "sleep" "socket" "socketpair" "sort" \
+    "splice" "split" "sprintf" "sqrt" "srand" "stat" "state" "study" \
+    "substr" "symlink" "syscall" "sysopen" "sysread" "sysseek" \
+    "system" "syswrite" "tell" "telldir" "tie" "tied" "time" "times" \
+    "tr" "truncate" "uc" "ucfirst" "umask" "undef" "unlink" "unpack" \
+    "unshift" "untie" "use" "utime" "values" "vec" "wait" "waitpid" \
+    "feature" "or" "and" "not" "xor" "eq" "ne" "lt" "le" "gt" "ge" "cmp" "~~" \
+    "Dumper" "Dump" "dump" "Data" \
+    "flush" "autoflush" "format" "write" "format_name" "format_top_name" \
+    "main" "CORE::" "CORE::GLOBAL::" "CORE::GLOBAL::exit" \
+    "ARRAY" "HASH" "SCALAR" "CODE" "GLOB" "LVALUE" "FORMAT" "IO" \
+    "Terse" "Indent" \
+    "warn" "write" "x" "y" "ARGV" "STDIN" "STDOUT" "STDERR" \ 
