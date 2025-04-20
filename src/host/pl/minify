@@ -1,6 +1,6 @@
 #!/bin/sh
 sed -e '/.*#[[:space:]]*debug.*/d' |
-  $(dirname "$0")/../../scripts/minify.scm \
+  $(dirname "$0")/../../scripts/minify \
     --comment-char "#" \
     --ident-chars "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789" \
     "sub" "if" "else" "elsif" "unless" "while" "until" "for" "foreach" \
