@@ -716,4 +716,4 @@ jobs:
 
       - name: Run RVM tests for Julia
         run: |
-          cd src; HOST=julia make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=jl make check RSC_COMPILER="./rsc.exe"
