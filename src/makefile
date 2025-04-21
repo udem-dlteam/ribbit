@@ -1,4 +1,4 @@
-HOSTS = c js py scm hs lua ml sh asm clj zig
+HOSTS = c js py scm hs lua ml sh asm clj zig adb
 
 #RSC_COMPILER ?= gsi -:r4rs rsc.scm
 GSI ?= gsi
