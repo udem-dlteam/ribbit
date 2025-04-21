@@ -1,0 +1,2 @@
+;;;options: -l empty
+;;;expected:

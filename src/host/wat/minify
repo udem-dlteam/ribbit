@@ -1,0 +1,14 @@
+#!/bin/sh
+# Below, write the commands to make the source file smaller.
+
+cat - > /tmp/x.wat
+wat2wasm --enable-multi-memory -o /tmp/x.wasm /tmp/x.wat
+
+wasm2wat --enable-multi-memory -f --no-debug-names /tmp/x.wasm \
+  | sed -E 's/\s*\(;@?[0-9]+;\)\s*/ /g'\
+  | sed -z 's/;;.*\n/\n/gm'\
+  | sed 's/^\s*//gm'\
+  | sed -z 's/\s*\n\s*//gm'\
+  | sed -z 's/ (/(/gm'
+
+#| sed -E 's/^([^(].*)$/\(\1\)/'\

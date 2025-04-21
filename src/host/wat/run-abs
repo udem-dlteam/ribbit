@@ -1,0 +1,5 @@
+#!/bin/sh
+
+set -e
+
+cat - | deno run --allow-read --allow-write host/wat/rvm-wat.js "$1"

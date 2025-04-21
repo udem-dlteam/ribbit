@@ -35,6 +35,14 @@ mkdir -p $TEMP_DIR
 prog=$TEMP_DIR/$(basename $1)
 
 echo "-------------------- $test_path : \c"
+
+if ! [ "$TEST_SKIP" = "" ]; then 
+  if ! [ "$(echo "$TEST_SKIP" | grep -F "$(basename $1)")" = "" ]; then
+    echo "Skipped"
+    exit 0
+  fi
+fi
+
 test_ran="0"
 success="1"
 for tag in $(echo $TEST_TAGS | tr ' ' '\n'); do 

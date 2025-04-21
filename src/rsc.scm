@@ -333,10 +333,9 @@
        (let ((path (string-replace (string-replace path "//" "/") "/./" "/")))
          (if (string-prefix? "./" path)
            (loop (substring path 2 (string-length path)))
-           path))))
-           ;; (if (string-prefix? "../" path)
-           ;;   (loop (substring path 3 (string-length path)))
-           ;;   path)
+           (if (string-prefix? "../" path)
+             (loop (substring path 3 (string-length path)))
+             path)))))
 
 (cond-expand
 
@@ -757,7 +756,7 @@
 (define (host-config-add-location! host-config location feature)
   (let ((location-ref (assoc location (host-config-locations host-config))))
     (if location-ref
-      (set-cdr! location-ref (append (cdr location-ref) feature))
+      (set-car! (cdr location-ref) (append (cadr location-ref) feature))
       (begin
         (host-config-locations-set! host-config (cons (list location feature) (host-config-locations host-config)))
         #t))))
@@ -4050,9 +4049,8 @@
 (define (read-library lib-path)
   `((##include-once (ribbit ,lib-path))))
 
-(define (read-program lib-path src-path prefix-code)
+(define (read-program lib-path src-path)
   (append (apply append (map read-library lib-path))
-          (if (not prefix-code) '() (read-from-file prefix-code))
           (if (equal? src-path "-")
               (read-all)
               (read-from-file src-path))))
@@ -4740,7 +4738,6 @@
 
 (define target "rvm")
 (define (fancy-compiler src-path
-                        prefix-code
                         output-path
                         exe-output-path
                         rvm-path
@@ -4771,7 +4768,9 @@
   (let* ((vm-source
            (if (equal? _target "rvm")
              #f
-             (string-from-file rvm-path)))
+             (string-from-file
+               (path-expand rvm-path
+                            (root-dir)))))
          (host-file
            (if (equal? _target "rvm")
              #f
@@ -4808,7 +4807,7 @@
          (program-read
            (report-status
              "Reading program source code"
-             (read-program lib-path src-path prefix-code)))
+             (read-program lib-path src-path)))
 
          (program-compiled
            (report-status
@@ -4912,7 +4911,6 @@ The output is written to output.c, with an executable compiled to run-output.exe
   (let ((verbosity 0)
         (debug-info '())
         (target "rvm")
-        (prefix-code #f)
         (input-path #f)
         (output-path #f)
         (exe-output-path #f)
@@ -4935,9 +4933,6 @@ The output is written to output.c, with an executable compiled to run-output.exe
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-i" "--input")))
                  (set! input-path (car rest))
-                 (loop (cdr rest)))
-                ((and (pair? rest) (member arg '("--prefix-code")))
-                 (set! prefix-code (car rest))
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-o" "--output")))
                  (set! output-path (car rest))
@@ -5030,12 +5025,11 @@ The output is written to output.c, with an executable compiled to run-output.exe
     (if (not src-path)
 
       (begin
-        (error "*** a Scheme source file must be specified\n")
+        (display "*** a Scheme source file must be specified\n")
         (exit-program-abnormally))
 
       (fancy-compiler
         src-path
-        prefix-code
         (or output-path
             (if (or (equal? src-path "-") (equal? target "rvm"))
               "-"
