@@ -594,6 +594,44 @@ jobs:
       - name: Run repl tests
         run: |
           cd src; HOST=hs make check-repl RSC_COMPILER="./rsc.exe"
+  wat_rvm:
+    runs-on: ubuntu-latest
+    needs: compile_RSC
+    steps:
+      - name: Checkout the ribbit repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+      - name: Download rsc.exe artifact into rsc-exe
+        uses: actions/download-artifact@v4
+        with:
+          name: rsc-exe
+          path: src
+      - name: Set up permissions on rsc.exe
+        run: |
+          chmod +x src/rsc.exe
+      - name: Download minify artifact into minify-exe
+        uses: actions/download-artifact@v4
+        with:
+          name: minify-exe
+          path: src/scripts
+      - name: Set up permissions on minify
+        run: |
+          chmod +x src/scripts/minify
+      - name: Install wasmtime
+        uses: jcbhmr/setup-wasmtime@v2
+      - name: Install wabt tools
+        uses: mwilliamson/setup-wabt-action@v3
+        with:
+          wabt-version: "1.0.36"
+      - name: Install deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Run RVM tests
+        run: |
+          cd src; HOST=wat make check RSC_COMPILER="./rsc.exe"
 
   zig_rvm:
     runs-on: ubuntu-latest
