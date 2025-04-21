@@ -1498,7 +1498,7 @@
                                                 (cddr expr)
                                                 tail))
                              '())
-                           (if (null? free-vars)
+                           (if (null? (ctx-cte ctx))
                              cont
                              closure-code))))
 
