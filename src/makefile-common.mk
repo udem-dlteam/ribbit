@@ -21,6 +21,7 @@ OUT_TEST ?= .tests
 
 TEST_FEATURES ?= ,
 TEST_FILTER ?= *
+TEST_SKIP ?=
 TEST_DIR ?= tests
 
 BENCH_OPTIONS ?= .
@@ -73,6 +74,7 @@ check-repl:
 	REPL_PATH="${REPL_PATH}"; \
 	cd ../../; \
 	TEST_FILTER='${TEST_FILTER}'; \
+	TEST_SKIP='${TEST_SKIP}'; \
 	error=0; \
 	repl="$$REPL_PATH"; \
 	setup=`sed -n -e '/;;;setup:/p' $$repl | sed -e 's/^;;;setup://'`; \
@@ -100,6 +102,10 @@ check-repl:
 	  else \
 	    for prog in `ls $$TEST_DIR/01-r4rs/$$TEST_FILTER.scm`; do \
 	      echo "     testing in repl: $$prog"; \
+				if [ "$$(echo "$$TEST_SKIP" | grep -F "$$prog")" != "" ]; then \
+					echo "Skipped"; \
+					continue; \
+				fi; \
 	      if [ "$$INTERPRETER" != "" ]; then \
 	        echo "(load \"$$prog\")" | $$INTERPRETER repl.$$host > repl.$$host.out; \
 					if [ "$$?" != "0" ]; then \
@@ -146,6 +152,7 @@ check:
 		RSC_COMPILER="${RSC_COMPILER}" \
 		TEST_TAGS="${TEST_TAGS}" \
 		TEST_FEATURES="${TEST_FEATURES}" \
+		TEST_SKIP="${TEST_SKIP}" \
 		./run_test.sh $$prog; \
 		if [ $$? != 0 ]; then \
 			succeded=0; \

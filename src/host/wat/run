@@ -1,0 +1,7 @@
+#!/bin/sh
+
+set -e
+
+wat2wasm --enable-multi-memory "$1" -o "$1".wasm
+
+cat - | deno run --allow-read --allow-write host/wat/rvm-wat.js "$1".wasm

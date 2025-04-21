@@ -128,6 +128,12 @@ clean:
 repl-asm.exe: rsc.exe
 	./rsc.exe -t asm -l r4rs lib/r4rs/repl.scm -e optimal -f+ compression/lzss/2b -f+ prim-no-arity -v -x repl-asm.exe
 
+repl-wat: rsc.exe
+	@./rsc.exe -t wat -l r4rs lib/r4rs/repl.scm -v -o repl.wat && ./host/wat/run repl.wat
+
+repl-wat-quiet: rsc.exe
+	@./rsc.exe -t wat -l r4rs lib/r4rs/repl.scm -f+ quiet -v -o repl.wat && ./host/wat/run repl.wat
+
 ../docs/repl_r4rs.js: rsc.exe host/js/* lib/r4rs/* scripts/minify
 	./rsc.exe -t js -f+ js/web -l r4rs -f+ compression/lzss/tag -m -e optimal lib/r4rs/repl.scm -f+ prim-no-arity -o ../docs/repl_r4rs.js
 
