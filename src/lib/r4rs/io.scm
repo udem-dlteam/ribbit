@@ -246,9 +246,6 @@
           ((##eqv? c 40)            ;; #\(
            (read-char port)
            (read-list port))
-          ((##eqv? c 92)            ;; #\\
-           (read-char port) ;; skip "\"
-           (read-six port))
           ((##eqv? c 35)            ;; #\#
            (read-char port) ;; skip "#"
            (let ((c (##field0 (peek-char port))))
@@ -293,6 +290,7 @@
               (let ((n (string->number s)))
                 (or n
                     (string->symbol s))))))))
+
 
 (define (read-list port)
   (let ((c (peek-char-non-whitespace port)))
@@ -355,177 +353,6 @@
         (peek-char-non-whitespace port)
         (skip-comment port)))))
 
-
-(define (read-six port)
-  (let ((expr (read-six-expr/args port))
-        (next (peek-char port)))
-    (cond 
-      ((or (eof-object? next) (eqv? next #\space) (eqv? next #\newline))
-       expr)
-      ((eqv? next #\:)
-       (read-char port) ;; consume #\:
-       (cond 
-         ((and (list? expr) (all symbol? expr))
-          `(lambda (,@expr) ,(read-six-expr port)))
-         (else
-           (error "Parameter must be an identifier or a comma separated list of identifiers. Found" expr))))
-      (else 
-        (error "Found invalid character after SIX expression. Invalid character" next)))))
-
-(define (assert-symbol! expr)
-    (if (not (symbol? expr))
-         (error "Parameter list must only contain identifiers. Found" expr)))
-
-(define (read-six-expr/args port)
-  (let ((expr (read-six-expr port))
-        (next (peek-char port)))
-    (cond 
-      ((eqv? next #\,)
-       (assert-symbol! expr)
-
-       (read-char port) ;; consume #\,
-       (cons expr (read-six-expr/args port)))
-
-      ((eqv? next #\:)
-       (assert-symbol! expr)
-       (cons expr '()))
-
-      (else
-        expr))))
-
-(define (read-six-test-oper port)
-  (let ((c (peek-char port)))
-    (cond 
-      ((eqv? c #\=)
-       (read-char port) ;; consume #\=
-       (if (eqv? (peek-char port) #\=)
-         'equal? ;; return the equal function that corresponds to the == oper
-         (error "Invalid operator. Expected #\\= but found" (read-char port))))
-      ((eqv? c #\<)
-       (if (eqv? (peek-char port) #\=)
-         (begin 
-           (read-char port) ;; consume #\=
-           '<= ;; return the equal function that corresponds to the <= oper
-           )
-         '<  ;; return the equal function that corresponds to the < oper
-         ))
-      ((eqv? c #\>)
-       (if (eqv? (peek-char port) #\=)
-         (begin 
-           (read-char port) ;; consume #\=
-           '>= ;; return the equal function that corresponds to the >= oper
-           )
-         '>  ;; return the equal function that corresponds to the > oper
-         ))
-      (else ;; did not find valid first character, not a test-oper, return false
-        #f))))
-
-(define (read-six-expr port)
-  (let ((expr (read-six-add port))
-        (test-oper (read-six-test-oper port)))
-    (if (not test-oper)
-      expr
-      `(,test-oper ,expr ,(read-six-add port)))))
-
-(define add-oper-table '(#\+ + #\- -))
-(define mul-oper-table '(#\* * #\/ quotient))
-
-(define (read-six-add port (inner-expr (read-six-mul port)))
-  (let ((add-oper (memq (peek-char port) add-oper-table)))
-    (if (not add-oper)
-      inner-expr
-      (begin 
-        (read-char port) ;; consume the operator character
-        (let ((expr (read-six-mul port)))
-          (read-six-add
-            port 
-            `(,(cadr add-oper) ,inner-expr ,expr)))))))
-
-(define (read-six-mul port (inner-expr (read-six-term port)))
-  (let ((mul-oper (memq (peek-char port) mul-oper-table)))
-    (if (not mul-oper)
-      inner-expr
-      (begin 
-        (read-char port) ;; consume the operator character
-        (let ((expr (read-six-term port)))
-          (read-six-mul
-            port 
-            `(,(cadr mul-oper) ,inner-expr ,expr)))))))
-
-(define (read-six-term port)
-  (let ((c (peek-char port)))
-    (cond 
-      ((eqv? c #\+) ;; +term => term
-       (read-char port) ;; consume #\+
-       (read-six-term port))
-      ((eqv? c #\-) ;; -term => (- 0 term)
-       (read-char port) ;; consume #\-
-       `(- 0 ,(read-six-term port)))
-
-      (else
-        (read-six-suffix port)))))
-
-        ;;(let ((expr (read-six-prefix port)))
-        ;;  (read-six-suffix expr port))
-
-(define (read-six-prefix port)
-  (let ((c (peek-char port)))
-    (cond 
-      ((eqv? c #\")      ;; #\"
-       (read-char port) ;; consume #\"
-       (##list->string (read-chars '() port)))
-
-      ((eqv? c #\()      ;;
-       (read-char port) ;; consume
-       (let ((expr (read-six-expr port)))
-         (if (eqv? (read-char port) #\))
-           `(begin ,expr)
-           (error "Missing a closing parenthesis."))))
-
-      (else
-        (or (read-six-identifier port)
-            (read-six-integer port)
-            (error "Invalid term. Expected <string>, <integer> or <identifier>."))))))
-
-(define (read-six-suffix port (expr (read-six-prefix port)))
-  (let ((c (peek-char port)))
-    (cond 
-      ((eqv? c #\()     ;; call
-       (read-char port) ;; consume
-       (let ((suffix-expr (read-six-expr port)))
-         (if (eqv? (read-char port) #\))
-           (read-six-suffix `(,expr ,suffix-expr) port)
-           (error "Missing a closing parenthesis."))))
-
-      ((eqv? c #\[)     ;; indexing
-       (read-char port) ;; consume
-       (let ((suffix-expr (read-six-expr port)))
-         (if (eqv? (read-char port) #\])
-           (read-six-suffix `(vector-ref ,expr ,suffix-expr) port)
-           (error "Missing a closing bracket."))))
-
-      (else
-        expr))))
-
-(define (read-six-identifier port)
-  (define (read-six-identifier-inner port lst)
-    (let ((c (peek-char port)))
-      (if (or (char-alphabetic? c)
-              (char-numeric? c)
-              (eqv? c #\_))
-        (read-six-identifier-inner port (cons (char-downcase (read-char port)) lst))
-        (string->symbol (list->string (reverse lst))))))
-
-  (let ((c (peek-char port)))
-    (if (char-alphabetic? c)
-      (read-six-identifier-inner port (cons (char-downcase (read-char port)) lst))
-      #f)))
-
-(define (read-six-integer port (lst '()))
-  (let ((c (peek-char port)))
-    (if (char-numeric? c)
-      (read-six-integer port (cons (read-char port) lst))
-      (string->number (list->string (reverse lst))))))
 
 ;; ---------------------- OUTPUT ---------------------- ;;
 
