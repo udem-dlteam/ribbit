@@ -679,7 +679,7 @@ jobs:
           path: src/scripts
       - name: Set up permissions on minify
         run: |
-          chmod +x src/scripts/minify.scm
+          chmod +x src/scripts/minify
       - name: Install pl
         uses: shogo82148/actions-setup-perl@v1
         with:
