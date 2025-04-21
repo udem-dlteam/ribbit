@@ -935,7 +935,7 @@ jobs:
             && cd -
           mkdir yabasic-bin
           cd yabasic-src/unix/lang \
-            && CFLAGS="-D YY_BUF_SIZE=65535" ./configure --without-ffi \
+            && CFLAGS="-D YY_BUF_SIZE=16777216" ./configure --without-ffi \
             && make \
             && cd -
           mv yabasic-src/unix/lang/yabasic yabasic-bin/yabasic
