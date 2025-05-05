@@ -14,17 +14,28 @@ struct timeval time_after;
 ")))
 
 (define-feature c/timer/gc-globals
-  (use c/include-sys/time.h)
+  (use c/include-sys/time.h c/timer/gc-start-end)
   ((decl "
 struct timeval time_gc_before;
 struct timeval time_gc_after;
-long long time_gc_accumulated;
+long long time_gc_accumulated = 0;
 int should_clock_gc = 0;
 int gc_invocations = 0;
+int gc_timer_started = 0;
 ")
-   (gc-start "
+   ))
+
+
+(define-feature c/timer/gc-start-end
+  (use c/timer/globals)
+  ((gc-start "
 if(should_clock_gc == 1) {
   gc_invocations++;
+  if (gc_timer_started == 1) {
+    printf(\"***Error: gc timer was already started...\");
+    exit(1);
+  }
+  gc_timer_started = 1;
   if(gettimeofday(&time_gc_before, 0) != 0) {
     printf(\"***error while grabbing time...\");
     exit(1);
@@ -33,23 +44,26 @@ if(should_clock_gc == 1) {
 ")
    (gc-end "
 if(should_clock_gc == 1) {
+  if (gc_timer_started == 0) {
+    printf(\"***Error: gc timer was not started...\");
+    exit(1);
+  }
   if(gettimeofday(&time_gc_after, 0) != 0){
     printf(\"***Error while grabbing time...\");
     exit(1);
   }
-  time_gc_accumulated += (time_gc_after.tv_sec-time_gc_before.tv_sec)*1000000LL + time_gc_after.tv_usec-time_gc_before.tv_usec;
+  long long time_difference_ns = (time_gc_after.tv_sec-time_gc_before.tv_sec)*1000000LL + time_gc_after.tv_usec-time_gc_before.tv_usec;
+  time_gc_accumulated += time_difference_ns;
   gc_invocations++;
+  gc_timer_started = 0;
 }
 ")))
-
 
 ;; Starts a new timer
 (define-primitive (##timer-start)
   (use c/timer/globals c/timer/gc-globals)
   "{
   should_clock_gc = 1;
-  gc_invocations = 0;
-  time_gc_accumulated = 0;
   if(gettimeofday(&time_before, 0) != 0) {
     printf(\"***error while grabbing time...\");
     exit(1);
