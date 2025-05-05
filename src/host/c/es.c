@@ -1198,7 +1198,7 @@ void set_field(obj src, int i, obj dest) { // write barrier
   if (ref[i] == dest) return; // src's i-th field already points to dest
   
   if (IS_RIB(ref[i])) { // no need to dereference _NULL or a num
-    if (is_collectable(ref[i]) && is_parent(ref[i], src) && next_cofriend(ref[i], src) == _NULL) {
+    if (is_collectable(ref[i]) && is_parent(ref[i], src)) { // && next_cofriend(ref[i], src) == _NULL) {
       // We need to be more careful here since simply removing the edge
       // between src and ref[i] will deallocate ref[i] and potentially
       // some other ribs refered by ref[i]. This is problematic if dest
