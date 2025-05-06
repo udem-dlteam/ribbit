@@ -193,7 +193,7 @@ typedef long num;
 // GC constants
 
 // ATTENTION PLEASE: don't change the base size during testing
-#define BASE_HEAP_SIZE_FIELDS 3000000 // See comment avove
+#define BASE_HEAP_SIZE_FIELDS 12000000 // See comment avove
 
 #define RIB_NB_FIELDS 3
 

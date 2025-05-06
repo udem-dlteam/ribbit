@@ -154,7 +154,7 @@ void check_spanning_tree_impl();
 #define RIB_NB_FIELDS (10+QUEUE_NO_REMOVE_count+DEBUG_FIELD_count)
 #endif
 
-#define BASE_HEAP_SIZE_FIELDS 3000000 // See comment avove
+#define BASE_HEAP_SIZE_FIELDS 12000000 
 
 #if defined(BIGGER_HEAP_2)
 #define HEAP_SIZE_FACTOR 2
