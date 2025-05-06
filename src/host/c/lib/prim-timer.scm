@@ -89,20 +89,10 @@ int64_t __profiling_collect_started = 0;
   (use c/time/profiling c/include-stdint.h c/time/profiling-decl)
   ((profiling-total-start
      "
-if (__profiling_total_started == 1) {
-  printf(\"***Error: profiling total was already started...\");
-  exit(1);
-}
-__profiling_total_started = 1;
 __profiling_total_start = GET_CYCLECOUNT();
 ")
    (profiling-total-end
      "
-if (__profiling_total_started == 0) {
-  printf(\"***Error: profiling total was not started...\");
-  exit(1);
-}
-__profiling_total_started = 0;
 __profiling_total_total += GET_CYCLECOUNT() - __profiling_total_start;
 ")))
 
@@ -266,12 +256,14 @@ if(should_clock_gc == 1) {
 (define-primitive (##timer-end)
   (use c/time/globals c/time/gc-globals)
   "{
+
+  // @@(location profiling-total-end)@@
+
   if(gettimeofday(&time_after, 0) != 0) {
     printf(\"***error while grabbing time...\");
     exit(1);
   };
 
-  // @@(location profiling-total-end)@@
 
   should_clock_gc = 0;
   push(TAG_NUM(0));
