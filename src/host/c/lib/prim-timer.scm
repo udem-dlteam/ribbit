@@ -46,22 +46,12 @@ __builtin_readcyclecounter ()
    (profiling-drop-start
      "
 if (should_clock_gc) {
-  if (__profiling_drop_started == 1) {
-    printf(\"***Error: profiling drop was already started...\");
-    exit(1);
-  }
-  __profiling_drop_started = 1;
   __profiling_drop_start = GET_CYCLECOUNT();
 }
 ")
    (profiling-drop-end
      "
 if (should_clock_gc) {
-  if (__profiling_drop_started == 0) {
-    printf(\"***Error: profiling drop was not started...\");
-    exit(1);
-  }
-  __profiling_drop_started = 0;
   __profiling_drop_total += GET_CYCLECOUNT() - __profiling_drop_start;
 }
 ")))
@@ -122,22 +112,12 @@ __profiling_total_total += GET_CYCLECOUNT() - __profiling_total_start;
   ((profiling-catch-start
      "
 if (should_clock_gc) {
-  if (__profiling_catch_started == 1) {
-    printf(\"***Error: profiling catch was already started...\");
-    exit(1);
-  }
-  __profiling_catch_started = 1;
   __profiling_catch_start = GET_CYCLECOUNT();
 }
 ")
    (profiling-catch-end
      "
 if (should_clock_gc) {
-  if (__profiling_catch_started == 0) {
-    printf(\"***Error: profiling catch was not started...\");
-    exit(1);
-  }
-  __profiling_catch_started = 0;
   __profiling_catch_total += GET_CYCLECOUNT() - __profiling_catch_start;
 }
 ")))
@@ -147,22 +127,12 @@ if (should_clock_gc) {
   ((profiling-adopt-start
      "
 if (should_clock_gc) {
-  if (__profiling_adopt_started == 1) {
-    printf(\"***Error: profiling adopt was already started...\");
-    exit(1);
-  }
-  __profiling_adopt_started = 1;
   __profiling_adopt_start = GET_CYCLECOUNT();
 }
 ")
    (profiling-adopt-end
      "
 if (should_clock_gc) {
-  if (__profiling_adopt_started == 0) {
-    printf(\"***Error: profiling adopt was not started...\");
-    exit(1);
-  }
-  __profiling_adopt_started = 0;
   __profiling_adopt_total += GET_CYCLECOUNT() - __profiling_adopt_start;
 }
 ")))
@@ -173,22 +143,12 @@ if (should_clock_gc) {
   ((profiling-rerank-start
      "
 if (should_clock_gc) {
-  if (__profiling_rerank_started == 1) {
-    printf(\"***Error: profiling rerank was already started...\");
-    exit(1);
-  }
-  __profiling_rerank_started = 1;
   __profiling_rerank_start = GET_CYCLECOUNT();
 }
 ")
    (profiling-rerank-end
      "
 if (should_clock_gc) {
-  if (__profiling_rerank_started == 0) {
-    printf(\"***Error: profiling rerank was not started...\");
-    exit(1);
-  }
-  __profiling_rerank_started = 0;
   __profiling_rerank_total += GET_CYCLECOUNT() - __profiling_rerank_start;
 }
 ")))
@@ -198,22 +158,12 @@ if (should_clock_gc) {
   ((profiling-collect-start
      "
 if (should_clock_gc) {
-  if (__profiling_collect_started == 1) {
-    printf(\"***Error: profiling collect was already started...\");
-    exit(1);
-  }
-  __profiling_collect_started = 1;
   __profiling_collect_start = GET_CYCLECOUNT();
 }
 ")
    (profiling-collect-end
      "
 if (should_clock_gc) {
-  if (__profiling_collect_started == 0) {
-    printf(\"***Error: profiling collect was not started...\");
-    exit(1);
-  }
-  __profiling_collect_started = 0;
   __profiling_collect_total += GET_CYCLECOUNT() - __profiling_collect_start;
 }
 ")))
