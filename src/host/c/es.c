@@ -966,10 +966,12 @@ bool adopt(obj x) {
     // adopt with a cfr of the same rank as the parent
     if (!is_falling(cfr) && get_rank(cfr) < rank) {
       set_parent(x, cfr, get_mirror_index(x, cfr)-3);
+
       return 1;
     }
     cfr = next_cofriend(x, cfr);
   }
+
   return 0;
 }
 
@@ -988,8 +990,9 @@ bool upward_adopt(obj from, obj to, num d, int depth) {
     return true;
   } else {
     obj parent = get_parent(from);
-    if(parent == _NULL)
+    if(parent == _NULL){
       return false;
+    }
     num nd = d - get_rank(from) + get_rank(parent) + 1;
     if (nd <= 0 || upward_adopt(parent, to, nd, INCREMENT_RERANK_DEPTH(from, depth))){
       und_sub_rank(from, d);
@@ -1002,19 +1005,31 @@ bool upward_adopt(obj from, obj to, num d, int depth) {
 
 bool adUpt(obj x, int depth) {
   // adoption with the possibility of an upward adoption for mutations
-  if (adopt(x)) return 1;
-  obj cfr = CFR(x);
+  
+  // @@(location profiling-adopt-start)@@
+  bool adopt_success = adopt(x);
+  // @@(location profiling-adopt-end)@@
+  if (adopt_success) {
+    return 1;
+  }
 
-  if (!adupt_start_heuristic(x, depth)) { return false; }
+  // @@(location profiling-rerank-start)@@
+  obj cfr = CFR(x);
+  if (!adupt_start_heuristic(x, depth)) { 
+    // @@(location profiling-rerank-end)@@
+    return false; 
+  }
   
   // any way to merge this with the previous adoption loop?
   while (cfr != _NULL) {
     if (upward_adopt(cfr, x, get_rank(cfr)-get_rank(x)+1, 0)) {
       get_parent(x) = cfr;
+      // @@(location profiling-rerank-end)@@
       return 1;
     }
     cfr = next_cofriend(x, cfr);
   }
+  // @@(location profiling-rerank-end)@@
   return 0;
 }
 
@@ -1068,6 +1083,7 @@ void drop() {
       cfr = next_cofriend(x, cfr);
     }
   }
+
 }
 
 void catch() {
@@ -1079,7 +1095,9 @@ void catch() {
     // When using the "no remove" version of a data structure, the catch queue
     // could empty itself during the the pq_dequeue procedure, need to add an
     // additional check here
-    if (anchor == _NULL) return;
+    if (anchor == _NULL){
+      return;
+    }
 #endif
     obj *_anchor = RIB(anchor)->fields;
     for (int i = 0; i < 3; i++) {
@@ -1156,13 +1174,7 @@ void remove_edge(obj from, obj to, int i) {
   // if `to` can be adopted right away
   remove_parent(to, from, i); 
   if (is_collectable(to) && !is_parent(to, from) && !_adUpt(to, 0)) {
-    q_enqueue(to);
-    fall(to); 
-    drop();
-    if (!PQ_IS_EMPTY()) catch(); 
-    if (is_falling(to)) {
-      dealloc_rib(to);
-    }
+    remove_node(to);
   }
 }
 
@@ -1174,13 +1186,20 @@ void remove_edge(obj from, obj to, int i) {
 
 
 void remove_node(obj old_root) {
+  // @@(location profiling-drop-start)@@
   q_enqueue(old_root);
   fall(old_root);
   drop();
+  // @@(location profiling-drop-end)@@
+  // @@(location profiling-catch-start)@@
   if (!PQ_IS_EMPTY()) catch();
+  // @@(location profiling-catch-end)@@
+  
+  // @@(location profiling-collect-start)@@
   if (is_falling(old_root)) {
     dealloc_rib(old_root);
   }
+  // @@(location profiling-collect-end)@@
 }
 
 
