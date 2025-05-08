@@ -1450,7 +1450,7 @@ void gc() {
 #ifdef REF_COUNT
       if (RIB((obj)scan)->fields[3] != 0) leftovers++;
 #else
-      if (get_rank((obj)scan) != UNALLOCATED_RIB_RANK && scan != null_rib) {
+      if (get_rank((obj)scan) != UNALLOCATED_RIB_RANK && ((obj)scan) != null_rib) {
         if (!is_root((obj)scan) && !is_immortal((obj)scan) && is_protected((obj)scan)){ // <--- ICI on check
           printf("Found protected value!! => count = %lu\n", get_parent((obj)scan));
         }
