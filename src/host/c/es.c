@@ -158,7 +158,9 @@ void check_spanning_tree_impl();
 #define RIB_NB_FIELDS (10+QUEUE_NO_REMOVE_count+DEBUG_FIELD_count)
 #endif
 
+#ifndef BASE_HEAP_SIZE_FIELDS
 #define BASE_HEAP_SIZE_FIELDS 12000000
+#endif
 
 #ifdef MIN_HEAP_SIZE
 // `min_nb_objects` is the number of objects required to run the program
