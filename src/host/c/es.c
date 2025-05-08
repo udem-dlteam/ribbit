@@ -1985,8 +1985,6 @@ obj prim(int no) {
 int irun = 0;
 #endif
 
-void foo(){};
-
 void run() { // evaluator
   dprint("Entering run\n");
   while (1) {
@@ -2052,7 +2050,6 @@ void run() { // evaluator
           // @@(feature arity-check
           num vari = nparams_vari&1;
           if (vari ? nparams > nargs : nparams != nargs) {
-            foo();
             printf("*** Unexpected number of arguments nargs: %ld nparams: %ld vari: %ld\n", nargs, nparams, vari);
             exit(1);
           }
