@@ -87,7 +87,6 @@ __profiling_total_total += GET_CYCLECOUNT() - __profiling_total_start;
   (use c/time/profiling-decl)
 
   ((profiling-start "__profiling_start = GET_CYCLECOUNT();")
-
    (profiling-start-remove-ref "
 if (should_clock_gc == 1) {
 #ifdef __profiling_debug
@@ -194,6 +193,7 @@ if (should_clock_gc == 1) {
   __profiling_remove_ref_total += GET_CYCLECOUNT() - __profiling_start;
 }
 ")
+(profiling-gc-total-end "__profiling_gc_total += GET_CYCLECOUNT() - __profiling_start;")
 ))
 
 (define-feature c/gc/profile-gc
@@ -253,12 +253,12 @@ if(should_clock_gc == 1) {
     exit(1);
   };
 
-  __profiling_start = GET_CYCLECOUNT();
+  // @@(location profiling-start)@@
 }
 ")
    (gc-end "
 if(should_clock_gc == 1) {
-  __profiling_gc_total += GET_CYCLECOUNT() - __profiling_start;
+  // @@(location profiling-gc-total-end)@@
 
   if (gc_timer_started == 0) {
     printf(\"***Error: gc timer was not started...\");
