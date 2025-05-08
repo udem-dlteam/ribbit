@@ -2179,6 +2179,7 @@ void run() { // evaluator
     }
     case INSTR_HALT: { // halt
       gc();
+      min_nb_objects++; // null rib
       num min_heap_size = min_nb_objects * RIB_NB_FIELDS * 8;
       printf("Minimal heap size (in bytes): %lu\n", min_heap_size);
       vm_exit(0);
