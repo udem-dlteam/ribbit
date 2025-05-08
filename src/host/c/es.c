@@ -1006,17 +1006,13 @@ bool upward_adopt(obj from, obj to, num d, int depth) {
 bool adUpt(obj x, int depth) {
   // adoption with the possibility of an upward adoption for mutations
   
-  // @@(location profiling-adopt-start)@@
   bool adopt_success = adopt(x);
-  // @@(location profiling-adopt-end)@@
   if (adopt_success) {
     return 1;
   }
 
-  // @@(location profiling-rerank-start)@@
   obj cfr = CFR(x);
   if (!adupt_start_heuristic(x, depth)) { 
-    // @@(location profiling-rerank-end)@@
     return false; 
   }
   
@@ -1024,12 +1020,10 @@ bool adUpt(obj x, int depth) {
   while (cfr != _NULL) {
     if (upward_adopt(cfr, x, get_rank(cfr)-get_rank(x)+1, 0)) {
       get_parent(x) = cfr;
-      // @@(location profiling-rerank-end)@@
       return 1;
     }
     cfr = next_cofriend(x, cfr);
   }
-  // @@(location profiling-rerank-end)@@
   return 0;
 }
 
@@ -1157,6 +1151,7 @@ void dealloc_rib(obj x){
 }
   
 void remove_edge(obj from, obj to, int i) {
+  // @@(location profiling-start-remove-ref)@@
   // `from` and `to` are assumed to be ribs, `i` is the index where `to` is
   // expected to be found (there could be more than one reference from `from`
   // to `to` and we need to handle the right mirror field)
@@ -1166,6 +1161,7 @@ void remove_edge(obj from, obj to, int i) {
   // `to`'s co-friends if there was only one reference)
   if (!is_parent(to, from)) {
     remove_cofriend(to, from, i);
+    //@@(location profiling-stop-remove-ref)@@
     return;
   }
   // Case 2: `from` is `to`'s parent, if there's only one reference from `from`
@@ -1174,7 +1170,19 @@ void remove_edge(obj from, obj to, int i) {
   // if `to` can be adopted right away
   remove_parent(to, from, i); 
   if (is_collectable(to) && !is_parent(to, from) && !_adUpt(to, 0)) {
-    remove_node(to);
+    // @@(location profiling-remove-ref->drop)@@
+    q_enqueue(to);
+    fall(to);
+    drop();
+    // @@(location profiling-drop->catch)@@
+    if (!PQ_IS_EMPTY()) catch();
+    // @@(location profiling-catch->collect)@@
+    if (is_falling(to)) {
+      dealloc_rib(to);
+    }
+    // @@(location profiling-stop-collect)@@
+  } else {
+    // @@(location profiling-stop-remove-ref)@@
   }
 }
 
@@ -1186,20 +1194,17 @@ void remove_edge(obj from, obj to, int i) {
 
 
 void remove_node(obj old_root) {
-  // @@(location profiling-drop-start)@@
+  // @@(location profiling-start-drop)@@
   q_enqueue(old_root);
   fall(old_root);
   drop();
-  // @@(location profiling-drop-end)@@
-  // @@(location profiling-catch-start)@@
+  // @@(location profiling-drop->catch)@@
   if (!PQ_IS_EMPTY()) catch();
-  // @@(location profiling-catch-end)@@
-  
-  // @@(location profiling-collect-start)@@
+  // @@(location profiling-catch->collect)@@
   if (is_falling(old_root)) {
     dealloc_rib(old_root);
   }
-  // @@(location profiling-collect-end)@@
+  // @@(location profiling-stop-collect)@@
 }
 
 
@@ -1227,6 +1232,7 @@ void set_field(obj src, int i, obj dest) { // write barrier
       obj tmp = ref[i];
       protect(tmp);
       remove_ref(src, ref[i], i); // new dest
+
       ref[i] = dest;
       add_ref(src, dest, i);
       unprotect(tmp);
@@ -1265,6 +1271,7 @@ void set_stack(obj new_stack) {
   if (pc != NUM_0){                                                             \
     get_parent(pc) = _NULL;                                                       \
   }                                                                            \
+                                                                               \
   remove_root(old_pc);
 
 #else
