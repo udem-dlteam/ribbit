@@ -1105,50 +1105,109 @@ void catch() {
   } while (!PQ_IS_EMPTY());
 }
 
-void dealloc_rib(obj x){
+
+// non-recursive deallocation
+void dealloc_rib(obj dx) {
+
+  obj x; // rib currently being deallocated
+  obj *_x;
+
+  q_enqueue(dx);
+
+  // the queue is no longer in used at this stage so we can simply
+  // reuse it for the deallocation queue
+
+  while (!Q_IS_EMPTY()) {
+    x = q_dequeue();
 #ifndef REF_COUNT
-  deallocate(x); // deallocated rib, this way we just ignore cycles
+    deallocate(x); // deallocated rib, this way we just ignore cycles
 #endif
-  obj *_x = RIB(x)->fields;
-  for (int i = 0; i < 3; i++) {
-    if (IS_RIB(_x[i])) {
-      if (is_parent(_x[i], x)) {
-        if (is_deallocated(_x[i])) { // already deallocated?
-          continue;
-        } else if (is_falling(_x[i])) { // falling?
-          dealloc_rib(_x[i]);
-        } else { // child is a root or protected
-          // Parent field will be set to _NULL, no ambiguity with 1st cofriend
-          if (get_parent(_x[i]) != _NULL && CFR(_x[i]) != _NULL && _x[i] != FALSE) {
-            wipe_parent(_x[i], x, i);
+    _x = RIB(x)->fields;
+    for (int i = 0; i < 3; i++) {
+      if (IS_RIB(_x[i])) {
+        if (is_parent(_x[i], x)) {
+          if (is_deallocated(_x[i])) { // already deallocated?
+            continue;
+          } else if (is_falling(_x[i])) { // falling?
+            q_enqueue(_x[i]);
+          } else { // child is a root or protected
+            // Parent field will be set to _NULL, no ambiguity with 1st cofriend
+            if (get_parent(_x[i]) != _NULL && CFR(_x[i]) != _NULL && _x[i] != FALSE) {
+              wipe_parent(_x[i], x, i);
+            }
           }
-        }
-      } else { // not a child, only need to remove x from co-friend's list
-        // TODO faster way to check if we try to wipe the same co-friend twice
-        if (!is_immortal(_x[i]) && !is_falling(_x[i]) && CFR(_x[i]) != _NULL) {
-          if (i == 0) {
-            wipe_cofriend(_x[i], x, i);
-          } else if (i == 1 && _x[1] != _x[0]) {
-            wipe_cofriend(_x[i], x, i);
-          } else if (i == 2 && _x[2] != _x[0] && _x[2] != _x[1]) {
-            wipe_cofriend(_x[i], x, i);
+        } else { // not a child, only need to remove x from co-friend's list
+          // TODO faster way to check if we try to wipe the same co-friend twice
+          if (!is_immortal(_x[i]) && !is_falling(_x[i]) && CFR(_x[i]) != _NULL) {
+            if (i == 0) {
+              wipe_cofriend(_x[i], x, i);
+            } else if (i == 1 && _x[1] != _x[0]) {
+              wipe_cofriend(_x[i], x, i);
+            } else if (i == 2 && _x[2] != _x[0] && _x[2] != _x[1]) {
+              wipe_cofriend(_x[i], x, i);
+            }
           }
         }
       }
     }
-  }
-  CAR(x) = (obj)alloc; // deallocate the rib by adding it to the freelist
-  alloc = (obj *)x;
-  _x[6] = _NULL;
-  get_parent(x) = _NULL;
-  
+    CAR(x) = (obj)alloc; // deallocate the rib by adding it to the freelist
+    alloc = (obj *)x;
+    _x[6] = _NULL;
+    get_parent(x) = _NULL;
+
 #ifdef CLEAN_RIBS
-  for (int i = 1; i < RIB_NB_FIELDS; i++) {
-    if (i == 7) continue; // don't set rank to _NULL
-    _x[i] = _NULL;
-  }
+    for (int i = 1; i < RIB_NB_FIELDS; i++) {
+      if (i == 7) continue; // don't set rank to _NULL
+      _x[i] = _NULL;
+    }
 #endif
+  }
 }
+
+/* void dealloc_rib(obj x){ */
+/* #ifndef REF_COUNT */
+/*   deallocate(x); // deallocated rib, this way we just ignore cycles */
+/* #endif */
+/*   obj *_x = RIB(x)->fields; */
+/*   for (int i = 0; i < 3; i++) { */
+/*     if (IS_RIB(_x[i])) { */
+/*       if (is_parent(_x[i], x)) { */
+/*         if (is_deallocated(_x[i])) { // already deallocated? */
+/*           continue; */
+/*         } else if (is_falling(_x[i])) { // falling? */
+/*           dealloc_rib(_x[i]); */
+/*         } else { // child is a root or protected */
+/*           // Parent field will be set to _NULL, no ambiguity with 1st cofriend */
+/*           if (get_parent(_x[i]) != _NULL && CFR(_x[i]) != _NULL && _x[i] != FALSE) { */
+/*             wipe_parent(_x[i], x, i); */
+/*           } */
+/*         } */
+/*       } else { // not a child, only need to remove x from co-friend's list */
+/*         // TODO faster way to check if we try to wipe the same co-friend twice */
+/*         if (!is_immortal(_x[i]) && !is_falling(_x[i]) && CFR(_x[i]) != _NULL) { */
+/*           if (i == 0) { */
+/*             wipe_cofriend(_x[i], x, i); */
+/*           } else if (i == 1 && _x[1] != _x[0]) { */
+/*             wipe_cofriend(_x[i], x, i); */
+/*           } else if (i == 2 && _x[2] != _x[0] && _x[2] != _x[1]) { */
+/*             wipe_cofriend(_x[i], x, i); */
+/*           } */
+/*         } */
+/*       } */
+/*     } */
+/*   } */
+/*   CAR(x) = (obj)alloc; // deallocate the rib by adding it to the freelist */
+/*   alloc = (obj *)x; */
+/*   _x[6] = _NULL; */
+/*   get_parent(x) = _NULL; */
+  
+/* #ifdef CLEAN_RIBS */
+/*   for (int i = 1; i < RIB_NB_FIELDS; i++) { */
+/*     if (i == 7) continue; // don't set rank to _NULL */
+/*     _x[i] = _NULL; */
+/*   } */
+/* #endif */
+/* } */
   
 void remove_edge(obj from, obj to, int i) {
   // @@(location profiling-start-remove-ref)@@
@@ -2120,6 +2179,7 @@ void init_heap() {
 #ifdef REF_COUNT
   *scan = _NULL;
 #else
+  scan -= RIB_NB_FIELDS;
   null_rib = TAG_RIB((rib *)(scan));
   scan -= RIB_NB_FIELDS; // skip the null rib
   // rank should always be 0 since popped values will be saved there temporarly
