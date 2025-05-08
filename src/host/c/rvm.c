@@ -379,6 +379,7 @@ void init_heap() {
 #ifdef MARK_SWEEP
   // initialize freelist
   scan = heap_top;
+  scan -= RIB_NB_FIELDS;
   *scan = _NULL;
   
   while (scan != heap_bot) {
@@ -470,14 +471,17 @@ void mark(obj *o) {
 #else
 
 void mark(obj *o) { // Recursive version of marking phase
-  if (IS_RIB(*o)) {
-    obj *ptr = RIB(*o)->fields;
-    if (!IS_MARKED(ptr[2])) { 
-      obj tmp = ptr[2]; 
-      ptr[2] = MARK(ptr[2]);
+  obj z = *o;
+  while (IS_RIB(z)) {
+    obj *ptr = RIB(z)->fields;
+    if (!IS_MARKED(ptr[1])) { 
+      obj tmp = ptr[1]; 
+      ptr[1] = MARK(ptr[1]);
       mark(&ptr[0]);
-      mark(&ptr[1]);
-      mark(&tmp);
+      mark(&ptr[2]);
+      z = tmp;
+    } else {
+      break;
     }
   }
 }
@@ -496,9 +500,9 @@ void gc() {
   // Sweep
   scan=heap_bot;
   while (scan != heap_top) {
-    obj tag = *(scan+2);
+    obj tag = *(scan+1);
     if (IS_MARKED(tag)) {
-      *(scan+2) = UNMARK(tag);
+      *(scan+1) = UNMARK(tag);
     } else {
       *scan = (obj)alloc;
       alloc = scan;
