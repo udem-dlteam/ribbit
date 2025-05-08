@@ -1450,7 +1450,7 @@ void gc() {
 #ifdef REF_COUNT
       if (RIB((obj)scan)->fields[3] != 0) leftovers++;
 #else
-      if (get_rank((obj)scan) != UNALLOCATED_RIB_RANK){
+      if (get_rank((obj)scan) != UNALLOCATED_RIB_RANK && scan != null_rib) {
         if (!is_root((obj)scan) && !is_immortal((obj)scan) && is_protected((obj)scan)){ // <--- ICI on check
           printf("Found protected value!! => count = %lu\n", get_parent((obj)scan));
         }
@@ -1470,10 +1470,10 @@ void gc() {
     exit(1);
   }
 #else
-  if (((obj)alloc) == null_rib) {
-    printf("Heap is full\n");
-    exit(1);
-  }
+  /* if (((obj)alloc) == null_rib) { */
+  /*   printf("Heap is full\n"); */
+  /*   // exit(1); */
+  /* } */
 #endif
 }
 
@@ -1985,6 +1985,8 @@ obj prim(int no) {
 int irun = 0;
 #endif
 
+void foo(){};
+
 void run() { // evaluator
   dprint("Entering run\n");
   while (1) {
@@ -2050,6 +2052,7 @@ void run() { // evaluator
           // @@(feature arity-check
           num vari = nparams_vari&1;
           if (vari ? nparams > nargs : nparams != nargs) {
+            foo();
             printf("*** Unexpected number of arguments nargs: %ld nparams: %ld vari: %ld\n", nargs, nparams, vari);
             exit(1);
           }
@@ -2181,9 +2184,9 @@ void init_heap() {
 #else
   scan -= RIB_NB_FIELDS;
   null_rib = TAG_RIB((rib *)(scan));
-  scan -= RIB_NB_FIELDS; // skip the null rib
-  // rank should always be 0 since popped values will be saved there temporarly
-  set_rank(null_rib, 0);
+  // scan -= RIB_NB_FIELDS; // skip the null rib
+  // // rank should always be 0 since popped values will be saved there temporarly
+  // set_rank(null_rib, 0);
 #endif
   while (scan != heap_bot) {
     set_rank(scan, UNALLOCATED_RIB_RANK);
@@ -2191,6 +2194,10 @@ void init_heap() {
     scan -= RIB_NB_FIELDS; // scan <- address of next rib slot
     *scan = (obj)alloc; // CAR(next rib) <- address of previous slot
   }
+  // // rank should always be 0 since popped values will be saved there temporarly
+  // set_rank(null_rib, 2);
+  // rank should always be 0 since popped values will be saved there temporarly
+  set_rank(null_rib, 0);
   alloc = scan;
   stack = NUM_0;
 }
