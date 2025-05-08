@@ -215,7 +215,9 @@ typedef long num;
 #define HEAP_SIZE_FACTOR 1
 #endif
 
+#ifndef HEAP_SIZE_FIELDS
 #define HEAP_SIZE_FIELDS (BASE_HEAP_SIZE_FIELDS * HEAP_SIZE_FACTOR)
+#endif
 
 #ifndef HEAP_SIZE_BYTES
 #define HEAP_SIZE_BYTES (HEAP_SIZE_FIELDS * sizeof(obj))
