@@ -70,6 +70,8 @@ int64_t __profiling_drop_total = 0;
 int64_t __profiling_catch_total = 0;
 int64_t __profiling_collect_total = 0;
 
+int64_t __profiling_gc_total = 0;
+
 ")))
 
 (define-feature c/time/profiling-start-end
@@ -250,10 +252,14 @@ if(should_clock_gc == 1) {
     printf(\"***error while grabbing time...\");
     exit(1);
   };
+
+  __profiling_start = GET_CYCLECOUNT();
 }
 ")
    (gc-end "
 if(should_clock_gc == 1) {
+  __profiling_gc_total += GET_CYCLECOUNT() - __profiling_start;
+
   if (gc_timer_started == 0) {
     printf(\"***Error: gc timer was not started...\");
     exit(1);
@@ -322,11 +328,13 @@ if(should_clock_gc == 1) {
     "{
   long long time_difference_ns = (time_after.tv_sec-time_before.tv_sec)*1000000LL + time_after.tv_usec-time_before.tv_usec;
   printf(
-    \"%.6f seconds (%.6f seconds in GC, %d invocations, %ld total cycles, %ld drop cycles (%.3f), %ld catch cycles(%.3f), %ld collect cycles(%.3f), %ld remove-ref cycles(%.3f))\\n\",
+    \"%.6f seconds (%.6f seconds in GC, %d invocations, %ld total cycles, %ld gc cycles(%.3f), %ld drop cycles (%.3f), %ld catch cycles(%.3f), %ld collect cycles(%.3f), %ld remove-ref cycles(%.3f))\\n\",
     ((double)time_difference_ns) / 1000000,
     ((double)time_gc_accumulated) / 1000000, 
     gc_invocations,
     __profiling_total_total,
+    __profiling_gc_total,
+    ((float)__profiling_gc_total /(float)__profiling_total_total),
     __profiling_drop_total,
     ((float)__profiling_drop_total/(float)__profiling_total_total),
     __profiling_catch_total,
