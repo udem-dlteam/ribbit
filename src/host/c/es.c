@@ -95,6 +95,10 @@ typedef long num;
 #define BIGGER_HEAP_64
 // )@@
 
+// @@(feature c/gc/min-heap-size
+#define MIN_HEAP_SIZE
+// )@@
+
 // @@(feature debug/rib-viz
 #define VIZ
 void viz_heap(char* name);
@@ -154,7 +158,13 @@ void check_spanning_tree_impl();
 #define RIB_NB_FIELDS (10+QUEUE_NO_REMOVE_count+DEBUG_FIELD_count)
 #endif
 
-#define BASE_HEAP_SIZE_FIELDS 12000000 
+#define BASE_HEAP_SIZE_FIELDS 12000000
+
+#ifdef MIN_HEAP_SIZE
+// `min_nb_objects` is the number of objects required to run the program
+num min_nb_objects = 0;
+num allocated_objects = 0;
+#endif
 
 #if defined(BIGGER_HEAP_2)
 #define HEAP_SIZE_FACTOR 2
@@ -1155,6 +1165,10 @@ void dealloc_rib(obj dx) {
     _x[6] = _NULL;
     get_parent(x) = _NULL;
 
+#ifdef MIN_HEAP_SIZE
+    allocated_objects--;
+#endif
+
 #ifdef CLEAN_RIBS
     for (int i = 1; i < RIB_NB_FIELDS; i++) {
       if (i == 7) continue; // don't set rank to _NULL
@@ -1542,6 +1556,11 @@ void push2(obj car, obj tag) {
   *alloc++ = _NULL; // debug field
 #endif
 
+#ifdef MIN_HEAP_SIZE
+  allocated_objects++;
+  if (allocated_objects > min_nb_objects) min_nb_objects++;
+#endif
+
   obj new_rib = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
   obj old_stack = stack;
   stack = new_rib;
@@ -1601,6 +1620,11 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   *alloc++ = _NULL; // debug field
 #endif
 
+#ifdef MIN_HEAP_SIZE
+  allocated_objects++;
+  if (allocated_objects > min_nb_objects) min_nb_objects++;
+#endif
+  
   dec_alloc_rank();
 
   obj new_rib =  TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
@@ -2155,6 +2179,8 @@ void run() { // evaluator
     }
     case INSTR_HALT: { // halt
       gc();
+      num min_heap_size = min_nb_objects * RIB_NB_FIELDS * 8;
+      printf("Minimal heap size (in bytes): %lu\n", min_heap_size);
       vm_exit(0);
     }
     default: { // error
