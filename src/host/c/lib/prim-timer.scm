@@ -25,7 +25,7 @@
 #endif
 #endif
 
-#ifndef GET_CPUCYCLECOUNT
+#ifndef GET_CYCLECOUNT
 #ifdef USE___builtin_readcyclecounter
 
 #define GET_CYCLECOUNT() \
@@ -40,133 +40,166 @@ __builtin_readcyclecounter ()
 "
 )))
 
-(define-feature c/time/profiling-drop
-  (use c/time/profiling c/time/profiling-decl)
-  (
-   (profiling-drop-start
-     "
-if (should_clock_gc) {
-  __profiling_drop_start = GET_CYCLECOUNT();
-}
-")
-   (profiling-drop-end
-     "
-if (should_clock_gc) {
-  __profiling_drop_total += GET_CYCLECOUNT() - __profiling_drop_start;
-}
-")))
 
 (define-feature c/time/profiling-decl
   (use c/include-stdint.h)
   ((decl "
 int64_t __profiling_total_start = 0;
 int64_t __profiling_total_total = 0;
+
+#ifdef __profiling_debug
 int64_t __profiling_total_started = 0;
 
-int64_t __profiling_catch_start = 0;
-int64_t __profiling_catch_total = 0;
-int64_t __profiling_catch_started = 0;
+enum {
+  __profiling_nothing,
+  __profiling_add_ref,
+  __profiling_remove_ref,
+  __profiling_drop,
+  __profiling_catch,
+  __profiling_collect,
+};
 
-int64_t __profiling_drop_start = 0;
+int __profiling_status = __profiling_nothing;
+#endif
+
+int64_t __profiling_start = 0;
+int64_t __temp = 0;
+int64_t __profiling_add_ref_total = 0;
+int64_t __profiling_remove_ref_total = 0;
 int64_t __profiling_drop_total = 0;
-int64_t __profiling_drop_started = 0;
-
-int64_t __profiling_rerank_start = 0;
-int64_t __profiling_rerank_total = 0;
-int64_t __profiling_rerank_started = 0;
-
-int64_t __profiling_adopt_start = 0;
-int64_t __profiling_adopt_total = 0;
-int64_t __profiling_adopt_started = 0;
-
-int64_t __profiling_collect_start = 0;
+int64_t __profiling_catch_total = 0;
 int64_t __profiling_collect_total = 0;
-int64_t __profiling_collect_started = 0;
+
 ")))
 
-
-(define-feature c/time/profiling-total
-  (use c/time/profiling c/include-stdint.h c/time/profiling-decl)
-  ((profiling-total-start
-     "
+(define-feature c/time/profiling-start-end
+  (use c/time/profiling-decl)
+  ((profiling-total-start "
 __profiling_total_start = GET_CYCLECOUNT();
 ")
-   (profiling-total-end
-     "
+  (profiling-total-end "
 __profiling_total_total += GET_CYCLECOUNT() - __profiling_total_start;
 ")))
 
+(define-feature c/time/add-profiling-locations
+  (use c/time/profiling-decl)
 
-(define-feature c/time/profiling-catch
-  (use c/time/profiling c/time/profiling-decl)
-  ((profiling-catch-start
-     "
-if (should_clock_gc) {
-  __profiling_catch_start = GET_CYCLECOUNT();
+  ((profiling-start "__profiling_start = GET_CYCLECOUNT();")
+
+   (profiling-start-remove-ref "
+if (should_clock_gc == 1) {
+#ifdef __profiling_debug
+  if (__profiling_status != __profiling_nothing) {
+    printf(\"***Error in profiling: start-remove-ref...\\n\");
+    exit(1);
+  }
+  __profiling_status = __profiling_remove_ref;
+#endif
+  // @@(location profiling-start)@@
 }
 ")
-   (profiling-catch-end
-     "
-if (should_clock_gc) {
-  __profiling_catch_total += GET_CYCLECOUNT() - __profiling_catch_start;
-}
-")))
-
-(define-feature c/time/profiling-adopt
-  (use c/time/profiling c/time/profiling-decl)
-  ((profiling-adopt-start
-     "
-if (should_clock_gc) {
-  __profiling_adopt_start = GET_CYCLECOUNT();
+   (profiling-start-add-ref "
+if (should_clock_gc == 1) {
+#ifdef __profiling_debug
+  if (__profiling_status != __profiling_nothing) {
+    printf(\"***Error in profiling: start-add-ref %d...\\n\", __profiling_status);
+    exit(1);
+  }
+  __profiling_status = __profiling_add_ref;
+#endif
+  // @@(location profiling-start)@@
 }
 ")
-   (profiling-adopt-end
-     "
-if (should_clock_gc) {
-  __profiling_adopt_total += GET_CYCLECOUNT() - __profiling_adopt_start;
-}
-")))
-
-
-(define-feature c/time/profiling-rerank
-  (use c/time/profiling c/time/profiling-decl)
-  ((profiling-rerank-start
-     "
-if (should_clock_gc) {
-  __profiling_rerank_start = GET_CYCLECOUNT();
+    (profiling-start-drop "
+if (should_clock_gc == 1) {
+#ifdef __profiling_debug
+  if (__profiling_status != __profiling_nothing) {
+    printf(\"***Error in profiling: start-drop...%d\\n\", __profiling_status);
+    exit(1);
+  }
+  __profiling_status = __profiling_drop;
+#endif
+  // @@(location profiling-start)@@
 }
 ")
-   (profiling-rerank-end
-     "
-if (should_clock_gc) {
-  __profiling_rerank_total += GET_CYCLECOUNT() - __profiling_rerank_start;
-}
-")))
-
-(define-feature c/time/profiling-collect
-  (use c/time/profiling c/time/profiling-decl)
-  ((profiling-collect-start
-     "
-if (should_clock_gc) {
-  __profiling_collect_start = GET_CYCLECOUNT();
+    (profiling-drop->catch "
+if (should_clock_gc == 1) {
+#ifdef __profiling_debug
+  if (__profiling_status != __profiling_drop) {
+    printf(\"***Error in profiling: drop->catch...\\n\");
+    exit(1);
+  }
+  __profiling_status = __profiling_catch;
+#endif
+  __temp = GET_CYCLECOUNT();
+  __profiling_drop_total += __temp - __profiling_start;
+  __profiling_start = __temp;
 }
 ")
-   (profiling-collect-end
-     "
-if (should_clock_gc) {
-  __profiling_collect_total += GET_CYCLECOUNT() - __profiling_collect_start;
+
+    (profiling-remove-ref->drop "
+if (should_clock_gc == 1) {
+#ifdef __profiling_debug
+  if (__profiling_status != __profiling_remove_ref) {
+    printf(\"***Error in profiling: remove-ref->drop...\\n\");
+    exit(1);
+  }
+  __profiling_status = __profiling_drop;
+#endif
+  __temp = GET_CYCLECOUNT();
+  __profiling_remove_ref_total += __temp - __profiling_start;
+  __profiling_start = __temp;
 }
-")))
+")
+
+    (profiling-catch->collect "
+if (should_clock_gc == 1) {
+#ifdef __profiling_debug
+  if (__profiling_status != __profiling_catch) {
+    printf(\"***Error in profiling: catch->collect...\\n\");
+    exit(1);
+  }
+  __profiling_status = __profiling_collect;
+#endif
+  __temp = GET_CYCLECOUNT();
+  __profiling_catch_total += __temp - __profiling_start;
+  __profiling_start = __temp;
+}
+")
+
+(profiling-stop-collect "
+if (should_clock_gc == 1) {
+#ifdef __profiling_debug
+  if (__profiling_status != __profiling_collect) {
+    printf(\"***Error in profiling: stop-collect...\\n\");
+    exit(1);
+  }
+  __profiling_status = __profiling_nothing;
+#endif
+  __profiling_collect_total += GET_CYCLECOUNT() - __profiling_start;
+}
+")
+
+(profiling-stop-remove-ref "
+if (should_clock_gc == 1) {
+#ifdef __profiling_debug
+  if (__profiling_status != __profiling_remove_ref) {
+    printf(\"***Error in profiling: remove_ref...\\n\");
+    exit(1);
+  }
+  __profiling_status = __profiling_nothing;
+#endif
+  __profiling_remove_ref_total += GET_CYCLECOUNT() - __profiling_start;
+}
+")
+))
 
 (define-feature c/gc/profile-gc
   (use 
+    c/time/add-profiling-locations
+    c/time/profiling-start-end
     c/time/profiling
-    c/time/profiling-drop
-    c/time/profiling-total
-    c/time/profiling-catch
-    c/time/profiling-adopt
-    c/time/profiling-rerank
-    c/time/profiling-collect
+
 
     ))
 
@@ -289,16 +322,19 @@ if(should_clock_gc == 1) {
     "{
   long long time_difference_ns = (time_after.tv_sec-time_before.tv_sec)*1000000LL + time_after.tv_usec-time_before.tv_usec;
   printf(
-    \"%.6f seconds (%.6f seconds in GC, %d invocations, %ld total cycles, %ld drop cycles, %ld catch cycles, %ld adopt cycles, %ld rerank cycles, %ld collect cycles)\\n\",
+    \"%.6f seconds (%.6f seconds in GC, %d invocations, %ld total cycles, %ld drop cycles (%.3f), %ld catch cycles(%.3f), %ld collect cycles(%.3f), %ld remove-ref cycles(%.3f))\\n\",
     ((double)time_difference_ns) / 1000000,
     ((double)time_gc_accumulated) / 1000000, 
     gc_invocations,
     __profiling_total_total,
     __profiling_drop_total,
+    ((float)__profiling_drop_total/(float)__profiling_total_total),
     __profiling_catch_total,
-    __profiling_adopt_total,
-    __profiling_rerank_total,
-    __profiling_collect_total
+    ((float)__profiling_catch_total/(float)__profiling_total_total),
+    __profiling_collect_total,
+    ((float)__profiling_collect_total/(float)__profiling_total_total),
+    __profiling_remove_ref_total,
+    ((float)__profiling_remove_ref_total/(float)__profiling_total_total)
     );
   push(TAG_NUM(0));
   break;
