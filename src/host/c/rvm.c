@@ -385,7 +385,7 @@ void init_heap() {
 #ifdef MARK_SWEEP
   // initialize freelist
   scan = heap_top;
-  scan -= RIB_NB_FIELDS;
+  // scan -= RIB_NB_FIELDS;
   *scan = _NULL;
   
   while (scan != heap_bot) {
