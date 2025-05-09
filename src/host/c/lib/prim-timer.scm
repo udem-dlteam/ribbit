@@ -19,8 +19,8 @@
 #ifdef USE___builtin_ia32_rdtscp
 #ifdef __GNUC__
 
-#define GET_CYCLECOUNT() \
-({ int64_t temp; __asm__ __volatile__ (\"rdtscp\\n\\tshl $32,%%rdx\\n\\tor %%rdx,%%rax\\n\\tmov %%rax,%0\\n\\tcpuid\\n\":\"=r\"(temp)::\"%rax\",\"%rbx\",\"%rcx\",\"%rdx\"); temp; })
+#define GET_CYCLECOUNT()\
+({ int64_t temp; __asm__ __volatile__ (\"rdtsc\\n\\tshl $32,%%rdx\\n\\tor %%rdx,%%rax\\n\\tmov %%rax,%0\\n\":\"=r\"(temp)::\"%rax\",\"%rbx\",\"%rcx\",\"%rdx\"); temp; })
 
 #endif
 #endif
@@ -77,6 +77,14 @@ int64_t __profiling_gc_total = 0;
 (define-feature c/time/profiling-start-end
   (use c/time/profiling-decl)
   ((profiling-total-start "
+__profiling_start = 0;
+__temp = 0;
+__profiling_add_ref_total = 0;
+__profiling_remove_ref_total = 0;
+__profiling_drop_total = 0;
+__profiling_catch_total = 0;
+__profiling_collect_total = 0;
+int64_t __profiling_gc_total = 0;
 __profiling_total_start = GET_CYCLECOUNT();
 ")
   (profiling-total-end "
@@ -88,110 +96,94 @@ __profiling_total_total += GET_CYCLECOUNT() - __profiling_total_start;
 
   ((profiling-start "__profiling_start = GET_CYCLECOUNT();")
    (profiling-start-remove-ref "
-if (should_clock_gc == 1) {
 #ifdef __profiling_debug
-  if (__profiling_status != __profiling_nothing) {
-    printf(\"***Error in profiling: start-remove-ref...\\n\");
-    exit(1);
-  }
-  __profiling_status = __profiling_remove_ref;
-#endif
-  // @@(location profiling-start)@@
+if (__profiling_status != __profiling_nothing) {
+  printf(\"***Error in profiling: start-remove-ref...\\n\");
+  exit(1);
 }
+__profiling_status = __profiling_remove_ref;
+#endif
+// @@(location profiling-start)@@
 ")
    (profiling-start-add-ref "
-if (should_clock_gc == 1) {
 #ifdef __profiling_debug
-  if (__profiling_status != __profiling_nothing) {
-    printf(\"***Error in profiling: start-add-ref %d...\\n\", __profiling_status);
-    exit(1);
-  }
-  __profiling_status = __profiling_add_ref;
-#endif
-  // @@(location profiling-start)@@
+if (__profiling_status != __profiling_nothing) {
+  printf(\"***Error in profiling: start-add-ref %d...\\n\", __profiling_status);
+  exit(1);
 }
+__profiling_status = __profiling_add_ref;
+#endif
+// @@(location profiling-start)@@
 ")
     (profiling-start-drop "
-if (should_clock_gc == 1) {
 #ifdef __profiling_debug
-  if (__profiling_status != __profiling_nothing) {
-    printf(\"***Error in profiling: start-drop...%d\\n\", __profiling_status);
-    exit(1);
-  }
-  __profiling_status = __profiling_drop;
-#endif
-  // @@(location profiling-start)@@
+if (__profiling_status != __profiling_nothing) {
+  printf(\"***Error in profiling: start-drop...%d\\n\", __profiling_status);
+  exit(1);
 }
+__profiling_status = __profiling_drop;
+#endif
+// @@(location profiling-start)@@
 ")
     (profiling-drop->catch "
-if (should_clock_gc == 1) {
 #ifdef __profiling_debug
-  if (__profiling_status != __profiling_drop) {
-    printf(\"***Error in profiling: drop->catch...\\n\");
-    exit(1);
-  }
-  __profiling_status = __profiling_catch;
-#endif
-  __temp = GET_CYCLECOUNT();
-  __profiling_drop_total += __temp - __profiling_start;
-  __profiling_start = __temp;
+if (__profiling_status != __profiling_drop) {
+  printf(\"***Error in profiling: drop->catch...\\n\");
+  exit(1);
 }
+__profiling_status = __profiling_catch;
+#endif
+__temp = GET_CYCLECOUNT();
+__profiling_drop_total += __temp - __profiling_start;
+__profiling_start = __temp;
 ")
 
     (profiling-remove-ref->drop "
-if (should_clock_gc == 1) {
 #ifdef __profiling_debug
-  if (__profiling_status != __profiling_remove_ref) {
-    printf(\"***Error in profiling: remove-ref->drop...\\n\");
-    exit(1);
-  }
-  __profiling_status = __profiling_drop;
-#endif
-  __temp = GET_CYCLECOUNT();
-  __profiling_remove_ref_total += __temp - __profiling_start;
-  __profiling_start = __temp;
+if (__profiling_status != __profiling_remove_ref) {
+  printf(\"***Error in profiling: remove-ref->drop...\\n\");
+  exit(1);
 }
+__profiling_status = __profiling_drop;
+#endif
+__temp = GET_CYCLECOUNT();
+__profiling_remove_ref_total += __temp - __profiling_start;
+__profiling_start = __temp;
 ")
 
     (profiling-catch->collect "
-if (should_clock_gc == 1) {
 #ifdef __profiling_debug
-  if (__profiling_status != __profiling_catch) {
-    printf(\"***Error in profiling: catch->collect...\\n\");
-    exit(1);
-  }
-  __profiling_status = __profiling_collect;
-#endif
-  __temp = GET_CYCLECOUNT();
-  __profiling_catch_total += __temp - __profiling_start;
-  __profiling_start = __temp;
+if (__profiling_status != __profiling_catch) {
+  printf(\"***Error in profiling: catch->collect...\\n\");
+  exit(1);
 }
+__profiling_status = __profiling_collect;
+#endif
+__temp = GET_CYCLECOUNT();
+__profiling_catch_total += __temp - __profiling_start;
+__profiling_start = __temp;
 ")
 
 (profiling-stop-collect "
-if (should_clock_gc == 1) {
 #ifdef __profiling_debug
-  if (__profiling_status != __profiling_collect) {
-    printf(\"***Error in profiling: stop-collect...\\n\");
-    exit(1);
-  }
-  __profiling_status = __profiling_nothing;
-#endif
-  __profiling_collect_total += GET_CYCLECOUNT() - __profiling_start;
+if (__profiling_status != __profiling_collect) {
+  printf(\"***Error in profiling: stop-collect...\\n\");
+  exit(1);
 }
+__profiling_status = __profiling_nothing;
+#endif
+__profiling_collect_total += GET_CYCLECOUNT() - __profiling_start;
 ")
 
 (profiling-stop-remove-ref "
-if (should_clock_gc == 1) {
 #ifdef __profiling_debug
-  if (__profiling_status != __profiling_remove_ref) {
-    printf(\"***Error in profiling: remove_ref...\\n\");
-    exit(1);
-  }
-  __profiling_status = __profiling_nothing;
-#endif
-  __profiling_remove_ref_total += GET_CYCLECOUNT() - __profiling_start;
+if (__profiling_status != __profiling_remove_ref) {
+  printf(\"***Error in profiling: remove_ref...\\n\");
+  exit(1);
 }
+__profiling_status = __profiling_nothing;
+#endif
+__profiling_remove_ref_total += GET_CYCLECOUNT() - __profiling_start;
 ")
 (profiling-gc-total-end "__profiling_gc_total += GET_CYCLECOUNT() - __profiling_start;")
 ))
@@ -231,7 +223,6 @@ struct timeval time_after;
 struct timeval time_gc_before;
 struct timeval time_gc_after;
 long long time_gc_accumulated = 0;
-int should_clock_gc = 0;
 int gc_invocations = 0;
 int gc_timer_started = 0;
 ")
@@ -241,45 +232,40 @@ int gc_timer_started = 0;
 (define-feature c/timer/gc-start-end
   (use c/timer/globals)
   ((gc-start "
-if(should_clock_gc == 1) {
-  gc_invocations++;
-  if (gc_timer_started == 1) {
-    printf(\"***Error: gc timer was already started...\");
-    exit(1);
-  }
-  gc_timer_started = 1;
-  if(gettimeofday(&time_gc_before, 0) != 0) {
-    printf(\"***error while grabbing time...\");
-    exit(1);
-  };
-
-  // @@(location profiling-start)@@
+gc_invocations++;
+if (gc_timer_started == 1) {
+  printf(\"***Error: gc timer was already started...\");
+  exit(1);
 }
+gc_timer_started = 1;
+if(gettimeofday(&time_gc_before, 0) != 0) {
+  printf(\"***error while grabbing time...\");
+  exit(1);
+};
+
+// @@(location profiling-start)@@
 ")
    (gc-end "
-if(should_clock_gc == 1) {
-  // @@(location profiling-gc-total-end)@@
+// @@(location profiling-gc-total-end)@@
 
-  if (gc_timer_started == 0) {
-    printf(\"***Error: gc timer was not started...\");
-    exit(1);
-  }
-  if(gettimeofday(&time_gc_after, 0) != 0){
-    printf(\"***Error while grabbing time...\");
-    exit(1);
-  }
-  long long time_difference_ns = (time_gc_after.tv_sec-time_gc_before.tv_sec)*1000000LL + time_gc_after.tv_usec-time_gc_before.tv_usec;
-  time_gc_accumulated += time_difference_ns;
-  gc_invocations++;
-  gc_timer_started = 0;
+if (gc_timer_started == 0) {
+  printf(\"***Error: gc timer was not started...\");
+  exit(1);
 }
+if(gettimeofday(&time_gc_after, 0) != 0){
+  printf(\"***Error while grabbing time...\");
+  exit(1);
+}
+long long time_difference_ns = (time_gc_after.tv_sec-time_gc_before.tv_sec)*1000000LL + time_gc_after.tv_usec-time_gc_before.tv_usec;
+time_gc_accumulated += time_difference_ns;
+gc_invocations++;
+gc_timer_started = 0;
 ")))
 
 ;; Starts a new timer
 (define-primitive (##timer-start)
   (use c/timer/globals c/timer/gc-globals)
   "{
-  should_clock_gc = 1;
   if(gettimeofday(&time_before, 0) != 0) {
     printf(\"***error while grabbing time...\");
     exit(1);
@@ -303,8 +289,6 @@ if(should_clock_gc == 1) {
     exit(1);
   };
 
-
-  should_clock_gc = 0;
   push(TAG_NUM(0));
   break;
 }")
