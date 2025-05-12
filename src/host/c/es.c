@@ -35,7 +35,6 @@
  */
 
 // @@(location import)@@
-// @@(location decl)@@
 
 #define true 1
 #define false 0
@@ -783,18 +782,25 @@ void remove_node(obj x);
 // system to avoid this problem
 #define is_protected(o) (IS_RIB(o) && IS_MARKED(RANK(o)))
 
+bool adUpt(obj x, int depth); // needed by unprotect
+
 #define _adUpt(x, depth) ((CFR(x) == _NULL) ? 0 : adUpt(x, depth))
-#define remove_root(old_root) if (IS_RIB(old_root) && !_adUpt(old_root, 0)) remove_node(old_root)
 
-/* #define protect(o) RANK(o) = MARK(RANK(o)) */
-/* #define unprotect(o)                                                           \ */
-/*   do {                                                                         \ */
-/*     if (IS_RIB(o) && is_protected(o)) {                                             \ */
-/*       RANK(o) = UNMARK(RANK(o));                                               \ */
-/*       remove_root(o);                                                          \ */
-/*     }                                                                          \ */
-/*   } while (0) */
-
+static inline bool remove_root(obj old_root) {
+  if (IS_RIB(old_root)) {
+    if (CFR(old_root) == _NULL) {
+      remove_node(old_root);
+    } else {
+      // @@(location profile-start-adopt-in-unprotect)@@
+      if (!adUpt(old_root, 0)) {
+        // @@(location profile-stop-adopt-in-unprotect)@@
+        remove_node(old_root);
+      } else {
+        // @@(location profile-stop-adopt-in-unprotect)@@
+      } 
+    }
+  }
+}
 
 void protect(obj o) {
   if (IS_RIB(o) && !is_root(o)) {
@@ -807,8 +813,6 @@ void protect(obj o) {
     }
   }
 }
-
-bool adUpt(obj x, int depth); // needed by unprotect
 
 void unprotect(obj o) {
   if (IS_RIB(o)) {
@@ -1021,14 +1025,13 @@ bool upward_adopt(obj from, obj to, num d, int depth) {
 
 bool adUpt(obj x, int depth) {
   // adoption with the possibility of an upward adoption for mutations
-  
   bool adopt_success = adopt(x);
   if (adopt_success) {
     return 1;
   }
 
   obj cfr = CFR(x);
-  if (!adupt_start_heuristic(x, depth)) { 
+  if (!adupt_start_heuristic(x, depth)) {
     return false; 
   }
   
@@ -1069,19 +1072,23 @@ void drop() {
       next_level_size = 0;
     }
 
-    
     // making x's children "fall" along with him
     for (int i = 0; i < 3; i++) {
       obj child = _x[i];
       if (IS_RIB(child) && is_parent(child, x) && is_collectable(child)) {
-        if (!is_falling(child) && !adUpt(child, depth))
-        {
-          // if we loosen here instead of when we dequeue, we can reuse the
-          // queue field for the priority queue
-          fall(child); 
-          pq_remove(child);
-          next_level_size++;
-          q_enqueue(child);
+        if (!is_falling(child)) {
+          // @@(location profile-start-adopt-in-drop)@@
+          if (!adUpt(child, depth)) {
+            // @@(location profile-stop-adopt-in-drop)@@
+            // if we loosen here instead of when we dequeue, we can reuse the
+            // queue field for the priority queue
+            fall(child); 
+            pq_remove(child);
+            next_level_size++;
+            q_enqueue(child);
+          } else {
+            // @@(location profile-stop-adopt-in-drop)@@
+          }
         }
       }
     }
@@ -1230,7 +1237,6 @@ void dealloc_rib(obj dx) {
 /* } */
   
 void remove_edge(obj from, obj to, int i) {
-  // @@(location profiling-start-remove-ref)@@
   // `from` and `to` are assumed to be ribs, `i` is the index where `to` is
   // expected to be found (there could be more than one reference from `from`
   // to `to` and we need to handle the right mirror field)
@@ -1238,9 +1244,9 @@ void remove_edge(obj from, obj to, int i) {
   // Case 1: `from` is not `to`'s parent, and so the spanning tree remains the
   // same, we only need to remove that reference (and potentially `from` from
   // `to`'s co-friends if there was only one reference)
+
   if (!is_parent(to, from)) {
     remove_cofriend(to, from, i);
-    //@@(location profiling-stop-remove-ref)@@
     return;
   }
   // Case 2: `from` is `to`'s parent, if there's only one reference from `from`
@@ -1248,20 +1254,26 @@ void remove_edge(obj from, obj to, int i) {
   // disconnected and so a drop phase must ensue UNLESS `to` is protected or
   // if `to` can be adopted right away
   remove_parent(to, from, i); 
-  if (is_collectable(to) && !is_parent(to, from) && !_adUpt(to, 0)) {
-    // @@(location profiling-remove-ref->drop)@@
-    q_enqueue(to);
-    fall(to);
-    drop();
-    // @@(location profiling-drop->catch)@@
-    if (!PQ_IS_EMPTY()) catch();
-    // @@(location profiling-catch->collect)@@
-    if (is_falling(to)) {
-      dealloc_rib(to);
+  if (is_collectable(to) && !is_parent(to, from)) {
+    // @@(location profile-start-adopt-in-remove-edge)@@
+    if (!_adUpt(to, 0)) {
+      // @@(location profile-stop-adopt-in-remove-edge)@@
+      // @@(location profile-start-drop-in-remove-edge)@@
+      q_enqueue(to);
+      fall(to);
+      drop();
+      // @@(location profile-stop-drop)@@
+      // @@(location profile-start-catch)@@
+      if (!PQ_IS_EMPTY()) catch();
+      // @@(location profile-stop-catch)@@
+      // @@(location profile-start-collect)@@
+      if (is_falling(to)) {
+        dealloc_rib(to);
+      }
+      // @@(location profile-stop-collect)@@
+    } else {
+      // @@(location profile-stop-adopt-in-remove-edge)@@
     }
-    // @@(location profiling-stop-collect)@@
-  } else {
-    // @@(location profiling-stop-remove-ref)@@
   }
 }
 
@@ -1273,17 +1285,19 @@ void remove_edge(obj from, obj to, int i) {
 
 
 void remove_node(obj old_root) {
-  // @@(location profiling-start-drop)@@
+  // @@(location profile-start-drop)@@
   q_enqueue(old_root);
   fall(old_root);
   drop();
-  // @@(location profiling-drop->catch)@@
+  // @@(location profile-stop-drop)@@
+  // @@(location profile-start-catch)@@
   if (!PQ_IS_EMPTY()) catch();
-  // @@(location profiling-catch->collect)@@
+  // @@(location profile-stop-catch)@@
+  // @@(location profile-start-collect)@@
   if (is_falling(old_root)) {
     dealloc_rib(old_root);
   }
-  // @@(location profiling-stop-collect)@@
+  // @@(location profile-stop-collect)@@
 }
 
 
