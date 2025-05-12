@@ -314,7 +314,6 @@ obj check_access(obj x){
 #define STRING_TAG TAG_NUM(3)
 #define SINGLETON_TAG TAG_NUM(5)
 
-// @@(location decl)@@
 // the only three roots allowed
 obj stack = NUM_0;
 obj pc = NUM_0;
@@ -495,7 +494,7 @@ void mark(obj *o) { // Recursive version of marking phase
 #endif
 
 void gc() {
-  // @@(location gc-start)@@
+  // @@(location profile-gc-start)@@
 #ifdef DEBUG_GC
   printf("\t--GC called\n");
 #endif
@@ -518,7 +517,7 @@ void gc() {
   if (*alloc == _NULL){
     printf("Heap is full\n");
   }
-  // @@(location gc-end)@@
+  // @@(location profile-gc-stop)@@
 }
 
 #else
@@ -558,7 +557,7 @@ void copy() {
 }
 
 void gc() {
-  // @@(location gc-start)@@
+  // @@(location profile-gc-start)@@
 #ifdef DEBUG_GC
   obj *from_space = (alloc_limit == heap_mid) ? heap_bot : heap_mid;
 
@@ -597,7 +596,7 @@ void gc() {
   fflush(stdout);
 
 #endif
-  // @@(location gc-end)@@
+  // @@(location profile-gc-stop)@@
 }
 #endif // end of GC algorithms
 
