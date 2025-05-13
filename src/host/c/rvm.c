@@ -494,7 +494,7 @@ void mark(obj *o) { // Recursive version of marking phase
 #endif
 
 void gc() {
-  // @@(location profile-gc-start)@@
+  // @@(location profile-start-gc)@@
 #ifdef DEBUG_GC
   printf("\t--GC called\n");
 #endif
@@ -517,7 +517,7 @@ void gc() {
   if (*alloc == _NULL){
     printf("Heap is full\n");
   }
-  // @@(location profile-gc-stop)@@
+  // @@(location profile-stop-gc)@@
 }
 
 #else
@@ -557,7 +557,7 @@ void copy() {
 }
 
 void gc() {
-  // @@(location profile-gc-start)@@
+  // @@(location profile-start-gc)@@
 #ifdef DEBUG_GC
   obj *from_space = (alloc_limit == heap_mid) ? heap_bot : heap_mid;
 
@@ -596,7 +596,7 @@ void gc() {
   fflush(stdout);
 
 #endif
-  // @@(location profile-gc-stop)@@
+  // @@(location profile-stop-gc)@@
 }
 #endif // end of GC algorithms
 
