@@ -210,7 +210,7 @@ Here :
 | JavaScript (`js`)    | ✅   |   ✅      |  ✅  |  ✅  |
 | Python (`py`)        | ✅   |   ✅      |  ✅  |  ✅  |
 | Clojure (`clj`)      | ✅   |   ✅      |  ❌  |  ❌  |
-| Lisp (`lisp`)        | ✅   |   ✅      |  ❌  |  ❌  |
+| Common Lisp (`lisp`) | ✅   |   ✅      |  ❌  |  ❌  |
 | Prolog (`pro`)       | ✅   |   ✅      |  ❌  |  ❌  |
 | Scheme (`scm`)       | ✅   |   ✅      |  ❌  |  ❌  |
 | Posix-Shell (`sh`)   | ✅   |   ✅      |  ❌  |  ❌  |
