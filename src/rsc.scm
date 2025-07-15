@@ -1714,6 +1714,110 @@
 
 (define host-config #f)
 
+(define (list-flatten lst lst2)
+  (if (pair? lst)
+    (if (or (pair? (car lst)) (null? (car lst)))
+      (list-flatten (cdr lst) (append (car lst) lst2))
+      (list-flatten (cdr lst) (cons (car lst) lst2)))
+    lst2))
+
+
+(define (unique-flatten lst)
+  (unique (list-flatten lst '())))
+
+
+(define (generate-dependency-graph expansion live-globals)
+  (define (show-dependencies var dependencies)
+    (for-each 
+      (lambda (x)
+        (display 
+          (string-append
+            "\"" (symbol->string var) "\""
+            " -> "
+            "\""(symbol->string x)
+            "\""
+            (if (and (memq var live-globals)
+                     (memq x live-globals))
+              " [color=red];\n"
+              "")
+            "\n")))
+      dependencies))
+
+  (define (rec expr intern? cte)
+    (cond ((symbol? expr) (if (memq expr cte) '() (list expr)))
+          ((integer? expr) '())
+          ((pair? expr)
+           (let ((first (car expr)))
+
+             (cond ((eqv? first 'quote) '())
+                   ((eqv? first 'set!)
+                    (let ((var (cadr expr)))
+                      (let ((val (caddr expr)))
+                        (let ((dependencies (unique-flatten (rec val #t cte))))
+                          (if (not intern?)
+                            (show-dependencies var dependencies)
+                            (unique-flatten dependencies))))))
+
+                   ((eqv? first 'if)
+                    (unique-flatten 
+                      (cons
+                        (rec (cadr expr) intern? cte)
+                        (cons (rec (caddr expr) intern? cte)
+                              (cons (rec (cadddr expr) intern? cte)
+                                    '())))))
+
+                   ((eqv? first 'let)
+                    (let ((bindings (cadr expr))
+                          (vars (map car (cadr expr))))
+                      (unique-flatten
+                         (list (map 
+                                 (lambda (x) (unique-flatten (rec x intern? cte)))
+                                 (map cadr bindings)) 
+
+                               (rec (cddr expr) intern? (append vars cte))))))
+
+                   ((eqv? first 'begin)
+                    (unique-flatten
+                      (map 
+                        (lambda (x) (rec x intern? cte))
+                        (cdr expr))))
+
+
+                   ((eqv? first 'lambda)
+                    (let* ((params (cadr expr))
+                           (params (if (not (pair? params))
+                                     (list params)
+                                     (improper-list->list params '()))))
+                      (rec (cddr expr) intern? (append cte params))))
+
+                   ((eqv? first 'define-feature) '())
+                   ((eqv? first 'define-primitive) '())
+                   ((eqv? first 'use-feature) '())
+                   ((eqv? first 'if-feature)
+                    (unique-flatten
+                      (cons (rec (caddr expr) intern? cte)
+                            (cons (rec (cadddr expr) intern? cte) '()))))
+                   (else
+                     (unique-flatten (map (lambda (x) (rec x intern? cte)) expr))))))
+
+            (else '())))
+
+  (display "digraph {\n")
+  ;(display "node [shape=box color=gray];\n")
+  ;(display "edge [color=gray];\n")
+  (rec expansion #f '())
+  (for-each
+    (lambda (sym)
+      (display
+        (string-append
+          "\""
+          (symbol->string sym)
+          "\""
+          " [color=red];\n")))
+    live-globals)
+  (display "}\n"))
+
+
 (define (compile-program verbosity debug-info parsed-vm features program)
   (let* ((exprs-and-exports
            (extract-exports program))
@@ -1748,6 +1852,12 @@
 
          (live-features
            (cdr live-globals-and-features))
+
+         (_
+           (if (memq 'dependency-graph debug-info)
+             (begin
+               (generate-dependency-graph expansion (map car live-globals))
+               (exit 0))))
 
          (exports
            (or (and (not (assq 'debug live-features)) exports) ;; export everything when debug is activated
@@ -5273,7 +5383,7 @@ DEBUGING OPTIONS
 
   `-di`, `--debug-info INFO`
   Displays debug information to stdout.
-  Info can be any of : `host-expansion` `expansion`, `rvm-code`, `hash-table`, `exports` and `host-config`.
+  Info can be any of : `host-expansion` `expansion`, `rvm-code`, `hash-table`, `exports`, `host-config` and `dependency-graph`.
 
   `-ps`, `--progress-status`
   Show progress status during compilation.
