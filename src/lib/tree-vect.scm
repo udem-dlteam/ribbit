@@ -12,6 +12,11 @@
 ;; Copyright (c) 2025 Léonard Oest O'Leary.
 ;;
 
+(define (pp-return x)
+  (display x)
+  (newline)
+  x)
+
 
 (define (display-rib rib depth)
   (if (> depth 0)
@@ -94,7 +99,7 @@
 (define (make-vect len init)
 
  (define (make-full-tree index depth) ;; depth >= 0
-   (if (= depth 0)
+   (if (eqv? depth 0)
        (init index)
        (let* ((tree (make-node))
               (depth (- depth 1))
@@ -150,42 +155,39 @@
 (define (vect-ref vect index)
 
  (define (full-tree-ref tree index depth) ;; depth >= 0
-   (if (= depth 0)
+   (if (##eqv? depth 0)
        tree
-       (let* ((depth (- depth 1))
+       (let* ((depth (##- depth 1))
               (pow (vector-ref powers depth))
-              (i (quotient index pow))
-              (start (* i pow))
+              (i (##quotient index pow))
+              (start (##* i pow))
               (tree (node-ref tree i)))
-         (full-tree-ref tree (- index start) depth))))
+         (full-tree-ref tree (##- index start) depth))))
 
  (define (tree-ref tree index depth len) ;; len >= 1, depth = (ceiling (log len base)) >= 0
-   (if (= depth 0) ;; or equivalently (= len 1)
+   (if (##eqv? depth 0) ;; or equivalently (= len 1)
        tree
-       (let* ((depth (- depth 1))
+       (let* ((depth (##- depth 1))
               (pow (vector-ref powers depth))
-              (i (quotient index pow))
-              (start (* i pow))
+              (i (##quotient index pow))
+              (start (##* i pow))
               (tree (node-ref tree i)))
-         (if (< i (quotient len pow)) ;; in a full tree?
-             (full-tree-ref tree (- index start) depth)
+         (if (##< i (##quotient len pow)) ;; in a full tree?
+             (full-tree-ref tree (##- index start) depth)
              ;; determine depth of leftmost node
-             (let ((len (- len start)))
-               (if (= len 1)
+             (let ((len (##- len start)))
+               (if (##eqv? len 1)
                    tree
-                   (let loop ((depth (- depth 1)))
-                     (if (> len (vector-ref powers depth))
-                         (tree-ref tree (- index start) (+ depth 1) len)
-                         (loop (- depth 1))))))))))
+                   (let loop ((depth (##- depth 1)))
+                     (if (##< (vector-ref powers depth) len)
+                         (tree-ref tree (##- index start) (##+ depth 1) len)
+                         (loop (##- depth 1))))))))))
 
- (let ((len (rib-ref vect 1)))
-   (tree-ref (rib-ref vect 0)
+ (let ((len (##field1 vect)))
+   (tree-ref (##field0 vect)
              index
              ;; determine depth of leftmost node
-             (let loop ((depth 0))
-               (if (> len (vector-ref powers depth))
-                   (loop (+ depth 1))
-                   depth))
+             5
              len)))
 
 (define (vect-set! vect index val)
@@ -219,7 +221,7 @@
                          (tree-set! node i (- index start) (+ depth 1) len)
                          (loop (- depth 1))))))))))
 
- (let ((len (rib-ref vect 1)))
+ (let ((len (##field1 vect)))
    (tree-set! vect
               0
               index
