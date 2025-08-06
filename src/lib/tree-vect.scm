@@ -187,7 +187,10 @@
    (tree-ref (##field0 vect)
              index
              ;; determine depth of leftmost node
-             5
+             (let loop ((depth 0))
+               (if (> len (vector-ref powers depth))
+                   (loop (+ depth 1))
+                   depth))
              len)))
 
 (define (vect-set! vect index val)
