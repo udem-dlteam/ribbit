@@ -6,7 +6,7 @@ GSC ?= gsc
 RSC_COMPILER ?= ./rsc.exe
 
 ifeq ($(shell ${GSC} -:r4rs -e '' > /dev/null 2>&1; echo $$?), 0)
-GSC_OPTIONS ?= -:r4rs
+GSC_OPTIONS += -:r4rs
 R4RS_WARNING ?= 0
 else
 R4RS_WARNING ?= 1
