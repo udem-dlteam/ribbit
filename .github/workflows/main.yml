@@ -1,6 +1,6 @@
 name: RVM tests
 run-name: RVM tests
-on: 
+on:
   push:
     branches:
       - main
@@ -8,6 +8,80 @@ on:
     branches:
       - main
 jobs:
+  check_gambit_from_ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the ribbit repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+
+      - name: Install Gambit Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install texinfo autoconf2.69
+          sudo ln -s -f `which autoconf2.69` `which autoconf`
+
+      - name: Download Gambit from the repository
+        run: |
+          sudo apt-get install gambc
+
+      - name: Compile RSC
+        run: |
+          cd src
+          make rsc.exe
+
+      - name: Install python
+        run: sudo apt install python3
+
+      - name: Run simple Python RVM
+        run: |
+          cd src
+          TEST_FEATURES="" TEST_TAGS="py core" HOST=py make check
+
+  check_gambit_v4_7_5:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the ribbit repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+
+      - name: Install Gambit Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install texinfo autoconf2.69
+          sudo ln -s -f `which autoconf2.69` `which autoconf`
+
+      - name: Checkout the gambit repository
+        uses: actions/checkout@v2
+        with:
+          repository: gambit/gambit
+          ref: v4.7.5
+          path: gambit-src
+
+      - name: Build Gambit for Use
+        run: |
+          mkdir gambit
+          cd gambit-src && ./configure --enable-single-host --prefix=$(pwd)/../gambit  && make -j`nproc` && make install
+
+      - name: Make sure gsi and gsc are working
+        run: |
+          ./gambit/bin/gsi -v
+          ./gambit/bin/gsc -v
+
+      - name: create rsc.exe
+        run: |
+          cd src
+          make rsc.exe GSC=$(pwd)/../gambit/bin/gsc GSI=$(pwd)/../gambit/bin/gsi
+
+      - name: Run simple Python RVM
+        run: |
+          cd src
+          TEST_FEATURES="" TEST_TAGS="py core" HOST=py make check
+
   compile_RSC:
     runs-on: ubuntu-latest
     steps:
