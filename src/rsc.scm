@@ -254,8 +254,10 @@
    (define (symbol->str symbol)
      (table-ref uninterned-symbols symbol (symbol->string symbol)))))
 
-;; string-prefix? and filter
-
+;; These functions appeared in later versions of Gambit.
+;; When compiling for a version under 4.9.4, we include them:
+;; > string-prefix?, filter, fold, fold-right, iota
+;;
 (cond-expand
   (gambit
     (comp-if (< (system-version) 409004)
@@ -270,8 +272,27 @@
                 (<= pref-len str-len)
                 (string=? (substring str 0 pref-len) pref))))
 
+       (define (fold-right kons knil ls)
+         (let lp ((ls ls) (res knil))
+           (if (null? ls)
+             res
+             (kons (car ls) (lp (cdr ls) res)))))
+
        (define (filter f lst)
-         (fold-right (lambda (e r) (if (f e) (cons e r) r)) '() lst)))))
+         (fold-right (lambda (e r) (if (f e) (cons e r) r)) '() lst))
+
+       (define (fold kons knil ls)
+         (let lp ((ls ls) (res knil))
+           (if (null? ls)
+             res
+             (lp (cdr ls) (kons (car ls) res)))))
+
+       (define (iota n)
+         (let ((max-n n))
+           (let rec ((n n))
+             (if (eqv? n 0)
+               '()
+               (cons (- max-n n) (rec (- n 1))))))))))
 
 (cond-expand
 
@@ -489,7 +510,9 @@
    ;; script-file appeared on v4.9.4
    (comp-if (< (system-version) 409004)
      (define (script-file)
-       (car (command-line)))))
+       (car (command-line)))
+
+     (define executable-path script-file)))
 
  (chicken
 
@@ -813,14 +836,6 @@
       (host-config-feature-live? host-config name)
       ;;(assoc name (host-config-primitives host-config))
       ))
-
-
-(define (host-ctx-get-primitive-index host-ctx prim)
-  (let ((prim-rib (assoc prim (host-ctx-primitive-order host-ctx))))
-    (if prim-rib
-      (cadr prim-rib)
-      (error "Unknown primitive" prim))))
-
 
 
 ;;; ------------------------------
