@@ -12,10 +12,13 @@
 ;; Others used to work, but need to be retested :
 ;;  ->  Guile 3.0.7, Chicken 5.2.0 and Kawa 3.1
 
-;; Fix bug with R4RS symbols with Gambit
 (cond-expand
   (gambit
-   (|##meta-info| script-line "gsi -:r4rs")))
+    ;; Compile-time if, usefull for evaluating versions
+    (define-macro (comp-if cond . body)
+      (if (eval cond)
+        `(begin ,@body)
+        0))))
 
 
 (cond-expand
@@ -251,6 +254,25 @@
    (define (symbol->str symbol)
      (table-ref uninterned-symbols symbol (symbol->string symbol)))))
 
+;; string-prefix? and filter
+
+(cond-expand
+  (gambit
+    (comp-if (< (system-version) 409004)
+
+       (define (string-prefix? pref str)
+         (let* ((str (if (string? str) str (symbol->string str)))
+                (str-len (string-length str))
+                (pref (if (string? pref) pref (symbol->string pref)))
+                (pref-len (string-length pref)))
+           (and (string? pref)
+                (string? str)
+                (<= pref-len str-len)
+                (string=? (substring str 0 pref-len) pref))))
+
+       (define (filter f lst)
+         (fold-right (lambda (e r) (if (f e) (cons e r) r)) '() lst)))))
+
 (cond-expand
 
  (gambit
@@ -452,9 +474,22 @@
     (define (string->list* str)
       (map char->integer (string->list str)))))
 
+
+
+;; Fix bug with R4RS symbols in Gambit
+(cond-expand
+  (gambit
+    ;; -:r4rs is only available starting version v4.9.4
+    (comp-if (> (system-version) 409004)
+      (|##meta-info| script-line "gsi -:r4rs"))))
+
 (cond-expand
 
- (gambit (begin))
+ (gambit
+   ;; script-file appeared on v4.9.4
+   (comp-if (< (system-version) 409004)
+     (define (script-file)
+       (car (command-line)))))
 
  (chicken
 

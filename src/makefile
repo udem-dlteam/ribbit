@@ -5,6 +5,13 @@ GSI ?= gsi
 GSC ?= gsc
 RSC_COMPILER ?= ./rsc.exe
 
+ifeq ($(shell ${GSC} -:r4rs -e '' > /dev/null 2>&1; echo $$?), 0)
+GSC_OPTIONS ?= -:r4rs
+R4RS_WARNING ?= 0
+else
+R4RS_WARNING ?= 1
+endif
+
 all:
 
 .PHONY: prebuilt
@@ -40,13 +47,18 @@ build-all:
 
 tests/*: all
 	TEST_FILTER="$@" $(MAKE) check
-	
+
 
 rsc.exe: rsc.scm
-	@echo "====================== BUILDING RSC.EXE"
-	@echo "This process may take a while..."
-	${GSC} -:r4rs -exe -o rsc.exe rsc.scm
-
+	@echo "==> Checking Gambit install..."
+	@if [ "${R4RS_WARNING}" = "1" ]; then \
+		echo "WARNING: You are using an old version of Gambit, and some features might not work properly."; \
+		echo "It is suggested to use v4.9.4+. Type 'gsc -v' to see your version."; \
+		echo "To install from sources, see https://github.com/gambit/gambit."; \
+	fi
+	@echo "==> Building 'rsc.exe'..."
+	@echo "This might take a while..."
+	${GSC} ${GSC_OPTIONS} -exe -o rsc.exe rsc.scm
 
 check-repl: rsc.exe
 	@UP_CASE="(##vector-set! ##main-readtable 1 'upcase)"; \

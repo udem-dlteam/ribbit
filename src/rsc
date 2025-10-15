@@ -54,7 +54,15 @@ usage()
 
 
 if [ "$RSC_SCHEME_INTERPRETER" = "" ]; then
+
+  # -:r4rs option appeared after v4.9.4
+  # This line checks for availability.
+  echo "" | gsi -:r4rs 2> /dev/null > /dev/null
+  if [ $? -ne 0 ]; then
+    RSC_SCHEME_INTERPRETER="gsi"
+  else
     RSC_SCHEME_INTERPRETER="gsi -:r4rs"
+  fi
 fi
 
 if [ "$COMPILER" = "" ]; then
@@ -65,8 +73,4 @@ if [ "$COMPILER" = "" ]; then
     fi
 fi
 
-if ! $COMPILER "$@"; then
-    echo "*** compilation error"
-    exit 1
-fi
-
+$COMPILER "$@"
