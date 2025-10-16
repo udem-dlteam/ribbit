@@ -607,8 +607,20 @@
 
     ))
 
+;; read-all
 
-;;; Ribs emulation as vectors for other implementations than Ribbit. 
+(cond-expand
+  (guile
+
+    (use-modules (ice-9 rdelim))
+
+    (define (read-all port)
+      (read-delimited "" port)))
+
+  (else))
+
+
+;;; Ribs emulation as vectors for other implementations than Ribbit.
 (cond-expand
 
   (ribbit
