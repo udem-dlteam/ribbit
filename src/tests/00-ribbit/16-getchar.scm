@@ -1,5 +1,5 @@
-(##putchar (##getchar))
-(##putchar 10)
+(%%putchar (%%getchar))
+(%%putchar 10)
 
 ;;;run: -l empty
 ;;;input:ABC

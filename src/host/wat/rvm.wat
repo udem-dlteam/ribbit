@@ -683,7 +683,7 @@
     (local $temp0 i32)
     (local $temp1 i32)
     ;; @@(primitives (gen "(if (result i32) (i32.eq (i32.const " index ") (local.get $prim-idx)) (then " body " (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop)")
-    (if (result i32) (i32.eq (i32.const 0) (local.get $prim-idx)) (then ;; @@(primitive (##rib a b c)
+    (if (result i32) (i32.eq (i32.const 0) (local.get $prim-idx)) (then ;; @@(primitive (%%rib a b c)
         (local.set $temp0 (call $pop<-stack))
         (local.set $temp1 (call $pop<-stack))
         (call $push->stack 
@@ -692,22 +692,22 @@
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop)
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 1) (local.get $prim-idx)) (then ;; @@(primitive (##id x)
+    (if (result i32) (i32.eq (i32.const 1) (local.get $prim-idx)) (then ;; @@(primitive (%%id x)
         ;;nop
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 2) (local.get $prim-idx)) (then ;; @@(primitive (##arg1 x y)
+    (if (result i32) (i32.eq (i32.const 2) (local.get $prim-idx)) (then ;; @@(primitive (%%arg1 x y)
         (drop (call $pop<-stack))
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 3) (local.get $prim-idx)) (then ;; @@(primitive (##arg2 x y)
+    (if (result i32) (i32.eq (i32.const 3) (local.get $prim-idx)) (then ;; @@(primitive (%%arg2 x y)
         (call $push->stack (call $pop<-stack) (drop (call $pop<-stack)) (global.get $#pair))
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 4) (local.get $prim-idx)) (then ;; @@(primitive (##close rib)
+    (if (result i32) (i32.eq (i32.const 4) (local.get $prim-idx)) (then ;; @@(primitive (%%close rib)
         (local.set $temp0 (call $alloc-rib
                                 (call $field0 (call $field0 (global.get $stack*)))
                                 (call $field1 (global.get $stack*))
@@ -718,27 +718,27 @@
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 5) (local.get $prim-idx)) (then ;; @@(primitive (##rib? rib) (use bool2scm)
+    (if (result i32) (i32.eq (i32.const 5) (local.get $prim-idx)) (then ;; @@(primitive (%%rib? rib) (use bool2scm)
         (call $push->stack (call $bool2scm (call $rib*? (call $pop<-stack))) (global.get $#pair))
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 6) (local.get $prim-idx)) (then ;; @@(primitive (##field0 rib) 
+    (if (result i32) (i32.eq (i32.const 6) (local.get $prim-idx)) (then ;; @@(primitive (%%field0 rib) 
         (call $push->stack (call $field0 (call $pop<-stack)) (global.get $#pair))
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 7) (local.get $prim-idx)) (then ;; @@(primitive (##field1 rib)
+    (if (result i32) (i32.eq (i32.const 7) (local.get $prim-idx)) (then ;; @@(primitive (%%field1 rib)
         (call $push->stack (call $field1 (call $pop<-stack)) (global.get $#pair))
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 8) (local.get $prim-idx)) (then ;; @@(primitive (##field2 rib)
+    (if (result i32) (i32.eq (i32.const 8) (local.get $prim-idx)) (then ;; @@(primitive (%%field2 rib)
         (call $push->stack (call $field2 (call $pop<-stack)) (global.get $#pair))
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 9) (local.get $prim-idx)) (then ;; @@(primitive (##field0-set! rib x) 
+    (if (result i32) (i32.eq (i32.const 9) (local.get $prim-idx)) (then ;; @@(primitive (%%field0-set! rib x) 
         (local.set $temp1 (call $pop<-stack))
         (local.set $temp0 (call $pop<-stack))
         (call $field0-set! (local.get $temp0) (local.get $temp1))
@@ -746,7 +746,7 @@
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 10) (local.get $prim-idx)) (then ;; @@(primitive (##field1-set! rib x) 
+    (if (result i32) (i32.eq (i32.const 10) (local.get $prim-idx)) (then ;; @@(primitive (%%field1-set! rib x) 
         (local.set $temp1 (call $pop<-stack))
         (local.set $temp0 (call $pop<-stack))
         (call $field1-set! (local.get $temp0) (local.get $temp1))
@@ -754,7 +754,7 @@
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 11) (local.get $prim-idx)) (then ;; @@(primitive (##field2-set! rib x) 
+    (if (result i32) (i32.eq (i32.const 11) (local.get $prim-idx)) (then ;; @@(primitive (%%field2-set! rib x) 
         (local.set $temp1 (call $pop<-stack))
         (local.set $temp0 (call $pop<-stack))
         (call $field2-set! (local.get $temp0) (local.get $temp1))
@@ -762,7 +762,7 @@
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 12) (local.get $prim-idx)) (then ;; @@(primitive (##eqv? x y) (use bool2scm)
+    (if (result i32) (i32.eq (i32.const 12) (local.get $prim-idx)) (then ;; @@(primitive (%%eqv? x y) (use bool2scm)
         (call $push->stack 
               (call $bool2scm 
                     (i32.eq (call $pop<-stack) (call $pop<-stack)))
@@ -770,26 +770,26 @@
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 13) (local.get $prim-idx)) (then ;; @@(primitive (##< x y) (use bool2scm)
+    (if (result i32) (i32.eq (i32.const 13) (local.get $prim-idx)) (then ;; @@(primitive (%%< x y) (use bool2scm)
         (local.set $temp1 (call $pop<-stack))
         (local.set $temp0 (call $pop<-stack))
         (call $push->stack (call $bool2scm (i32.lt_s (local.get $temp0) (local.get $temp1))) (global.get $#pair))
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 14) (local.get $prim-idx)) (then ;; @@(primitive (##+ x y)
+    (if (result i32) (i32.eq (i32.const 14) (local.get $prim-idx)) (then ;; @@(primitive (%%+ x y)
         (call $push->stack (i32.sub (i32.add (call $pop<-stack) (call $pop<-stack)) (i32.const 1)) (global.get $#pair))
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 15) (local.get $prim-idx)) (then ;; @@(primitive (##- x y)
+    (if (result i32) (i32.eq (i32.const 15) (local.get $prim-idx)) (then ;; @@(primitive (%%- x y)
         (local.set $temp1 (call $pop<-stack))
         (local.set $temp0 (call $pop<-stack))
         (call $push->stack (i32.add (i32.sub (local.get $temp0) (local.get $temp1)) (i32.const 1)) (global.get $#pair))
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 16) (local.get $prim-idx)) (then ;; @@(primitive (##* x y)
+    (if (result i32) (i32.eq (i32.const 16) (local.get $prim-idx)) (then ;; @@(primitive (%%* x y)
         (call $push->stack 
               (call $tag-num (i32.mul (call $untag-num (call $pop<-stack)) 
                                       (call $untag-num (call $pop<-stack))))
@@ -797,7 +797,7 @@
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 17) (local.get $prim-idx)) (then ;; @@(primitive (##quotient x y)
+    (if (result i32) (i32.eq (i32.const 17) (local.get $prim-idx)) (then ;; @@(primitive (%%quotient x y)
         (local.set $temp1 (call $pop<-stack))
         (local.set $temp0 (call $pop<-stack))
         (call $push->stack 
@@ -807,17 +807,17 @@
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 18) (local.get $prim-idx)) (then ;; @@(primitive (##getchar)
+    (if (result i32) (i32.eq (i32.const 18) (local.get $prim-idx)) (then ;; @@(primitive (%%getchar)
         (call $push->stack (call $tag-num (call $getChar)) (global.get $#pair))
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 19) (local.get $prim-idx)) (then ;; @@(primitive (##putchar c)
+    (if (result i32) (i32.eq (i32.const 19) (local.get $prim-idx)) (then ;; @@(primitive (%%putchar c)
         (call $logChar (call $untag-num (call $field0 (global.get $stack*))))
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@
 
-    (if (result i32) (i32.eq (i32.const 20) (local.get $prim-idx)) (then ;; @@(primitive (##exit n)
+    (if (result i32) (i32.eq (i32.const 20) (local.get $prim-idx)) (then ;; @@(primitive (%%exit n)
         (call $exit (call $untag-num (call $pop<-stack))) ;; Sets a trap and ends the program
         (return (global.get $tagged-num-0))) (else (i32.const 0))) (drop) 
     ;; )@@

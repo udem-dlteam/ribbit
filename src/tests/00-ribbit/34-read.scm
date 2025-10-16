@@ -1,7 +1,7 @@
 (export a b)
 
 (write (read))
-(##putchar 10)
+(%%putchar 10)
 
 
 ;;;run: -l min

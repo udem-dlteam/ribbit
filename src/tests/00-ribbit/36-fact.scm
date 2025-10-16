@@ -5,7 +5,7 @@
         (* n (fact (- n 1))))))
 
 (write (fact 10))
-(##putchar 10)
+(%%putchar 10)
 
 ;;;run: -l min
 ;;;run: -l max

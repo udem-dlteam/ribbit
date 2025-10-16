@@ -1,5 +1,5 @@
-(##putchar (car (cons 65 66)))
-(##putchar 10)
+(%%putchar (car (cons 65 66)))
+(%%putchar 10)
 
 ;;;run: -l min
 ;;;run: -l max

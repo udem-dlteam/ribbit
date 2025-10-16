@@ -1,41 +1,41 @@
-(##include-once (ribbit "r4rs"))
-(##include-once (ribbit "define-macro"))
+(%%include-once (ribbit "r4rs"))
+(%%include-once (ribbit "define-macro"))
 
 (define-macro 
   (tc-pair? o)
-  `(and (##rib? ,o) (##eqv? (##field2 ,o) 0)))
+  `(and (%%rib? ,o) (%%eqv? (%%field2 ,o) 0)))
 
-(define (##tc-error . msgs)
-  (map ##ntc-display msgs)
+(define (%%tc-error . msgs)
+  (map %%ntc-display msgs)
   (newline)
   (if-feature debug/repl
     (begin
-      (set! ##dont-type-check-typechecking #f)
+      (set! %%dont-type-check-typechecking #f)
       (repl))
-    (##exit 1)))
+    (%%exit 1)))
 
-(define ##dont-type-check-typechecking #f)
+(define %%dont-type-check-typechecking #f)
 
-(define (##tc-append lst1 lst2)
+(define (%%tc-append lst1 lst2)
   (if (pair? lst1)
-    (##rib (##field0 lst1) (##tc-append (##field1 lst1) lst2) 0) ;; cons
+    (%%rib (%%field0 lst1) (%%tc-append (%%field1 lst1) lst2) 0) ;; cons
     lst2))
 
-(define (##tc-list . args) args)
+(define (%%tc-list . args) args)
 
-(define (##params proc)
-  (let ((nb-args-raw (##field0 (##field0 proc))))
-    (cons (##ntc-odd? nb-args-raw) (##quotient nb-args-raw 2)))) ;; (cons variadic? nb-args)
+(define (%%params proc)
+  (let ((nb-args-raw (%%field0 (%%field0 proc))))
+    (cons (%%ntc-odd? nb-args-raw) (%%quotient nb-args-raw 2)))) ;; (cons variadic? nb-args)
 
-(define (##can-call? proc nb-args)
-  (let ((nb-params (##params proc)))
-    (or (##eqv? nb-args (##field1 nb-params))
-        (and (##field0 nb-params) (##ntc->= nb-args (##field1 nb-params))))))
+(define (%%can-call? proc nb-args)
+  (let ((nb-params (%%params proc)))
+    (or (%%eqv? nb-args (%%field1 nb-params))
+        (and (%%field0 nb-params) (%%ntc->= nb-args (%%field1 nb-params))))))
 
 ;; ntc means "no type check"
 (define-macro
   (define-signature proc args-info)
-  (let ((ntc-proc (string->symbol (string-append "##ntc-" (symbol->string proc))))
+  (let ((ntc-proc (string->symbol (string-append "%%ntc-" (symbol->string proc))))
         (variadic? #f))
     `(begin
        (set! ,ntc-proc ,proc)
@@ -63,9 +63,9 @@
          ;;     `(display ',proc)
          ;;     '())
 
-         (if (not ##dont-type-check-typechecking)
+         (if (not %%dont-type-check-typechecking)
            (begin 
-             (set! ##dont-type-check-typechecking #t)
+             (set! %%dont-type-check-typechecking #t)
              (cond
                ,@(let loop ((guards '()) (i 1) (rest args-info))
                    (if (pair? rest)
@@ -79,15 +79,15 @@
                          (if (not expected)
                            (error "You must define the 'expected' field when defining a guard")
                            (loop 
-                             `(((##eqv? ,guard #f) (##tc-error ,(string-append "In procedure " (symbol->string proc) ": (ARGUMENT " (number->string i) ") ") ,expected " expected.")) . ,guards)
+                             `(((%%eqv? ,guard #f) (%%tc-error ,(string-append "In procedure " (symbol->string proc) ": (ARGUMENT " (number->string i) ") ") ,expected " expected.")) . ,guards)
                              (+ i 1)
                              (cdr rest)))
                          (loop guards (+ i 1) (cdr rest))))
                      (reverse guards))))
-             (set! ##dont-type-check-typechecking #f)))
+             (set! %%dont-type-check-typechecking #f)))
            ,(if variadic? 
               (let ((reverse-args (reverse args-info)))
-                `(##apply ,ntc-proc (##tc-append (##tc-list ,@(reverse (map car (cdr reverse-args)))) ,(caar reverse-args))))
+                `(%%apply ,ntc-proc (%%tc-append (%%tc-list ,@(reverse (map car (cdr reverse-args)))) ,(caar reverse-args))))
               `(,ntc-proc ,@(map car args-info)))))))
 
 
@@ -97,7 +97,7 @@
      ,@(map (lambda (proc) `(define-signature ,proc ,common-signature)) procs)))
 
 
-;; ########## Types (R4RS section 3.4 + others) ########## ;;
+;; %%%%%%%%%% Types (R4RS section 3.4 + others) %%%%%%%%%% ;;
 
 (define-signature
   string-append
@@ -149,7 +149,7 @@
      expected: "NUMBER")
    (radix 
      default: 10
-     guard: (##ntc-memv radix '(2 8 10 16))
+     guard: (%%ntc-memv radix '(2 8 10 16))
      expected: "Either 2, 8, 10, or 16")))
 
 (define-signature 
@@ -159,10 +159,10 @@
      expected: "STRING")
    (radix 
      default: 10
-     guard: (##ntc-memv radix '(2 8 10 16))
+     guard: (%%ntc-memv radix '(2 8 10 16))
      expected: "Either 2, 8, 10, or 16")))
 
-;; ########## Pairs and lists (R4RS section 6.3) ########## ;;
+;; %%%%%%%%%% Pairs and lists (R4RS section 6.3) %%%%%%%%%% ;;
 
 (define-signatures
   (car cdr)
@@ -192,7 +192,7 @@
   append
   ((lst 
      rest-param:
-     guard: (or (null? lst) (all shallow-list? (##field1 (##ntc-reverse lst))))
+     guard: (or (null? lst) (all shallow-list? (%%field1 (%%ntc-reverse lst))))
      expected: "All LISTs except the last arg")))
 
 (define-signature
@@ -201,8 +201,8 @@
      guard: (list? lst)
      expected: "LIST")
    (i
-     guard: (and (integer? i) (##ntc-< -1 i (##ntc-length lst)))
-     expected: (##ntc-string-append "INTEGER between 0 and " (##ntc-number->string (##ntc-length lst))))))
+     guard: (and (integer? i) (%%ntc-< -1 i (%%ntc-length lst)))
+     expected: (%%ntc-string-append "INTEGER between 0 and " (%%ntc-number->string (%%ntc-length lst))))))
 
 (define-signatures
   (member memv memq)
@@ -215,10 +215,10 @@
   (assoc assq assv)
   ((x)
    (lst 
-     guard: (if (null? lst) #t (and (pair? lst) (pair? (##field0 lst))))
+     guard: (if (null? lst) #t (and (pair? lst) (pair? (%%field0 lst))))
      expected: "LIST of PAIRs")))
 
-;; ########## Numbers (R4RS section 6.5) ########## ;;
+;; %%%%%%%%%% Numbers (R4RS section 6.5) %%%%%%%%%% ;;
 
 (define-signatures
   (+ *)
@@ -294,7 +294,7 @@
      guard: (all integer? args)
      expected: "NUMBERs")))
 
-;; ########## Vectors (R4RS section 6.8) ########## ;; 
+;; %%%%%%%%%% Vectors (R4RS section 6.8) %%%%%%%%%% ;; 
 
 (define-signature
   vector-length
@@ -308,8 +308,8 @@
      guard: (vector? vect)
      expected: "VECTOR")
    (i
-     guard: (and (integer? i) (##ntc-< -1 i (##field1 vect)))
-     expected: (##ntc-string-append "INTEGER between 0 and " (##ntc-number->string (##field1 vect))))))
+     guard: (and (integer? i) (%%ntc-< -1 i (%%field1 vect)))
+     expected: (%%ntc-string-append "INTEGER between 0 and " (%%ntc-number->string (%%field1 vect))))))
 
 (define-signature
   vector-set!
@@ -317,8 +317,8 @@
      guard: (vector? vect)
      expected: "VECTOR")
    (i
-     guard: (and (integer? i) (##ntc-< -1 i (##field1 vect)))
-     expected: (##ntc-string-append "INTEGER between 0 and " (##ntc-number->string (##field1 vect))))
+     guard: (and (integer? i) (%%ntc-< -1 i (%%field1 vect)))
+     expected: (%%ntc-string-append "INTEGER between 0 and " (%%ntc-number->string (%%field1 vect))))
    (x)))
 
 (define-signature
@@ -327,7 +327,7 @@
      guard: (integer? k)
      expected: "INTEGER")))
 
-;; ########## Characters (R4RS section 6.6) ########## ;;
+;; %%%%%%%%%% Characters (R4RS section 6.6) %%%%%%%%%% ;;
 
 (define-signatures
   (char=? char<? char>? char<=? char>=? char-ci=? char-ci<? char-ci>? char-ci<=? char-ci>=?)
@@ -344,7 +344,7 @@
      guard: (char? ch)
      expected:"CHARACTER")))
 
-;; ########## Strings (R4RS section 6.7) ########## ;;
+;; %%%%%%%%%% Strings (R4RS section 6.7) %%%%%%%%%% ;;
 
 (define-signature
   string-length
@@ -358,8 +358,8 @@
      guard: (string? str)
      expected: "STRING")
    (i
-     guard: (##ntc-< -1 i (##field1 str))
-     expected: (##ntc-string-append "A NUMBER between 0 and " (##ntc-number->string (##field1 str))))))
+     guard: (%%ntc-< -1 i (%%field1 str))
+     expected: (%%ntc-string-append "A NUMBER between 0 and " (%%ntc-number->string (%%field1 str))))))
 
 (define-signature
   string-set!
@@ -367,8 +367,8 @@
      guard: (string? str)
      expected: "STRING")
    (i
-     guard: (and (integer? i) (##ntc-< -1 i (##field1 str)))
-     expected: (##ntc-string-append "INTEGER between 0 and " (##ntc-number->string (##field1 str))))
+     guard: (and (integer? i) (%%ntc-< -1 i (%%field1 str)))
+     expected: (%%ntc-string-append "INTEGER between 0 and " (%%ntc-number->string (%%field1 str))))
    (ch
      guard: (char? ch)
      expected: "CHARACTER")))
@@ -405,16 +405,16 @@
      guard: (string? str)
      expected: "STRING")
    (start 
-     guard: (and (integer? start) (##ntc-<= 0 start end))
-     expected: (##ntc-string-append "INTEGER between 0 and the end value (" (##ntc-number->string end) ")"))
+     guard: (and (integer? start) (%%ntc-<= 0 start end))
+     expected: (%%ntc-string-append "INTEGER between 0 and the end value (" (%%ntc-number->string end) ")"))
    (end 
-     guard: (and (integer? end) (##ntc-<= end (##field1 str)))
-     expected: (##ntc-string-append "INTEGER between the start value (" 
-                              (##ntc-number->string start) ") and " 
-                              (##ntc-number->string  (##field1 str))))))
+     guard: (and (integer? end) (%%ntc-<= end (%%field1 str)))
+     expected: (%%ntc-string-append "INTEGER between the start value (" 
+                              (%%ntc-number->string start) ") and " 
+                              (%%ntc-number->string  (%%field1 str))))))
 
 
-;; ########## I/O (R4RS section 6.10) ########## ;;
+;; %%%%%%%%%% I/O (R4RS section 6.10) %%%%%%%%%% ;;
 
 (define-signature
   open-input-file
@@ -446,7 +446,7 @@
      guard: (and (string? filename) (file-exists? filename))
      expected: "STRING representing an existing file")
    (proc
-     guard: (and (procedure? proc) (##can-call? proc 1))
+     guard: (and (procedure? proc) (%%can-call? proc 1))
      expected: "PROCEDURE of one argument (the input port)")))
 
 (define-signature
@@ -455,7 +455,7 @@
      guard: (string? filename)
      expected: "STRING representing a file")
    (proc
-     guard: (and (procedure? proc) (##can-call? proc 1))
+     guard: (and (procedure? proc) (%%can-call? proc 1))
      expected: "PROCEDURE of one argument (the output port)")))
 
 (define-signatures
@@ -491,17 +491,17 @@
      expected: "OUTPUT-PORT")))
 
 
-;; ########## Control (R4RS section 6.9) ########## ;;
+;; %%%%%%%%%% Control (R4RS section 6.9) %%%%%%%%%% ;;
 
 (define-signature
   apply
   ((f
-     guard: (and (procedure? f) (##can-call? f (length args)))
-     expected: (let ((params (##params f)))
-                 (##ntc-string-append "PROCEDURE called with " 
-                                (##ntc-number->string (##ntc-length args)) " and taking " 
-                                (if (##field0 params) "at least " "")
-                                (##ntc-number->string (##field1 params))
+     guard: (and (procedure? f) (%%can-call? f (length args)))
+     expected: (let ((params (%%params f)))
+                 (%%ntc-string-append "PROCEDURE called with " 
+                                (%%ntc-number->string (%%ntc-length args)) " and taking " 
+                                (if (%%field0 params) "at least " "")
+                                (%%ntc-number->string (%%field1 params))
                                 ". A PROCEDURE with a number of params equal to the number of args" )))
 
    (args 
@@ -511,7 +511,7 @@
 (define-signatures
   (map for-each)
   ((proc 
-     guard: (and (procedure? proc) (##can-call? proc (length lsts)))
+     guard: (and (procedure? proc) (%%can-call? proc (length lsts)))
      expected: "A PROCEDURE that takes a number of args equal to the number of LISTs")
 
    (lsts 
@@ -523,7 +523,7 @@
 (define-signature 
   call/cc
   ((receiver 
-     guard: (and (procedure? receiver) (##can-call? receiver 1))
+     guard: (and (procedure? receiver) (%%can-call? receiver 1))
      expected: "A PROCEDURE that takes a one argument (a PROCEDURE)")))
 
 

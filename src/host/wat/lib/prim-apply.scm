@@ -1,5 +1,5 @@
 (define-primitive
-  (##apply f args)
+  (%%apply f args)
   "
   (local.set $temp1 (call $pop<-stack)) ;; arg
   (local.set $temp0 (call $pop<-stack))

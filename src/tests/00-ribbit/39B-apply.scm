@@ -3,19 +3,19 @@
    ;; Skip rvm host (spitting out the ribn)
    (begin))
   (else
-    (##include-once (ribbit "prim-apply"))))
+    (%%include-once (ribbit "prim-apply"))))
 
-(define (apply f args) (##apply f args))
+(define (apply f args) (%%apply f args))
 
-(define (##map proc lst)
+(define (%%map proc lst)
   (if (pair? lst)
-    (cons (proc (##field0 lst)) (##map proc (##field1 lst)))
+    (cons (proc (%%field0 lst)) (%%map proc (%%field1 lst)))
     '()))
 
 (define (map proc . lsts)
-  (if (pair? (##field0 lsts))
-    (cons (apply proc (##map car lsts))
-          (apply map (append (list proc) (##map cdr lsts))))
+  (if (pair? (%%field0 lsts))
+    (cons (apply proc (%%map car lsts))
+          (apply map (append (list proc) (%%map cdr lsts))))
     '()))
 
 (define (foo x y z)
@@ -38,7 +38,7 @@
 
 (define (plus . args)
   (if (pair? args)
-    (##+ (car args) (apply plus (cdr args)))
+    (%%+ (car args) (apply plus (cdr args)))
     0))
 
 (display (map plus '(1 2 3) '(4 5 6) '(7 8 9)))

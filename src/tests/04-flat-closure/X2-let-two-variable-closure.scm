@@ -4,10 +4,10 @@
 
 (let ((x 41))
   (let ((y 1))
-    (let ((z (lambda () (##+ x y))))
-      (##putchar (z)))))
+    (let ((z (lambda () (%%+ x y))))
+      (%%putchar (z)))))
 
-(##putchar 10)
+(%%putchar 10)
 
 ;;;flat-closure-run: -l max
 ;;;flat-closure-run:

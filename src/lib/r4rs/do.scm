@@ -7,7 +7,7 @@
         (test (caddr expr))
         (body (cdddr expr)))
     (expand-expr
-      `(let ##it-do-be-doing
+      `(let %%it-do-be-doing
          ,(map (lambda (variable)
                  (list (car variable) (cadr variable)))
                variables)
@@ -16,7 +16,7 @@
              ,@(cdr test))
            (begin
              ,@body
-             (##it-do-be-doing 
+             (%%it-do-be-doing 
               ,@(map (lambda (variable)
                        (if (pair? (cddr variable))
                          (caddr variable)

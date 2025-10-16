@@ -1,60 +1,17 @@
 #!/bin/sh
 
-# This shell script is a convenient tool for executing the Ribbit
-# AOT compiler with command line arguments to specify the target
-# language, library, output file, etc.
-#
-# Here is a sample use:
-#
-#   $ echo '(display "hello!\n")' > h.scm
-#   $ ./rsc -t py -l max h.scm
-#   $ python3 h.scm.py
-#   hello!
-#
-# The various command line options are explained in the README file.
-#
-# The script is particular useful for bootstrapping the compiler with
-# itself.  For example:
-#
-#   $ ./rsc -t js -l max rsc.scm   # compile rsc.scm to rsc.scm.js
-#   $ ./rsc -t py -l max -c "node rsc.scm.js" h.scm # use bootstrapped compiler
-#   $ python3 h.scm.py
-#   hello!
-
 ROOTDIR="$(dirname "$0")"
 
-TARGET="rvm"
-INPUT=""
-OUTPUT=""
-LIBRARIES=""
-MINIFY=""
-VERBOSITY=""
-COMPILER=""
-SOURCES=""
-LASTSOURCE=""
-
-usage()
-{
-    echo "usage: $0 [-t target] [-c compiler] [-o output] [-l lib] [-m] [file.scm ...]"
-    echo "where"
-    echo "  target defaults to rvm and is otherwise one of js, py, sh, c, ..."
-    echo "  compiler defaults to \$RSC_COMPILER which defaults to"
-    echo "    \"\$RSC_SCHEME_INTERPRETER $ROOTDIR/rsc.scm\" where"
-    echo "    \$RSC_SCHEME_INTERPRETER defaults to \"gsi -:r4rs\" (the Gambit interpreter in mode r4rs)"
-    echo "  output defaults to last file.scm suffixed with .target"
-    echo "  lib defaults to r4rs-tc (r4rs standard library with type checking)"
-    echo "  if there is no file.scm or it is -, the source code is read from stdin"
-    echo "examples:"
-    echo "  $0 -t js prog.scm   # generates prog.scm.js using Gambit interpreter"
-    echo "  RSC_SCHEME_INTERPRETER=guile $0 -t js prog.scm # same using Guile"
-    echo "  $0 -t js -l max rsc.scm    # generates rsc.scm.js"
-    echo "  $0 -t py -l max -c \"node rsc.scm.js\" rsc.scm  # generates rsc.scm.py using nodejs running rsc.scm.js"
-    echo "  RSC_COMPILER=\"node rsc.scm.js\" $0 -t py -l max rsc.scm # same with environment variable"
-}
-
-
 if [ "$RSC_SCHEME_INTERPRETER" = "" ]; then
+
+  # -:r4rs option appeared after v4.9.4
+  # This line checks for availability.
+  echo "" | gsi -:r4rs 2> /dev/null > /dev/null
+  if [ $? -ne 0 ]; then
+    RSC_SCHEME_INTERPRETER="gsi"
+  else
     RSC_SCHEME_INTERPRETER="gsi -:r4rs"
+  fi
 fi
 
 if [ "$COMPILER" = "" ]; then
@@ -65,8 +22,4 @@ if [ "$COMPILER" = "" ]; then
     fi
 fi
 
-if ! $COMPILER "$@"; then
-    echo "*** compilation error"
-    exit 1
-fi
-
+$COMPILER "$@"

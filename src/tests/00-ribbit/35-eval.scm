@@ -1,7 +1,7 @@
 (export *)
 
 (write (eval (read)))
-(##putchar 10)
+(%%putchar 10)
 
 ;;;run: -l min
 ;;;run: -l max
