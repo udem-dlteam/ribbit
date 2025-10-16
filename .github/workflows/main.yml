@@ -207,11 +207,11 @@ jobs:
 
       - name: Run RVM tests
         run: |
-          cd src; HOST=py make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=py make check RSC="./rsc.exe"
 
       - name: Run repl tests
         run: |
-          cd src; HOST=py make check-repl RSC_COMPILER="./rsc.exe"
+          cd src; HOST=py make check-repl RSC="./rsc.exe"
 
 
   js_rvm:
@@ -251,11 +251,11 @@ jobs:
 
       - name: Run RVM tests
         run: |
-          cd src; HOST=js make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=js make check RSC="./rsc.exe"
 
       - name: Run repl tests
         run: |
-          cd src; HOST=js make check-repl RSC_COMPILER="./rsc.exe"
+          cd src; HOST=js make check-repl RSC="./rsc.exe"
 
 
   sh_rvm:
@@ -278,7 +278,7 @@ jobs:
 
       - name: Run RVM tests
         run: |
-          cd src; HOST=sh make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=sh make check RSC="./rsc.exe"
 
   c_rvm:
     runs-on: ubuntu-latest
@@ -306,11 +306,11 @@ jobs:
 
       - name: Run RVM tests
         run: |
-          cd src; HOST=c make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=c make check RSC="./rsc.exe"
 
       - name: Run repl tests
         run: |
-          cd src; HOST=c make check-repl RSC_COMPILER="./rsc.exe"
+          cd src; HOST=c make check-repl RSC="./rsc.exe"
 
   asm_rvm:
     runs-on: ubuntu-latest
@@ -332,11 +332,11 @@ jobs:
       - uses: ilammy/setup-nasm@v1
       - name: Run RVM tests
         run: |
-          cd src; HOST=asm make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=asm make check RSC="./rsc.exe"
 
       - name: Run repl tests
         run: |
-          cd src; HOST=asm make check-repl RSC_COMPILER="./rsc.exe"
+          cd src; HOST=asm make check-repl RSC="./rsc.exe"
 
   clj_rvm:
     runs-on: ubuntu-latest
@@ -364,7 +364,7 @@ jobs:
 
       - name: Run tests
         run: |
-          cd src; HOST=clj make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=clj make check RSC="./rsc.exe"
 
   go_rvm:
     runs-on: ubuntu-latest
@@ -392,7 +392,7 @@ jobs:
 
       - name: Run tests
         run: |
-          cd src; HOST=go make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=go make check RSC="./rsc.exe"
 
   idr_rvm:
     runs-on: ubuntu-latest
@@ -423,7 +423,7 @@ jobs:
 
       - name: Run tests
         run: |
-          cd src; HOST=idr make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=idr make check RSC="./rsc.exe"
 
   lisp_rvm:
     runs-on: ubuntu-latest
@@ -451,7 +451,7 @@ jobs:
 
       - name: Run tests
         run: |
-          cd src; HOST=lisp make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=lisp make check RSC="./rsc.exe"
 
   lua_rvm:
     runs-on: ubuntu-latest
@@ -486,7 +486,7 @@ jobs:
           luaVersion: "5.4"
       - name: Run tests
         run: |
-          cd src; HOST=lua make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=lua make check RSC="./rsc.exe"
 
   ml_rvm:
     runs-on: ubuntu-latest
@@ -517,7 +517,7 @@ jobs:
 
       - name: Run tests
         run: |
-          cd src; HOST=ml make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=ml make check RSC="./rsc.exe"
 
   pro_rvm:
     runs-on: ubuntu-latest
@@ -544,7 +544,7 @@ jobs:
           swi-prolog-version: latest
       - name: Run RVM tests
         run: |
-          cd src; HOST=pro make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=pro make check RSC="./rsc.exe"
   
   ps_rvm:
     runs-on: ubuntu-latest
@@ -577,7 +577,7 @@ jobs:
           sudo apt-get install ghostscript -y
       - name: Run RVM tests
         run: |
-          cd src; HOST=ps make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=ps make check RSC="./rsc.exe"
           
   scala_rvm:
     runs-on: ubuntu-latest
@@ -607,7 +607,7 @@ jobs:
 
       - name: Run RVM tests
         run: |
-          cd src; HOST=scala make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=scala make check RSC="./rsc.exe"
 
 
   scm_rvm:
@@ -666,7 +666,7 @@ jobs:
 
       - name: Run RVM tests
         run: |
-          cd src; HOST=scm make check RSC_COMPILER="./rsc.exe" SCM_HOST_INTERPRETER="$(pwd)/../gambit/bin/gsi" SCM_HOST_COMPILER="$(pwd)/../gambit/bin/gsc -exe -o"
+          cd src; HOST=scm make check RSC="./rsc.exe" SCM_HOST_INTERPRETER="$(pwd)/../gambit/bin/gsi" SCM_HOST_COMPILER="$(pwd)/../gambit/bin/gsc -exe -o"
 
   hs_rvm:
     runs-on: ubuntu-latest
@@ -696,11 +696,11 @@ jobs:
       - uses: haskell-actions/setup@v2
       - name: Run RVM tests
         run: |
-          cd src; HOST=hs make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=hs make check RSC="./rsc.exe"
 
       - name: Run repl tests
         run: |
-          cd src; HOST=hs make check-repl RSC_COMPILER="./rsc.exe"
+          cd src; HOST=hs make check-repl RSC="./rsc.exe"
   wat_rvm:
     runs-on: ubuntu-latest
     needs: compile_RSC
@@ -738,7 +738,7 @@ jobs:
           deno-version: v2.x
       - name: Run RVM tests
         run: |
-          cd src; HOST=wat make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=wat make check RSC="./rsc.exe"
 
   zig_rvm:
     runs-on: ubuntu-latest
@@ -764,7 +764,7 @@ jobs:
 
       - name: Run RVM tests
         run: |
-          cd src; HOST=zig make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=zig make check RSC="./rsc.exe"
   
   java_rvm:
     runs-on: ubuntu-latest
@@ -798,7 +798,7 @@ jobs:
           java-version: '21'
       - name: Run RVM tests
         run: |
-          cd src; HOST=java make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=java make check RSC="./rsc.exe"
      
   adb_rvm:
     runs-on: ubuntu-latest
@@ -831,7 +831,7 @@ jobs:
           sudo apt-get install gnat
       - name: Run RVM tests
         run: |
-          cd src; HOST=adb make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=adb make check RSC="./rsc.exe"
 
   pl_rvm:
     runs-on: ubuntu-latest
@@ -864,7 +864,7 @@ jobs:
           perl-version: "5.38"
       - name: Run RVM tests
         run: |
-          cd src; HOST=pl make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=pl make check RSC="./rsc.exe"
 
   julia_rvm:
     runs-on: ubuntu-latest
@@ -891,7 +891,7 @@ jobs:
 
       - name: Run RVM tests for Julia
         run: |
-          cd src; HOST=jl make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=jl make check RSC="./rsc.exe"
   
   kt_rvm:
     runs-on: ubuntu-latest
@@ -928,7 +928,7 @@ jobs:
         uses: fwilhe2/setup-kotlin@main
       - name: Run RVM tests
         run: |
-          cd src; HOST=kt make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=kt make check RSC="./rsc.exe"
 
 
   dart_rvm:
@@ -960,7 +960,7 @@ jobs:
         uses: dart-lang/setup-dart@v1
       - name: Run RVM tests
         run: |
-          cd src; HOST=dart make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=dart make check RSC="./rsc.exe"
 
 
   bas_rvm:
@@ -1020,4 +1020,4 @@ jobs:
 
       - name: Run RVM tests
         run: |
-          cd src; HOST=bas make check RSC_COMPILER="./rsc.exe"
+          cd src; HOST=bas make check RSC="./rsc.exe"

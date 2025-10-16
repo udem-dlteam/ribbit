@@ -1,10 +1,46 @@
-HOSTS = c js py scm hs lua ml sh asm clj zig adb
+#
+# Ribbit's makefile
+#
+# This makefile provide help to run tests on various hosts, with various Scheme
+# compilers or interpreters. Most of the configurations can be made by the two
+# options below:
 
-#RSC_COMPILER ?= gsi -:r4rs rsc.scm
-GSI ?= gsi
+# OPTION -- The Scheme compiler to use. Predefined configurations.
+# Options:
+#  - gambit (default)
+#  - none   (default when RSC is set)
+#  - guile
+#  - chicken
+ifeq (${RSC},)
+SCHEME_COMPILER ?= gambit
+endif
+
+# OPTION -- The command to invoke when calling the Ribbit Scheme Compile.
+# This option is set automatically by the SCHEME_COMPILER value.
+# Examples:
+#  - ./rsc-gsc.exe (compiled version of rsc.scm, see recipe below)
+#  - gsi rsc.scm (interpreted version by the gambit interpreter)
+#  - guile -s rsc.scm (interpreted version by the guile interpreter)
+# RSC ?= ./rsc-gsc.exe
+
+# OPTION - Location of the Gambit Scheme Compiler.
 GSC ?= gsc
-RSC_COMPILER ?= ./rsc.exe
 
+# OPTION - Command line flags to pass to GSC.
+GSC_OPTIONS ?=
+
+# OPTION - Location of the guild compiler.
+GUILD ?= guild
+
+# OPTION - Location of the guile interpreter.
+GUILE ?= guile
+
+
+
+# == Default config for Gambit ==
+ifeq (${SCHEME_COMPILER},gambit)
+
+# Check availability of -:r4rs on Gambit.
 ifeq ($(shell ${GSC} -:r4rs -e '' > /dev/null 2>&1; echo $$?), 0)
 GSC_OPTIONS ?= -:r4rs
 R4RS_WARNING ?= 0
@@ -12,25 +48,77 @@ else
 R4RS_WARNING ?= 1
 endif
 
+RSC_DEPS ?= rsc-gsc.exe
+RSC ?= ./rsc-gsc.exe
+endif
+
+# == Default config for Guile ==
+ifeq (${SCHEME_COMPILER},guile)
+RSC_DEPS ?= rsc-guile.exe
+RSC ?= ./rsc-guile.exe
+endif
+
+
+HOSTS = c js py scm hs lua ml sh asm clj zig adb
+
 all:
 
 .PHONY: prebuilt
 
+rsc.exe: ${RSC_DEPS}
+	cp ${RSC_DEPS} rsc.exe
+
+#
+# GAMBIT CONFIG
+#
+
+rsc-gsc.exe: rsc.scm
+	@echo "==> Checking Gambit install..."
+	@if [ "${R4RS_WARNING}" = "1" ]; then \
+		echo "WARNING: You are using an old version of Gambit, and some ribbit features might not work properly, especially regarding R4RS symbols."; \
+		echo "It is suggested to use Gambit v4.9.4+. Type 'gsc -v' to see your version."; \
+		echo "To install from sources, see https://github.com/gambit/gambit."; \
+	fi
+	@echo "==> Building 'rsc-gsc.exe' with ${GSC}..."
+	@echo "This might take a while..."
+	${GSC} ${GSC_OPTIONS} -exe -o rsc-gsc.exe rsc.scm
+
+#
+# Guile config
+#
+
+rsc-guile.go: rsc.scm
+	@echo "==> Building 'rsc-guile.go' with ${GUILD}..."
+	${GUILD} compile rsc.scm -o rsc-guile.go
+
+rsc-guile.exe: rsc-guile.go
+	@echo "==> Creating callable shell script in ./rsc-guile.exe"
+	@# Write file to rsc-guile.exe
+	@echo "${GUILE} -e '(load-compiled \"$(shell pwd)/rsc-guile.go\")' -- \$$@" > rsc-guile.exe
+	chmod +x rsc-guile.exe
+
+#
+# Minify script, used by some VMs
+#
+
 scripts/minify: scripts/minify.scm
-	${GSC} -exe -o scripts/minify scripts/minify.scm
+	${GSC} ${GSC_OPTIONS} -exe -o scripts/minify scripts/minify.scm
 
+#
+# Run tests
+#
 
-check: rsc.exe
+check: ${RSC_DEPS}
 	@if [ "$$HOST" = "" ]; then \
 	  for host in $(HOSTS); do \
 	    echo "====================== TESTING HOST $$host"; \
-	    cd host/$$host; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check; cd ../..; \
+	    cd host/$$host; RSC_COMPILER="${RSC}" $(MAKE) check; cd ../..; \
 	    if [ "$$?" != "0" ]; then \
 	      exit 1; \
 	    fi; \
 	  done; \
 	else \
-	  cd host/$$HOST; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check; \
+	  cd host/$$HOST; RSC_COMPILER="${RSC}" $(MAKE) check; \
 	  if [ "$$?" != "0" ]; then \
 	    exit 1; \
 	  fi; \
@@ -49,29 +137,19 @@ tests/*: all
 	TEST_FILTER="$@" $(MAKE) check
 
 
-rsc.exe: rsc.scm
-	@echo "==> Checking Gambit install..."
-	@if [ "${R4RS_WARNING}" = "1" ]; then \
-		echo "WARNING: You are using an old version of Gambit, and some features might not work properly."; \
-		echo "It is suggested to use v4.9.4+. Type 'gsc -v' to see your version."; \
-		echo "To install from sources, see https://github.com/gambit/gambit."; \
-	fi
-	@echo "==> Building 'rsc.exe'..."
-	@echo "This might take a while..."
-	${GSC} ${GSC_OPTIONS} -exe -o rsc.exe rsc.scm
 
-check-repl: rsc.exe
+check-repl: ${RSC_DEPS}
 	@UP_CASE="(##vector-set! ##main-readtable 1 'upcase)"; \
 	if [ "$$HOST" = "" ]; then \
 	  for host in $(HOSTS); do \
 	    echo "====================== TESTING HOST $$host"; \
-	  cd host/$$host; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check-repl; cd ../..; \
+	  cd host/$$host; RSC_COMPILER="${RSC}" $(MAKE) check-repl; cd ../..; \
 	  if [ "$$?" != "0" ]; then \
 	    exit 1; \
 	  fi; \
 	  done; \
 	else \
-	  cd host/$$HOST; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check-repl; cd ../..; \
+	  cd host/$$HOST; RSC_COMPILER="${RSC}" $(MAKE) check-repl; cd ../..; \
 	  if [ "$$?" != "0" ]; then \
 	    exit 1; \
 	  fi; \
@@ -80,7 +158,7 @@ check-repl: rsc.exe
 check-pipeline: check
 check-all: check-pipeline check-fancy check-features check-bootstrap
 
-check-features: rsc.exe
+check-features: ${RSC_DEPS}
 	@host="$${HOST:-js}"; \
 	error=0; \
 	for host_path in ./tests/hosts/*.test; do \
@@ -88,7 +166,7 @@ check-features: rsc.exe
 	    nb_visible_original=`grep -c visible $$host_path`; \
 		nb_hidden_original=`grep -c hidden $$host_path`; \
 		echo "====================== TESTING FEATURE $$host_path (v:$$nb_visible_original, h:$$nb_hidden_original, options: '$$options')"; \
-		cmd="${RSC_COMPILER} -t $$host $$options lib/empty.scm --rvm $$host_path -o .test-feature.REMOVE"; \
+		cmd="${RSC} -t $$host $$options lib/empty.scm --rvm $$host_path -o .test-feature.REMOVE"; \
 		$$cmd; \
 		nb_visible_after=`grep -c visible .test-feature.REMOVE;` \
 		nb_hidden_after=`grep -c hidden .test-feature.REMOVE`; \
@@ -118,13 +196,13 @@ check-bootstrap: rsc.exe
 	if [ "$$HOST" = "" ]; then \
 	  for host in $(HOSTS); do \
 	    echo "====================== TESTING HOST $$host"; \
-	    cd host/$$host; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check-bootstrap; cd ../..; \
+	    cd host/$$host; RSC_COMPILER="${RSC}" $(MAKE) check-bootstrap; cd ../..; \
 	    if [ "$$?" != "0" ]; then \
 	      exit 1; \
 	    fi; \
 	  done; \
 	else \
-	  cd host/$$HOST; RSC_COMPILER="${RSC_COMPILER}" $(MAKE) check-bootstrap; cd ../..; \
+	  cd host/$$HOST; RSC_COMPILER="${RSC}" $(MAKE) check-bootstrap; cd ../..; \
 	  if [ "$$?" != "0" ]; then \
 	    exit 1; \
 	  fi; \
