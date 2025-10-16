@@ -1,5 +1,5 @@
-(##include-once (ribbit "r4rs"))
-(##include-once (ribbit "r4rs/sys"))
+(%%include-once (ribbit "r4rs"))
+(%%include-once (ribbit "r4rs/sys"))
 
 (define args (cmd-line))
 
@@ -14,8 +14,8 @@
       (cond
         ((and (pair? rest) (string=? arg "-:reader-case"))
          (case (car rest)
-           (("upcase" "up") (set! ##reader-case-transform char-upcase))
-           (("downcase" "down" (set! ##reader-case-transfor char-downcase)))
+           (("upcase" "up") (set! %%reader-case-transform char-upcase))
+           (("downcase" "down" (set! %%reader-case-transfor char-downcase)))
            (else
              (error "*** Invalid value for 'reader-case'. Allowed values are 'upcase', 'up', 'downcase', and 'down'.")))
          (loop (cdr rest)))
@@ -52,7 +52,7 @@
   (begin 
     (if-feature (not quiet)
       (begin
-        (display (string-append "Ribbit " (##RIBBIT-VERSION) " (R4RS)\n"))
+        (display (string-append "Ribbit " (%%RIBBIT-VERSION) " (R4RS)\n"))
         (newline)))
     ;; (if-feature (and (not hide-frog) (not quiet))
     ;;   (begin 

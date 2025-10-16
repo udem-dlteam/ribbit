@@ -1,15 +1,15 @@
 (define-primitive
-  (##stdin-fd)
+  (%%stdin-fd)
   (use wat/io)
   "(call $push->stack (call $tag-num (i32.const 0)) (global.get $#pair))")
 
 (define-primitive
-  (##stdout-fd)
+  (%%stdout-fd)
   (use wat/io)
   "(call $push->stack (call $tag-num (i32.const 1)) (global.get $#pair))")
 
 (define-primitive
-  (##get-fd-input-file filename)
+  (%%get-fd-input-file filename)
   (use wat/io scm2str)
   "(call $push->stack
         (call $tag-num (call $openFile
@@ -18,7 +18,7 @@
         (global.get $#pair))")
 
 (define-primitive
-  (##get-fd-output-file filename)
+  (%%get-fd-output-file filename)
   (use wat/io scm2str)
   "(call $push->stack 
         (call $tag-num (call $openFile
@@ -27,7 +27,7 @@
         (global.get $#pair))")
 
 (define-primitive
-  (##read-char-fd fd)
+  (%%read-char-fd fd)
   (use wat/io)
   "(local.set $temp0 (call $readChar (call $untag-num (call $pop<-stack))))
    (call $push->stack
@@ -37,19 +37,19 @@
          (global.get $#pair))")
 
 (define-primitive
-  (##write-char-fd ch fd)
+  (%%write-char-fd ch fd)
   (use wat/io)
   "(local.set $temp0 (call $untag-num (call $pop<-stack)))
    (call $writeChar (local.get $temp0) (call $untag-num (call $pop<-stack)))
    (call $push->stack (global.get $TRUE*) (global.get $#pair))")
 
 (define-primitive
-  (##close-input-fd fd)
+  (%%close-input-fd fd)
   (use wat/io)
   "(call $closeFd (call $untag-num (call $pop<-stack)))")
 
 ;;(call $push->stack (global.get $NIL*) (global.get $#pair))
-(define (##close-output-fd port) (##close-input-fd port))
+(define (%%close-output-fd port) (%%close-input-fd port))
 
 
 (if-feature

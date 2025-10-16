@@ -644,30 +644,30 @@
 
 ;;;------------------------------------------------------------------------------
 
-(define predefined (list '##rib 'false 'true 'nil)) ;; predefined symbols
+(define predefined (list '%%rib 'false 'true 'nil)) ;; predefined symbols
 
 (define default-primitives-lst
-`((##rib         0  x  y  z)
-  (##id          1  x)
-  (##arg1        2  x  y)
-  (##arg2        3  x  y)
-  (##close       4  rib)
-  (##rib?        5  o)
-  (##field0      6  x)
-  (##field1      7  x)
-  (##field2      8  x)
-  (##field0-set! 9  x  v)
-  (##field1-set! 10 x  v)
-  (##field2-set! 11 x  v)
-  (##eqv?        12 o1 o2)
-  (##<           13 x  y)
-  (##+           14 x  y)
-  (##-           15 x  y)
-  (##*           16 x  y)
-  (##quotient    17 x  y)
-  (##getchar     18 )
-  (##putchar     19 c)
-  (##exit        20 code)))
+`((%%rib         0  x  y  z)
+  (%%id          1  x)
+  (%%arg1        2  x  y)
+  (%%arg2        3  x  y)
+  (%%close       4  rib)
+  (%%rib?        5  o)
+  (%%field0      6  x)
+  (%%field1      7  x)
+  (%%field2      8  x)
+  (%%field0-set! 9  x  v)
+  (%%field1-set! 10 x  v)
+  (%%field2-set! 11 x  v)
+  (%%eqv?        12 o1 o2)
+  (%%<           13 x  y)
+  (%%+           14 x  y)
+  (%%-           15 x  y)
+  (%%*           16 x  y)
+  (%%quotient    17 x  y)
+  (%%getchar     18 )
+  (%%putchar     19 c)
+  (%%exit        20 code)))
 
 (define default-primitives
   (map
@@ -769,11 +769,11 @@
 ;;     other code is executed. This is because the compiler uses them when
 ;;     generating code. It's a hack.
 
-(define forced-first-primitives (list '##- '##arg1))
+(define forced-first-primitives (list '%%- '%%arg1))
 
 ;; host config definitions
 (define (make-host-config live-features primitives feature-locations)
-  (rib live-features (cons (list '##rib 0) primitives) feature-locations))
+  (rib live-features (cons (list '%%rib 0) primitives) feature-locations))
 
 (define (host-config-features host-config) (field0 host-config))
 (define (host-config-primitives host-config) (field1 host-config))
@@ -802,7 +802,7 @@
 (define (host-config-add-primitive! host-config prim code)
   (let* ((primitives (host-config-primitives host-config))
          (prim-ref (assq prim primitives)))
-    (if (eqv? prim '##rib)
+    (if (eqv? prim '%%rib)
       (begin
         (set-cdr! (cdr prim-ref) (cons code '())) ;; hack to set code
         0)
@@ -1094,7 +1094,7 @@
 (define const-op     'const)
 (define if-op        'if)
 
-(define tail (c-rib jump/call-op '##id 0)) ;; jump
+(define tail (c-rib jump/call-op '%%id 0)) ;; jump
 
 (define (list-union lst1 lst2)
   (fold
@@ -1125,7 +1125,7 @@
     ((symbol? expr)
      (let ((mut-var (assq expr mutable-vars)))
        (if mut-var
-         `(##field0 ,(cdr mut-var))
+         `(%%field0 ,(cdr mut-var))
          expr)))
 
     ((pair? expr)
@@ -1153,7 +1153,7 @@
                      (val (mv-expand (caddr expr) bounded mutable-vars host-config))
                      (mutable-var (assq var mutable-vars)))
                 (if mutable-var
-                  `(##field0-set! ,(cdr mutable-var) ,val)
+                  `(%%field0-set! ,(cdr mutable-var) ,val)
                   `(set! ,var ,val))))
 
              ((eqv? first 'if)
@@ -1193,7 +1193,7 @@
                 (define (introduce-vars mv cont-lst)
                   (if (pair? mv)
                     (let ((elem (car mv)))
-                      `(let ((,(cdr elem) (##rib ,(car elem) 0 0)))
+                      `(let ((,(cdr elem) (%%rib ,(car elem) 0 0)))
                          ,@(if (pair? (cdr mv))
                              (list (introduce-vars (cdr mv)))
                              cont-lst)))))
@@ -1223,7 +1223,7 @@
                                 ,(if (memq
                                        (car x)
                                        new-mutable-vars)
-                                   `(##rib
+                                   `(%%rib
                                      ,(mv-expand (cadr x) bounded mutable-vars host-config)
                                      0
                                      0)
@@ -1364,7 +1364,7 @@
                  #t
                  ctx
                  3
-                 (gen-call (use-symbol ctx '##rib)
+                 (gen-call (use-symbol ctx '%%rib)
                            (loop (- n 1)))))
         cont)))
 
@@ -1381,7 +1381,7 @@
     ctx
     1
     (gen-call
-      (use-symbol ctx '##field0)
+      (use-symbol ctx '%%field0)
       (add-free-vars
         fv
         (c-rib
@@ -1397,7 +1397,7 @@
                 ctx
                 1
                 (gen-call
-                  (use-symbol ctx '##rib)
+                  (use-symbol ctx '%%rib)
                   cont)))))))))
 
 
@@ -1456,9 +1456,9 @@
                               (if prim-index
                                 (host-config-add-primitive-index! host-config name expr prim-index)
                                 (host-config-add-primitive! host-config name expr))))
-                        (if (or (memq name forced-first-primitives) (eqv? name '##rib))
+                        (if (or (memq name forced-first-primitives) (eqv? name '%%rib))
                           (gen-noop ctx cont)
-                          (comp ctx `(set! ,name (##rib ,index 0 ,procedure-type)) cont)))
+                          (comp ctx `(set! ,name (%%rib ,index 0 ,procedure-type)) cont)))
                       (gen-noop ctx cont))))
 
                  ((eqv? first 'define-feature)
@@ -1524,13 +1524,13 @@
                                  (gen-free-vars fv ctx cont)
                                  fv))
 
-                             ;; Without flat closure, we just use the ##close primitive
+                             ;; Without flat closure, we just use the %%close primitive
                              ;; The free vars are just the values on the stack
                              (cons (add-nb-args
                                      #t
                                      ctx
                                      1
-                                     (gen-call (use-symbol ctx '##close)
+                                     (gen-call (use-symbol ctx '%%close)
                                              cont))
                                    (cons #f (ctx-cte ctx)))))
 
@@ -1623,8 +1623,8 @@
                 (eqv? (c-rib-opnd cont) name)))))
 
 (define (gen-noop ctx cont)
-  (if (is-call? ctx '##arg1 cont)
-      (if (arity-check? ctx '##arg1)
+  (if (is-call? ctx '%%arg1 cont)
+      (if (arity-check? ctx '%%arg1)
         (c-rib-next (c-rib-next cont)) ;; remove const and pop
         (c-rib-next cont)) ;; remove pop
       (c-rib const-op 0 cont))) ;; add dummy value for set!
@@ -1665,7 +1665,7 @@
       ctx
       2
       (c-rib jump/call-op ;; call
-             (use-symbol ctx '##arg2)
+             (use-symbol ctx '%%arg2)
              cont))))
 
 (define (add-live var live-globals)
@@ -1692,7 +1692,7 @@
             ctx
             2
             (c-rib jump/call-op ;; call
-                   (use-symbol ctx '##arg1)
+                   (use-symbol ctx '%%arg1)
                    (comp-begin ctx (cdr exprs) cont)))
           cont)))
 
@@ -1971,7 +1971,7 @@
                         (cons params
                               (cons (expand-body (cddr expr) (mtx-shadow mtx (if (pair? params) (improper-list->list params '()) (list params)))) '())))
                   ;; Add the check for the optional params
-                  (let ((vararg-name (if variadic (last-item params) '##vararg))
+                  (let ((vararg-name (if variadic (last-item params) '%%vararg))
                         (opt-params-body '()))
                     (if (pair? required-params)
                       (set-cdr! (list-tail required-params (- (length required-params) 1)) vararg-name)
@@ -2208,20 +2208,20 @@
                 (let ((clauses (cddr expr)))
                   (if (pair? clauses)
                     (expand-expr
-                      `(let ((##case-tmp ,key))
+                      `(let ((%%case-tmp ,key))
                          (cond
                            ,@(map
                                (lambda (clause)
                                  (if (eqv? (car clause) 'else)
                                    clause
-                                   `((memv ##case-tmp ',(car clause))
-                                     ;(or ,@(map (lambda (val) `(eqv? ##case-tmp ',val)) (car clause)))
+                                   `((memv %%case-tmp ',(car clause))
+                                     ;(or ,@(map (lambda (val) `(eqv? %%case-tmp ',val)) (car clause)))
                                      ,@(cdr clause))))
                                clauses)))
                       mtx)
                     #f))))
 
-             ((eqv? first '##include-string)
+             ((eqv? first '%%include-string)
               (expand-expr (read-str-resource (parse-resource (cadr expr))) mtx))
 
              (else
@@ -2240,22 +2240,22 @@
     (cond
       ((not (pair? x))
        (if (vector? x)
-         (list '##qq-list->vector (parse (vector->list x) depth))
+         (list '%%qq-list->vector (parse (vector->list x) depth))
          (expand-constant x)))
       ((eqv? (car x) 'unquote)
        (if (= depth 1)
          (if (pair? (cdr x))
            (expand-expr (cadr x) mtx)
            (error "unquote: bad syntax"))
-         (list '##qq-cons (expand-constant 'unquote) (parse (cdr x) (- depth 1)))))
+         (list '%%qq-cons (expand-constant 'unquote) (parse (cdr x) (- depth 1)))))
       ((and (pair? (car x)) (eqv? (caar x) 'unquote-splicing))
        (if (= depth 1)
-         (list '##qq-append (expand-expr (cadar x) mtx) (parse (cdr x) depth))
-         (list '##qq-cons (list '##qq-cons (expand-constant 'unquote-splicing) (parse (cdar x) (- depth 1))) (parse (cdr x) depth))))
+         (list '%%qq-append (expand-expr (cadar x) mtx) (parse (cdr x) depth))
+         (list '%%qq-cons (list '%%qq-cons (expand-constant 'unquote-splicing) (parse (cdar x) (- depth 1))) (parse (cdr x) depth))))
       ((eqv? (car x) 'quasiquote)
-       (list '##qq-cons (expand-constant 'quasiquote) (parse (cdr x) (+ depth 1))))
+       (list '%%qq-cons (expand-constant 'quasiquote) (parse (cdr x) (+ depth 1))))
       (else
-        (list '##qq-cons (parse (car x) depth) (parse (cdr x) depth))))))
+        (list '%%qq-cons (parse (car x) depth) (parse (cdr x) depth))))))
 
 
 (define (expand-body exprs mtx)
@@ -2392,11 +2392,11 @@
                       (expand-cond-expand-clauses (cdr expr) r mtx))
 
                      ((and (pair? expr)
-                           (eqv? (car expr) '##include))
+                           (eqv? (car expr) '%%include))
                       (cons (expand-resource (parse-resource (cadr expr)) mtx) r))
 
                      ((and (pair? expr)
-                           (eqv? (car expr) '##include-once))
+                           (eqv? (car expr) '%%include-once))
 
                       (let ((resource (parse-resource (cadr expr))))
                         (if (included? resource)
@@ -2461,17 +2461,17 @@
   ;; If this part is not performant enough, replace the set! with a
   ;; (vararg (if (eqv? vararg '()) '() (field1 vararg)))
   ;; after every optional arg clause
-  `((,param-name (if (##eqv? ,vararg-name '())
+  `((,param-name (if (%%eqv? ,vararg-name '())
                     ,(expand-expr param-default mtx)
-                    (let ((value (##field0 ,vararg-name)))
-                      (set! ,vararg-name (##field1 ,vararg-name))
+                    (let ((value (%%field0 ,vararg-name)))
+                      (set! ,vararg-name (%%field1 ,vararg-name))
                       value)))))
   ;; (list
   ;;   (list param-name
-  ;;         (list 'if (list '##eqv? vararg-name '())
+  ;;         (list 'if (list '%%eqv? vararg-name '())
   ;;               (expand-expr param-default)
-  ;;               (list 'let (list (list 'value (list '##field0 vararg-name)))
-  ;;                     (list 'set! vararg-name (list '##field1 vararg-name))
+  ;;               (list 'let (list (list 'value (list '%%field0 vararg-name)))
+  ;;                     (list 'set! vararg-name (list '%%field1 vararg-name))
   ;;                     'value
   ;;                     )
   ;;               )
@@ -2657,12 +2657,12 @@
 (define (liveness-analysis-aux expr forced-features exports)
   (let* ((env (make-live-env '() forced-features forced-features)))
 
-    ;; ##rib is always needed
-    (live-env-add-live! env '##rib)
+    ;; %%rib is always needed
+    (live-env-add-live! env '%%rib)
 
-    ;; It's hard to detect in the liveness analysis if we need ##id or not.
+    ;; It's hard to detect in the liveness analysis if we need %%id or not.
     ;; We will add it by default.
-    (live-env-add-live! env '##id)
+    (live-env-add-live! env '%%id)
 
     (and exports
          (for-each
@@ -2701,8 +2701,8 @@
           ((integer? expr)
            (if (< expr 0)
              ;; If the integer is negative, we need to
-             ;;   use ##- to create a binding
-             (live-env-add-live! env '##-))
+             ;;   use %%- to create a binding
+             (live-env-add-live! env '%%-))
            #f)
 
           ((pair? expr)
@@ -2734,25 +2734,25 @@
                     (liveness (cadddr expr) cte #f))
 
                    ((eqv? first 'let)
-                    ;; Let uses ##arg2 for creating bindings
-                    (live-env-add-live! env '##arg2)
+                    ;; Let uses %%arg2 for creating bindings
+                    (live-env-add-live! env '%%arg2)
                     (let ((bindings (cadr expr)))
                       (liveness-list (map cadr bindings) cte)
                       (liveness (caddr expr) (append (map car bindings) cte) #f)))
 
                    ((eqv? first 'begin)
-                    ;; Begin uses ##arg1 to get rid of the value on the stack when
+                    ;; Begin uses %%arg1 to get rid of the value on the stack when
                     ;;  chaining
-                    (live-env-add-live! env '##arg1)
+                    (live-env-add-live! env '%%arg1)
                     (liveness-list (cdr expr) cte))
 
                    ((eqv? first 'lambda)
-                    ;; ##close is used by lambda constructs
+                    ;; %%close is used by lambda constructs
                     (if (not (live-env-live-feature? env 'flat-closure))
-                      (live-env-add-live! env '##close)
+                      (live-env-add-live! env '%%close)
                       (begin
-                        (live-env-add-live! env '##field0)
-                        (live-env-add-live! env '##field0-set!)
+                        (live-env-add-live! env '%%field0)
+                        (live-env-add-live! env '%%field0-set!)
                         ))
                     (let ((params (cadr expr)))
                       (if (improper-list? params)
@@ -2825,9 +2825,9 @@
                       (cdr expr)))
 
                    (else
-                     ;; Calls in first position create a binding, thus needing ##arg2
+                     ;; Calls in first position create a binding, thus needing %%arg2
                      (if (pair? first)
-                       (live-env-add-live! env '##arg2))
+                       (live-env-add-live! env '%%arg2))
                      (liveness-list expr cte)))))
 
           (else
@@ -2981,7 +2981,7 @@
   (fold + 0 (map cadr encoding)))
 
 
-(define predefined (list '##rib 'false 'true 'nil)) ;; predefined symbols
+(define predefined (list '%%rib 'false 'true 'nil)) ;; predefined symbols
 
 (define (encode-constants proc host-config)
 
@@ -3011,8 +3011,8 @@
            (if (< o 0)
              (begin
 
-               (if (not (host-config-feature-live? host-config '##-))
-                 (host-config-feature-add! host-config '##- #t))
+               (if (not (host-config-feature-live? host-config '%%-))
+                 (host-config-feature-add! host-config '%%- #t))
 
                (c-rib const-op
                       0
@@ -3022,7 +3022,7 @@
                                #t
                                2
                                (c-rib jump/call-op
-                                      '##-
+                                      '%%-
                                       tail)))))
                (c-rib const-op
                       o
@@ -3043,7 +3043,7 @@
                                     #t
                                     3
                                     (c-rib jump/call-op
-                                           '##rib
+                                           '%%rib
                                            tail)))))))
           ((pair? o)
            (build-constant (car o)
@@ -3054,7 +3054,7 @@
                                                     #t
                                                     3
                                                     (c-rib jump/call-op
-                                                           '##rib
+                                                           '%%rib
                                                            tail))))))
           ((string? o)
            (let ((chars (string->list* o)))
@@ -3066,7 +3066,7 @@
                                                       #t
                                                       3
                                                       (c-rib jump/call-op
-                                                             '##rib
+                                                             '%%rib
                                                              tail)))))))
           ((vector? o)
            (let ((elems (vector->list o)))
@@ -3078,7 +3078,7 @@
                                                       #t
                                                       3
                                                       (c-rib jump/call-op
-                                                             '##rib
+                                                             '%%rib
                                                              tail)))))))
 
           (else
@@ -3106,7 +3106,7 @@
                                  #t
                                  3
                                  (c-rib jump/call-op
-                                        '##rib
+                                        '%%rib
                                         (c-rib set-op
                                                sym
                                                tail)))))))))
@@ -4476,7 +4476,7 @@
     (read-all port)))
 
 (define (read-library lib-path)
-  `((##include-once (ribbit ,lib-path))))
+  `((%%include-once (ribbit ,lib-path))))
 
 (define (read-program lib-path src-path)
   (append (apply append (map read-library lib-path))
@@ -4752,7 +4752,7 @@
                        (or (memq name live-symbols)
                            (memq name features-enabled))))
                    primitives))
-         (live-features-symbols (append (cons '##rib '()) ;; always add rib
+         (live-features-symbols (append (cons '%%rib '()) ;; always add rib
                                         (filter (lambda (x) (not (memq x features-disabled)))
                                                 (append features-enabled (map caadr live-primitives))))))
 

@@ -1,8 +1,8 @@
 (define-primitive (square a)
   "prim1(function(x) return x * x end),")
 
-(##putchar (square 6))
-(##putchar 10)
+(%%putchar (square 6))
+(%%putchar 10)
 
 ;;;run: -l max
 ;;;run: -l empty

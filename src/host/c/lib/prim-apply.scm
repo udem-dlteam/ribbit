@@ -1,4 +1,4 @@
-(define-primitive (##apply f args)
+(define-primitive (%%apply f args)
   "{
     PRIM2();
     TEMP1 = x; // save x for the gc 

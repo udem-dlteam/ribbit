@@ -1,6 +1,6 @@
-(##include-once "./macros.scm")
+(%%include-once "./macros.scm")
 
-(##define-resource-reader
+(%%define-resource-reader
  http
  (lambda (resource-path)
    (let ((resource-path-real 
@@ -9,7 +9,7 @@
              (string-append "http://" resource-path))))
      (open-input-string (pipe-through (string-append "curl --silent " resource-path-real) "")))))
 
-(##define-resource-reader
+(%%define-resource-reader
  https
  (lambda (resource-path)
    (let ((resource-path-real 

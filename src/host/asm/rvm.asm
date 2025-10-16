@@ -15,7 +15,7 @@
 ;;; ######################################## Beginning of ELF header
 
 ;; feature that is always true
-;; @@(feature (or debug (not debug)) (use ##exit))@@
+;; @@(feature (or debug (not debug)) (use %%exit))@@
 
 
 ;; @@(feature debug 
@@ -1145,7 +1145,7 @@ string_jump	db "jump --",0
 string_call	db "call --",0
 %endif
 
-; @@(feature arity-check (use ##exit)
+; @@(feature arity-check (use %%exit)
 string_arity_error db "Arity check error",0x0a,0
 ;; this code assumes that the program will exit after
 
@@ -1219,7 +1219,7 @@ is_closure:
 
     shr  edx, 2 ;; remove tagging and rest param
     jc  with_rest ; @@(feature rest-param)@@
-    ; @@(feature arity-check (use ##exit)
+    ; @@(feature arity-check (use %%exit)
 no_rest:
     cmp  edx, ebx 
 	je   create_frame_loop_start ;; pass arity-check
@@ -1517,47 +1517,47 @@ scm2str_write_loop_done:
 
 prim_dispatch_table:
 ;; @@(primitives (gen body)
-	dd   prim_rib         ;; @@(primitive (##rib a b c))@@
-	dd   prim_id          ;; @@(primitive (##id x))@@
-	dd   prim_arg1        ;; @@(primitive (##arg1 x y))@@
-	dd   prim_arg2        ;; @@(primitive (##arg2 x y))@@
-	dd   prim_close       ;; @@(primitive (##close rib))@@
-	dd   prim_isrib       ;; @@(primitive (##rib? rib))@@
-	dd   prim_field0      ;; @@(primitive (##field0 rib))@@
-	dd   prim_field1      ;; @@(primitive (##field1 rib))@@
-	dd   prim_field2      ;; @@(primitive (##field2 rib))@@
-	dd   prim_field0set   ;; @@(primitive (##field0-set! rib))@@
-	dd   prim_field1set   ;; @@(primitive (##field1-set! rib))@@
-	dd   prim_field2set   ;; @@(primitive (##field2-set! rib))@@
-	dd   prim_eqv         ;; @@(primitive (##eqv? x y))@@
-	dd   prim_lt          ;; @@(primitive (##< x y))@@
-	dd   prim_add         ;; @@(primitive (##+ x y))@@
-	dd   prim_sub         ;; @@(primitive (##- x y))@@
-	dd   prim_mul         ;; @@(primitive (##* x y))@@
-	dd   prim_quotient    ;; @@(primitive (##quotient x y))@@
-	dd   prim_getchar     ;; @@(primitive (##getchar))@@
-	dd   prim_putchar     ;; @@(primitive (##putchar c))@@
-	dd   prim_exit        ;; @@(primitive (##exit n))@@  
-	dd   prim_stdin_fd       ;; @@(primitive (##stdin-fd))@@  
-	dd   prim_stdout_fd      ;; @@(primitive (##stdout-fd))@@  
-    dd   prim_get_fd_input_file ;; @@(primitive (##get-fd-input-file filename))@@
-    dd   prim_get_fd_output_file ;; @@(primitive (##get-fd-output-file filename))@@
-    dd   prim_read_char_fd ;; @@(primitive (##read-char-fd fd))@@
-    dd   prim_write_char_fd ;; @@(primitive (##write-char-fd c fd))@@
-    dd   prim_close_fd ;; @@(primitive (##close-input-fd fd))@@
-    dd   prim_close_fd ;; @@(primitive (##close-output-fd fd))@@
-    dd   prim_apply      ;; @@(primitive (##apply function args))@@
-    dd   prim_welcome    ;; @@(primitive (welcome-msg))@@
+    dd   prim_rib                ;; @@(primitive (%%rib a b c))@@
+    dd   prim_id                 ;; @@(primitive (%%id x))@@
+    dd   prim_arg1               ;; @@(primitive (%%arg1 x y))@@
+    dd   prim_arg2               ;; @@(primitive (%%arg2 x y))@@
+    dd   prim_close              ;; @@(primitive (%%close rib))@@
+    dd   prim_isrib              ;; @@(primitive (%%rib? rib))@@
+    dd   prim_field0             ;; @@(primitive (%%field0 rib))@@
+    dd   prim_field1             ;; @@(primitive (%%field1 rib))@@
+    dd   prim_field2             ;; @@(primitive (%%field2 rib))@@
+    dd   prim_field0set          ;; @@(primitive (%%field0-set! rib))@@
+    dd   prim_field1set          ;; @@(primitive (%%field1-set! rib))@@
+    dd   prim_field2set          ;; @@(primitive (%%field2-set! rib))@@
+    dd   prim_eqv                ;; @@(primitive (%%eqv? x y))@@
+    dd   prim_lt                 ;; @@(primitive (%%< x y))@@
+    dd   prim_add                ;; @@(primitive (%%+ x y))@@
+    dd   prim_sub                ;; @@(primitive (%%- x y))@@
+    dd   prim_mul                ;; @@(primitive (%%* x y))@@
+    dd   prim_quotient           ;; @@(primitive (%%quotient x y))@@
+    dd   prim_getchar            ;; @@(primitive (%%getchar))@@
+    dd   prim_putchar            ;; @@(primitive (%%putchar c))@@
+    dd   prim_exit               ;; @@(primitive (%%exit n))@@  
+    dd   prim_stdin_fd           ;; @@(primitive (%%stdin-fd))@@  
+    dd   prim_stdout_fd          ;; @@(primitive (%%stdout-fd))@@  
+    dd   prim_get_fd_input_file  ;; @@(primitive (%%get-fd-input-file filename))@@
+    dd   prim_get_fd_output_file ;; @@(primitive (%%get-fd-output-file filename))@@
+    dd   prim_read_char_fd       ;; @@(primitive (%%read-char-fd fd))@@
+    dd   prim_write_char_fd      ;; @@(primitive (%%write-char-fd c fd))@@
+    dd   prim_close_fd           ;; @@(primitive (%%close-input-fd fd))@@
+    dd   prim_close_fd           ;; @@(primitive (%%close-output-fd fd))@@
+    dd   prim_apply              ;; @@(primitive (%%apply function args))@@
+    dd   prim_welcome            ;; @@(primitive (welcome-msg))@@
 
 ;; )@@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_rib	db "##rib",0x0a,0
+string_rib	db "%%rib",0x0a,0
 %endif
 
-;; @@(feature ##rib
+;; @@(feature %%rib
 prim_rib:
 
 %ifdef DEBUG_PRIM
@@ -1584,10 +1584,10 @@ prim_rib:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_id	db "##id",0x0a,0
+string_id	db "%%id",0x0a,0
 %endif
 
-;; @@(feature ##id
+;; @@(feature %%id
 prim_id:
 
 %ifdef DEBUG_PRIM
@@ -1604,7 +1604,7 @@ prim_arg2:
 	ret
 ;; )@@
 
-;; @@(feature (and ##arg2 (not ##id))
+;; @@(feature (and %%arg2 (not %%id))
 %ifdef RVM_GEN
 prim_arg2:
     ret
@@ -1616,10 +1616,10 @@ prim_arg2:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_arg1	db "##arg1",0x0a,0
+string_arg1	db "%%arg1",0x0a,0
 %endif
 
-;; @@(feature ##arg1
+;; @@(feature %%arg1
 prim_arg1:
 
 %ifdef DEBUG_PRIM
@@ -1637,7 +1637,7 @@ prim_arg1:
 
 %ifdef DEBUG_PRIM
 
-string_arg2	db "##arg2",0x0a,0
+string_arg2	db "%%arg2",0x0a,0
 
 prim_arg2:
 
@@ -1651,10 +1651,10 @@ prim_arg2:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_close	db "##close",0x0a,0
+string_close	db "%%close",0x0a,0
 %endif
 
-;; @@(feature ##close
+;; @@(feature %%close
 prim_close:
 
 %ifdef DEBUG_PRIM
@@ -1677,10 +1677,10 @@ prim_close:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_field0	db "##field0",0x0a,0
+string_field0	db "%%field0",0x0a,0
 %endif
 
-;; @@(feature ##field0
+;; @@(feature %%field0
 prim_field0:
 
 %ifdef DEBUG_PRIM
@@ -1696,10 +1696,10 @@ prim_field0:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_field1	db "##field1",0x0a,0
+string_field1	db "%%field1",0x0a,0
 %endif
 
-;; @@(feature ##field1
+;; @@(feature %%field1
 prim_field1:
 
 %ifdef DEBUG_PRIM
@@ -1715,10 +1715,10 @@ prim_field1:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_field2	db "##field2",0x0a,0
+string_field2	db "%%field2",0x0a,0
 %endif
 
-;; @@(feature ##field2
+;; @@(feature %%field2
 prim_field2:
 
 %ifdef DEBUG_PRIM
@@ -1734,10 +1734,10 @@ prim_field2:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_field0set	db "##field0-set!",0x0a,0
+string_field0set	db "%%field0-set!",0x0a,0
 %endif
 
-;; @@(feature ##field0-set!
+;; @@(feature %%field0-set!
 prim_field0set:
 
 %ifdef DEBUG_PRIM
@@ -1753,10 +1753,10 @@ prim_field0set:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_field1set	db "##field1-set!",0x0a,0
+string_field1set	db "%%field1-set!",0x0a,0
 %endif
 
-;; @@(feature ##field1-set!
+;; @@(feature %%field1-set!
 prim_field1set:
 
 %ifdef DEBUG_PRIM
@@ -1772,10 +1772,10 @@ prim_field1set:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_field2set	db "##field2-set!",0x0a,0
+string_field2set	db "%%field2-set!",0x0a,0
 %endif
 
-;; @@(feature ##field2-set!
+;; @@(feature %%field2-set!
 prim_field2set:
 
 %ifdef DEBUG_PRIM
@@ -1791,10 +1791,10 @@ prim_field2set:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_isrib	db "##rib?",0x0a,0
+string_isrib	db "%%rib?",0x0a,0
 %endif
 
-;; @@(feature ##rib? (use eqv?_feature)
+;; @@(feature %%rib? (use eqv?_feature)
 prim_isrib:
 
 %ifdef DEBUG_PRIM
@@ -1821,10 +1821,10 @@ prim_isrib:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_eqv	db "##eqv?",0x0a,0
+string_eqv	db "%%eqv?",0x0a,0
 %endif
 
-;; @@(feature (or ##eqv? eqv?_feature) (use <_feature)
+;; @@(feature (or %%eqv? eqv?_feature) (use <_feature)
 prim_eqv:
 
 %ifdef DEBUG_PRIM
@@ -1850,10 +1850,10 @@ prim_eqv_internal:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_lt	db "##<",0x0a,0
+string_lt	db "%%<",0x0a,0
 %endif
 
-;; @@(feature (or ##< <_feature)
+;; @@(feature (or %%< <_feature)
 prim_lt:
 
 %ifdef DEBUG_PRIM
@@ -1875,10 +1875,10 @@ return_boolean:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_add	db "##+",0x0a,0
+string_add	db "%%+",0x0a,0
 %endif
 
-;; @@(feature ##+
+;; @@(feature %%+
 prim_add:
 
 %ifdef DEBUG_PRIM
@@ -1897,10 +1897,10 @@ prim_add:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_sub	db "##-",0x0a,0
+string_sub	db "%%-",0x0a,0
 %endif
 
-;; @@(feature ##-
+;; @@(feature %%-
 prim_sub:
 
 %ifdef DEBUG_PRIM
@@ -1920,10 +1920,10 @@ prim_sub:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_mul	db "##*",0x0a,0
+string_mul	db "%%*",0x0a,0
 %endif
 
-;; @@(feature ##*
+;; @@(feature %%*
 prim_mul:
 
 %ifdef DEBUG_PRIM
@@ -1946,10 +1946,10 @@ prim_mul:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_quotient	db "##quotient",0x0a,0
+string_quotient	db "%%quotient",0x0a,0
 %endif
 
-;; @@(feature ##quotient
+;; @@(feature %%quotient
 prim_quotient:
 
 %ifdef DEBUG_PRIM
@@ -1975,7 +1975,7 @@ raw_int_to_scheme_int:
 	ret
 ;; )@@
 
-;; @@(feature (and raw_int_to_scheme_int (not ##quotient))
+;; @@(feature (and raw_int_to_scheme_int (not %%quotient))
 %ifdef RVM_GEN
 raw_int_to_scheme_int:
 	shl  LAST_ARG, 1
@@ -1989,10 +1989,10 @@ raw_int_to_scheme_int:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_getchar	db "##getchar",0x0a,0
+string_getchar	db "%%getchar",0x0a,0
 %endif
 
-;; @@(feature ##getchar (use raw_int_to_scheme_int)
+;; @@(feature %%getchar (use raw_int_to_scheme_int)
 prim_getchar:
 
 %ifdef DEBUG_PRIM
@@ -2020,10 +2020,10 @@ prim_getchar_done:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_putchar	db "##putchar",0x0a,0
+string_putchar	db "%%putchar",0x0a,0
 %endif
 
-;; @@(feature ##putchar
+;; @@(feature %%putchar
 prim_putchar:
 
 %ifdef DEBUG_PRIM
@@ -2050,11 +2050,11 @@ prim_putchar:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %ifdef DEBUG_PRIM
-string_exit	db "##exit",0x0a,0
+string_exit	db "%%exit",0x0a,0
 %endif
 
 %ifdef DEBUG_INSTR
-string_halt:	db "##halt --",0x0a,0
+string_halt:	db "%%halt --",0x0a,0
 %endif
 
 run_instr_halt:
@@ -2067,7 +2067,7 @@ run_instr_halt:
 	movC LAST_ARG, 0
 	;; fallthrough
 
-;; @@(feature ##exit
+;; @@(feature %%exit
 prim_exit:
 
 %ifdef DEBUG_PRIM
@@ -2084,21 +2084,21 @@ prim_exit:
 ;; )@@
 
 
-;; @@(feature ##stdin-fd
+;; @@(feature %%stdin-fd
 prim_stdin_fd:
     NBARGS(0)
     mov dword LAST_ARG, FIX(0x0)
     ret
 ;; )@@
 
-;; @@(feature ##stdout-fd
+;; @@(feature %%stdout-fd
 prim_stdout_fd:
     NBARGS(0)
     mov dword LAST_ARG, FIX(0x1)
     ret
 ;; )@@
 
-;; @@(feature ##get-fd-input-file (use scm2str)
+;; @@(feature %%get-fd-input-file (use scm2str)
 prim_get_fd_input_file:
     push ecx ;; save ecx
     call scm2str ;; transform eax (LAST_ARG) into a string on stack
@@ -2107,7 +2107,7 @@ prim_get_fd_input_file:
 
 ;; )@@
 
-;; @@(feature (or ##get-fd-input-file ##get-fd-output-file)
+;; @@(feature (or %%get-fd-input-file %%get-fd-output-file)
 
 common_input_output_file:
     mov eax, SYS_OPEN   ; 'open' syscall number
@@ -2134,7 +2134,7 @@ common_input_output_file:
     ret 
 ;; )@@
 
-;; @@(feature ##get-fd-output-file (use scm2str)
+;; @@(feature %%get-fd-output-file (use scm2str)
 prim_get_fd_output_file:
     push ecx
     call scm2str ;; transform eax (LAST_ARG) into a string on stack
@@ -2143,7 +2143,7 @@ prim_get_fd_output_file:
     jmp common_input_output_file
 ;; )@@
 
-;; @@(feature ##read-char-fd (use raw_int_to_scheme_int)
+;; @@(feature %%read-char-fd (use raw_int_to_scheme_int)
 prim_read_char_fd:
 
 	push ecx
@@ -2169,7 +2169,7 @@ prim_read_char_fd_done:
 ;; )@@
 
 
-;; @@(feature ##write-char-fd (use raw_int_to_scheme_int)
+;; @@(feature %%write-char-fd (use raw_int_to_scheme_int)
 prim_write_char_fd:
 
 	push PREV_ARG
@@ -2191,7 +2191,7 @@ prim_write_char_fd:
 ;; )@@ 
 
 
-;; @@(feature (or ##close-input-fd ##close-output-fd)
+;; @@(feature (or %%close-input-fd %%close-output-fd)
 prim_close_fd:
     shr  LAST_ARG, 1
     mov  ebx, SYS_CLOSE
@@ -2201,7 +2201,7 @@ prim_close_fd:
 	ret
 ;; )@@
 
-;; @@(feature ##apply
+;; @@(feature %%apply
 prim_apply:
     mov TEMP2, LAST_ARG ;; move list into TEMP2
     mov TEMP3, PREV_ARG ;; move procedure into TEMP3

@@ -1,5 +1,5 @@
-(##putchar (cddr (cons 65 (cons 66 67))))
-(##putchar 10)
+(%%putchar (cddr (cons 65 (cons 66 67))))
+(%%putchar 10)
 
 ;;;run: -l min
 ;;;run: -l max

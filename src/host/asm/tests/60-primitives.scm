@@ -16,8 +16,8 @@ prim_square:
 \tNBARGS(1)
 \tret")))
 
-(##putchar (square 6))
-(##putchar 10)
+(%%putchar (square 6))
+(%%putchar 10)
 
 ;;;run: -l max
 ;;;run: -l empty

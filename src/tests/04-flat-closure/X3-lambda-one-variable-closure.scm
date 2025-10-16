@@ -8,9 +8,9 @@
 
 (define zz (z 42))
 
-(##putchar (zz))
+(%%putchar (zz))
 
-(##putchar 10)
+(%%putchar 10)
 
 ;;;flat-closure-run: -l max
 ;;;flat-closure-run:

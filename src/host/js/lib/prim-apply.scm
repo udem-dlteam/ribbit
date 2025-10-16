@@ -1,4 +1,4 @@
-(define-primitive (##apply f args)
+(define-primitive (%%apply f args)
   "() => {
      let num_args = 0;
      let arg = pop();

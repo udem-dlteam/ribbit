@@ -4,8 +4,8 @@
 
 (define x (lambda () 42))
 
-(##putchar (x))
-(##putchar 10)
+(%%putchar (x))
+(%%putchar 10)
 
 ;;;flat-closure-run: -l max
 ;;;flat-closure-run:

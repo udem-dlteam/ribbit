@@ -7,7 +7,7 @@
 ;  "prim1((filename) => bool2scm(fs.existsSync(scm2str(filename)))),")
 
 (define (file-exists? file)
-  (not (not (##get-fd-input-file file))))
+  (not (not (%%get-fd-input-file file))))
 
 (define-primitive (console.log obj)
   (use list2scm)

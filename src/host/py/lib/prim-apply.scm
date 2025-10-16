@@ -1,4 +1,4 @@
-(define-feature ##apply
+(define-feature %%apply
   ((decl
 "def prim_apply():
  _arg = pop()
@@ -13,5 +13,5 @@
 
 ")))
 
-(define-primitive (##apply f args)
+(define-primitive (%%apply f args)
      "prim_apply,")

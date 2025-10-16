@@ -416,33 +416,33 @@
 (def primitives
   (vector 
     ;; @@(primitives (gen body)
-    (prim3 _rib)         ;; @@(primitive (##rib a b c))@@
-    (prim1 (fn [x] x))   ;; @@(primitive (##id x))@@
-    (fn [stack _pc] (_cdr stack))  ;; @@(primitive (##arg1 x y))@@
-    (prim2 (fn [_ x] x)) ;; @@(primitive (##arg2 x y))@@
+    (prim3 _rib)         ;; @@(primitive (%%rib a b c))@@
+    (prim1 (fn [x] x))   ;; @@(primitive (%%id x))@@
+    (fn [stack _pc] (_cdr stack))  ;; @@(primitive (%%arg1 x y))@@
+    (prim2 (fn [_ x] x)) ;; @@(primitive (%%arg2 x y))@@
 
-    ;; @@(primitive (##close rib)
+    ;; @@(primitive (%%close rib)
     (fn [stack _pc]
       (let [x (_car stack)
             stack (_cdr stack)]
         (_cons (_rib (_field0 x) stack procedure-type) stack)))
     ;; )@@
 
-    (prim1 (fn [x] (bool (_rib? x)))) ;; @@(primitive (##rib? rib))@@
-    (prim1 _field0) ;; @@(primitive (##field0 rib))@@
-    (prim1 _field1) ;; @@(primitive (##field1 rib))@@
-    (prim1 _field2) ;; @@(primitive (##field2 rib))@@
-    (prim2 (fn [x y] (_field0-set! x y) y)) ;; @@(primitive (##field0-set! rib x))@@
-    (prim2 (fn [x y] (_field1-set! x y) y)) ;; @@(primitive (##field1-set! rib x))@@
-    (prim2 (fn [x y] (_field2-set! x y) y)) ;; @@(primitive (##field2-set! rib x))@@
-    (prim2 (fn [x y] (bool (= x y)))) ;; @@(primitive (##eqv? x y))@@
-    (prim2 (fn [x y] (bool (< x y)))) ;; @@(primitive (##< a b))@@
-    (prim2 +) ;; @@(primitive (##+ a b))@@
-    (prim2 -) ;; @@(primitive (##- a b))@@
-    (prim2 *) ;; @@(primitive (##* a b))@@
-    (prim2 quot) ;; @@(primitive (##quotient a b))@@
+    (prim1 (fn [x] (bool (_rib? x)))) ;; @@(primitive (%%rib? rib))@@
+    (prim1 _field0) ;; @@(primitive (%%field0 rib))@@
+    (prim1 _field1) ;; @@(primitive (%%field1 rib))@@
+    (prim1 _field2) ;; @@(primitive (%%field2 rib))@@
+    (prim2 (fn [x y] (_field0-set! x y) y)) ;; @@(primitive (%%field0-set! rib x))@@
+    (prim2 (fn [x y] (_field1-set! x y) y)) ;; @@(primitive (%%field1-set! rib x))@@
+    (prim2 (fn [x y] (_field2-set! x y) y)) ;; @@(primitive (%%field2-set! rib x))@@
+    (prim2 (fn [x y] (bool (= x y)))) ;; @@(primitive (%%eqv? x y))@@
+    (prim2 (fn [x y] (bool (< x y)))) ;; @@(primitive (%%< a b))@@
+    (prim2 +) ;; @@(primitive (%%+ a b))@@
+    (prim2 -) ;; @@(primitive (%%- a b))@@
+    (prim2 *) ;; @@(primitive (%%* a b))@@
+    (prim2 quot) ;; @@(primitive (%%quotient a b))@@
 
-    ;; @@(primitive (##getchar)
+    ;; @@(primitive (%%getchar)
     (prim0 (fn [] ;; 18
              (if (< (deref pos) (count rvm-code))
                (get-byte)
@@ -450,14 +450,14 @@
                  c))))
     ;; )@@
 
-    ;; @@(primitive (##putchar x)
+    ;; @@(primitive (%%putchar x)
     (prim1 (fn [x] ;; 19
              (print (char x))
              (flush) ; Ensure that print goes out immediately
              x))
     ;; )@@ 
 
-    ;; @@(primitive (##exit x)
+    ;; @@(primitive (%%exit x)
     (prim1 (fn [x] ;; 20
              (flush) ; Ensure that error messages go out
              (System/exit x)))

@@ -4,13 +4,13 @@
 
 (define z
   (lambda (x y)
-    (lambda () (##+ x y))))
+    (lambda () (%%+ x y))))
 
 (define zz (z 40 2))
 
-(##putchar (zz))
+(%%putchar (zz))
 
-(##putchar 10)
+(%%putchar 10)
 
 ;;;flat-closure-run: -l max
 ;;;flat-closure-run:

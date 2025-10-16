@@ -1,5 +1,5 @@
 (define-primitive
-  (##stdin-fd)
+  (%%stdin-fd)
   (use c/stdio)
   "{
   FILE* file = fdopen(0, \"r\");
@@ -8,7 +8,7 @@
   }")
 
 (define-primitive
-  (##stdout-fd)
+  (%%stdout-fd)
   (use c/stdio)
   "{
   FILE* file = fdopen(1, \"w\");
@@ -17,7 +17,7 @@
   }")
 
 (define-primitive 
-  (##get-fd-input-file filename)
+  (%%get-fd-input-file filename)
   (use c/stdio scm2str)
   "{
   PRIM1();
@@ -29,7 +29,7 @@
   }")
 
 (define-primitive
-  (##get-fd-output-file filename)
+  (%%get-fd-output-file filename)
   (use c/stdio scm2str)
   "{
   PRIM1();
@@ -41,7 +41,7 @@
   }")
 
 (define-primitive
-  (##read-char-fd fd)
+  (%%read-char-fd fd)
   (use c/stdio)
   "{
   PRIM1();
@@ -54,7 +54,7 @@
   }")
 
 (define-primitive
-  (##write-char-fd ch fd)
+  (%%write-char-fd ch fd)
   (use c/stdio)
   "{
   PRIM2();
@@ -70,7 +70,7 @@
   }")
 
 (define-primitive
-  (##close-input-fd fd)
+  (%%close-input-fd fd)
   (use c/stdio)
   "{
   PRIM1();
@@ -79,4 +79,4 @@
   break;
   }")
 
-(define (##close-output-fd port) (##close-input-fd port))
+(define (%%close-output-fd port) (%%close-input-fd port))

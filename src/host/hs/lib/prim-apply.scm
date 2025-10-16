@@ -1,4 +1,4 @@
-(define-primitive (##apply f args)
+(define-primitive (%%apply f args)
   " ,  (do
     args <- pop
     f <- pop

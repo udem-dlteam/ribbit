@@ -1,6 +1,6 @@
-(##include-once "./bool.scm")
-(##include-once "./types.scm")
-(##include-once "./pair-list.scm")
+(%%include-once "./bool.scm")
+(%%include-once "./types.scm")
+(%%include-once "./pair-list.scm")
 
 ;; import apply primitives from host/<host>/lib/prim-apply.scm
 (cond-expand
@@ -8,47 +8,47 @@
    ;; Skip rvm host (spitting out the ribn)
    (begin))
   (else
-    (##include-once (ribbit "prim-apply"))))
+    (%%include-once (ribbit "prim-apply"))))
 
 
 ;; Control features (R4RS section 6.9).
 
-;; (define (apply f arg1 . args) (##apply f (append (list arg1) args))))
-(define (apply f args) (##apply f args))
+;; (define (apply f arg1 . args) (%%apply f (append (list arg1) args))))
+(define (apply f args) (%%apply f args))
 
-(define (make-procedure code env) (##rib code env procedure-type))
-(define (procedure-code x) (##field0 x))
-(define (procedure-env x) (##field1 x))
+(define (make-procedure code env) (%%rib code env procedure-type))
+(define (procedure-code x) (%%field0 x))
+(define (procedure-env x) (%%field1 x))
 
 
-(define (##map proc lst)
+(define (%%map proc lst)
   (if (pair? lst)
-    (cons (proc (##field0 lst)) (##map proc (##field1 lst)))
+    (cons (proc (%%field0 lst)) (%%map proc (%%field1 lst)))
     '()))
 
 (define (map proc . lsts)
-  (if (pair? (##field0 lsts))
-    (cons (apply proc (##map car lsts))
-          (apply map (append (list proc) (##map cdr lsts))))
+  (if (pair? (%%field0 lsts))
+    (cons (apply proc (%%map car lsts))
+          (apply map (append (list proc) (%%map cdr lsts))))
     '()))
 
 
 (define (for-each proc . lsts)
-  (if (pair? (##field0 lsts))
+  (if (pair? (%%field0 lsts))
       (begin
-        (apply proc (##map car lsts))
-        (apply for-each (append (list proc) (##map cdr lsts))))
+        (apply proc (%%map car lsts))
+        (apply for-each (append (list proc) (%%map cdr lsts))))
       #f))
 
 
 ;; First-class continuations.
 
 (define (call/cc receiver)
-  (let ((c (##field1 (##field1 (##close #f))))) ;; get call/cc continuation rib
+  (let ((c (%%field1 (%%field1 (%%close #f))))) ;; get call/cc continuation rib
     (receiver (lambda (r)
-                (let ((c2 (##field1 (##field1 (##close #f)))))
-                  (##field0-set! c2 (##field0 c)) ;; set "stack" field
-                  (##field2-set! c2 (##field2 c)) ;; set "pc" field
+                (let ((c2 (%%field1 (%%field1 (%%close #f)))))
+                  (%%field0-set! c2 (%%field0 c)) ;; set "stack" field
+                  (%%field2-set! c2 (%%field2 c)) ;; set "pc" field
                   r))))) ;; return to continuation
 
 (define call-with-current-continuation call/cc)
@@ -75,14 +75,14 @@
   (lambda args (f (apply g args))))
 
 ;; FIXME: Remove and change the procs that depend on it
-(define (##fold func base lst)
+(define (%%fold func base lst)
   (if (pair? lst)
-    (##fold func (func base (##field0 lst)) (##field1 lst))
+    (%%fold func (func base (%%field0 lst)) (%%field1 lst))
     base))
 
 (define (fold func base lst)
   (if (pair? lst)
-    (fold func (func (##field0 lst) base) (##field1 lst))
+    (fold func (func (%%field0 lst) base) (%%field1 lst))
     base))
 
 (define (fold-until func base lst (stop-value '()))
@@ -97,17 +97,17 @@
 
 (define (scan-until func base state lst (stop-value '()))
   (if (and (pair? lst) (not (equal? state stop-value)))
-    (scan-until func (##field0 lst) (func base (##field0 lst)) (##field1 lst) stop-value)
+    (scan-until func (%%field0 lst) (func base (%%field0 lst)) (%%field1 lst) stop-value)
     state))
 
-(define (##scan-until-false func base state lst)
+(define (%%scan-until-false func base state lst)
   (if (and (pair? lst) state)
-    (##scan-until-false func (##field0 lst) (func base (##field0 lst)) (##field1 lst))
+    (%%scan-until-false func (%%field0 lst) (func base (%%field0 lst)) (%%field1 lst))
     state))
 
 (define (all pred lst)
   (if (pair? lst)
-    (and (pred (##field0 lst)) (all pred (##field1 lst)))
+    (and (pred (%%field0 lst)) (all pred (%%field1 lst)))
     #t))
 
 (define (partial f . args)

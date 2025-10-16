@@ -447,32 +447,32 @@
 
   (vector
     ;; @@(primitives (gen body)
-    (prim3 _rib)             ;; @@(primitive (##rib a b c))@@
-    (prim1 (lambda (x) x))   ;; @@(primitive (##id x))@@
-    _cdr                     ;; @@(primitive (##arg1 a b))@@
-    (prim2 (lambda (y x) x)) ;; @@(primitive (##arg2 a b))@@
+    (prim3 _rib)             ;; @@(primitive (%%rib a b c))@@
+    (prim1 (lambda (x) x))   ;; @@(primitive (%%id x))@@
+    _cdr                     ;; @@(primitive (%%arg1 a b))@@
+    (prim2 (lambda (y x) x)) ;; @@(primitive (%%arg2 a b))@@
 
-    ;; @@(primitive (##close rib)
+    ;; @@(primitive (%%close rib)
     (lambda (stack) ;; 4
       (let* ((x (_car stack)) (stack (_cdr stack)))
         (_cons (_rib (_field0 x) stack procedure-type) stack)))
     ;; )@@
 
-    (prim1 (lambda (x) (boolean (_rib? x))))    ;; @@(primitive (##rib? rib))@@
-    (prim1 _field0)                             ;; @@(primitive (##field0 rib))@@
-    (prim1 _field1)                             ;; @@(primitive (##field1 rib))@@
-    (prim1 _field2)                             ;; @@(primitive (##field2 rib))@@
-    (prim2 (lambda (x y) (_field0-set! x y) y)) ;; @@(primitive (##field0-set! rib v))@@
-    (prim2 (lambda (x y) (_field1-set! x y) y)) ;; @@(primitive (##field1-set! rib v))@@
-    (prim2 (lambda (x y) (_field2-set! x y) y)) ;; @@(primitive (##field2-set! rib v))@@
-    (prim2 (lambda (x y) (boolean (eqv? x y)))) ;; @@(primitive (##eqv? x y))@@
-    (prim2 (lambda (x y) (boolean (< x y))))    ;; @@(primitive (##< x y))@@
-    (prim2 +)                                   ;; @@(primitive (##+ a b))@@
-    (prim2 -)                                   ;; @@(primitive (##- a b))@@
-    (prim2 *)                                   ;; @@(primitive (##* a b))@@
-    (prim2 quotient)                            ;; @@(primitive (##quotient a b))@@
+    (prim1 (lambda (x) (boolean (_rib? x))))    ;; @@(primitive (%%rib? rib))@@
+    (prim1 _field0)                             ;; @@(primitive (%%field0 rib))@@
+    (prim1 _field1)                             ;; @@(primitive (%%field1 rib))@@
+    (prim1 _field2)                             ;; @@(primitive (%%field2 rib))@@
+    (prim2 (lambda (x y) (_field0-set! x y) y)) ;; @@(primitive (%%field0-set! rib v))@@
+    (prim2 (lambda (x y) (_field1-set! x y) y)) ;; @@(primitive (%%field1-set! rib v))@@
+    (prim2 (lambda (x y) (_field2-set! x y) y)) ;; @@(primitive (%%field2-set! rib v))@@
+    (prim2 (lambda (x y) (boolean (eqv? x y)))) ;; @@(primitive (%%eqv? x y))@@
+    (prim2 (lambda (x y) (boolean (< x y))))    ;; @@(primitive (%%< x y))@@
+    (prim2 +)                                   ;; @@(primitive (%%+ a b))@@
+    (prim2 -)                                   ;; @@(primitive (%%- a b))@@
+    (prim2 *)                                   ;; @@(primitive (%%* a b))@@
+    (prim2 quotient)                            ;; @@(primitive (%%quotient a b))@@
 
-    ;; @@(primitive (##getchar)
+    ;; @@(primitive (%%getchar)
     (prim0 (lambda () ;; 18
              (if (< pos (string-length input))
                (get-byte)
@@ -480,13 +480,13 @@
                  (if (char? c) (char->integer c) -1)))))
     ;; )@@
 
-    ;; @@(primitive (##putchar x)
+    ;; @@(primitive (%%putchar x)
     (prim1 (lambda (x) ;; 19
              (write-char (integer->char x))
              x))
     ;; )@@
 
-    ;; @@(primitive (##exit x)
+    ;; @@(primitive (%%exit x)
     (prim1 (lambda (x) ;; 20
              (exit x)))
     ;; )@@

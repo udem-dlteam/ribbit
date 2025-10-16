@@ -4,8 +4,8 @@
       _PUSH
       ;;")
 
-(##putchar (square 6))
-(##putchar 10)
+(%%putchar (square 6))
+(%%putchar 10)
 
 ;;;run: -l max
 ;;;run: -l empty

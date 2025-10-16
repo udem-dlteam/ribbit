@@ -44,7 +44,7 @@ if(should_clock_gc == 1) {
 
 
 ;; Starts a new timer
-(define-primitive (##timer-start)
+(define-primitive (%%timer-start)
   (use c/timer/globals c/timer/gc-globals)
   "{
   should_clock_gc = 1;
@@ -59,7 +59,7 @@ if(should_clock_gc == 1) {
   }")
 
 ;; Ends the timer
-(define-primitive (##timer-end)
+(define-primitive (%%timer-end)
   (use c/time/globals c/time/gc-globals)
   "{
   if(gettimeofday(&time_after, 0) != 0) {
@@ -73,7 +73,7 @@ if(should_clock_gc == 1) {
 }")
 
 ;; Display a timer in the format '2.623414 seconds (0.028148 seconds in GC, 3630 invocations)'
-(define-primitive (##timer-display)
+(define-primitive (%%timer-display)
   (use c/time/globals c/time/gc-globals)
   "{
 long long time_difference_ns = (time_after.tv_sec-time_before.tv_sec)*1000000LL + time_after.tv_usec-time_before.tv_usec;

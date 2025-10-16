@@ -2,27 +2,27 @@
   ((host js)
 
    (define-primitive
-     (##stdin)
+     (%%stdin)
      (use js/node/fs)
      "() => push(0),")
 
    (define-primitive
-     (##stdout)
+     (%%stdout)
      (use js/node/fs)
      "() => push(1),")
 
    (define-primitive 
-     (##get-fd-input-file filename)
+     (%%get-fd-input-file filename)
      (use js/node/fs scm2str)
      "prim1(filename => fs.openSync(scm2str(filename), 'r')),")
 
    (define-primitive
-     (##get-fd-output-file filename)
+     (%%get-fd-output-file filename)
      (use js/node/fs scm2str)
      "prim1(filename => fs.openSync(scm2str(filename), 'w')),")
 
    (define-primitive
-     (##read-char fd)
+     (%%read-char fd)
      (use js/node/fs)
      "prim1(fd => {
      let buf=Buffer.alloc(1); 
@@ -31,21 +31,21 @@
      }),")
 
    (define-primitive
-     (##write-char ch fd)
+     (%%write-char ch fd)
      (use js/node/fs)
      "prim2((fd, ch) => fs.writeSync(fd, String.fromCodePoint(ch), null, 'utf8')),")
 
    (define-primitive
-     (##close-input-port fd)
+     (%%close-input-port fd)
      (use js/node/fs)
      "prim1(fd => fs.closeSync(fd)),")
 
-   (define ##close-output-port ##close-input-port))
+   (define %%close-output-port %%close-input-port))
    
   ((host c)
 
    (define-primitive
-     (##stdin)
+     (%%stdin)
      (use c/stdio)
      "{
      FILE* file = fdopen(0, \"r\");
@@ -54,7 +54,7 @@
      }")
 
    (define-primitive
-     (##stdout)
+     (%%stdout)
      (use c/stdio)
      "{
      FILE* file = fdopen(1, \"w\");
@@ -63,7 +63,7 @@
      }")
 
    (define-primitive 
-     (##get-fd-input-file filename)
+     (%%get-fd-input-file filename)
      (use c/stdio scm2str)
      "{
      PRIM1();
@@ -76,7 +76,7 @@
      }")
 
    (define-primitive
-     (##get-fd-output-file filename)
+     (%%get-fd-output-file filename)
      (use c/stdio scm2str)
      "{
      PRIM1();
@@ -88,7 +88,7 @@
      }")
 
    (define-primitive
-     (##read-char fd)
+     (%%read-char fd)
      (use c/stdio)
      "{
      PRIM1();
@@ -101,7 +101,7 @@
      }")
 
    (define-primitive
-     (##write-char ch fd)
+     (%%write-char ch fd)
      (use c/stdio)
      "{
      PRIM2();
@@ -117,7 +117,7 @@
      }")
 
    (define-primitive
-     (##close-input-port fd)
+     (%%close-input-port fd)
      (use c/stdio)
      "{
      PRIM1();
@@ -126,84 +126,84 @@
      break;
      }")
 
-   (define ##close-output-port ##close-input-port))
+   (define %%close-output-port %%close-input-port))
 
   ((host hs)
 
    (define-feature hs/io-handle (hs/foreign-type "    | RibHandle !Handle"))
 
    (define-primitive
-     (##stdin)
+     (%%stdin)
      (use hs/io-handle)
      " , push . RibForeign $ RibHandle stdin")
 
    (define-primitive
-     (##stdout)
+     (%%stdout)
      (use hs/io-handle)
      " , push . RibForeign $ RibHandle stdout")
 
    (define-primitive 
-     (##get-fd-input-file filename)
+     (%%get-fd-input-file filename)
      (use hs/io-handle scm2str)
      " , prim1 $ \\filename -> scm2str filename >>= (\\x -> openFile x ReadMode) >>= (pure . RibForeign . RibHandle)")
 
    (define-primitive
-     (##get-fd-output-file filename)
+     (%%get-fd-output-file filename)
      (use hs/io-handle scm2str)
      " , prim1 $ \\filename -> scm2str filename >>= (\\x -> openFile x WriteMode) >>= (pure . RibForeign . RibHandle)")
 
    (define-primitive
-     (##read-char fd)
+     (%%read-char fd)
      (use hs/io-handle)
      " , prim1 $ \\(RibForeign (RibHandle handle)) -> hIsEOF handle >>= \\eof -> if eof then return ribNil else hGetChar handle >>= (pure . RibInt . ord)")
 
    (define-primitive
-     (##write-char ch fd)
+     (%%write-char ch fd)
      (use hs/io-handle)
      " , prim2 $ \\(RibInt ch) (RibForeign (RibHandle handle)) -> hPutChar handle (chr ch) >> pure ribTrue")
 
    (define-primitive
-     (##close-input-port fd)
+     (%%close-input-port fd)
      (use hs/io-handle)
      " , prim1 $ \\(RibForeign (RibHandle handle)) -> hClose handle >> pure ribTrue")
 
-   (define ##close-output-port ##close-input-port)))
+   (define %%close-output-port %%close-input-port)))
 
 ;; ---------------------- EOF & TYPES ---------------------- ;;
 
 (define input-port-type 8)
 (define output-port-type 9)
 
-(define ##eof (rib 0 0 5))
+(define %%eof (rib 0 0 5))
 
 (define (eof-object? obj)
-  (eqv? obj ##eof))
+  (eqv? obj %%eof))
 
 (define stdin-port
-  (rib (##stdin) (rib 0 '() #t) input-port-type)) ;; stdin
+  (rib (%%stdin) (rib 0 '() #t) input-port-type)) ;; stdin
 
 (define stdout-port
-  (rib (##stdout) #t output-port-type))  ;; stdout
+  (rib (%%stdout) #t output-port-type))  ;; stdout
 
 
 ;; ---------------------- INPUT ---------------------- ;;
 
 (define (open-input-file filename)
   ;; (file_descriptor, (cursor, last_char, is_open), input_file_type)
-  (rib (##get-fd-input-file filename) (rib 0 '() #t) input-port-type))
+  (rib (%%get-fd-input-file filename) (rib 0 '() #t) input-port-type))
 
 (define (close-input-port port)
   (if (field2 (field1 port))
     (begin 
       (field2-set! (field1 port) #f)
-      (##close-input-port (field0 port)))))
+      (%%close-input-port (field0 port)))))
 
 (define (input-port? port)
   (eqv? (field2 port) input-port-type))
-(define (##get-last-char port)
+(define (%%get-last-char port)
   (field1 (field1 port)))
 
-(define (##set-last-char port ch)
+(define (%%set-last-char port ch)
   (field1-set! (field1 port) ch))
 
 (define (input-port-close? port)
@@ -221,21 +221,21 @@
 (define (read-char (port (current-input-port))) 
   (if (input-port-close? port)
     (error "Cannot read from a closed port"))
-  (if (eqv? (##get-last-char port) '())
-    (let ((ch (##read-char (field0 port))))
-      (if (eqv? ch '()) ##eof ch))
-    (let ((ch (##get-last-char port)))
-      (##set-last-char port '())
+  (if (eqv? (%%get-last-char port) '())
+    (let ((ch (%%read-char (field0 port))))
+      (if (eqv? ch '()) %%eof ch))
+    (let ((ch (%%get-last-char port)))
+      (%%set-last-char port '())
       ch)))
 
 (define (peek-char (port (current-input-port)))
   (if (input-port-close? port)
     (error "Cannot read from a closed port"))
-  (if (eqv? (##get-last-char port) '())
-    (let* ((ch (##read-char (field0 port))) (ch (if (eqv? ch '()) ##eof ch)))
-      (##set-last-char port ch)
+  (if (eqv? (%%get-last-char port) '())
+    (let* ((ch (%%read-char (field0 port))) (ch (if (eqv? ch '()) %%eof ch)))
+      (%%set-last-char port ch)
       ch)
-    (##get-last-char port)))
+    (%%get-last-char port)))
 
 
 ;; ---------------------- READ ---------------------- ;;
@@ -334,13 +334,13 @@
 
 (define (open-output-file filename)
   ;; (file_descriptor, is_open, write_file_type)
-  (rib (##get-fd-output-file filename) #t output-port-type))
+  (rib (%%get-fd-output-file filename) #t output-port-type))
 
 (define (close-output-port port)
   (if (field1 port)
     (begin 
       (field1-set! port #f)
-      (##close-output-port (field0 port)))))
+      (%%close-output-port (field0 port)))))
 
 (define (output-port? port)
   (eqv? (field2 port) output-port-type))
@@ -358,7 +358,7 @@
     result))
 
 (define (write-char ch (port (current-output-port)))
-  (##write-char ch (field0 port)))
+  (%%write-char ch (field0 port)))
 
 (define (newline (port (current-output-port)))
   (write-char 10 port))

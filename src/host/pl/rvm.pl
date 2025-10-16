@@ -35,7 +35,7 @@ sub get_int {
     return ( $x < 46 ) ? $n + $x : get_int( $n + $x - 46 );
 }
 
-# @@(feature ##getchar
+# @@(feature %%getchar
 sub getchar {
     my $c = getc(STDIN);        # Read from the stdin
     &push( defined $c ? ord($c) : -1 );
@@ -43,7 +43,7 @@ sub getchar {
 }
 # )@@
 
-# @@(feature ##putchar
+# @@(feature %%putchar
 sub putchar {
   my ($args) = @_;
   print STDOUT chr($args);    # Write to the stdout
@@ -188,27 +188,27 @@ sub list_tail {
 
 our $primitives = [
   # @@(primitives (gen body)
-  prim3(sub { my ($z, $y, $x) = @_; return [$x, $y, $z]; }),        # @@(primitive (##rib a b c))@@
-  prim1(sub { my ($x) = @_; return $x;}),                           # @@(primitive (##id x))@@
-  sub { return [&pop(), 0]->[1] },                                  # @@(primitive (##arg1 x y))@@
-  sub { &push([&pop(), &pop()]->[0]); return; },                    # @@(primitive (##arg2 x y))@@
-  sub { &push([&pop()->[0], $stack, 1]);return; },                  # @@(primitive (##close rib))@@
-  prim1(sub { my ($x) = @_; return bool2scm(is_rib($x));}),         # @@(primitive (##rib? rib))@@
-  prim1(sub { my ($x) = @_; return $x->[0]}),                       # @@(primitive (##field0 rib))@@
-  prim1(sub { my ($x) = @_; return $x->[1]}),                       # @@(primitive (##field1 rib))@@
-  prim1(sub { my ($x) = @_; return $x->[2]}),                       # @@(primitive (##field2 rib))@@
-  prim2(\&field0set),                                               # @@(primitive (##field0-set! rib x))@@
-  prim2(\&field1set),                                               # @@(primitive (##field1-set! rib x))@@
-  prim2(\&field2set),                                               # @@(primitive (##field2-set! rib x))@@
-  prim2(sub { my ($y, $x) = @_; return bool2scm($x == $y)}),        # @@(primitive (##eqv? x y))@@
-  prim2(sub { my ($y, $x) = @_; return bool2scm($x < $y)}),         # @@(primitive (##< a b))@@
-  prim2(sub { my ($y, $x) = @_; return $x + $y}),                   # @@(primitive (##+ a b))@@
-  prim2(sub { my ($y, $x) = @_; return $x - $y}),                   # @@(primitive (##- a b))@@
-  prim2(sub { my ($y, $x) = @_; return $x * $y}),                   # @@(primitive (##* a b))@@
-  prim2(sub { my ($y, $x) = @_; return int($x/$y)}),                # @@(primitive (##quotient a b))@@               
-  \&getchar,                                                        # @@(primitive (##getchar))@@
-  prim1(\&putchar),                                                 # @@(primitive (##putchar c))@@
-  prim1(\&CORE::exit),                                                    # @@(primitive (##exit a))@@
+  prim3(sub { my ($z, $y, $x) = @_; return [$x, $y, $z]; }),        # @@(primitive (%%rib a b c))@@
+  prim1(sub { my ($x) = @_; return $x;}),                           # @@(primitive (%%id x))@@
+  sub { return [&pop(), 0]->[1] },                                  # @@(primitive (%%arg1 x y))@@
+  sub { &push([&pop(), &pop()]->[0]); return; },                    # @@(primitive (%%arg2 x y))@@
+  sub { &push([&pop()->[0], $stack, 1]);return; },                  # @@(primitive (%%close rib))@@
+  prim1(sub { my ($x) = @_; return bool2scm(is_rib($x));}),         # @@(primitive (%%rib? rib))@@
+  prim1(sub { my ($x) = @_; return $x->[0]}),                       # @@(primitive (%%field0 rib))@@
+  prim1(sub { my ($x) = @_; return $x->[1]}),                       # @@(primitive (%%field1 rib))@@
+  prim1(sub { my ($x) = @_; return $x->[2]}),                       # @@(primitive (%%field2 rib))@@
+  prim2(\&field0set),                                               # @@(primitive (%%field0-set! rib x))@@
+  prim2(\&field1set),                                               # @@(primitive (%%field1-set! rib x))@@
+  prim2(\&field2set),                                               # @@(primitive (%%field2-set! rib x))@@
+  prim2(sub { my ($y, $x) = @_; return bool2scm($x == $y)}),        # @@(primitive (%%eqv? x y))@@
+  prim2(sub { my ($y, $x) = @_; return bool2scm($x < $y)}),         # @@(primitive (%%< a b))@@
+  prim2(sub { my ($y, $x) = @_; return $x + $y}),                   # @@(primitive (%%+ a b))@@
+  prim2(sub { my ($y, $x) = @_; return $x - $y}),                   # @@(primitive (%%- a b))@@
+  prim2(sub { my ($y, $x) = @_; return $x * $y}),                   # @@(primitive (%%* a b))@@
+  prim2(sub { my ($y, $x) = @_; return int($x/$y)}),                # @@(primitive (%%quotient a b))@@               
+  \&getchar,                                                        # @@(primitive (%%getchar))@@
+  prim1(\&putchar),                                                 # @@(primitive (%%putchar c))@@
+  prim1(\&CORE::exit),                                                    # @@(primitive (%%exit a))@@
   # )@@
 ];
 

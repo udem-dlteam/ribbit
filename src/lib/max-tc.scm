@@ -5,27 +5,27 @@
 
 ;;;----------------------------------------------------------------------------
 
-(define rib         ##rib         ) ;; predefined by RVM (must be first and 0)
-(define id          ##id          )
-(define arg1        ##arg1        )
-(define arg2        ##arg2        )
-(define close       ##close       )
-(define rib?        ##rib?        )
-(define field0      ##field0      )
-(define field1      ##field1      )
-(define field2      ##field2      )
-(define field0-set! ##field0-set! )
-(define field1-set! ##field1-set! )
-(define field2-set! ##field2-set! )
-(define eqv?        ##eqv?        )
-(define <           ##<           )
-(define +           ##+           )
-(define -           ##-           )
-(define *           ##*           )
-(define quotient    ##quotient    )
-(define getchar     ##getchar     )
-(define putchar     ##putchar     )
-(define exit        ##exit        )
+(define rib         %%rib         ) ;; predefined by RVM (must be first and 0)
+(define id          %%id          )
+(define arg1        %%arg1        )
+(define arg2        %%arg2        )
+(define close       %%close       )
+(define rib?        %%rib?        )
+(define field0      %%field0      )
+(define field1      %%field1      )
+(define field2      %%field2      )
+(define field0-set! %%field0-set! )
+(define field1-set! %%field1-set! )
+(define field2-set! %%field2-set! )
+(define eqv?        %%eqv?        )
+(define <           %%<           )
+(define +           %%+           )
+(define -           %%-           )
+(define *           %%*           )
+(define quotient    %%quotient    )
+(define getchar     %%getchar     )
+(define putchar     %%putchar     )
+(define exit        %%exit        )
 
 ;; Remember versions of primitives with no dynamic type checking.
 
@@ -943,7 +943,7 @@
                              cont
                              (add-nb-args
                                1
-                               (gen-call '##close cont))))))
+                               (gen-call '%%close cont))))))
 
 ;#; ;; support for begin special form
                  ((eqv? first 'begin)
@@ -1052,7 +1052,7 @@
                         (add-nb-args
                           2
                           (rib jump/call-op ;; call
-                               '##arg2
+                               '%%arg2
                                 cont))))))
 
 (define (comp-begin cte exprs cont)
@@ -1062,7 +1062,7 @@
           (add-nb-args
             2
             (rib jump/call-op ;; call
-                 '##arg1
+                 '%%arg1
                  (comp-begin cte (cdr exprs) cont)))
             cont)))
 
@@ -1085,7 +1085,7 @@
                 (eqv? (field1 cont) name)))))
 
 (define (gen-noop cont)
-  (if (is-call? '##arg1 cont)
+  (if (is-call? '%%arg1 cont)
       (field2 cont) ;; remove pop
       (rib const-op 0 cont))) ;; add dummy value for set!
 
@@ -1120,7 +1120,7 @@
       (cons (car vars) (extend (cdr vars) cte))
       cte))
 
-(define tail (add-nb-args 1 (rib jump/call-op '##id 0))) ;; jump
+(define tail (add-nb-args 1 (rib jump/call-op '%%id 0))) ;; jump
 
 (define (compile expr) ;; converts an s-expression to a procedure
   (make-procedure (rib 0 0 (comp '() expr tail)) '()))

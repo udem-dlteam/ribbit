@@ -1,9 +1,9 @@
-(##include-once "./bool.scm")
-(##include-once "./types.scm")
-(##include-once "./pair-list.scm")
-(##include-once "./io.scm")
+(%%include-once "./bool.scm")
+(%%include-once "./types.scm")
+(%%include-once "./pair-list.scm")
+(%%include-once "./io.scm")
 
-(##include-once "./control.scm")
+(%%include-once "./control.scm")
 
 (cond-expand
   ((host js)
@@ -67,74 +67,74 @@
 (define eval@singleton-type 5)
 
 (define (eval@add-nb-args nb tail)
-  (##rib eval@const-op
+  (%%rib eval@const-op
        nb
        tail))
 
 (define (eval@improper-length lst)
   (if (pair? lst)
-    (##+ 1 (eval@improper-length (##field1 lst)))
+    (%%+ 1 (eval@improper-length (%%field1 lst)))
     0))
 
 (define (eval@improper-list->list lst tail)
   (if (pair? lst)
-    (eval@improper-list->list (##field1 lst) (cons (##field0 lst) tail))
+    (eval@improper-list->list (%%field1 lst) (cons (%%field0 lst) tail))
     (reverse (cons lst tail))))
 
 (define (last-item lst)
   (if (pair? lst)
-    (last-item (##field1 lst))
+    (last-item (%%field1 lst))
     lst))
 
 
 (define (eval@comp cte expr cont)
   (cond ((symbol? expr)
-         (##rib eval@get-op (eval@lookup expr cte 0) cont))
+         (%%rib eval@get-op (eval@lookup expr cte 0) cont))
 
         ((pair? expr)
-         (let ((first (##field0 expr)))
-           (cond ((##eqv? first 'quote)
-                  (##rib eval@const-op (cadr expr) cont))
+         (let ((first (%%field0 expr)))
+           (cond ((%%eqv? first 'quote)
+                  (%%rib eval@const-op (cadr expr) cont))
 
-                 ((##eqv? first 'quasiquote)
+                 ((%%eqv? first 'quasiquote)
                   (eval@comp cte
                              (eval@expand-qq (cadr expr))
                              cont))
 
-                 ((or (##eqv? first 'set!) (##eqv? first 'define))
+                 ((or (%%eqv? first 'set!) (%%eqv? first 'define))
                   (let ((pattern (cadr expr)))
                     (if (pair? pattern)
                       (eval@comp cte
-                                 (cons 'lambda (cons (##field1 pattern) (cddr expr)))
-                                 (eval@gen-assign (eval@lookup (##field0 pattern) cte 1)
+                                 (cons 'lambda (cons (%%field1 pattern) (cddr expr)))
+                                 (eval@gen-assign (eval@lookup (%%field0 pattern) cte 1)
                                                   cont))
                       (eval@comp cte
                                  (caddr expr)
                                  (eval@gen-assign (eval@lookup pattern cte 1)
                                                   cont)))))
 
-                 ((##eqv? first 'if)
+                 ((%%eqv? first 'if)
                   (eval@comp
                     cte
                     (cadr expr)
-                    (##rib
+                    (%%rib
                      eval@if-op
                      (eval@comp cte (caddr expr) cont)
                      (if (null? (cdddr expr))
                        (eval@comp cte 0 cont) ;; push some dummy value
                        (eval@comp cte (cadddr expr) cont)))))
 
-                 ((##eqv? first 'lambda)
+                 ((%%eqv? first 'lambda)
                   (let* ((params (cadr expr))
                          (variadic (or (symbol? params) (not (null? (last-item params)))))
-                         (nb-params (if variadic (##+ 1 (##* 2 (eval@improper-length params))) (##* 2 (length params))))
+                         (nb-params (if variadic (%%+ 1 (%%* 2 (eval@improper-length params))) (%%* 2 (length params))))
                          (params
                            (if variadic
                              (eval@improper-list->list params '())
                              params)))
-                    (##rib eval@const-op
+                    (%%rib eval@const-op
                      (eval@make-procedure
-                       (##rib nb-params
+                       (%%rib nb-params
                         0
                         (eval@comp-begin
                           (eval@extend params
@@ -150,17 +150,17 @@
                        cont
                        (if-feature
                          prim-no-arity
-                         (eval@gen-call '##close cont)
+                         (eval@gen-call '%%close cont)
                          (eval@add-nb-args
                            1
-                           (eval@gen-call '##close cont)))))))
+                           (eval@gen-call '%%close cont)))))))
 
                  ;#; ;; support for begin special form
-                 ((##eqv? first 'begin)
-                  (eval@comp-begin cte (##field1 expr) cont))
+                 ((%%eqv? first 'begin)
+                  (eval@comp-begin cte (%%field1 expr) cont))
 
                  ;#; ;; support for let special form
-                 ((##eqv? first 'let)
+                 ((%%eqv? first 'let)
                   (let ((bindings (cadr expr)))
                     (eval@comp-bind
                       cte
@@ -171,25 +171,25 @@
                       cont)))
 
                  ;#; ;; support for single armed let special form
-                 ((##eqv? first 'letrec)
+                 ((%%eqv? first 'letrec)
                   (let ((bindings (cadr expr)))
                     (eval@comp
                       cte
                       (cons 'let
                             (cons (map (lambda (binding)
-                                         (list (##field0 binding) #f))
+                                         (list (%%field0 binding) #f))
                                        bindings)
                                   (append (map (lambda (binding)
-                                                 (list 'set! (##field0 binding) (cadr binding)))
+                                                 (list 'set! (%%field0 binding) (cadr binding)))
                                                bindings)
                                           (cddr expr))))
                       cont)))
 
                  ;#; ;; support for and special form
-                 ((##eqv? first 'and)
+                 ((%%eqv? first 'and)
                   (eval@comp
                     cte
-                    (if (pair? (##field1 expr))
+                    (if (pair? (%%field1 expr))
                       (let ((second (cadr expr)))
                         (if (pair? (cddr expr))
                           (eval@build-if
@@ -201,9 +201,9 @@
                     cont))
 
                  ;#; ;; support for or special form
-                 ((##eqv? first 'or)
+                 ((%%eqv? first 'or)
                   (eval@comp cte
-                        (if (pair? (##field1 expr))
+                        (if (pair? (%%field1 expr))
                           (let ((second (cadr expr)))
                             (if (pair? (cddr expr))
                               (list 'let
@@ -217,10 +217,10 @@
                         cont))
 
                  ;#; ;; support for cond special form
-                 ((##eqv? first 'cond)
+                 ((%%eqv? first 'cond)
                   (eval@comp cte
-                        (if (pair? (##field1 expr))
-                          (if (##eqv? (caadr expr) 'else)
+                        (if (pair? (%%field1 expr))
+                          (if (%%eqv? (caadr expr) 'else)
                             (cons 'begin (cdadr expr))
                             (eval@build-if
                               (caadr expr)
@@ -229,29 +229,29 @@
                           #f)
                         cont))
 
-                 ((##eqv? first 'case)
-                  (let ((key (##field0 (##field1 expr))))
-                    (let ((clauses (##field1 (##field1 expr))))
+                 ((%%eqv? first 'case)
+                  (let ((key (%%field0 (%%field1 expr))))
+                    (let ((clauses (%%field1 (%%field1 expr))))
                       (eval@comp
                         cte
                         (if (pair? clauses)
-                          (let ((clause (##field0 clauses)))
-                            (if (##eqv? (##field0 clause) 'else)
-                              (cons 'begin (##field1 clause))
+                          (let ((clause (%%field0 clauses)))
+                            (if (%%eqv? (%%field0 clause) 'else)
+                              (cons 'begin (%%field1 clause))
                               (eval@build-if
-                                (cons 'memv (cons key (list (list 'quote (##field0 clause)))))
-                                (cons 'begin (##field1 clause))
-                                (cons 'case (cons key (##field1 clauses))))))
+                                (cons 'memv (cons key (list (list 'quote (%%field0 clause)))))
+                                (cons 'begin (%%field1 clause))
+                                (cons 'case (cons key (%%field1 clauses))))))
                           #f)
                         cont))))
 
                  (else
                    ;;                  #; ;; support for calls with only variable in operator position
                    ;;                  (eval@comp-call cte
-                   ;;                             (##field1 expr)
+                   ;;                             (%%field1 expr)
                    ;;                             (cons first cont))
                    ;#; ;; support for calls with any expression in operator position
-                   (let ((args (##field1 expr)))
+                   (let ((args (%%field1 expr)))
                      (if (symbol? first)
                        (begin
                          ;(if-feature
@@ -278,59 +278,59 @@
 
         (else
           ;; self-evaluating
-          (##rib eval@const-op expr cont))))
+          (%%rib eval@const-op expr cont))))
 
 ;#; ;; support for and, or, cond special forms
 (define (eval@build-if a b c) (cons 'if (list a b c)))
 
 (define (eval@expand-constant expr)
-  (##qq-list 'quote expr))
+  (%%qq-list 'quote expr))
 
 (define (eval@expand-qq expr)
   (let parse ((x expr) (depth 1))
     (cond
       ((not (pair? x))
        (if (vector? x)
-         (##qq-list '##qq-list->vector (parse (##field0 x) depth))
+         (%%qq-list '%%qq-list->vector (parse (%%field0 x) depth))
          (eval@expand-constant x)))
-      ((##eqv? (##field0 x) 'unquote)
-       (if (##eqv? depth 1)
+      ((%%eqv? (%%field0 x) 'unquote)
+       (if (%%eqv? depth 1)
          (cadr x)
-         (##qq-list '##qq-cons (eval@expand-constant 'unquote) (parse (##field1 x) (##- depth 1)))))
-      ((and (pair? (##field0 x)) (##eqv? (caar x) 'unquote-splicing))
-       (if (##eqv? depth 1)
-         (##qq-list '##qq-append (cadar x) (parse (##field1 x) depth))
-         (##qq-list '##qq-cons (##qq-list '##qq-cons (eval@expand-constant 'unquote-splicing) (parse (cdar x) (##- depth 1))) (parse (##field1 x) depth))))
-      ((##eqv? (##field0 x) 'quasiquote)
-       (##qq-list '##qq-cons (eval@expand-constant 'quasiquote) (parse (##field1 x) (##+ depth 1))))
+         (%%qq-list '%%qq-cons (eval@expand-constant 'unquote) (parse (%%field1 x) (%%- depth 1)))))
+      ((and (pair? (%%field0 x)) (%%eqv? (caar x) 'unquote-splicing))
+       (if (%%eqv? depth 1)
+         (%%qq-list '%%qq-append (cadar x) (parse (%%field1 x) depth))
+         (%%qq-list '%%qq-cons (%%qq-list '%%qq-cons (eval@expand-constant 'unquote-splicing) (parse (cdar x) (%%- depth 1))) (parse (%%field1 x) depth))))
+      ((%%eqv? (%%field0 x) 'quasiquote)
+       (%%qq-list '%%qq-cons (eval@expand-constant 'quasiquote) (parse (%%field1 x) (%%+ depth 1))))
       (else
-        (##qq-list '##qq-cons (parse (##field0 x) depth) (parse (##field1 x) depth))))))
+        (%%qq-list '%%qq-cons (parse (%%field0 x) depth) (parse (%%field1 x) depth))))))
 
 (define (eval@comp-bind cte vars exprs body body-cte cont)
   (if (pair? vars)
-    (let ((var (##field0 vars))
-          (expr (##field0 exprs)))
+    (let ((var (%%field0 vars))
+          (expr (%%field0 exprs)))
       (eval@comp
         cte
         expr
         ;#; ;; support for multiple expressions in body
         (eval@comp-bind
           (cons #f cte)
-          (##field1 vars)
-          (##field1 exprs)
+          (%%field1 vars)
+          (%%field1 exprs)
           body
           (cons var body-cte)
-          (if (##eqv? cont eval@tail)
+          (if (%%eqv? cont eval@tail)
             cont
             (if-feature
               prim-no-arity
-              (##rib eval@jump/call-op ;; call
-               '##arg2
+              (%%rib eval@jump/call-op ;; call
+               '%%arg2
                cont)
               (eval@add-nb-args
                 2
-                (##rib eval@jump/call-op ;; call
-                 '##arg2
+                (%%rib eval@jump/call-op ;; call
+                 '%%arg2
                  cont)))))))
     (eval@comp-begin
       body-cte
@@ -339,33 +339,33 @@
 
 (define (eval@comp-begin cte exprs cont)
   (eval@comp cte
-        (##field0 exprs)
-        (if (pair? (##field1 exprs))
+        (%%field0 exprs)
+        (if (pair? (%%field1 exprs))
           (if-feature
             prim-no-arity
-            (##rib eval@jump/call-op ;; call
-             '##arg1
-             (eval@comp-begin cte (##field1 exprs) cont))
+            (%%rib eval@jump/call-op ;; call
+             '%%arg1
+             (eval@comp-begin cte (%%field1 exprs) cont))
             (eval@add-nb-args
               2
-              (##rib eval@jump/call-op ;; call
-               '##arg1
-               (eval@comp-begin cte (##field1 exprs) cont))))
+              (%%rib eval@jump/call-op ;; call
+               '%%arg1
+               (eval@comp-begin cte (%%field1 exprs) cont))))
             cont)))
 
 (define (eval@gen-call v cont)
-  (if (##eqv? cont eval@tail)
-      (##rib eval@jump/call-op v 0)      ;; jump
-      (##rib eval@jump/call-op v cont))) ;; call
+  (if (%%eqv? cont eval@tail)
+      (%%rib eval@jump/call-op v 0)      ;; jump
+      (%%rib eval@jump/call-op v cont))) ;; call
 
 (define (eval@gen-assign v cont)
-  (##rib eval@set-op v
-       (if (and (##rib? cont) ;; starts with pop?
-                (##eqv? (##field0 cont) eval@jump/call-op) ;; call?
-                (##eqv? (##field1 cont) '##arg1)
-                (##rib? (##field2 cont)))
-         (##field2 cont) ;; remove pop
-         (##rib eval@const-op 0 cont))))
+  (%%rib eval@set-op v
+       (if (and (%%rib? cont) ;; starts with pop?
+                (%%eqv? (%%field0 cont) eval@jump/call-op) ;; call?
+                (%%eqv? (%%field1 cont) '%%arg1)
+                (%%rib? (%%field2 cont)))
+         (%%field2 cont) ;; remove pop
+         (%%rib eval@const-op 0 cont))))
 
 ;; (define (gen-noop cont)
 ;;   (if (and (rib? cont) ;; starts with pop?
@@ -373,56 +373,56 @@
 ;;            (eqv? (field1 cont) 'arg1)
 ;;            (rib? (field2 cont)))
 ;;       (field2 cont) ;; remove pop
-;;       (##rib const-op 0 cont))) ;; add dummy value for set!
+;;       (%%rib const-op 0 cont))) ;; add dummy value for set!
 
 (define (eval@comp-call cte exprs nb-args var-cont)
   (if (pair? exprs)
     (eval@comp
       cte
-      (##field0 exprs)
+      (%%field0 exprs)
       (eval@comp-call (cons #f cte)
-                      (##field1 exprs)
+                      (%%field1 exprs)
                       nb-args
                       var-cont))
-    (let ((var (##field0 var-cont)))
-      (let ((cont (##field1 var-cont)))
+    (let ((var (%%field0 var-cont)))
+      (let ((cont (%%field1 var-cont)))
         (let ((v (eval@lookup var cte 0)))
           ;; should be unecessary because there shouldn't be any primitive called this way
           ;; (display v)
           ;; (newline)
           ;; (if-feature
           ;;   prim-no-arity
-          ;;   (if (##rib? (##field0 (##field0 var)))
+          ;;   (if (%%rib? (%%field0 (%%field0 var)))
           ;;     (eval@add-nb-args
           ;;       nb-args
-          ;;       (eval@gen-call (if (integer? v) (##+ 1 v) v) cont))
-          ;;     (eval@gen-call (if (integer? v) (##+ 1 v) v) cont))
+          ;;       (eval@gen-call (if (integer? v) (%%+ 1 v) v) cont))
+          ;;     (eval@gen-call (if (integer? v) (%%+ 1 v) v) cont))
             (eval@add-nb-args
               nb-args
-              (eval@gen-call (if (integer? v) (##+ 1 v) v) cont)))))))
+              (eval@gen-call (if (integer? v) (%%+ 1 v) v) cont)))))))
 
 (define (eval@lookup var cte i)
   (if (pair? cte)
-      (if (##eqv? (##field0 cte) var)
+      (if (%%eqv? (%%field0 cte) var)
           i
-          (eval@lookup var (##field1 cte) (##+ i 1)))
+          (eval@lookup var (%%field1 cte) (%%+ i 1)))
       var))
 
 (define (eval@extend vars cte)
   (if (pair? vars)
-      (cons (##field0 vars) (eval@extend (##field1 vars) cte))
+      (cons (%%field0 vars) (eval@extend (%%field1 vars) cte))
       cte))
 
 (define eval@tail
   (if-feature
     prim-no-arity
-    (##rib eval@jump/call-op '##id 0)
-    (eval@add-nb-args 1 (##rib eval@jump/call-op '##id 0)))) ;; jump
+    (%%rib eval@jump/call-op '%%id 0)
+    (eval@add-nb-args 1 (%%rib eval@jump/call-op '%%id 0)))) ;; jump
 
-(define (eval@make-procedure code env) (##rib code env eval@procedure-type))
+(define (eval@make-procedure code env) (%%rib code env eval@procedure-type))
 
 (define (eval expr)
-  ((eval@make-procedure (##rib 0 0 (eval@comp '() expr eval@tail)) '())))
+  ((eval@make-procedure (%%rib 0 0 (eval@comp '() expr eval@tail)) '())))
 
 (define (repl)
   (if-feature
