@@ -47,6 +47,7 @@ test_ran="0"
 success="1"
 
 ifeature=0
+err_count=0
 for feature in "" $(echo $TEST_FEATURES | tr ',' '\n' | sed -e "s/ /,/g" ); do
   feature=`echo $feature | sed -e "s/,/ /g"`
 
@@ -61,38 +62,41 @@ for feature in "" $(echo $TEST_FEATURES | tr ',' '\n' | sed -e "s/ /,/g" ); do
     for run in $(echo $runs | tr ',' '\n' | sed -e "s/ /,/g"); do
       echo "$ifeature\c"
       run=`echo $run | sed -e "s/,/ /g"`
+      err_file=$prog.$err_count.err
 
       # Compile test
-      cmd="$RSC_COMPILER -t $HOST $run $feature -o $prog.$HOST $test_path"
-      `$cmd` > $prog.err  2>&1
+      cmd="${RSC_COMPILER} -t $HOST $run $feature -o $prog.$HOST $test_path"
+      $cmd > $err_file  2>&1
       if [ "$?" != "0" ]; then
         if [ "$success" = "1" ]; then
           success=0
           echo "❌"
         fi
         echo ">>>>>> [run: '$run' features: '$feature' input: '$input' argv: '$argv']"
-        echo ">>>>>> Error during compilation (see $prog.err)"
+        echo ">>>>>> Error during compilation (see $err_file)"
         echo ">>>>>> Compile with : '$cmd'"
         echo ">>>>>> See error below."
-        cat $prog.err
+        cat $err_file
         echo ""
+        err_count=$(($err_count + 1))
         continue
       fi
 
       # Run test
-      echo $input | run_file $prog.$HOST $prog.out $argv > $prog.err 2>&1 
+      echo $input | run_file $prog.$HOST $prog.out $argv > $err_file 2>&1
       if [ "$?" != 0 ]; then
         if [ $success -eq 1 ]; then
           success=0
           echo "❌"
         fi
         echo ">>>>>> [run: '$run' features: '$feature' input: '$input' argv: '$argv']"
-        echo ">>>>>> Error during test execution (see $prog.err)"
+        echo ">>>>>> Error during test execution (see $err_file)"
         echo ">>>>>> Compile with : '$cmd'"
         echo ">>>>>> See error below."
         tail -n 10 $prog.out
-        cat $prog.err
+        cat $err_file
         echo ""
+        err_count=$(($err_count + 1))
         continue
       fi
 
@@ -111,20 +115,22 @@ for feature in "" $(echo $TEST_FEATURES | tr ',' '\n' | sed -e "s/ /,/g" ); do
         echo ">>>>>> See error below."
         cat $prog.diff
         echo ""
+        err_count=$(($err_count + 1))
         test_err=1
       fi
 
       # Cleanup
       if [ "$cleanup" != "" ]; then
-        sh -c "$cleanup" > $prog.err 2>&1;
+        sh -c "$cleanup" > $err_file 2>&1;
         if [ "$?" != "0" ]; then
           if [ "$success" = "1" ]; then
             success=0
             echo "❌"
           fi
             echo ">>> $test_path [options: $run]"
-            tail -n 10 $prog.err
-            echo "Error during cleaning up : see $prog.err for more details."
+            tail -n 10 $err_file
+            echo "Error during cleaning up : see $err_file for more details."
+            err_count=$(($err_count + 1))
         fi;
       fi;
     done
