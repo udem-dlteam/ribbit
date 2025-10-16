@@ -18,7 +18,8 @@
     (define-macro (comp-when cond . body)
       (if (eval cond)
         `(begin ,@body)
-        0))))
+        0)))
+  (else))
 
 
 (cond-expand
@@ -254,11 +255,21 @@
    (define (symbol->str symbol)
      (table-ref uninterned-symbols symbol (symbol->string symbol)))))
 
+
+(define (%%std-fold kons knil ls)
+  (let lp ((ls ls) (res knil))
+    (if (null? ls)
+      res
+      (lp (cdr ls) (kons (car ls) res)))))
+
 ;; These functions appeared in later versions of Gambit.
 ;; When compiling for a version under 4.9.4, we include them:
 ;; > string-prefix?, filter, fold, fold-right, iota
 ;;
 (cond-expand
+  (guile
+    (define fold %%std-fold))
+
   (gambit
     (comp-when (< (system-version) 409004)
 
@@ -281,18 +292,16 @@
        (define (filter f lst)
          (fold-right (lambda (e r) (if (f e) (cons e r) r)) '() lst))
 
-       (define (fold kons knil ls)
-         (let lp ((ls ls) (res knil))
-           (if (null? ls)
-             res
-             (lp (cdr ls) (kons (car ls) res)))))
+
+       (define fold %%std-fold)
 
        (define (iota n)
          (let ((max-n n))
            (let rec ((n n))
              (if (eqv? n 0)
                '()
-               (cons (- max-n n) (rec (- n 1))))))))))
+               (cons (- max-n n) (rec (- n 1)))))))))
+  (else))
 
 (cond-expand
 
@@ -598,8 +607,31 @@
 
     ))
 
+;; read-all
 
-;;; Ribs emulation as vectors for other implementations than Ribbit. 
+(cond-expand
+  (guile
+
+    (read-enable 'case-insensitive)
+    (define (read-all port)
+      (let loop ((curr (read port)) (acc '()))
+        (if (eof-object? curr)
+          (reverse acc)
+          (loop (read port) (cons curr acc))))))
+
+  (else))
+
+;; Eval
+
+(cond-expand
+  (guile
+    ;; See here: https://www.gnu.org/software/guile/manual/html_node/Fly-Evaluation.html
+    ;; eval in guile takes two arguments, one for the environement
+    (define eval primitive-eval))
+  (else))
+
+
+;;; Ribs emulation as vectors for other implementations than Ribbit.
 (cond-expand
 
   (ribbit
@@ -718,10 +750,9 @@
     (display "...")))
 
 
-(define (pp-return foo . x)
-  (let ((r (apply foo x)))
-    (pp r)
-    r))
+(define (pp-return r)
+  (pp r)
+  r)
 
 (define (display-return foo . x)
   (let ((r (apply foo x)))
@@ -1890,7 +1921,7 @@
 (define defined-features '()) ;; used as parameters for expand-functions
 
 (cond-expand
-  (ribbit
+  ((or ribbit guile)
    (define (current-directory) (path-directory (car (cmd-line)))))
 
   (else
