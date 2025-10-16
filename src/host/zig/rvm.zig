@@ -564,26 +564,26 @@ const Ribbit = struct {
     fn primitiveOperation(self: *@This(), op: i32) !void {
         switch (op) {
             // @@(primitives (gen index " => {\n" body)
-            0 => { // @@(primitive (##rib a b c)
+            0 => { // @@(primitive (%%rib a b c)
                 const tag: RibField = self.stackPop();
                 const cdr: RibField = self.stackPop();
                 const car: RibField = self.stackPop();
                 const rf: RibField = rib(try self.newRib(car, cdr, tag));
                 try self.stackPush(rf);
             }, // )@@
-            1 => { // @@(primitive (##id x)
+            1 => { // @@(primitive (%%id x)
                 const val: RibField = self.stackPop();
                 try self.stackPush(val);
             }, // )@@
-            2 => { // @@(primitive (##arg1 x y)
+            2 => { // @@(primitive (%%arg1 x y)
                 _ = self.stackPop();
             }, // )@@
-            3 => { // @@(primitive (##arg2 x y)
+            3 => { // @@(primitive (%%arg2 x y)
                 const val = self.stackPop();
                 _ = self.stackPop();
                 try self.stackPush(val);
             }, // )@@
-            4 => { // @@(primitive (##close rib)
+            4 => { // @@(primitive (%%close rib)
                 const val = self.stackPop();
 
                 const rf: RibField = rib(try self.newRib(
@@ -594,41 +594,41 @@ const Ribbit = struct {
 
                 try self.stackPush(rf);
             }, // )@@
-            5 => { // @@(primitive (##rib? rib) (use bool2scm)
+            5 => { // @@(primitive (%%rib? rib) (use bool2scm)
                 const val: RibField = self.stackPop();
                 try self.stackPush(rib(self.bool2scm(val.isRib())));
             }, // )@@
-            6 => { // @@(primitive (##field0 rib)
+            6 => { // @@(primitive (%%field0 rib)
                 const val: RibField = self.stackPop();
                 try self.stackPush(val.rib.car);
             }, // )@@
-            7 => { // @@(primitive (##field1 rib)
+            7 => { // @@(primitive (%%field1 rib)
                 const val: RibField = self.stackPop();
                 try self.stackPush(val.rib.cdr);
             }, // )@@
-            8 => { // @@(primitive (##field2 rib)
+            8 => { // @@(primitive (%%field2 rib)
                 const val: RibField = self.stackPop();
                 try self.stackPush(val.rib.tag);
             }, // )@@
-            9 => { // @@(primitive (##field0-set! rib x)
+            9 => { // @@(primitive (%%field0-set! rib x)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 val2.rib.car = val1;
                 try self.stackPush(val1);
             }, // )@@
-            10 => { // @@(primitive (##field1-set! rib x)
+            10 => { // @@(primitive (%%field1-set! rib x)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 val2.rib.cdr = val1;
                 try self.stackPush(val1);
             }, // )@@
-            11 => { // @@(primitive (##field2-set! rib x)
+            11 => { // @@(primitive (%%field2-set! rib x)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 val2.rib.tag = val1;
                 try self.stackPush(val1);
             }, // )@@
-            12 => { // @@(primitive (##eqv? rib1 rib2) (use bool2scm)
+            12 => { // @@(primitive (%%eqv? rib1 rib2) (use bool2scm)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
 
@@ -645,27 +645,27 @@ const Ribbit = struct {
 
                 try self.stackPush(rib(val));
             }, // )@@
-            13 => { // @@(primitive (##< x y) (use bool2scm)
+            13 => { // @@(primitive (%%< x y) (use bool2scm)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 try self.stackPush(rib(self.bool2scm(val2.num < val1.num)));
             }, // )@@
-            14 => { // @@(primitive (##+ x y)
+            14 => { // @@(primitive (%%+ x y)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 try self.stackPush(num(val2.num + val1.num));
             }, // )@@
-            15 => { // @@(primitive (##- x y)
+            15 => { // @@(primitive (%%- x y)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 try self.stackPush(num(val2.num - val1.num));
             }, // )@@
-            16 => { // @@(primitive (##* x y)
+            16 => { // @@(primitive (%%* x y)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 try self.stackPush(num(val2.num * val1.num));
             }, // )@@
-            17 => { // @@(primitive (##quotient x y)
+            17 => { // @@(primitive (%%quotient x y)
                 const val1: RibField = self.stackPop();
                 const val2: RibField = self.stackPop();
                 if (val1.num != 0) {
@@ -674,17 +674,17 @@ const Ribbit = struct {
                     try self.stackPush(num(0));
                 }
             }, // )@@
-            18 => { // @@(primitive (##getchar)
+            18 => { // @@(primitive (%%getchar)
                 const read: i32 = stdin.readByte() catch -1;
                 try self.stackPush(num(read));
             }, // )@@
-            19 => { // @@(primitive (##putchar c)
+            19 => { // @@(primitive (%%putchar c)
                 const val: RibField = self.stackPop();
                 const c: u8 = @intCast(val.num);
                 try stdout.writeByte(c);
                 try self.stackPush(val);
             }, // )@@
-            20 => { // @@(primitive (##exit n)
+            20 => { // @@(primitive (%%exit n)
                 const x: i32 = self.stackPop().num;
                 std.process.exit(@intCast(x));
             }, // )@@

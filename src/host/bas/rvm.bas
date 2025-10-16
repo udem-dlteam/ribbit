@@ -243,7 +243,7 @@ end sub
 dim primitives$(1,21)
 
 // Primitive 1
-// prim3(lambda z,y,x: [x,y,z]), # (primitive (##rib a b c))
+// prim3(lambda z,y,x: [x,y,z]), # (primitive (%%rib a b c))
 sub primitive1(z, y, x)
     reference = alloc_memory(x,y,z)
     return reference
@@ -252,7 +252,7 @@ end sub
 primitives$(1, 1) = prim3$("primitive1")
 
 // Primitive 2
-// prim1(lambda x:x), # (primitive (##id x))
+// prim1(lambda x:x), # (primitive (%%id x))
 sub primitive2(x)
     return x
 end sub
@@ -260,7 +260,7 @@ end sub
 primitives$(1, 2) = prim1$("primitive2")
 
 // Primitive 3
-//lambda:(pop(),0)[1], # (primitive (##arg1 x y))
+//lambda:(pop(),0)[1], # (primitive (%%arg1 x y))
 sub primitive3()
     pop()
     return 0
@@ -269,7 +269,7 @@ end sub
 primitives$(1, 3) = "primitive3"
 
 // Primitive 4
-//lambda:push([pop(),pop()][0]), # (primitive (##arg2 x y))
+//lambda:push([pop(),pop()][0]), # (primitive (%%arg2 x y))
 sub primitive4()
     local elem_1
     elem_1 = pop()
@@ -280,7 +280,7 @@ end sub
 primitives$(1, 4) = "primitive4"
 
 // Primitive 5
-// lambda:push([pop()[0],stack,1]), # (primitive (##close rib))
+// lambda:push([pop()[0],stack,1]), # (primitive (%%close rib))
 sub primitive5()
     local elem_1
     elem_1 = pop()
@@ -294,7 +294,7 @@ end sub
 primitives$(1, 5) = "primitive5"
 
 // Primitive 6
-// prim1(lambda x:bool2scm(is_rib(x))), # (primitive (##rib? rib))
+// prim1(lambda x:bool2scm(is_rib(x))), # (primitive (%%rib? rib))
 sub primitive6(x)
     return bool2scm(is_rib(x))
 end sub
@@ -302,7 +302,7 @@ end sub
 primitives$(1, 6) = prim1$("primitive6")
 
 // Primitive 7
-// prim1(lambda x:x[0]), # (primitive (##field0 rib))
+// prim1(lambda x:x[0]), # (primitive (%%field0 rib))
 sub primitive7(x)
     return get_elem(x, 0)
 end sub
@@ -310,7 +310,7 @@ end sub
 primitives$(1, 7) = prim1$("primitive7")
 
 // Primitive 8
-//  prim1(lambda x:x[1]), # (primitive (##field1 rib))
+//  prim1(lambda x:x[1]), # (primitive (%%field1 rib))
 sub primitive8(x)
     return get_elem(x, 1)
 end sub
@@ -318,7 +318,7 @@ end sub
 primitives$(1, 8) = prim1$("primitive8")
 
 // Primitive 9
-// prim1(lambda x:x[2]), # (primitive (##field2 rib))
+// prim1(lambda x:x[2]), # (primitive (%%field2 rib))
 sub primitive9(x)
     return get_elem(x, 2)
 end sub
@@ -326,7 +326,7 @@ end sub
 primitives$(1, 9) = prim1$("primitive9")
 
 // Primitive 10
-// prim2(field0set), # (primitive (##field0-set! rib x))
+// prim2(field0set), # (primitive (%%field0-set! rib x))
 // Met à jour l'élément 0 du tableau x avec y
 sub field0set(y, x)
     local mem_indx
@@ -338,7 +338,7 @@ end sub
 primitives$(1,10) = prim2$("field0set")
 
 // Primitive 1
-// prim2(field1set), # (primitive (##field1-set! rib x))
+// prim2(field1set), # (primitive (%%field1-set! rib x))
 // Met à jour l'élément 1 du tableau x avec y
 sub field1set(y, x)
     local mem_indx
@@ -350,7 +350,7 @@ end sub
 primitives$(1,11) = prim2$("field1set")
 
 // Primitive 12
-// prim2(field2set), # (primitive (##field2-set! rib x))
+// prim2(field2set), # (primitive (%%field2-set! rib x))
 // Met à jour l'élément 2 du tableau x avec y
 sub field2set(y, x)
     local mem_indx
@@ -362,7 +362,7 @@ end sub
 primitives$(1,12) = prim2$("field2set")
 
 // Primitive 13
-// prim2(lambda y,x:bool2scm(x is y if is_rib(x) or is_rib(y) else x==y)), # (primitive (##eqv? x y))
+// prim2(lambda y,x:bool2scm(x is y if is_rib(x) or is_rib(y) else x==y)), # (primitive (%%eqv? x y))
 // NOTE: Puisque toutes nos données sont des int (même les addresses mémoire), on n'a pas besoin de vérifier si x et y sont des ribs, on peut directement les comparer
 sub primitive13(y, x)
     if y = x then
@@ -374,7 +374,7 @@ end sub
 primitives$(1,13) = prim2$("primitive13")
 
 // Primitive 14
-// prim2(lambda y,x:bool2scm(x<y)), # (primitive (##< a b))
+// prim2(lambda y,x:bool2scm(x<y)), # (primitive (%%< a b))
 sub primitive14(y, x)
     return bool2scm(x<y)
 end sub
@@ -382,7 +382,7 @@ end sub
 primitives$(1,14) = prim2$("primitive14")
 
 // Primitive 15
-// prim2(lambda y,x:x+y), # (primitive (##+ a b))
+// prim2(lambda y,x:x+y), # (primitive (%%+ a b))
 sub primitive15(y,x)
     local sum
     sum = safe_shr(x,1) + safe_shr(y,1)
@@ -392,7 +392,7 @@ end sub
 primitives$(1,15) = prim2$("primitive15")
 
 // Primitive 16
-// prim2(lambda y,x:x-y), # (primitive (##- a b))
+// prim2(lambda y,x:x-y), # (primitive (%%- a b))
 sub primitive16(y,x)
     local substraction
     substraction = safe_shr(x,1) - safe_shr(y,1)
@@ -402,7 +402,7 @@ end sub
 primitives$(1,16) = prim2$("primitive16")
 
 // Primitive 17
-// prim2(lambda y,x:x*y), # (primitive (##* a b))
+// prim2(lambda y,x:x*y), # (primitive (%%* a b))
 sub primitive17(y,x)
     return safe_shr(x,1) * y
 end sub
@@ -410,7 +410,7 @@ end sub
 primitives$(1,17) = prim2$("primitive17")
 
 // Primitive 18
-// prim2(lambda y,x:int(x/y)), # (primitive (##quotient a b))
+// prim2(lambda y,x:int(x/y)), # (primitive (%%quotient a b))
 sub primitive18(y,x)
     return safe_shl(x/y,1)
 end sub
@@ -418,17 +418,17 @@ end sub
 primitives$(1,18) = prim2$("primitive18")
 
 // Primitive 19
-// getchar, # (primitive (##getchar))
+// getchar, # (primitive (%%getchar))
 
 primitives$(1,19) = "getchar"
 
 // Primitive 20
-// prim1(putchar), # (primitive (##putchar c))
+// prim1(putchar), # (primitive (%%putchar c))
 
 primitives$(1,20) = prim1$("putchar")
 
 // Primitive 21
-// prim1(exit), # (primitive (##exit a))
+// prim1(exit), # (primitive (%%exit a))
 sub primitive21()
     exit
 end sub

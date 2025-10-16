@@ -5,8 +5,8 @@
   (lambda ()
     66))
 
-(##putchar (six-five))
-(##putchar (six-six))
+(%%putchar (six-five))
+(%%putchar (six-six))
 
 (define foo
   (lambda ()
@@ -17,7 +17,7 @@
   (define-macro (foo)
     '67)
 
-  (##putchar (foo)))
+  (%%putchar (foo)))
 
 
 (let ()
@@ -27,9 +27,9 @@
   (define (six-eight)
     68)
 
-  (##putchar (six-eight)))
+  (%%putchar (six-eight)))
 
-(##putchar (foo)) ;; should be 69
+(%%putchar (foo)) ;; should be 69
 
 
 (define-macro (add-positive x y)
@@ -37,9 +37,9 @@
      `(add-positive ,(- x 1) ,(+ y 1))
      y))
 
-(##putchar (add-positive 5 65))
+(%%putchar (add-positive 5 65))
 
-(##putchar 10)  
+(%%putchar 10)  
 
 
 ;;;variadics-run: -l define-macro -f+ arity-check

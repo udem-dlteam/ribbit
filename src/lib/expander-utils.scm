@@ -11,10 +11,10 @@
                          ,@(cddr expr))))
       (expand-expr
         `(define-expander
-           (,macro-name ##inner-expr ##inner-expand-expr)
-           (if (symbol? ##inner-expr)
-             (error "*** a macro cannot be used as a variable:" ##inner-expr))
-           (##inner-expand-expr (apply ,macro-body (cdr ##inner-expr))))))
+           (,macro-name %%inner-expr %%inner-expand-expr)
+           (if (symbol? %%inner-expr)
+             (error "*** a macro cannot be used as a variable:" %%inner-expr))
+           (%%inner-expand-expr (apply ,macro-body (cdr %%inner-expr))))))
 
     (let ((macro-name (cadr expr)) ;; (define-macro foo (lambda (x) ...))
           (macro-body (caddr expr)))
@@ -22,10 +22,10 @@
         (error "*** define-macro: expected lambda exprsession" macro-body))
       (expand-expr
         `(define-expander
-           (,macro-name ##inner-expr ##inner-expand-expr)
-           (if (symbol? ##inner-expr)
-             (error "*** a macro cannot be used as a variable:" ##inner-expr))
-           (##inner-expand-expr (apply ,macro-body (cdr ##inner-expr))))))))
+           (,macro-name %%inner-expr %%inner-expand-expr)
+           (if (symbol? %%inner-expr)
+             (error "*** a macro cannot be used as a variable:" %%inner-expr))
+           (%%inner-expand-expr (apply ,macro-body (cdr %%inner-expr))))))))
 
 
 ;; defines an identifier macro used as a compile-time constant
@@ -41,11 +41,11 @@
             (value (expand-expr (caddr expr))))
         (expand-expr
           `(define-expander 
-             (,name ##inner-expr ##inner-expand-expr)
+             (,name %%inner-expr %%inner-expand-expr)
              (cond 
-               ((not (pair? ##inner-expr)) ,value)
+               ((not (pair? %%inner-expr)) ,value)
 
-               ((eq? (car ##inner-expr) 'set!) (error ,(string-append "*** const " (symbol->string name) " cannot be assigned.")))
+               ((eq? (car %%inner-expr) 'set!) (error ,(string-append "*** const " (symbol->string name) " cannot be assigned.")))
 
                (else
                  (error ,(string-append "*** const " (symbol->string name) " was called but it is not a procedure."))))))))))

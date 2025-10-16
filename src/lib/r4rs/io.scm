@@ -1,10 +1,10 @@
-(##include-once (ribbit "expander-utils"))
-(##include-once "./bool.scm")
-(##include-once "./types.scm")
-(##include-once "./vector.scm")
-(##include-once "./pair-list.scm")
-(##include-once "./control.scm")
-(##include-once "./char.scm")
+(%%include-once (ribbit "expander-utils"))
+(%%include-once "./bool.scm")
+(%%include-once "./types.scm")
+(%%include-once "./vector.scm")
+(%%include-once "./pair-list.scm")
+(%%include-once "./control.scm")
+(%%include-once "./char.scm")
 
 ;; import io primitives from host.
 ;; They can be found inside of host/<host>/lib/prim-io.scm
@@ -13,153 +13,153 @@
    ;; Skip rvm host (spitting out the ribn)
    (begin))
   (else
-    (##include-once (ribbit "prim-io"))))
+    (%%include-once (ribbit "prim-io"))))
 
 ;; ---------------------- EOF & TYPES ---------------------- ;;
 
-(define ##eof (##rib 0 0 singleton-type))
+(define %%eof (%%rib 0 0 singleton-type))
 
 (define (eof-object? obj)
-  (##eqv? obj ##eof))
+  (%%eqv? obj %%eof))
 
-(define ##reader-case-transform char-downcase) 
+(define %%reader-case-transform char-downcase) 
 
 
 (define-macro 
   (%write-char-code ch-code port)
   `(if-feature v-port
      (write-char (integer->char ,ch-code) ,port)
-     (##write-char-fd ,ch-code (##field0 ,port))))
+     (%%write-char-fd ,ch-code (%%field0 ,port))))
 
 ;; (define (%write-char-code ch-code port)
 ;;   (if-feature v-port
 ;;     (write-char (integer->char ch-code) port)
-;;     (##write-char-fd ch-code (##field0 port))))
+;;     (%%write-char-fd ch-code (%%field0 port))))
 
 (if-feature
   (not v-port)
   (begin
     (define stdin-port
-      (##rib (##stdin-fd) '() input-port-type)) ;; stdin
+      (%%rib (%%stdin-fd) '() input-port-type)) ;; stdin
 
     (define stdout-port
-      (##rib (##stdout-fd) #t output-port-type))  ;; stdout
+      (%%rib (%%stdout-fd) #t output-port-type))  ;; stdout
 
     ;; ---------------------- INPUT ---------------------- ;;
 
     (define (open-input-file filename)
       ;; (file_descriptor, (cursor, last_char, is_open), input_file_type)
-      (##rib (##get-fd-input-file filename) '() input-port-type))
+      (%%rib (%%get-fd-input-file filename) '() input-port-type))
 
     (define (close-input-port port)
-      (if (##field1 port)
+      (if (%%field1 port)
         (begin 
-          (##field1-set! port #f)
-          (##close-input-fd (##field0 port)))))
+          (%%field1-set! port #f)
+          (%%close-input-fd (%%field0 port)))))
 
-    (define (##get-last-char port)
-      (##field1 port))
+    (define (%%get-last-char port)
+      (%%field1 port))
 
-    (define (##set-last-char port ch)
-      (##field1-set! port ch))
+    (define (%%set-last-char port ch)
+      (%%field1-set! port ch))
 
     (define (input-port-close? port)
-      (not (##field1 port)))
+      (not (%%field1 port)))
 
     (define (read-char (port (current-input-port))) 
       (if (input-port-close? port) (crash))
-      (let ((last-ch (##get-last-char port)))
+      (let ((last-ch (%%get-last-char port)))
         (if (null? last-ch)
 
-          (let ((ch (##read-char-fd (##field0 port))))
-            (if (null? ch) ##eof (integer->char ch)))
+          (let ((ch (%%read-char-fd (%%field0 port))))
+            (if (null? ch) %%eof (integer->char ch)))
 
           (begin
-            (##set-last-char port '())
+            (%%set-last-char port '())
             last-ch))))
 
     ;; ---------------------- OUTPUT ---------------------- ;;
 
     (define (open-output-file filename)
       ;; (file_descriptor, is_open, write_file_type)
-      (##rib (##get-fd-output-file filename) #t output-port-type))
+      (%%rib (%%get-fd-output-file filename) #t output-port-type))
 
     (define (close-output-port port)
-      (if (##field1 port)
+      (if (%%field1 port)
         (begin
-          (##field1-set! port #f)
-          (##close-output-fd (##field0 port)))))
+          (%%field1-set! port #f)
+          (%%close-output-fd (%%field0 port)))))
 
     (define (output-port-close? port)
-      (not (##field1 port)))
+      (not (%%field1 port)))
 
     (define (write-char ch (port (current-output-port)))
-      (##write-char-fd (##field0 ch) (##field0 port))))
+      (%%write-char-fd (%%field0 ch) (%%field0 port))))
 
   (begin 
     (define-macro
       (%get-port-reader port)
-      `(##field0 (##field1 ,port)))
+      `(%%field0 (%%field1 ,port)))
 
     (define-macro
       (%get-port-writer port)
-      `(##field0 (##field1 ,port)))
+      `(%%field0 (%%field1 ,port)))
 
     (define-macro
       (%get-port-closer port)
-      `(##field1 (##field1 ,port)))
+      `(%%field1 (%%field1 ,port)))
 
-    (define (close-output-fd port) (##close-output-fd (##field0 port)))
-    (define (close-input-fd port) (##close-input-fd (##field0 port)))
+    (define (close-output-fd port) (%%close-output-fd (%%field0 port)))
+    (define (close-input-fd port) (%%close-input-fd (%%field0 port)))
 
-    (define (##read-char port) (let ((c (##read-char-fd (##field0 port))))
-                                 (if (null? c) ##eof (integer->char c))))
+    (define (%%read-char port) (let ((c (%%read-char-fd (%%field0 port))))
+                                 (if (null? c) %%eof (integer->char c))))
 
-    (define (##write-char ch port) (##write-char-fd (##field0 ch) (##field0 port)))
+    (define (%%write-char ch port) (%%write-char-fd (%%field0 ch) (%%field0 port)))
 
-    (define (##make-input-port fd reader closer)
-      (##rib fd (##rib reader closer '()) input-port-type))
+    (define (%%make-input-port fd reader closer)
+      (%%rib fd (%%rib reader closer '()) input-port-type))
 
-    (define (##make-output-port fd writer closer)
-      (##rib fd (##rib writer closer #t) output-port-type))
+    (define (%%make-output-port fd writer closer)
+      (%%rib fd (%%rib writer closer #t) output-port-type))
 
     (define stdin-port
-      (##make-input-port (##stdin-fd) ##read-char close-input-fd)) ;; stdin
+      (%%make-input-port (%%stdin-fd) %%read-char close-input-fd)) ;; stdin
 
     (define stdout-port
-      (##make-output-port (##stdout-fd) ##write-char close-output-fd)) ;; stdout
+      (%%make-output-port (%%stdout-fd) %%write-char close-output-fd)) ;; stdout
 
     (define (close-port port)
-      (if (##field2 (##field1 port))
+      (if (%%field2 (%%field1 port))
         (begin 
-          (##field2-set! (##field1 port) #f)
+          (%%field2-set! (%%field1 port) #f)
           ((%get-port-closer port) port))))
 
     (define (port-closed? port)
-      (not (##field2 (##field1 port))))
+      (not (%%field2 (%%field1 port))))
 
 
     ;; ---------------------- INPUT ---------------------- ;;
 
     (define (open-input-file filename)
       ;; (file_descriptor, (cursor, last_char, is_open), input_file_type)
-      (##make-input-port (##get-fd-input-file filename) ##read-char close-input-fd))
+      (%%make-input-port (%%get-fd-input-file filename) %%read-char close-input-fd))
 
     (define close-input-port close-port)
 
-    (define (##get-last-char port)
-      (##field2 (##field1 port)))
+    (define (%%get-last-char port)
+      (%%field2 (%%field1 port)))
 
-    (define (##set-last-char port ch)
-      (##field2-set! (##field1 port) ch))
+    (define (%%set-last-char port ch)
+      (%%field2-set! (%%field1 port) ch))
 
     (define (read-char (port (current-input-port)))
       (if (port-closed? port) (crash))
-      (let ((last-ch (##get-last-char port)))
+      (let ((last-ch (%%get-last-char port)))
         (if (null? last-ch)
           ((%get-port-reader port) port)
           (begin
-            (##set-last-char port '())
+            (%%set-last-char port '())
             last-ch))))
 
 
@@ -167,7 +167,7 @@
 
     (define (open-output-file filename)
       ;; (file_descriptor, is_open, write_file_type)
-      (##make-output-port (##get-fd-output-file filename) ##write-char close-output-fd))
+      (%%make-output-port (%%get-fd-output-file filename) %%write-char close-output-fd))
 
     (define close-output-port close-port)
 
@@ -177,40 +177,40 @@
     ;; ---------------------- UTILS NOT IN R4RS ---------------------- ;;
 
     (define (capture-output-from captured-port new-port thunk)
-      (let ((old-write-char ##write-char))
-        (set! ##write-char 
+      (let ((old-write-char %%write-char))
+        (set! %%write-char 
           (lambda (ch port) 
             (old-write-char ch
-                            (if (##eqv? port captured-port)
+                            (if (%%eqv? port captured-port)
                               new-port
                               port))))
         (let ((result (thunk)))
-          (set! ##write-char old-write-char)
+          (set! %%write-char old-write-char)
           result)))
 
     (define (open-input-string str)
-      (##make-input-port 
+      (%%make-input-port 
        (string->list str)
        (lambda (port) ;; reader
-         (if (null? (##field0 port)) ;; no more characters
-           ##eof
-           (let ((c (##field0 (##field0 port))))
-             (##field0-set! port (##field1 (##field0 port)))
+         (if (null? (%%field0 port)) ;; no more characters
+           %%eof
+           (let ((c (%%field0 (%%field0 port))))
+             (%%field0-set! port (%%field1 (%%field0 port)))
              c)))
        (lambda (port) #f))) ;; closer
 
     (define (open-output-string (str ""))
-      (##make-output-port 
+      (%%make-output-port 
        str 
        (lambda (ch port) ;; writer
-         (##field0-set! port (string-append (##field0 port) (string ch))))
+         (%%field0-set! port (string-append (%%field0 port) (string ch))))
        (lambda (port) #f))) ;; closer
 
     (define (get-output-string port)
-      (##field0 port))))
+      (%%field0 port))))
 
 
-;; ###################### COMMON ###################### ;;
+;; %%%%%%%%%%%%%%%%%%%%%% COMMON %%%%%%%%%%%%%%%%%%%%%% ;;
 
 (define (current-input-port) stdin-port)
 (define (current-output-port) stdout-port)
@@ -225,7 +225,7 @@
 
 (define (peek-char (port (current-input-port)))
   (let ((ch (read-char port)))
-    (##set-last-char port ch)
+    (%%set-last-char port ch)
     ch))
 
 ;; ---------------------- READ ---------------------- ;;
@@ -243,47 +243,47 @@
 (define (read (port (current-input-port)))
   (let ((c (peek-char-non-whitespace port)))
     (cond ((eof-object? c) c)
-          ((##eqv? c 40)            ;; #\(
+          ((%%eqv? c 40)            ;; #\(
            (read-char port)
            (read-list port))
-          ((##eqv? c 35)            ;; #\#
+          ((%%eqv? c 35)            ;; #\#
            (read-char port) ;; skip "#"
-           (let ((c (##field0 (peek-char port))))
-             (cond ((##eqv? c 102)  ;; #\f
+           (let ((c (%%field0 (peek-char port))))
+             (cond ((%%eqv? c 102)  ;; #\f
                     (read-char port) ;; skip "f"
                     #f)
-                   ((##eqv? c 116)     ;; #\t
+                   ((%%eqv? c 116)     ;; #\t
                     (read-char port) ;; skip "t"
                     #t)
-                   ((##eqv? c 92)        ;; #\\
+                   ((%%eqv? c 92)        ;; #\\
                     (read-char port) ;; skip "\\"
                     (let ((ch (peek-char port))
                           (str (read-symbol port '())))
                       (cond 
-                        ((##eqv? (##field1 str) 0) (read-char port))
-                        ((##eqv? (##field1 str) 1) ch)
+                        ((%%eqv? (%%field1 str) 0) (read-char port))
+                        ((%%eqv? (%%field1 str) 1) ch)
                         (else (integer->char (cadr (assq (string->symbol str) special-chars)))))))
-                   ((##eqv? c 40)  ;; #\(
+                   ((%%eqv? c 40)  ;; #\(
                     (list->vector (read port)))
                    (else 
                      (string->symbol (read-symbol port (list #\#)))))))
-          ((##eqv? c 39)      ;; #\'
+          ((%%eqv? c 39)      ;; #\'
            (read-char port) ;; skip "'"
            (list 'quote (read port)))
-          ((##eqv? c 96)      ;; #\`
+          ((%%eqv? c 96)      ;; #\`
            (read-char port) ;; skip "`"
            (list 'quasiquote (read port)))
-          ((##eqv? c 44)      ;; #\,
+          ((%%eqv? c 44)      ;; #\,
            (read-char port) ;; skip ","
-           (let ((c (##field0 (peek-char port))))
-             (if (##eqv? c 64)  ;; #\@
+           (let ((c (%%field0 (peek-char port))))
+             (if (%%eqv? c 64)  ;; #\@
                (begin
                  (read-char port) ;; skip "@"
                  (list 'unquote-splicing (read port)))
                (list 'unquote (read port)))))
-          ((##eqv? c 34)      ;; #\"
+          ((%%eqv? c 34)      ;; #\"
            (read-char port) ;; skip """
-           (##list->string (read-chars '() port)))
+           (%%list->string (read-chars '() port)))
           (else
             ;; (read-char port) ;; skip first char
             (let ((s (read-symbol port '())))
@@ -294,7 +294,7 @@
 
 (define (read-list port)
   (let ((c (peek-char-non-whitespace port)))
-    (if (##eqv? c 41) ;; #\)
+    (if (%%eqv? c 41) ;; #\)
       (begin
         (read-char port) ;; skip ")"
         '())
@@ -306,27 +306,27 @@
           (cons first (read-list port)))))))
 
 (define (read-symbol port lst)
-  (let ((c (##field0 (peek-char port))))
-    (if (or (##eqv? c 40)  ;; #\(
-            (##eqv? c 41)  ;; #\)
-            (##< c 33))    ;; whitespace
+  (let ((c (%%field0 (peek-char port))))
+    (if (or (%%eqv? c 40)  ;; #\(
+            (%%eqv? c 41)  ;; #\)
+            (%%< c 33))    ;; whitespace
       (list->string (reverse lst))
       (read-symbol port (cons (char-downcase (read-char port)) lst)))))
 
 (define (read-chars lst port)
-  (let ((c (##field0 (read-char port))))
-    (cond ((##eqv? c 0) '())   ;; eof
-          ((##eqv? c 34) (reverse lst))  ;; #\"
-          ((##eqv? c 92)                 ;; #\\
-           (let ((c2 (##field0 (read-char port))))
+  (let ((c (%%field0 (read-char port))))
+    (cond ((%%eqv? c 0) '())   ;; eof
+          ((%%eqv? c 34) (reverse lst))  ;; #\"
+          ((%%eqv? c 92)                 ;; #\\
+           (let ((c2 (%%field0 (read-char port))))
              (read-chars
                (cons (cond
                        ;#; ;; support for \n in strings
-                       ((##eqv? c2 110) 10) ;; #\n
+                       ((%%eqv? c2 110) 10) ;; #\n
                        ;#; ;; support for \r in strings
-                       ((##eqv? c2 114) 13) ;; #\r
+                       ((%%eqv? c2 114) 13) ;; #\r
                        ;#; ;; support for \t in strings
-                       ((##eqv? c2 116) 9)  ;; #\t
+                       ((%%eqv? c2 116) 9)  ;; #\t
                        (else          c2))
                      lst)
                port)))
@@ -341,15 +341,15 @@
         (begin
           (read-char port)
           (peek-char-non-whitespace port))
-        (if (##eqv? (##field0 c) 59) ;; #\;
+        (if (%%eqv? (%%field0 c) 59) ;; #\;
           (skip-comment port)
-          (##field0 c))))))  ;; returns the code point of the char
+          (%%field0 c))))))  ;; returns the code point of the char
 
 (define (skip-comment port)
   (let ((c (read-char port)))
     (if (eof-object? c)
       c
-      (if (##eqv? (##field0 c) 10) ;; #\newline
+      (if (%%eqv? (%%field0 c) 10) ;; #\newline
         (peek-char-non-whitespace port)
         (skip-comment port)))))
 
@@ -368,27 +368,27 @@
 (define (write o (port (current-output-port)))
   (cond ((string? o)
          (%write-char-code 34 port)     ;; #\"
-         (write-chars (##field0 o) escapes port)
+         (write-chars (%%field0 o) escapes port)
          (%write-char-code 34 port))    ;; #\"
         ((char? o)
          (%write-char-code 35 port)     ;; #\#
          (%write-char-code 92 port)     ;; #\\
-         (let ((name (assv (##field0 o) (map reverse special-chars)))) 
+         (let ((name (assv (%%field0 o) (map reverse special-chars)))) 
            (if (not name)
              (write-char o port)
              (write (cadr name) port))))
         ((pair? o)
          (%write-char-code 40 port)  ;; #\(
-         (write (##field0 o) port) ;; car
-         (print-list (##field1 o) write port) ;; cdr
+         (write (%%field0 o) port) ;; car
+         (print-list (%%field1 o) write port) ;; cdr
          (%write-char-code 41 port)) ;; #\)
         ((vector? o)
          (%write-char-code 35 port)  ;; #\#
          (%write-char-code 40 port)  ;; #\(
-         (if (##< 0 (##field1 o))
-           (let ((l (##field0 o)))   ;; vector->list
-             (write (##field0 l) port)
-             (print-list (##field1 l) write port)))
+         (if (%%< 0 (%%field1 o))
+           (let ((l (%%field0 o)))   ;; vector->list
+             (write (%%field0 l) port)
+             (print-list (%%field1 l) write port)))
          (%write-char-code 41 port)) ;; #\)
         (else
           (display o port))))
@@ -398,7 +398,7 @@
          (%write-char-code 35 port)     ;; #\#
          (%write-char-code 102 port))   ;; #f
 
-        ((##eqv? o #t)
+        ((%%eqv? o #t)
          (%write-char-code 35 port)     ;; #\#
          (%write-char-code 116 port))   ;; #t
 
@@ -414,38 +414,38 @@
          (display (number->string o) port))
 
         ((or (input-port? o) (output-port? o))
-         (display (vector (##field2 (##field1 o)) (##field2 o))))
+         (display (vector (%%field2 (%%field1 o)) (%%field2 o))))
 
         ((char? o)
          (write-char o port))
 
         ((pair? o)
          (%write-char-code 40 port)  ;; #\(
-         (display (##field0 o) port) ;; car
-         (print-list (##field1 o) display port) ;; cdr
+         (display (%%field0 o) port) ;; car
+         (print-list (%%field1 o) display port) ;; cdr
          (%write-char-code 41 port)) ;; #\)
 
         ((symbol? o)
-         (write-chars (##field0 (##field1 o)) '() port))
+         (write-chars (%%field0 (%%field1 o)) '() port))
 
         ((string? o)
-         (write-chars (##field0 o) '() port)) ;; chars
+         (write-chars (%%field0 o) '() port)) ;; chars
 
         ((vector? o)
          (%write-char-code 35 port)  ;; #\#
          (%write-char-code 40 port)  ;; #\(
-         (if (##< 0 (##field1 o))
-           (let ((l (##field0 o)))   ;; vector->list
-             (display (##field0 l) port)
-             (print-list (##field1 l) display port)))
+         (if (%%< 0 (%%field1 o))
+           (let ((l (%%field0 o)))   ;; vector->list
+             (display (%%field0 l) port)
+             (print-list (%%field1 l) display port)))
          (%write-char-code 41 port)) ;; #\)
 
         ((procedure? o)
          (%write-char-code 35 port)  ;; #\#
          (%write-char-code 112 port)) ;; #p
 
-        ((##rib? o)
-         (display (list (##field0 o) (##field1 o) (##field2 o))))
+        ((%%rib? o)
+         (display (list (%%field0 o) (%%field1 o) (%%field2 o))))
 
         (else
           (crash))))
@@ -454,8 +454,8 @@
   (cond 
     ((pair? lst)
      (%write-char-code 32 port) ;; #\space
-     (mode (##field0 lst) port) ;; car
-     (print-list (##field1 lst) mode port))  ;; cdr
+     (mode (%%field0 lst) port) ;; car
+     (print-list (%%field1 lst) mode port))  ;; cdr
 
     ((null? lst) #f)
 
@@ -467,13 +467,13 @@
 
 (define (write-chars lst escapes port)
   (if (pair? lst)
-    (let ((escape (assq (##field0 lst) escapes)))
+    (let ((escape (assq (%%field0 lst) escapes)))
       (if (not escape)
-        (%write-char-code (##field0 lst) port)
+        (%write-char-code (%%field0 lst) port)
         (begin
           (%write-char-code 92 port)
-          (%write-char-code (##field0 (##field1 escape)) port)))
-      (write-chars (##field1 lst) escapes port))))
+          (%write-char-code (%%field0 (%%field1 escape)) port)))
+      (write-chars (%%field1 lst) escapes port))))
 
 
 ;; ---------------------- OPTIONAL PROC OF R4RS ---------------------- ;;
@@ -503,7 +503,7 @@
 (define (error . msg)
   (for-each (lambda (x) (display x) (display " ")) msg)
   (newline)
-  (##exit 1))
+  (%%exit 1))
 
 (define (crash)
   (error "(._.')"))
@@ -544,4 +544,4 @@
 (define (string-from-file filename)
   (call-with-input-file filename (lambda (port) (read-str-until eof-object? port))))
 
-(define (file-exists? filename) (not (not (##get-fd-input-file filename))))
+(define (file-exists? filename) (not (not (%%get-fd-input-file filename))))

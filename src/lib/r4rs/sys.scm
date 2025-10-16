@@ -4,52 +4,52 @@
    ;; (define-feature js/node/child-process (use) ((decl "const child_p = require('child_process');\n")))
 
    (define-primitive 
-     (##cmd-line)
+     (%%cmd-line)
      (use js/node list2scm argv)
      "() => push(list2scm(process.argv.slice(1))),")
 
    (define-primitive 
-     (##current-directory)
+     (%%current-directory)
      (use js/node str2scm)
      "() => push(str2scm(__dirname)),")
 
    (define-primitive 
-     (##list-dir dir-name)
+     (%%list-dir dir-name)
      (use js/node js/node/fs list2scm scm2str argv)
      "prim1(dirName => list2scm(fs.readdirSync(scm2str(dirName)))),")
 
    (define-primitive
-     (##shell-cmd cmd)
+     (%%shell-cmd cmd)
      (use js/node js/node/fs scm2list list2scm scm2str str2scm)
      "prim1(cmd => str2scm(String(require('child_process').execSync(`sh -c '${scm2str(cmd)}'`)))),")
 
-   (define (list-dir dir-name) (##list-dir dir-name))
-   (define (current-directory) (##current-directory)))
+   (define (list-dir dir-name) (%%list-dir dir-name))
+   (define (current-directory) (%%current-directory)))
 
   ((host py)
 
    (define-feature py/sys (use) ((import "import os,sys")))
 
    (define-primitive 
-     (##cmd-line)
+     (%%cmd-line)
      (use py/sys str2scm list_str2scm argv)
      "lambda: push(list_str2scm(sys.argv)),")
 
    (define-primitive 
-     (##current-directory)
+     (%%current-directory)
      (use py/sys str2scm)
      "lambda:push(str2scm(os.path.dirname(os.path.abspath(__file__)))),")
 
    (define-primitive
-     (##shell-cmd cmd)
+     (%%shell-cmd cmd)
      (use py/sys scm2list list_str2scm scm2str str2scm)
      "prim1(lambda cmd: str2scm(os.popen(f'sh -c \\'{scm2str(cmd)}\\'').read())),")
 
-   (define (list-dir dir-name) (##list-dir dir-name))
-   (define (current-directory) (##current-directory)))
+   (define (list-dir dir-name) (%%list-dir dir-name))
+   (define (current-directory) (%%current-directory)))
   ((host c)
    (define-primitive
-     (##cmd-line)
+     (%%cmd-line)
      (use argv list2scm str2scm)
      "{
      push2(list2scm(argv, argc), PAIR_TAG);
@@ -57,7 +57,7 @@
      }")
 
    (define-primitive
-     (##shell-cmd cmd)
+     (%%shell-cmd cmd)
      (use scm2str str2scm c/stdio)
      "{
      PRIM1();
@@ -92,10 +92,10 @@
 
   ((host hs)
    (define-primitive
-     (##cmd-line)
+     (%%cmd-line)
      (use argv list2scm)
      " , (getArgs >>= \\args -> getProgName >>= \\progName -> (mapM toRibString (progName : args)) >>= toRibList) >>= push"
    )))
 
-(define (cmd-line) (##cmd-line))
-(define (shell-cmd cmd . args) (##shell-cmd (string-append cmd " " (string-concatenate args " "))))
+(define (cmd-line) (%%cmd-line))
+(define (shell-cmd cmd . args) (%%shell-cmd (string-append cmd " " (string-concatenate args " "))))

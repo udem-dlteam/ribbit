@@ -4,9 +4,9 @@
 
 (let ((x 42))
   (let ((y (lambda () x)))
-    (##putchar (y))))
+    (%%putchar (y))))
 
-(##putchar 10)
+(%%putchar 10)
 
 ;;;flat-closure-run: -l max
 ;;;flat-closure-run:

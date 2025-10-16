@@ -25,5 +25,5 @@
                   push2(TAG_NUM(x*x), PAIR_TAG);
                  }")))
 
-(##putchar (square 8)) ;; prints '@' as 8*8 = 64, the ASCII value of '@'
-(##putchar 10) ;; prints a newline
+(%%putchar (square 8)) ;; prints '@' as 8*8 = 64, the ASCII value of '@'
+(%%putchar 10) ;; prints a newline

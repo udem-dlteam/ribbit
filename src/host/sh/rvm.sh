@@ -355,111 +355,111 @@ while true; do
 
 case $_B in
   # @@(primitives (gen "\n" index ")\n" body)
-  0) # @@(primitive (##rib a b c)
+  0) # @@(primitive (%%rib a b c)
     eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then eval printf "\"(rib %s %s %s)\"" \$_X$_S $_B $_C; fi # DEBUG
     _H=$((_H+1)); eval _XR$_H=\$_X$_S _YR$_H=$_B _ZR$_H=$_C _S=\$_Y$_S; _C=R$_H
     _PUSH
     ;; # )@@
-  1) # @@(primitive (##id x)
+  1) # @@(primitive (%%id x)
     if $_DEBUG; then eval printf "\"(id %s)\"" \$_X$_S; fi # DEBUG
     ;; # )@@
-  2) # @@(primitive (##arg1 x y)
+  2) # @@(primitive (%%arg1 x y)
     eval _C=\$_X$_S # DEBUG
     eval _S=\$_Y$_S
     if $_DEBUG; then eval printf "\"(arg1 %s %s)\"" \$_X$_S $_C; fi # DEBUG
     ;; # )@@
-  3) # @@(primitive (##arg2 x y)
+  3) # @@(primitive (%%arg2 x y)
     eval _C=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then eval printf "\"(arg2 %s %s)\"" \$_X$_S $_C; fi # DEBUG
     eval _S=\$_Y$_S
     _PUSH
     ;; # )@@
-  4) # @@(primitive (##close rib)
+  4) # @@(primitive (%%close rib)
     eval _C=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then printf "(close %s)" $_C; fi # DEBUG
     _H=$((_H+1)); eval _XR$_H=\$_X$_C _YR$_H=$_S _ZR$_H=1; _C=R$_H
     _PUSH
     ;; # )@@
-  5) # @@(primitive (##rib? rib)
+  5) # @@(primitive (%%rib? rib)
     eval _C=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then printf "(rib? %s)" $_C; fi # DEBUG
     if [ $_C = ${_C#R} ]; then _C=$_F; else _C=$_T; fi
     _PUSH
     ;; # )@@
-  6) # @@(primitive (##field0 rib)
+  6) # @@(primitive (%%field0 rib)
     eval _C=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then printf "(field0 %s)" $_C; fi # DEBUG
     eval _C=\$_X$_C
     _PUSH
     ;; # )@@
-  7) # @@(primitive (##field1 rib)
+  7) # @@(primitive (%%field1 rib)
     eval _C=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then printf "(field1 %s)" $_C; fi # DEBUG
     eval _C=\$_Y$_C
     _PUSH
     ;; # )@@
-  8) # @@(primitive (##field2 rib)
+  8) # @@(primitive (%%field2 rib)
     eval _C=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then printf "(field2 %s)" $_C; fi # DEBUG
     eval _C=\$_Z$_C
     _PUSH
     ;; # )@@
-  9) # @@(primitive (##field0-set! rib)
+  9) # @@(primitive (%%field0-set! rib)
     eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then printf "(field0-set! %s %s)" $_B $_C; fi # DEBUG
     eval _X$_B=$_C
     _PUSH
     ;; # )@@
- 10) # @@(primitive (##field1-set! rib)
+ 10) # @@(primitive (%%field1-set! rib)
     eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then printf "(field1-set! %s %s)" $_B $_C; fi # DEBUG
     eval _Y$_B=$_C
     _PUSH
     ;; # )@@
- 11) # @@(primitive (##field2-set! rib)
+ 11) # @@(primitive (%%field2-set! rib)
     eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then printf "(field2-set! %s %s)" $_B $_C; fi # DEBUG
     eval _Z$_B=$_C
     _PUSH
     ;; # )@@
- 12) # @@(primitive (##eqv? rib1 rib2)
+ 12) # @@(primitive (%%eqv? rib1 rib2)
     eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then printf "(eqv? %s %s)" $_B $_C; fi # DEBUG
     if [ $_B = $_C ]; then _C=$_T; else _C=$_F; fi
     _PUSH
     ;; # )@@
- 13) # @@(primitive (##< a b)
+ 13) # @@(primitive (%%< a b)
     eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then printf "(< %s %s)" $_B $_C; fi # DEBUG
     if [ $_B -lt $_C ]; then _C=$_T; else _C=$_F; fi
     _PUSH
     ;; # )@@
- 14) # @@(primitive (##+ x y)
+ 14) # @@(primitive (%%+ x y)
     eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then printf "(+ %s %s)" $_B $_C; fi # DEBUG
     _C=$((_B+_C))
     _PUSH
     ;; # )@@
- 15) # @@(primitive (##- x y)
+ 15) # @@(primitive (%%- x y)
     eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then printf "(- %s %s)" $_B $_C; fi # DEBUG
     _C=$((_B-_C))
     _PUSH
     ;; # )@@
- 16) # @@(primitive (##* x y)
+ 16) # @@(primitive (%%* x y)
     eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then printf "(* %s %s)" $_B $_C; fi # DEBUG
     _C=$((_B*_C))
     _PUSH
     ;; # )@@
- 17) # @@(primitive (##quotient x y)
+ 17) # @@(primitive (%%quotient x y)
     eval _C=\$_X$_S _S=\$_Y$_S; eval _B=\$_X$_S _S=\$_Y$_S
     if $_DEBUG; then printf "(quotient %s %s)" $_B $_C; fi # DEBUG
     _C=$((_B/_C))
     _PUSH
     ;; # )@@
- 18) # @@(primitive (##getchar)
+ 18) # @@(primitive (%%getchar)
     if $_DEBUG; then printf "(getchar)"; fi # DEBUG
     if [ $# = 0 ]; then
       if [ -t 0 ]; then
@@ -472,12 +472,12 @@ case $_B in
     _C=$1; shift
     _PUSH
     ;; # )@@
- 19) # @@(primitive (##putchar c)
+ 19) # @@(primitive (%%putchar c)
     eval _C=\$_X$_S
     if $_DEBUG; then printf "(putchar %s)" $_C; fi # DEBUG
     printf \\$(($_C/64))$(($_C/8%8))$(($_C%8))
     ;; # )@@
- 20) # @@(primitive (##exit n)
+ 20) # @@(primitive (%%exit n)
     if $_DEBUG; then eval printf "\"(exit %s)\\n\"" \$_X$_S; fi # DEBUG
     eval exit \$_X$_S
     ;; # )@@
