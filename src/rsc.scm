@@ -18,7 +18,8 @@
     (define-macro (when-if cond . body)
       (if (eval cond)
         `(begin ,@body)
-        0))))
+        0)))
+  (else))
 
 
 (cond-expand
@@ -254,11 +255,21 @@
    (define (symbol->str symbol)
      (table-ref uninterned-symbols symbol (symbol->string symbol)))))
 
+
+(define (%%std-fold kons knil ls)
+  (let lp ((ls ls) (res knil))
+    (if (null? ls)
+      res
+      (lp (cdr ls) (kons (car ls) res)))))
+
 ;; These functions appeared in later versions of Gambit.
 ;; When compiling for a version under 4.9.4, we include them:
 ;; > string-prefix?, filter, fold, fold-right, iota
 ;;
 (cond-expand
+  (guile
+    (define fold %%std-fold))
+
   (gambit
     (when-if (< (system-version) 409004)
 
@@ -281,18 +292,16 @@
        (define (filter f lst)
          (fold-right (lambda (e r) (if (f e) (cons e r) r)) '() lst))
 
-       (define (fold kons knil ls)
-         (let lp ((ls ls) (res knil))
-           (if (null? ls)
-             res
-             (lp (cdr ls) (kons (car ls) res)))))
+
+       (define fold %%std-fold)
 
        (define (iota n)
          (let ((max-n n))
            (let rec ((n n))
              (if (eqv? n 0)
                '()
-               (cons (- max-n n) (rec (- n 1))))))))))
+               (cons (- max-n n) (rec (- n 1)))))))))
+  (else))
 
 (cond-expand
 
@@ -501,8 +510,10 @@
 (cond-expand
   (gambit
     ;; -:r4rs is only available starting version v4.9.4
-      (|##meta-info| script-line "gsi -:r4rs"))))
     (when-if (> (system-version) 409004)
+      (|##meta-info| script-line "gsi -:r4rs")))
+
+  (else))
 
 (cond-expand
 
@@ -1888,7 +1899,7 @@
 (define defined-features '()) ;; used as parameters for expand-functions
 
 (cond-expand
-  (ribbit
+  ((or ribbit guile)
    (define (current-directory) (path-directory (car (cmd-line)))))
 
   (else
