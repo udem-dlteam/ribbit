@@ -21,7 +21,7 @@
    (define-primitive
      (##shell-cmd cmd)
      (use js/node js/node/fs scm2list list2scm scm2str str2scm)
-     "prim1(cmd => str2scm(String(require('child_process').execSync(`sh -c '${scm2str(cmd)}'`)))),")
+     "prim1(cmd => str2scm((()=>{const r=(require('child_process').spawnSync(`${scm2str(cmd)}`,{shell:true}));return r.status!==0 ? `Error: ${String(r.stdout)}` : String(r.stdout);})())),")
 
    (define (list-dir dir-name) (##list-dir dir-name))
    (define (current-directory) (##current-directory)))
