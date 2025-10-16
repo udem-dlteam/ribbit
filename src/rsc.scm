@@ -15,7 +15,7 @@
 (cond-expand
   (gambit
     ;; Compile-time if, usefull for evaluating versions
-    (define-macro (comp-if cond . body)
+    (define-macro (when-if cond . body)
       (if (eval cond)
         `(begin ,@body)
         0))))
@@ -260,7 +260,7 @@
 ;;
 (cond-expand
   (gambit
-    (comp-if (< (system-version) 409004)
+    (when-if (< (system-version) 409004)
 
        (define (string-prefix? pref str)
          (let* ((str (if (string? str) str (symbol->string str)))
@@ -501,14 +501,14 @@
 (cond-expand
   (gambit
     ;; -:r4rs is only available starting version v4.9.4
-    (comp-if (> (system-version) 409004)
       (|##meta-info| script-line "gsi -:r4rs"))))
+    (when-if (> (system-version) 409004)
 
 (cond-expand
 
  (gambit
    ;; script-file appeared on v4.9.4
-   (comp-if (< (system-version) 409004)
+   (when-if (< (system-version) 409004)
      (define (script-file)
        (car (command-line)))
 
