@@ -5228,10 +5228,10 @@
 
   (set! progress-status _progress-status)
 
-  (set! ribbit-path 
+  (set! ribbit-path
     (cons
-      (path-expand 
-        (string-append "host/" _target "/lib")  
+      (path-expand
+        (string-append "host/" _target "/lib")
         (ribbit-root-dir))
       ribbit-path))
 
