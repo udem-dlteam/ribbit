@@ -262,6 +262,8 @@
       res
       (lp (cdr ls) (kons (car ls) res)))))
 
+
+
 ;; These functions appeared in later versions of Gambit.
 ;; When compiling for a version under 4.9.4, we include them:
 ;; > string-prefix?, filter, fold, fold-right, iota
@@ -506,14 +508,6 @@
 
 
 
-;; Fix bug with R4RS symbols in Gambit
-(cond-expand
-  (gambit
-    ;; -:r4rs is only available starting version v4.9.4
-    (comp-when (> (system-version) 409004)
-      (|##meta-info| script-line "gsi -:r4rs")))
-
-  (else))
 
 (cond-expand
 
@@ -607,12 +601,28 @@
 
     ))
 
+;; Setup reader to be invariant to case (r4rs)
+
+(cond-expand
+  (gambit
+    ;; Before v4.9.4, Gambit didn't support the -:r4rs option, relying on this hack to
+    ;; simulate the effects. Later versions must call gambit with -:r4rs
+    (comp-when (< (system-version) 409004)
+      (|##set-standard-level!| 4)
+      (|##readtable-setup-for-standard-level!| (|##current-readtable|)))
+
+    (comp-when (>= (system-version) 409004)
+      (|##meta-info| script-line "gsi -:r4rs")))
+
+  (guile
+    (read-enable 'case-insensitive))
+  (else))
+
 ;; read-all
 
 (cond-expand
   (guile
 
-    (read-enable 'case-insensitive)
     (define (read-all port)
       (let loop ((curr (read port)) (acc '()))
         (if (eof-object? curr)
