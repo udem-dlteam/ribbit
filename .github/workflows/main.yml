@@ -80,7 +80,25 @@ jobs:
       - name: Run simple Python RVM
         run: |
           cd src
-          TEST_FEATURES="" TEST_TAGS="py core" HOST=py make check
+          TEST_FEATURES="" HOST=py make check
+
+  check_guile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the ribbit repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+      - name: Install guile
+        run: |
+          sudo apt-get update
+          sudo apt-get install guile-3.0
+          sudo apt-get install python3
+      - name: Run tests
+        run: |
+          cd src
+          SCHEME_COMPILER=guile TEST_FEATURES="" HOST=py make check
 
   compile_RSC:
     runs-on: ubuntu-latest
