@@ -582,13 +582,19 @@
           (loop (+ i 1) (cdr str)))
         #f))))
 
+;; @string-split
+
 (cond-expand
 
-  (ribbit (begin))
+  ((or ribbit)
+   (define @string-split string-split))
+
+  (chicken
+    (define (@string-split str pattern)
+      (string-split str (string pattern))))
 
   (else
-
-    (define (string-split str pattern)
+    (define (@string-split str pattern)
       (let ((pattern? (if (char? pattern) (lambda (c) (char=? c pattern)) pattern))
             (final (list "")))
         (for-each
@@ -2152,7 +2158,7 @@
                              (parse-host-file
                                (fold
                                  (lambda (x acc)
-                                   (append acc (string-split x #\newline)))
+                                   (append acc (@string-split x #\newline)))
                                  '()
                                  code)))))
                 `(define-primitive
@@ -4555,7 +4561,7 @@
   (let loop ((lines 
                (if (pair? file-content) 
                  file-content 
-                 (string-split file-content #\newline)))
+                 (@string-split file-content #\newline)))
              (parsed-file '())
              (cur-section '()))
 
