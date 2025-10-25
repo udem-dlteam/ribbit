@@ -315,25 +315,27 @@
 
   (else))
 
+;; @path-extension, @path-directory
+
 (cond-expand
 
  (gambit
 
-  (define (rsc-path-extension path)
+  (define (@path-extension path)
     (path-extension path))
 
-  (define (rsc-path-directory path)
+  (define (@path-directory path)
     (path-directory path)))
 
  (chicken
 
   (import (chicken pathname))
 
-  (define (rsc-path-extension path)
+  (define (@path-extension path)
     (let ((ext (pathname-extension path)))
       (if ext (string-append "." ext) "")))
 
-  (define (rsc-path-directory path)
+  (define (@path-directory path)
     (let ((dir (pathname-directory path)))
       (if dir dir "")))
 
@@ -342,11 +344,11 @@
 
  (kawa
 
-  (define (rsc-path-extension path)
+  (define (@path-extension path)
     (let ((ext (path-extension path)))
       (if ext (string-append "." ext) "")))
 
-  (define (rsc-path-directory path)
+  (define (@path-directory path)
     (path-directory path))
 
   (define (path-expand path::string dir::string)
@@ -357,7 +359,7 @@
 
  (else
 
-   (define (rsc-path-extension path)
+   (define (@path-extension path)
      (let loop ((i (- (string-length path) 1)))
        (if (< i 0)
            ""
@@ -365,7 +367,7 @@
                (substring path i (string-length path))
                (loop (- i 1))))))
 
-   (define (rsc-path-directory path)
+   (define (@path-directory path)
      (let loop ((i (- (string-length path) 1)))
        (if (< i 0)
            "./"
@@ -1948,7 +1950,7 @@
 
 (cond-expand
   ((or ribbit guile)
-   (define (current-directory) (path-directory (car (@command-line)))))
+   (define (current-directory) (@path-directory (car (@command-line)))))
 
   (else
     (begin)))
@@ -1960,7 +1962,7 @@
 (define resource-file caddr)
 
 (define (make-resource type file)
-  `(,type ,(path-directory file) ,file))
+  `(,type ,(@path-directory file) ,file))
 
 (define included-resources '())
 
@@ -4511,7 +4513,7 @@
 ;; Source code reading.
 
 (define (root-dir)
-  (rsc-path-directory (or (script-file) (executable-path))))
+  (@path-directory (or (script-file) (executable-path))))
 
 (define (ribbit-root-dir) ;; TODO: make it work (maybe with a primitive or a env variable)
   (root-dir))
@@ -5190,7 +5192,7 @@
     (let ((status
             (@shell-command
               (string-append
-                (path-directory rvm-path)
+                (@path-directory rvm-path)
                 "mk-exe "
                 output-path
                 " "
@@ -5536,7 +5538,7 @@ The output is written to output.c, with an executable compiled to run-output.exe
                 (string-append
                   target
                   (string-append "/rvm." target)))
-              (path-directory (car (@command-line)))))
+              (@path-directory (car (@command-line)))))
         target
         input-path
         (if (null? lib-path) '("empty") lib-path)
