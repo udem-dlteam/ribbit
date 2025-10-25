@@ -126,12 +126,20 @@
 ;; @make-table, @table-ref, @table-set!, @table-length and @table->list
 
 (cond-expand
- ((or gambit chicken)
+ (gambit
    (define (@make-table) (make-table))
    (define (@table-ref table key default) (table-ref table key default))
    (define (@table-set! table key val) (table-set! table key val))
    (define (@table-length table) (table-length table))
    (define (@table->list table) (table->list table)))
+
+ (chicken
+   (import (srfi 69)) ;; need to run with srfi-69
+   (define (@make-table) (make-hash-table))
+   (define (@table-ref table key default) (hash-table-ref/default table key default))
+   (define (@table-set! table key default) (hash-table-set! table key value))
+   (define (@table-length table) (hash-table-size table))
+   (define (@table->list table) (hash-table->alist table)))
 
  (kawa
    (import (rnrs hashtables))
@@ -182,6 +190,10 @@
   (gambit
     (define (@unchecked-table-ref table val) (table-ref table val)))
 
+  (chicken
+    (import (srfi 69)) ;; need to run with srfi-69
+    (define (@unchecked-table-ref table key) (hash-table-ref table key)))
+
   (else
     (define (@unchecked-table-ref table val)
       ;; not ideal, but will do
@@ -196,6 +208,17 @@
             (write "Use @table-ref to specify a default or make sure the key is always present")
             (exit-program-abnormally))
           val)))))
+
+;; @max-fixnum
+
+(cond-expand
+  (chicken
+    (import (chicken fixnum))
+    (define @max-fixnum most-positive-fixnum))
+
+  (else
+    (define @max-fixnum 4294967296)))
+
 
 (cond-expand
 
@@ -937,7 +960,7 @@
 
 ;; FNV1a 32 bit constants
 (define fnv1a-prime-32bits   16777619)
-(define max-fixnum         4294967296)
+(define max-fixnum        @max-fixnum)
 
 
 (define (hash-combine a b)
@@ -1219,7 +1242,7 @@
                     (let ((elem (car mv)))
                       `(let ((,(cdr elem) (%%rib ,(car elem) 0 0)))
                          ,@(if (pair? (cdr mv))
-                             (list (introduce-vars (cdr mv)))
+                             (list (introduce-vars (cdr mv) cont-lst))
                              cont-lst)))))
 
                 (if (pair? introduced-mutable-vars)
@@ -3686,8 +3709,8 @@
          (encoded-stream
            (LZSS
              stream
-             9999999999999999
-             9999999999999999
+             99999999
+             99999999
              encoding-size
              (lzss-variable-cost encoding-size tag))))
 
@@ -4110,7 +4133,7 @@
       (p/enc-symtbl)
       (p/enc-prog)
       (p/merge-prog-sym)
-      (let loop1 ((crs compression-range-size-min) (best-compression (list 99999999999 99999999999)))
+      (let loop1 ((crs compression-range-size-min) (best-compression (list 99999999 99999999)))
         (if (<= crs compression-range-size-max)
             (let loop2 ((sb size-base-min) (best-compression best-compression))
               (if (<= sb size-base-max)
