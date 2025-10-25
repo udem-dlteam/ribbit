@@ -8,6 +8,10 @@
 ;;;================== COMPATIBILITY LAYER ===================
 ;;;----------------------------------------------------------
 
+;; To simplify the use of non-standard function, they are prefixed with an
+;; '@' in the code. This compatibility layer maps the corresponding non-standard
+;; function to the implementations.
+
 ;; Tested with Gambit v4.7.5 and above.
 ;; Others used to work, but need to be retested :
 ;;  ->  Guile 3.0.7, Chicken 5.2.0 and Kawa 3.1
