@@ -137,7 +137,7 @@
    (import (srfi 69)) ;; need to run with srfi-69
    (define (@make-table) (make-hash-table))
    (define (@table-ref table key default) (hash-table-ref/default table key default))
-   (define (@table-set! table key default) (hash-table-set! table key value))
+   (define (@table-set! table key value) (hash-table-set! table key value))
    (define (@table-length table) (hash-table-size table))
    (define (@table->list table) (hash-table->alist table)))
 
@@ -255,24 +255,36 @@
    (define (symbol->str symbol)
      (@table-ref uninterned-symbols symbol (symbol->string symbol)))))
 
+;; @string-prefix?, @filter, @fold, @fold-right, @iota
 
-(define (%%std-fold kons knil ls)
+(define (@fold kons knil ls)
   (let lp ((ls ls) (res knil))
     (if (null? ls)
       res
       (lp (cdr ls) (kons (car ls) res)))))
 
+(define (@iota n)
+  (let ((max-n n))
+    (let rec ((n n))
+      (if (eqv? n 0)
+        '()
+        (cons (- max-n n) (rec (- n 1)))))))
 
-
-;; These functions appeared in later versions of Gambit.
-;; When compiling for a version under 4.9.4, we include them:
-;; > string-prefix?, filter, fold, fold-right, iota
-;;
 (cond-expand
   (guile
-    (define fold %%std-fold))
+    (define @fold fold)
+    (define @fold-right foldr)
+    (define @filter filter))
+
+  (chicken
+    (import (srfi 1)) ;; Chicken needs srfi-1
+    (define @fold foldl)
+    (define @fold-right foldr)
+    (define @filter filter))
 
   (gambit
+    ;; These functions appeared in later versions of Gambit.
+    ;; When compiling for a version under 4.9.4, we include them:
     (comp-when (< (system-version) 409004)
 
        (define (string-prefix? pref str)
@@ -285,24 +297,22 @@
                 (<= pref-len str-len)
                 (string=? (substring str 0 pref-len) pref))))
 
-       (define (fold-right kons knil ls)
+       (define (@fold-right kons knil ls)
          (let lp ((ls ls) (res knil))
            (if (null? ls)
              res
              (kons (car ls) (lp (cdr ls) res)))))
 
-       (define (filter f lst)
-         (fold-right (lambda (e r) (if (f e) (cons e r) r)) '() lst))
+       (define (@filter f lst)
+         (@fold-right (lambda (e r) (if (f e) (cons e r) r)) '() lst)))
 
+    (comp-when (>= (system-version) 409004)
 
-       (define fold %%std-fold)
+      (define @fold fold)
+      (define @iota iota)
+      (define @fold-right fold-right)
+      (define @filter filter)))
 
-       (define (iota n)
-         (let ((max-n n))
-           (let rec ((n n))
-             (if (eqv? n 0)
-               '()
-               (cons (- max-n n) (rec (- n 1)))))))))
   (else))
 
 (cond-expand
@@ -970,7 +980,7 @@
     max-fixnum))
 
 (define (hash-string str)
-  (fold hash-combine 0 (string->list* str)))
+  (@fold hash-combine 0 (string->list* str)))
 
 (define (c-rib-eq? c-rib1 c-rib2)
   (let ((op1   (c-rib-oper c-rib1))
@@ -1043,7 +1053,7 @@
       ((char? opnd)
        (char->integer opnd))
       ((list? opnd)
-       (fold hash-combine 0 (map opnd->hash opnd)))
+       (@fold hash-combine 0 (map opnd->hash opnd)))
       ((vector? opnd)
        (hash-combine-over-vector opnd))
       ((pair? opnd)
@@ -1144,7 +1154,7 @@
 (define tail (c-rib jump/call-op '%%id 0)) ;; jump
 
 (define (list-union lst1 lst2)
-  (fold
+  (@fold
     (lambda (x acc)
       (if (memq x acc)
         acc
@@ -1153,7 +1163,7 @@
     lst2))
 
 (define (list-diff lst1 lst2)
-  (filter
+  (@filter
     (lambda (x)
       (not (memq x lst2)))
     lst1))
@@ -1224,7 +1234,7 @@
                      (introduced-mutable-vars
                        (map
                          (lambda (x) (cons x (ribbit-gensym)))
-                         (filter
+                         (@filter
                            (lambda (x) (memq x params-lst))
                            new-mutable-vars)))
                      (cont-lst
@@ -1261,7 +1271,7 @@
                      (introduced-mutable-vars
                        (map
                          (lambda (x) (cons x x))
-                         (filter
+                         (@filter
                            (lambda (x) (memq x vars))
                            new-mutable-vars))))
                 `(let (,@(map
@@ -1359,7 +1369,7 @@
                      (new-bounded (list-union vars bounded)))
 
                 (list-union
-                  (fold  ;; Add all variables in the bindings
+                  (@fold  ;; Add all variables in the bindings
                     (lambda (x acc)
                       (list-union (fv-analysis x bounded host-config only-mutable?) acc))
                     '()
@@ -1367,14 +1377,14 @@
                   (fv-analysis body new-bounded host-config only-mutable?))))
 
              ((eqv? first 'begin)
-              (fold
+              (@fold
                 (lambda (x acc)
                   (list-union (fv-analysis x bounded host-config only-mutable?) acc))
                 '()
                 (cdr expr)))
              
              (else
-               (fold
+               (@fold
                  (lambda (x acc)
                    (list-union (fv-analysis x bounded host-config only-mutable?) acc))
                  '()
@@ -1564,7 +1574,7 @@
                                            (list-union
                                              params
                                              (map car (ctx-live ctx)))
-                                           (filter symbol? (ctx-cte ctx)))
+                                           (@filter symbol? (ctx-cte ctx)))
                                          host-config
                                          #f)))
                                (cons
@@ -1785,7 +1795,7 @@
 
 
 (define (host-feature->scheme host-features)
-  (fold 
+  (@fold 
     (lambda (prim acc)
       (let ((recursive-parse (cadr prim))
             (name (caddr prim))
@@ -2151,12 +2161,12 @@
                                           (eqv? 'use (caaddr expr)))
                                    (caddr expr)
                                    '(use)))
-                     (code (filter string? (cdr expr)))
+                     (code (@filter string? (cdr expr)))
                      (index (soft-assoc 'index (cdr expr)))
                      (parsed-code
                        (cons "" ;; Add empty head for defined-primitives
                              (parse-host-file
-                               (fold
+                               (@fold
                                  (lambda (x acc)
                                    (append acc (@string-split x #\newline)))
                                  '()
@@ -2533,7 +2543,7 @@
   `((ribbit
       ,(lambda (resource-path)
          (let* ((resource-paths 
-                  (fold 
+                  (@fold 
                     (lambda (lib-path acc) 
                       (let ((path (path-normalize (path-expand resource-path lib-path))))
                         (append 
@@ -2542,7 +2552,7 @@
                     '()
                     ribbit-path))
                 (valid-resource-path
-                  (filter file-exists? resource-paths)))
+                  (@filter file-exists? resource-paths)))
           (if (null? valid-resource-path)
              (error "Error while trying to include library, file doesn't exist." resource-paths)
              (open-input-file (car valid-resource-path))))))
@@ -3025,7 +3035,7 @@
   (assoc entry encoding))
 
 (define (encoding-size encoding)
-  (fold + 0 (map cadr encoding)))
+  (@fold + 0 (map cadr encoding)))
 
 
 (define predefined (list '%%rib 'false 'true 'nil)) ;; predefined symbols
@@ -3159,7 +3169,7 @@
                                                tail)))))))))
 
     ;; skip rib primitive that is predefined
-    (let loop ((lst (filter
+    (let loop ((lst (@filter
                       (lambda (x) (host-config-feature-live? host-config x))
                       forced-first-primitives))
                (tail tail))
@@ -3354,7 +3364,7 @@
 
     (define (get-running-sum lst)
       (reverse
-        (fold
+        (@fold
           (lambda (x acc)
             (cons (+ x (car acc)) acc))
           (list 0)
@@ -3367,7 +3377,7 @@
             0
             (/ x y)))
         lst
-        (iota (length lst))))
+        (@iota (length lst))))
 
     (define (calculate-gain-short value-table instruction max offset current-encoding-table encoding-size)
       (let loop ((index offset) (lst '()))
@@ -3623,7 +3633,7 @@
     ;(pp (map list dec encoded-stream return))
     ;(pp (length dec))
     ;(pp (length encoded-stream))
-    ;(pp (filter (lambda (x) (not (equal? (car x) (cadr x)))) (map list dec encoded-stream)))
+    ;(pp (@@filter (lambda (x) (not (equal? (car x) (cadr x)))) (map list dec encoded-stream)))
 
     (if (not (equal? dec
                 encoded-stream))
@@ -3876,7 +3886,7 @@
                  (quotient encoding-size 2))))))))
 
 (define (sum-byte-count table keys encoding-table encoding-size)
-  (fold
+  (@fold
     (lambda (pair acc)
       (let ((value (cdr pair)))
         (if (table? value)
@@ -4011,7 +4021,7 @@
   (let loop ((resulting-string (string->list writable-ascii-literal-encoding))
              (chars-to-remove (string->list chars-to-remove)))
     (list->string
-      (filter (lambda (char) (not (memv char chars-to-remove)))
+      (@filter (lambda (char) (not (memv char chars-to-remove)))
               resulting-string))))
 
 
@@ -4681,9 +4691,9 @@
 (define (extract walker parsed-file base)
   (letrec ((func
              (lambda (prim acc)
-               (let ((rec (lambda (base body) (fold func base body))))
+               (let ((rec (lambda (base body) (@fold func base body))))
                  (walker prim acc rec)))))
-    (fold
+    (@fold
       func
       base
       parsed-file)))
@@ -4712,7 +4722,7 @@
       (list name)))
 
   (let ((features (extract-features parsed-file)))
-    (fold
+    (@fold
       (lambda (prim acc)
         (if (eqv? (car prim) 'feature)
          (unique (append acc (extract-name (caddr prim))))
@@ -4793,15 +4803,15 @@
       (cons lst-true lst-false))))
 
 (define (used-features features live-symbols features-enabled features-disabled)
-  (let* ((primitives (filter (lambda (x) (eq? (car x) 'primitive)) features))
+  (let* ((primitives (@filter (lambda (x) (eq? (car x) 'primitive)) features))
          (live-primitives
-           (filter (lambda (prim)
+           (@filter (lambda (prim)
                      (let ((name (caadr prim)))
                        (or (memq name live-symbols)
                            (memq name features-enabled))))
                    primitives))
          (live-features-symbols (append (cons '%%rib '()) ;; always add rib
-                                        (filter (lambda (x) (not (memq x features-disabled)))
+                                        (@filter (lambda (x) (not (memq x features-disabled)))
                                                 (append features-enabled (map caadr live-primitives))))))
 
     (let loop ((used-features live-features-symbols)
@@ -4819,13 +4829,13 @@
              (current-features (car current-features-pair))
              (not-processed (cdr current-features-pair))
              (current-uses
-               (fold
+               (@fold
                  (lambda (curr-feature acc)
                    (let ((use (soft-assoc 'use curr-feature)))
                      (if use
                        (append
                          acc
-                         (filter
+                         (@filter
                            (lambda (x) (not (memq x features-disabled)))
                            (cdr use)))
                        acc)))
@@ -5028,7 +5038,7 @@
                                       return))
                                   acc)))))
                      (append
-                       (fold generate-one '() primitives)
+                       (@fold generate-one '() primitives)
                        acc)))
 
                   ((use)
