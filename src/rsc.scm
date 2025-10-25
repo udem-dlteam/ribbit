@@ -5204,22 +5204,14 @@
 
 (define progress-status #f)
 
-(define (report-first-status msg cont)
+(define (report-status msg cont)
   (if progress-status
-    (begin (display msg) (display "...\n")))
-  cont)
+    (begin
+      (display msg)
+      (display "... done\n")
+      cont)
+    cont))
 
-(define (report-done)
-  (if progress-status
-    (display "...Done.\n")))
-
-(define-macro (report-status msg cont)
-  `(if progress-status
-     (begin
-       (report-done)
-       (report-first-status ,msg #f)
-       ,cont)
-     (begin ,cont)))
 
 ;;;----------------------------------------------------------------------------
 
@@ -5271,7 +5263,7 @@
          (host-file
            (if (equal? _target "rvm")
              #f
-             (report-first-status
+             (report-status
                "Parsing host file"
                (parse-host-file vm-source))))
 
@@ -5333,9 +5325,7 @@
           host-file
           encoding-name
           byte-stats
-          program-compiled))
-
-      (report-done)))
+          program-compiled))))
 
 (define (parse-cmd-line args)
   (define usage 
