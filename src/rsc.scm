@@ -10,7 +10,7 @@
 
 ;; To simplify the use of non-standard function, they are prefixed with an
 ;; '@' in the code. This compatibility layer maps the corresponding non-standard
-;; function to the implementations.
+;; function to the specific implementations.
 
 ;; Tested with Gambit v4.7.5 and above.
 ;; Others used to work, but need to be retested :
@@ -36,51 +36,31 @@
 
  (else))
 
+;; @shell-command and @delete-file
+
 (cond-expand
-
   (gambit
-
-   (define (shell-cmd command)
-     (shell-command command))
-
-   (define (del-file path)
-     (delete-file path)))
+    (define (@shell-command cmd) (shell-command cmd))
+    (define (@delete-file file) (delete-file file)))
 
   (guile
-
-   (define (shell-cmd command)
-     (system command))
-
-   (define (del-file path)
-     (delete-file path)))
+    (define (@shell-command cmd) (system cmd))
+    (define (@delete-file path) (delete-file path)))
 
   (chicken
-
-   (import (chicken process) (chicken file))
-
-   (define (shell-cmd command)
-     (system command))
-
-   (define (del-file path)
-     (delete-file path)))
+    (import (chicken process) (chicken file))
+    (define (@shell-command cmd) (system cmd))
+    (define (@delete-file path) (delete-file path)))
 
   (kawa
-
-   (define (shell-cmd command)
-     (system command))
-
-   (define (del-file path)
-     (delete-file path)))
-
-  (ribbit
-    (begin))
+    (define (@shell-command cmd) (system cmd))
+    (define (@delete-file path) (delete-file path)))
 
   (else
-   (define (shell-cmd command)
-     #f)
+    (define (@shell-command cmd) (shell-command cmd))
+    (define (@delete-file cmd) (delete-file cmd))))
 
-   (define (del-file path)
-     #f)))
+;; pipe-through
 
 (cond-expand
 
@@ -88,52 +68,46 @@
        guile
        chicken
        kawa)
-
    (define (pipe-through program output)
      (let ((tmpin  "rsc.tmpin")
            (tmpout "rsc.tmpout"))
        (call-with-output-file
-           tmpin
+         tmpin
          (lambda (port) (display output port)))
-       (shell-cmd (string-append
-                   program
-                   (string-append
-                    " < "
-                    (string-append
-                     tmpin
-                     (string-append " > " tmpout)))))
+       (@shell-command (string-append
+                         program
+                         (string-append
+                           " < "
+                           (string-append
+                             tmpin
+                             (string-append " > " tmpout)))))
        (let ((out
-              (call-with-input-file
-                  tmpout
-                (lambda (port) (read-line port #f)))))
-         (del-file tmpin)
-         (del-file tmpout)
+               (call-with-input-file
+                 tmpout
+                 (lambda (port) (read-line port #f)))))
+         (@delete-file tmpin)
+         (@delete-file tmpout)
          out))))
 
-
   (else
+    (define (pipe-through program output)
+      (display "*** Minification is not supported with this Scheme system\n")
+      (display "*** so the generated code was not minified.\n")
+      (display "*** You might want to try running ")
+      (display program)
+      (display " manually.\n")
+      output)))
 
-   (define (pipe-through program output)
-     (display "*** Minification is not supported with this Scheme system\n")
-     (display "*** so the generated code was not minified.\n")
-     (display "*** You might want to try running ")
-     (display program)
-     (display " manually.\n")
-     output)))
+;; @command-line
 
 (cond-expand
 
   (chicken
-
-   (import (chicken process-context))
-
-   (define (cmd-line)
-     (cons (program-name) (command-line-arguments))))
+    (import (chicken process-context))
+    (define (@command-line) (cons (program-name) (command-line-arguments))))
 
   (else
-
-   (define (cmd-line)
-     (command-line))))
+    (define @command-line command-line)))
 
 (cond-expand
 
@@ -149,80 +123,79 @@
    (define (exit-program-abnormally)
      (exit 1))))
 
-(cond-expand
-
-  (gambit
-
-   (define (with-output-to-str thunk)
-     (with-output-to-string "" thunk)))
-
-  (chicken
-
-   (import (chicken port))
-
-   (define (with-output-to-str thunk)
-     (with-output-to-string thunk)))
-
-  (kawa
-
-   (define (with-output-to-str thunk)
-     (call-with-output-string
-      (lambda (port)
-        (parameterize ((current-output-port port))
-          (thunk))))))
-
-  (else
-
-   (define (with-output-to-str thunk)
-     (with-output-to-string thunk))))
+;; @make-table, @table-ref, @table-set!, @table-length and @table->list
 
 (cond-expand
-
- (gambit (begin))
+ ((or gambit chicken)
+   (define (@make-table) (make-table))
+   (define (@table-ref table key default) (table-ref table key default))
+   (define (@table-set! table key val) (table-set! table key val))
+   (define (@table-length table) (table-length table))
+   (define (@table->list table) (table->list table)))
 
  (kawa
+   (import (rnrs hashtables))
 
-  (import (rnrs hashtables))
+   (define (@make-table)
+     (make-hashtable symbol-hash symbol=?))
 
-  (define (make-table)
-    (make-hashtable symbol-hash symbol=?))
+   (define (@table-ref table key default)
+     (hashtable-ref table key default))
 
-  (define (table-ref table key default)
-    (hashtable-ref table key default))
+   (define (@table-set! table key value)
+     (hashtable-set! table key value))
 
-  (define (table-set! table key value)
-    (hashtable-set! table key value))
+   (define (@table-length table)
+     (hashtable-size table))
 
-  (define (table-length table)
-    (hashtable-size table))
-
-  (define (table->list table)
-    (let-values (((keys entries) (hashtable-entries table)))
-      (vector->list (vector-map cons keys entries)))))
+   (define (@table->list table)
+     (let-values (((keys entries) (hashtable-entries table)))
+       (vector->list (vector-map cons keys entries)))))
 
  (else
+   ;; Emulate tables with lists (can be slow)
+   (define (@make-table)
+     (cons '() '()))
 
-     (define (make-table)
-       (cons '() '()))
-
-   (define (table-ref table key default)
+   (define (@table-ref table key default)
      (let ((x (assoc key (car table))))
        (if x
-           (cdr x)
-           default)))
+         (cdr x)
+         default)))
 
-   (define (table-set! table key value)
+   (define (@table-set! table key value)
      (let ((x (assoc key (car table))))
        (if x
-           (set-cdr! x value)
-           (set-car! table
-                     (cons (cons key value) (car table))))))
+         (set-cdr! x value)
+         (set-car! table
+                   (cons (cons key value) (car table))))))
 
-   (define (table-length table)
+   (define (@table-length table)
      (length (car table)))
 
-   (define (table->list table)
+   (define (@table->list table)
      (car table))))
+
+;; @unchecked-table-ref
+
+(cond-expand
+  (gambit
+    (define (@unchecked-table-ref table val) (table-ref table val)))
+
+  (else
+    (define (@unchecked-table-ref table val)
+      ;; not ideal, but will do
+      (let* ((magic (string->symbol "##table-ref-is-empty##"))
+             (val (@table-ref table val magic)))
+        (if (eq? val magic)
+          (begin
+            (write "*** Error in while calling @unchecked-table-ref.\n")
+            (write "Cannot find key (")
+            (write key)
+            (write ") in table\n")
+            (write "Use @table-ref to specify a default or make sure the key is always present")
+            (exit-program-abnormally))
+          val)))))
 
 (cond-expand
 
@@ -244,20 +217,20 @@
 
   (else
 
-   (define uninterned-symbols (make-table))
+   (define uninterned-symbols (@make-table))
 
    (define (str->uninterned-symbol string)
      (let* ((name
              (string-append "@@@" ;; use a "unique" prefix
                             (number->string
-                             (table-length uninterned-symbols))))
+                             (@table-length uninterned-symbols))))
             (sym
              (string->symbol name)))
-       (table-set! uninterned-symbols sym string) ;; remember "real" name
+       (@table-set! uninterned-symbols sym string) ;; remember "real" name
        sym))
 
    (define (symbol->str symbol)
-     (table-ref uninterned-symbols symbol (symbol->string symbol)))))
+     (@table-ref uninterned-symbols symbol (symbol->string symbol)))))
 
 
 (define (%%std-fold kons knil ls)
@@ -537,7 +510,7 @@
 
  (else
    (define (script-file)
-     (car (cmd-line)))
+     (car (@command-line)))
 
    (define (executable-path)
      "")))
@@ -901,7 +874,7 @@
   (ribbit
     (define c-rib-type -1)
 
-    (define hash-table-c-ribs (make-table))
+    (define hash-table-c-ribs (@make-table))
 
     (define c-rib? (instance? c-rib-type))
 
@@ -919,7 +892,7 @@
 
   (else
 
-    (define hash-table-c-ribs (make-table))
+    (define hash-table-c-ribs (@make-table))
 
     (define c-rib? rib?)
     (define (make-c-rib field0 field1 field2 hash)
@@ -938,7 +911,7 @@
 (define (c-rib field0 field1 field2)
   (let* ((hash-table hash-table-c-ribs)
          (hash (hash-c-rib field0 field1 field2))
-         (hash-list (table-ref hash-table hash #f))
+         (hash-list (@table-ref hash-table hash #f))
          (c-rib-ref (make-c-rib field0 field1 field2 hash)))
 
     (if hash-list
@@ -948,10 +921,10 @@
             (car search-iter)
             (search (cdr search-iter)))
           (begin
-            (table-set! hash-table hash (cons c-rib-ref hash-list))
+            (@table-set! hash-table hash (cons c-rib-ref hash-list))
             c-rib-ref)))
       (begin
-        (table-set! hash-table hash (cons c-rib-ref '()))
+        (@table-set! hash-table hash (cons c-rib-ref '()))
         c-rib-ref))))
 
 ;; Hash combine (taken from Gambit Scheme) https://github.com/gambit/gambit/blob/master/lib/_system%23.scm
@@ -1890,7 +1863,7 @@
     ;  (list-sort
     ;    (lambda (x y) (< (car x) (car y)))
     ;    (map (lambda (pair)
-    ;           (cons (car pair) (map display-c-rib (cdr pair)))) (table->list hash-table-c-ribs))))
+    ;           (cons (car pair) (map display-c-rib (cdr pair)))) (@table->list hash-table-c-ribs))))
 
     (if (or (>= verbosity 3) (memq 'expansion debug-info))
       (begin
@@ -1904,7 +1877,7 @@
           (list-sort
             (lambda (x y) (< (car x) (car y)))
             (map (lambda (pair)
-                   (list (car pair) (length (cdr pair)))) (table->list hash-table-c-ribs))))))
+                   (list (car pair) (length (cdr pair)))) (@table->list hash-table-c-ribs))))))
 
     (if (or (>= verbosity 2) (memq 'rvm-code debug-info))
       (begin
@@ -1942,7 +1915,7 @@
 
 (cond-expand
   ((or ribbit guile)
-   (define (current-directory) (path-directory (car (cmd-line)))))
+   (define (current-directory) (path-directory (car (@command-line)))))
 
   (else
     (begin)))
@@ -3247,7 +3220,7 @@
         (traverse-code (c-rib-next code) func)))))
 
 (define (encode-symtbl proc exports host-config call-sym-short-size)
-  (define syms (make-table))
+  (define syms (@make-table))
 
   (define (scan-proc proc)
     (scan (c-rib-next (c-procedure-code proc))))
@@ -3259,9 +3232,9 @@
   (define (scan-opnd-aux o pos)
     (cond ((symbol? o)
            (let ((descr
-                  (or (table-ref syms o #f)
+                  (or (@table-ref syms o #f)
                       (let ((descr (rib 0 0 0)))
-                        (table-set! syms o descr)
+                        (@table-set! syms o descr)
                         descr))))
              (cond ((= pos 0)
                     (field0-set! descr (+ 1 (field0 descr))))
@@ -3313,7 +3286,7 @@
             (list-sort
               (lambda (a b)
                 (< (ordering b) (ordering a)))
-              (table->list syms))))
+              (@table->list syms))))
 
       (let loop1 ((i 0) (lst lst) (symbols '()))
         (if (and (pair? lst) (< i call-sym-short-size))
@@ -3378,7 +3351,7 @@
         (if (< index (- max offset))
           (let* ((byte-count-optimal 1)
                  (byte-count-current (get-byte-count instruction index current-encoding-table encoding-size))
-                 (gain               (* (- byte-count-current byte-count-optimal) (table-ref value-table index 0)))
+                 (gain               (* (- byte-count-current byte-count-optimal) (@table-ref value-table index 0)))
                  (new-index          (+ index 1)))
             (loop
               new-index
@@ -3393,8 +3366,8 @@
           (if (< index (- max offset))
             (let* ((optimal-table
                      (let ((optimal (table-copy current-encoding-table)))
-                       (table-ref optimal (append instruction (list 'long)))
-                       (table-set! optimal (append instruction (list 'long)) index)
+                       (@unchecked-table-ref optimal (append instruction (list 'long)))
+                       (@table-set! optimal (append instruction (list 'long)) index)
                        optimal))
                    (optimal-table-value (sum-byte-count value-table (reverse instruction) optimal-table encoding-size))
                    (gain               (- old-gain optimal-table-value))
@@ -3407,18 +3380,20 @@
             (reverse lst)))))
 
 
-    (define solution (make-table))
-    (define running-sums (make-table))
+    (define solution (@make-table))
+    (define running-sums (@make-table))
 
 
     (define (recalculate)
       (for-each
         (lambda (encoding)
-          (if (and (pair? encoding) 
-                   (table-ref stats (car encoding) #f) 
-                   ;; FIXME: this check is needed because the instruction might be missing
-                   (table-ref (table-ref stats (car encoding)) (cadr encoding) #f)) 
-            (table-set!
+          (if (and (pair? encoding)
+
+                   (let ((subtable (@table-ref stats (car encoding) #f)))
+                     (if subtable
+                       (@table-ref subtable (cadr encoding) #f)
+                       #f)))
+            (@table-set!
               running-sums
               encoding
               (normalize
@@ -3426,16 +3401,15 @@
                   ((if (memq 'short encoding)
                      calculate-gain-short
                      calculate-gain-long)
-                   (table-ref
-                     (table-ref stats (car encoding))
-                     (cadr encoding) #f)
+                   (@unchecked-table-ref
+                     (@unchecked-table-ref stats (car encoding))
+                     (cadr encoding))
                    (list (car encoding)
                          (cadr encoding))
                    encoding-size-counter
-                   (table-ref solution encoding)
+                   (@unchecked-table-ref solution encoding)
                    solution
-                   encoding-size
-                   ))))))
+                   encoding-size))))))
         encodings))
 
     (define (select-winner)
@@ -3457,14 +3431,14 @@
                     (loop
                       (+ 1 index)
                       (cdr lst)))))))
-          (table->list running-sums))
+          (@table->list running-sums))
         (list winner-inst winner-index winner-value)))
 
 
     ;; starting, set size 1 for long encodings
     (for-each
       (lambda (encoding)
-        (table-set!
+        (@table-set!
           solution
           encoding
           (if (and (pair? encoding) (memq 'short encoding))
@@ -3481,7 +3455,7 @@
       (let ((winner (select-winner)))
         (if (not (eqv? (car winner) 0))
           (begin
-            (table-set! solution (car winner) (+ (cadr winner) (table-ref solution (car winner))))
+            (@table-set! solution (car winner) (+ (cadr winner) (@unchecked-table-ref solution (car winner))))
             (set! encoding-size-counter (- encoding-size-counter (cadr winner)))
             (if (< 0 encoding-size-counter)
               (loop))))))
@@ -3490,11 +3464,11 @@
 
 
 (define (encoding-table->encoding-list encoding-table)
-  (map (lambda (x) (list (car x) (cdr x))) (table->list encoding-table)))
+  (map (lambda (x) (list (car x) (cdr x))) (@table->list encoding-table)))
 
 (define (encoding-list->encoding-table encoding-list)
-  (let ((table (make-table)))
-    (for-each (lambda (x) (table-set! table (car x) (cadr x))) encoding-list)
+  (let ((table (@make-table)))
+    (for-each (lambda (x) (@table-set! table (car x) (cadr x))) encoding-list)
     table))
 
 (define (lzss-variable-cost encoding-size tag)
@@ -3678,18 +3652,18 @@
         (error "idk how you did end up here" stream))))
 
   (define (find-tag stream)
-    (define value-table (make-table))
+    (define value-table (@make-table))
 
     (let loop ((stream stream))
       (if (pair? stream)
         (begin
-          (table-set! value-table (car stream) (+ 1 (table-ref value-table (car stream) 0)))
+          (@table-set! value-table (car stream) (+ 1 (@table-ref value-table (car stream) 0)))
           (loop (cdr stream)))))
 
     (caar (list-sort
            (lambda (x y)
              (< (cdr x) (cdr y)))
-           (table->list value-table))))
+           (@table->list value-table))))
 
 
   (define (add-variables! host-config tag)
@@ -3846,21 +3820,21 @@
 
 
 (define (get-or-create table val)
-  (let ((x (table-ref table val #f)))
+  (let ((x (@table-ref table val #f)))
     (if x
       x
       (begin
-        (let ((new-table (make-table)))
-          (table-set! table val new-table)
+        (let ((new-table (@make-table)))
+          (@table-set! table val new-table)
           new-table)))))
 
-(define stats (make-table))
+(define stats (@make-table))
 
 (define (add-stat stats op-arg-sym arg)
   (let loop ((arg-table stats) (keys op-arg-sym))
     (if (pair? keys)
       (loop (get-or-create arg-table (car keys)) (cdr keys))
-      (table-set! arg-table arg (+ 1 (table-ref arg-table arg 0))))))
+      (@table-set! arg-table arg (+ 1 (@table-ref arg-table arg 0))))))
 
 
 (define (get-byte-count arg-list arg encoding-table encoding-size)
@@ -3869,8 +3843,8 @@
     1
     (let* ((short-key   (append arg-list '(short)))
            (long-key    (append arg-list '(long)))
-           (short-size  (table-ref encoding-table short-key))
-           (long-size   (table-ref encoding-table long-key)))
+           (short-size  (@unchecked-table-ref encoding-table short-key))
+           (long-size   (@unchecked-table-ref encoding-table long-key)))
       (if (< arg short-size)
         1
         (+ 2 (floor
@@ -3886,7 +3860,7 @@
           (+ acc (sum-byte-count value (cons (car pair) keys) encoding-table encoding-size))
           (+ acc (* (cdr pair) (get-byte-count (reverse keys) (car pair) encoding-table encoding-size))))))
     0
-    (table->list table)))
+    (@table->list table)))
 
 (define (display-stats-aux stats level max-level encoding-table)
   (define (sort-numbers lst)
@@ -3927,7 +3901,7 @@
               max-level
               encoding-table))))
 
-      (sort-numbers (table->list stats)))))
+      (sort-numbers (@table->list stats)))))
 
 
 (define (display-stats stats max-value encoding-table)
@@ -3952,7 +3926,7 @@
   (string-append
     (stream->default-string
       (encode-n
-        (- (table-length symtbl)
+        (- (@table-length symtbl)
            (length symbols*))
         '()
         (quotient encoding-size 2)))
@@ -3967,7 +3941,7 @@
 
 (define (symtbl->stream symtbl symbols* ribn-base byte-base literal-encoding)
   (encode-n
-    (- (table-length symtbl)
+    (- (@table-length symtbl)
        (length symbols*))
     (append
       (string->stream
@@ -4213,7 +4187,7 @@
     (define (optimal-encoding)
       (let* ((symtbl-and-symbols* (encode-symtbl proc exports host-config 20)) ;; we assume 20 shorts, will be re-evaluated
              (raw-stream (encode-program proc (car symtbl-and-symbols*) 'raw #t (ribn-base)))
-             (stats (get-stat-from-raw (make-table) raw-stream))
+             (stats (get-stat-from-raw (@make-table) raw-stream))
              (encoding
                (calculate-start
                  (encoding-optimal-order
@@ -4322,7 +4296,7 @@
   (define encoding-size/2 (quotient encoding-size 2))
 
   (define (encode-sym o)
-    (let ((descr (table-ref syms o #f)))
+    (let ((descr (@table-ref syms o #f)))
       (field0 descr)))
 
   (define (encode-long1 code n stream)
@@ -4942,7 +4916,7 @@
   (define cached-functions
     '(encode encode-as-bytes encode-as-string encode-writable-ascii))
 
-  (define cache (make-table))
+  (define cache (@make-table))
 
   (extract
     (lambda (prim acc rec)
@@ -4960,8 +4934,8 @@
            (let ((expr (cadddr prim)))
              (if (and (pair? expr)
                       (memq (car expr) cached-functions)
-                      (not (table-ref cache expr #f)))
-               (table-set! cache expr (replace-eval expr encode host-config)))))
+                      (not (@table-ref cache expr #f)))
+               (@table-set! cache expr (replace-eval expr encode host-config)))))
 
           (else acc))
         acc))
@@ -5051,7 +5025,7 @@
                           (replace-expr (cadddr prim))
                           (replacement-text
                             (or
-                              (table-ref cache replace-expr #f)
+                              (@table-ref cache replace-expr #f)
                               (replace-eval replace-expr encode host-config)))
                           (replacement-text
                             (cond ((symbol? replacement-text)
@@ -5181,7 +5155,7 @@
 
   (if exe-output-path
     (let ((status
-            (shell-cmd
+            (@shell-command
               (string-append
                 (path-directory rvm-path)
                 "mk-exe "
@@ -5539,7 +5513,7 @@ The output is written to output.c, with an executable compiled to run-output.exe
                 (string-append
                   target
                   (string-append "/rvm." target)))
-              (path-directory (car (cmd-line)))))
+              (path-directory (car (@command-line)))))
         target
         input-path
         (if (null? lib-path) '("empty") lib-path)
@@ -5552,7 +5526,7 @@ The output is written to output.c, with an executable compiled to run-output.exe
         byte-stats
         call-stats))))
 
-(parse-cmd-line (cmd-line))
+(parse-cmd-line (@command-line))
 
 (exit-program-normally)
 
