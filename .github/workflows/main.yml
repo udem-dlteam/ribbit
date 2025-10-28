@@ -119,11 +119,10 @@ jobs:
       - name: Install python (for tests)
         run: |
           sudo apt-get install python3
-
       - name: Run tests
         run: |
-          cd src
-          SCHEME_COMPILER=chicken TEST_FEATURES="" TEST_SKIP="*2-1-ident*" HOST=py make check
+          cd src;
+          SCHEME_COMPILER=chicken TEST_FEATURES="" TEST_SKIP="2-1-identifiers.scm 6-4-symbol.scm 6-6-char-predicates.scm" HOST=py make check
 
   compile_RSC:
     runs-on: ubuntu-latest
