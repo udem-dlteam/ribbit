@@ -1141,11 +1141,6 @@
       (cons (car vars) (extend (cdr vars) cte))
       cte))
 
-(define jump/call-op 'jump/call)
-(define set-op       'set)
-(define get-op       'get)
-(define const-op     'const)
-(define if-op        'if)
 
 (define tail (c-rib jump/call-op '%%id 0)) ;; jump
 
@@ -1943,7 +1938,7 @@
 (define defined-features '()) ;; used as parameters for expand-functions
 
 (cond-expand
-  ((or ribbit guile)
+  ((or ribbit guile kawa chicken)
    (define (current-directory) ($path-directory (car ($command-line)))))
 
   (else
@@ -3033,8 +3028,6 @@
 (define (encoding-size encoding)
   ($fold + 0 (map cadr encoding)))
 
-
-(define predefined (list '%%rib 'false 'true 'nil)) ;; predefined symbols
 
 (define (encode-constants proc host-config)
 
@@ -4535,7 +4528,7 @@
 (define (read-program lib-path src-path)
   (append (apply append (map read-library lib-path))
           (if (equal? src-path "-")
-              ($read-all)
+              ($read-all (current-input-port))
               (read-from-file src-path))))
 
 ;;;----------------------------------------------------------
@@ -5267,7 +5260,9 @@
               (begin
                 (display "*** HOST FILE EXPANSION: ")
                 (newline)
-                (pp host-file))))
+                (pp host-file)
+                0)
+              0))
 
          (encoding-name (cond
                           ((and (equal? encoding-name "auto") (not host-file)) "original")
