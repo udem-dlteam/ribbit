@@ -133,7 +133,7 @@
    (define ($table-length table) (table-length table))
    (define ($table->list table) (table->list table)))
 
- (chicken
+ ((or chicken kawa)
    (import (srfi 69)) ;; need to run with srfi-69
    (define ($make-table) (make-hash-table))
    (define ($table-ref table key default) (hash-table-ref/default table key default))
@@ -141,24 +141,6 @@
    (define ($table-length table) (hash-table-size table))
    (define ($table->list table) (hash-table->alist table)))
 
- (kawa
-   (import (rnrs hashtables))
-
-   (define ($make-table)
-     (make-hashtable symbol-hash symbol=?))
-
-   (define ($table-ref table key default)
-     (hashtable-ref table key default))
-
-   (define ($table-set! table key value)
-     (hashtable-set! table key value))
-
-   (define ($table-length table)
-     (hashtable-size table))
-
-   (define ($table->list table)
-     (let-values (((keys entries) (hashtable-entries table)))
-       (vector->list (vector-map cons keys entries)))))
 
  (else
    ;; Emulate tables with lists (can be slow)
