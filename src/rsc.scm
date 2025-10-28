@@ -648,17 +648,17 @@
     (read-enable 'case-insensitive))
   (else))
 
-;; read-all
+;; @read-all
+
+(define (@read-all port)
+  (let loop ((curr (read port)) (acc '()))
+    (if (eof-object? curr)
+      (reverse acc)
+      (loop (read port) (cons curr acc)))))
 
 (cond-expand
-  (guile
-
-    (define (read-all port)
-      (let loop ((curr (read port)) (acc '()))
-        (if (eof-object? curr)
-          (reverse acc)
-          (loop (read port) (cons curr acc))))))
-
+  (gambit
+    (define @read-all read-all))
   (else))
 
 ;; Eval
@@ -2616,7 +2616,7 @@
 (define (expand-resource resource mtx)
   (let ((old-current-resource current-resource))
     (set! current-resource resource)
-    (let ((result (expand-begin (read-all (get-resource-port resource)) mtx)))
+    (let ((result (expand-begin (@read-all (get-resource-port resource)) mtx)))
       (set! current-resource old-current-resource)
       result)))
 
@@ -4545,7 +4545,7 @@
                  (begin
                    (close-input-port port)
                    (open-input-file path)))))
-    (read-all port)))
+    (@read-all port)))
 
 (define (read-library lib-path)
   `((%%include-once (ribbit ,lib-path))))
@@ -4553,7 +4553,7 @@
 (define (read-program lib-path src-path)
   (append (apply append (map read-library lib-path))
           (if (equal? src-path "-")
-              (read-all)
+              (@read-all)
               (read-from-file src-path))))
 
 ;;;----------------------------------------------------------
