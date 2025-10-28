@@ -255,20 +255,49 @@
    (define (symbol->str symbol)
      (@table-ref uninterned-symbols symbol (symbol->string symbol)))))
 
-;; @string-prefix?, @filter, @fold, @fold-right, @iota
+;; @iota
 
-(define (@fold kons knil ls)
+(define (@iota n)
+      (let ((max-n n))
+        (let rec ((n n))
+          (if (eqv? n 0)
+            '()
+            (cons (- max-n n) (rec (- n 1)))))))
+
+(cond-expand
+  (gambit
+    (comp-when (>= (system-version) 409004)
+      (define @iota iota)))
+  (else))
+
+;; @string-prefix
+
+(define (@string-prefix? pref str)
+  (let* ((str (if (string? str) str (symbol->string str)))
+         (str-len (string-length str))
+         (pref (if (string? pref) pref (symbol->string pref)))
+         (pref-len (string-length pref)))
+    (and (string? pref)
+         (string? str)
+         (<= pref-len str-len)
+         (string=? (substring str 0 pref-len) pref))))
+
+(cond-expand
+  (gambit
+    (comp-when (>= (system-version) 409004)
+      (define @string-prefix string-prefix)))
+  (else))
+
+;; @filter, @fold, @fold-right
+
+(define (@fold-right kons knil ls)
   (let lp ((ls ls) (res knil))
     (if (null? ls)
       res
-      (lp (cdr ls) (kons (car ls) res)))))
+      (kons (car ls) (lp (cdr ls) res)))))
 
-(define (@iota n)
-  (let ((max-n n))
-    (let rec ((n n))
-      (if (eqv? n 0)
-        '()
-        (cons (- max-n n) (rec (- n 1)))))))
+(define (@filter f lst)
+  (@fold-right (lambda (e r) (if (f e) (cons e r) r)) '() lst))
 
 (cond-expand
   (guile
@@ -287,37 +316,21 @@
     (define @filter filter))
 
   (gambit
+    (define @fold fold)
+
     ;; These functions appeared in later versions of Gambit.
     ;; When compiling for a version under 4.9.4, we include them:
-    (comp-when (< (system-version) 409004)
-
-       (define (string-prefix? pref str)
-         (let* ((str (if (string? str) str (symbol->string str)))
-                (str-len (string-length str))
-                (pref (if (string? pref) pref (symbol->string pref)))
-                (pref-len (string-length pref)))
-           (and (string? pref)
-                (string? str)
-                (<= pref-len str-len)
-                (string=? (substring str 0 pref-len) pref))))
-
-       (define (@fold-right kons knil ls)
-         (let lp ((ls ls) (res knil))
-           (if (null? ls)
-             res
-             (kons (car ls) (lp (cdr ls) res)))))
-
-       (define (@filter f lst)
-         (@fold-right (lambda (e r) (if (f e) (cons e r) r)) '() lst)))
-
     (comp-when (>= (system-version) 409004)
-
-      (define @fold fold)
-      (define @iota iota)
       (define @fold-right fold-right)
       (define @filter filter)))
 
-  (else))
+  (else
+
+    (define (@fold kons knil ls)
+      (let lp ((ls ls) (res knil))
+        (if (null? ls)
+          res
+          (lp (cdr ls) (kons (car ls) res)))))))
 
 ;; @path-extension, @path-directory
 
@@ -392,7 +405,7 @@
              (loop (- i 1)))))))
 
    (define (path-expand path dir)
-     (if (or (= (string-length dir) 0) (string-prefix? dir path))
+     (if (or (= (string-length dir) 0) (@string-prefix? dir path))
          path
          (if (eqv? (string-ref dir (- (string-length dir) 1)) #\/)
              (string-append dir path)
@@ -401,9 +414,9 @@
 (define (path-normalize path)
      (let loop ((path path))
        (let ((path (string-replace (string-replace path "//" "/") "/./" "/")))
-         (if (string-prefix? "./" path)
+         (if (@string-prefix? "./" path)
            (loop (substring path 2 (string-length path)))
-           (if (string-prefix? "../" path)
+           (if (@string-prefix? "../" path)
              (loop (substring path 3 (string-length path)))
              path)))))
 
@@ -4532,7 +4545,7 @@
   
   (let* ((port (open-input-file path))
          (first-line (read-line port #\newline))
-         (port (if (and (not (eof-object? first-line)) (string-prefix? "#!" first-line))
+         (port (if (and (not (eof-object? first-line)) (@string-prefix? "#!" first-line))
                  port
                  (begin
                    (close-input-port port)
