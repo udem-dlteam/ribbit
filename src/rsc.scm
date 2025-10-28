@@ -177,10 +177,10 @@
     (define ($unchecked-table-ref table key) (hash-table-ref table key)))
 
   (else
-    (define ($unchecked-table-ref table val)
+    (define ($unchecked-table-ref table key)
       ;; not ideal, but will do
       (let* ((magic (string->symbol "##table-ref-is-empty##"))
-             (val ($table-ref table val magic)))
+             (val ($table-ref table key magic)))
         (if (eq? val magic)
           (begin
             (write "*** Error in while calling $unchecked-table-ref.\n")
