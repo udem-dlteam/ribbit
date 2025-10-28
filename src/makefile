@@ -15,6 +15,9 @@ ifeq (${RSC},)
 SCHEME_COMPILER ?= gambit
 endif
 
+# List of scheme compilers
+SCHEME_COMPILERS = gambit guile chicken
+
 # OPTION -- The command to invoke when calling the Ribbit Scheme Compile.
 # This option is set automatically by the SCHEME_COMPILER value.
 # Examples:
@@ -53,6 +56,12 @@ endif
 ifeq (${SCHEME_COMPILER},guile)
 RSC_DEPS ?= rsc-guile
 RSC ?= ./rsc-guile
+endif
+
+ifneq ($(SCHEME_COMPILER),)
+ifeq ($(filter $(SCHEME_COMPILER),$(SCHEME_COMPILERS)),)
+$(error $$SCHEME_COMPILER variable needs to be one of "$(SCHEME_COMPILERS)", not "$(SCHEME_COMPILER)")
+endif
 endif
 
 
