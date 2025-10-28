@@ -290,6 +290,12 @@
 
 ;; @filter, @fold, @fold-right
 
+(define (@fold kons knil ls)
+      (let lp ((ls ls) (res knil))
+        (if (null? ls)
+          res
+          (lp (cdr ls) (kons (car ls) res)))))
+
 (define (@fold-right kons knil ls)
   (let lp ((ls ls) (res knil))
     (if (null? ls)
@@ -300,11 +306,6 @@
   (@fold-right (lambda (e r) (if (f e) (cons e r) r)) '() lst))
 
 (cond-expand
-  (guile
-    (define @fold fold)
-    (define @fold-right foldr)
-    (define @filter filter))
-
   (chicken
     (import (srfi 1)) ;; Chicken needs srfi-1
 
@@ -324,13 +325,7 @@
       (define @fold-right fold-right)
       (define @filter filter)))
 
-  (else
-
-    (define (@fold kons knil ls)
-      (let lp ((ls ls) (res knil))
-        (if (null? ls)
-          res
-          (lp (cdr ls) (kons (car ls) res)))))))
+  (else))
 
 ;; @path-extension, @path-directory
 
