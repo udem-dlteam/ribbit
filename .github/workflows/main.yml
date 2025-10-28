@@ -100,6 +100,31 @@ jobs:
           cd src
           SCHEME_COMPILER=guile TEST_FEATURES="" HOST=py make check
 
+  check_chicken:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the ribbit repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+      - name: Install Chicken Scheme
+        run: |
+          sudo apt-get update
+          sudo apt install chicken-bin
+      - name: Add srfi-1 and srfi-69
+        run: |
+          sudo chicken-install srfi-1
+          sudo chicken-install srfi-69
+      - name: Install python (for tests)
+        run: |
+          sudo apt-get install python3
+
+      - name: Run tests
+        run: |
+          cd src
+          SCHEME_COMPILER=chicken TEST_FEATURES="" TEST_SKIP="*2-1-ident*" HOST=py make check
+
   compile_RSC:
     runs-on: ubuntu-latest
     steps:
