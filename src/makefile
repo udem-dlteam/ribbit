@@ -35,6 +35,8 @@ GSC_OPTIONS ?=
 # OPTION - Location of the guile interpreter.
 GUILE ?= guile
 
+# Option - Location of the Chicken compiler
+CSC ?= csc
 
 
 # == Default config for Gambit ==
@@ -56,6 +58,12 @@ endif
 ifeq (${SCHEME_COMPILER},guile)
 RSC_DEPS ?= rsc-guile
 RSC ?= ./rsc-guile
+endif
+
+# == Default config for chicken ==
+ifeq (${SCHEME_COMPILER},chicken)
+RSC_DEPS ?= rsc-csc
+RSC ?= ./rsc-csc
 endif
 
 ifneq ($(SCHEME_COMPILER),)
@@ -98,6 +106,13 @@ rsc-guile:
 	@# Write file to rsc-guile.exe
 	@echo "${GUILE} -s '$(shell pwd)/rsc.scm' \$$@" > rsc-guile
 	chmod +x rsc-guile
+
+#
+# Chicken config
+#
+rsc-csc:
+	@echo "==> Compiling Ribbit with Chicken"
+	${CSC} rsc.scm -o rsc-csc
 
 #
 # Minify script, used by some VMs
