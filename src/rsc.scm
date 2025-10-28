@@ -278,7 +278,11 @@
 
   (chicken
     (import (srfi 1)) ;; Chicken needs srfi-1
-    (define @fold foldl)
+
+    ;; arguments for fold are swapped
+    (define (@fold kons knil ls)
+      (foldl (lambda (a b) (kons b a)) knil ls))
+
     (define @fold-right foldr)
     (define @filter filter))
 
