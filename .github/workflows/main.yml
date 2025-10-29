@@ -32,6 +32,12 @@ jobs:
           cd src
           make rsc.exe
 
+      - name: Setup gcc
+        uses: egor-tensin/setup-gcc@v1
+        with:
+          version: latest
+          platform: x64
+
       - name: Install python
         run: sudo apt install python3
 
@@ -39,6 +45,11 @@ jobs:
         run: |
           cd src
           TEST_FEATURES="" TEST_TAGS="py core" HOST=py make check
+
+      - name: Run C RVM
+        run: |
+          cd src
+          HOST=c make check
 
   check_gambit_v4_7_5:
     runs-on: ubuntu-latest
@@ -54,6 +65,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install texinfo autoconf2.69
           sudo ln -s -f `which autoconf2.69` `which autoconf`
+
+      - name: Setup gcc
+        uses: egor-tensin/setup-gcc@v1
+        with:
+          version: latest
+          platform: x64
 
       - name: Checkout the gambit repository
         uses: actions/checkout@v2
@@ -82,6 +99,11 @@ jobs:
           cd src
           TEST_FEATURES="" HOST=py make check
 
+      - name: Run C RVM
+        run: |
+          cd src
+          HOST=c make check
+
   check_guile:
     runs-on: ubuntu-latest
     steps:
@@ -90,15 +112,28 @@ jobs:
         with:
           repository: ${{ github.repository }}
           ref: ${{ github.ref }}
-      - name: Install guile
+
+      - name: Setup gcc
+        uses: egor-tensin/setup-gcc@v1
+        with:
+          version: latest
+          platform: x64
+
+      - name: Install guile and python
         run: |
           sudo apt-get update
           sudo apt-get install guile-3.0
           sudo apt-get install python3
-      - name: Run tests
+
+      - name: Run Python RVM
         run: |
           cd src
           SCHEME_COMPILER=guile TEST_FEATURES="" HOST=py make check
+
+      - name: Run C RVM
+        run: |
+          cd src
+          SCHEME_COMPILER=guile HOST=c make check
 
   check_chicken:
     runs-on: ubuntu-latest
@@ -108,21 +143,36 @@ jobs:
         with:
           repository: ${{ github.repository }}
           ref: ${{ github.ref }}
+
       - name: Install Chicken Scheme
         run: |
           sudo apt-get update
           sudo apt install chicken-bin
+
+      - name: Install python
+        run: |
+          sudo apt-get install python3
+
       - name: Add srfi-1 and srfi-69
         run: |
           sudo chicken-install srfi-1
           sudo chicken-install srfi-69
-      - name: Install python (for tests)
-        run: |
-          sudo apt-get install python3
-      - name: Run tests
+
+      - name: Setup gcc
+        uses: egor-tensin/setup-gcc@v1
+        with:
+          version: latest
+          platform: x64
+
+      - name: Run python RVM
         run: |
           cd src;
           SCHEME_COMPILER=chicken TEST_FEATURES="" TEST_SKIP="2-1-identifiers.scm 6-4-symbol.scm 6-6-char-predicates.scm" HOST=py make check
+
+      - name: Run C RVM
+        run: |
+          cd src;
+          SCHEME_COMPILER=chicken TEST_FEATURES="" TEST_SKIP="2-1-identifiers.scm 6-4-symbol.scm 6-6-char-predicates.scm" HOST=c make check
 
   compile_RSC:
     runs-on: ubuntu-latest
