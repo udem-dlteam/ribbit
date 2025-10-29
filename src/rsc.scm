@@ -544,28 +544,29 @@
    (define (executable-path)
      "")))
 
+; $string-concatenate
+
 (cond-expand
 
   ((and gambit ;; hack to detect recent Gambit version
-        (or enable-sharp-dot disable-sharp-dot)))
+        (or enable-sharp-dot disable-sharp-dot))
+   (define $string-concatenate string-concatenate))
 
   (chicken
 
    (import (chicken string))
 
-   (define (string-concatenate string-list separator)
+   (define ($string-concatenate string-list separator)
      (string-intersperse string-list separator)))
 
   (kawa
 
-   (define (string-concatenate string-list separator)
+   (define ($string-concatenate string-list separator)
      (string-join string-list separator)))
-
-  (ribbit (begin))
 
   (else
 
-    (define (string-concatenate string-list separator)
+    (define ($string-concatenate string-list separator)
       (if (pair? string-list)
         (let ((rev-string-list (reverse string-list))
               (sep (string->list separator)))
@@ -2196,7 +2197,7 @@
                      (bindings 
                        (map
                          (lambda (x)
-                           `(,(car x) ,(parse-host-file (string-concatenate (cdr x) "\n"))))
+                           `(,(car x) ,(parse-host-file ($string-concatenate (cdr x) "\n"))))
                          bindings)))
                 `(define-feature
                    ,feature-condition
@@ -2396,7 +2397,7 @@
                         " in "
                         (resource-file current-resource)
                         ". "
-                        (string-concatenate (map object->string args) " "))))
+                        ($string-concatenate (map object->string args) " "))))
 
 
 
@@ -3964,7 +3965,7 @@
            (length symbols*))
         '()
         (quotient encoding-size 2)))
-    (string-concatenate
+    ($string-concatenate
       (map (lambda (s)
              (let ((str (symbol->str s)))
                (list->string
@@ -3979,7 +3980,7 @@
        (length symbols*))
     (append
       (string->stream
-        (string-concatenate
+        ($string-concatenate
           (map (lambda (s)
                  (let ((str (symbol->str s)))
                    (list->string
@@ -4860,13 +4861,13 @@
 (define (list->host lst prefix sep suffix)
   (string-append
     prefix
-    (string-concatenate
+    ($string-concatenate
       (map object->string lst)
       sep)
     suffix))
 
 (define (rvm-code-to-bytes rvm-code sep)
-  (string-concatenate
+  ($string-concatenate
    (map (lambda (c) (number->string (char->integer c)))
         (string->list rvm-code))
    sep))
@@ -5014,7 +5015,7 @@
                                      (head (car whole-body))
                                      (body (cdr whole-body))
                                      (body (if (null? body) (list head) body))
-                                     (body-str (string-concatenate body "\n")))
+                                     (body-str ($string-concatenate body "\n")))
 
                                 (cons
                                   (let loop ((gen gen-pattern)
@@ -5079,7 +5080,7 @@
                   (else
                     (error "Unhandled expression in file parsing" prim)))))))
 
-    (string-concatenate
+    ($string-concatenate
       (reverse
         (extract
           extract-func
@@ -5176,7 +5177,7 @@
                     (loop1 i
                            (+ j 1)
                            out))))
-          (string-concatenate
+          ($string-concatenate
            (reverse (cons (substring str i (string-length str)) out))
            "")))))
 
