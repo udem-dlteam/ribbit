@@ -16,7 +16,7 @@ SCHEME_COMPILER ?= gambit
 endif
 
 # List of scheme compilers
-SCHEME_COMPILERS = gambit guile chicken
+SCHEME_COMPILERS = gambit guile chicken kawa
 
 # OPTION -- The command to invoke when calling the Ribbit Scheme Compile.
 # This option is set automatically by the SCHEME_COMPILER value.
@@ -35,8 +35,11 @@ GSC_OPTIONS ?=
 # OPTION - Location of the guile interpreter.
 GUILE ?= guile
 
-# Option - Location of the Chicken compiler
+# Option - Location of the Chicken compiler.
 CSC ?= csc
+
+# Option - Location of the Kawa interpreter.
+KAWA ?= kawa
 
 
 # == Default config for Gambit ==
@@ -64,6 +67,11 @@ endif
 ifeq (${SCHEME_COMPILER},chicken)
 RSC_DEPS ?= rsc-csc
 RSC ?= ./rsc-csc
+endif
+
+# == Default config for kawa ==
+ifeq (${SCHEME_COMPILER},kawa)
+RSC ?= $(KAWA) ./rsc.scm
 endif
 
 ifneq ($(SCHEME_COMPILER),)
