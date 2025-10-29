@@ -174,6 +174,48 @@ jobs:
           cd src;
           SCHEME_COMPILER=chicken TEST_FEATURES="" TEST_SKIP="2-1-identifiers.scm 6-4-symbol.scm 6-6-char-predicates.scm" HOST=c make check
 
+  check_kawa:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the ribbit repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.ref }}
+
+      - name: Install java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install Kawa Scheme
+        run: |
+          sudo apt-get update
+          sudo apt-get install wget
+          wget ftp://ftp.gnu.org/pub/gnu/kawa/kawa-3.1.1.zip
+          unzip kawa-3.1.1.zip
+
+      - name: Install python
+        run: |
+          sudo apt-get install python3
+
+      - name: Setup gcc
+        uses: egor-tensin/setup-gcc@v1
+        with:
+          version: latest
+          platform: x64
+
+      - name: Run python RVM
+        run: |
+          cd src;
+          SCHEME_COMPILER=kawa KAWA="$(pwd)/../kawa-*/bin/kawa" TEST_FEATURES=""  HOST=py make check
+
+      - name: Run C RVM
+        run: |
+          cd src;
+          SCHEME_COMPILER=kawa KAWA="$(pwd)/../kawa-*/bin/kawa" HOST=c make check
+
   compile_RSC:
     runs-on: ubuntu-latest
     steps:
