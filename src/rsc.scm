@@ -299,11 +299,11 @@
     (define $filter filter))
 
   (gambit
-    (define $fold fold)
 
-    ;; These functions appeared in later versions of Gambit.
-    ;; When compiling for a version under 4.9.4, we include them:
+    ;; These functions appeared in later versions of Gambit. When compiling for
+    ;; a version over 4.9.4, we can use the ones from the standard library
     (comp-when (>= (system-version) 409004)
+      (define $fold fold)
       (define $fold-right fold-right)
       (define $filter filter)))
 
@@ -642,6 +642,18 @@
   (gambit
     (define $read-all read-all))
   (else))
+
+;; log
+
+(cond-expand
+  (gambit
+    (comp-when (< (system-version) 409004)
+      (define (log a |#!optional| b)
+        (if b
+          (/ (|##log| a) (|##log| b))
+          (|##log| b)))))
+  (else))
+
 
 ;; Eval
 
