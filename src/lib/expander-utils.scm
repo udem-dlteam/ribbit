@@ -75,7 +75,7 @@
                                          " called with "
                                          (number->string (length ,args-name))
                                          " arguments. Number of arguments must be: " 
-                                         ,(string-concatenate 
+                                         ,($string-concatenate
                                             (map number->string (map caar expander-cases)) ", ")))))))))
         (expand-expr 
           `(define-expander
