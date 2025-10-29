@@ -654,15 +654,18 @@
     (define $read-all read-all))
   (else))
 
-;; log
+;; $log
+
+(define ($log a b)
+  (/ (log a)
+     (log b)))
 
 (cond-expand
   (gambit
-    (comp-when (< (system-version) 409004)
-      (define (log a |#!optional| b)
-        (if b
-          (/ (|##log| a) (|##log| b))
-          (|##log| b)))))
+    (comp-when (>= (system-version) 409004)
+      (define $log log)))
+  ((or chicken kawa)
+   (define $log log))
   (else))
 
 
@@ -3520,7 +3523,7 @@
   (define (bit-in-num x)
     (if (eqv? x 0)
       1
-      (ceiling (log (+ x 1) (quotient encoding-size 2)))))
+      (ceiling ($log (+ x 1) (quotient encoding-size 2)))))
 
   (define cost
     (lambda (x)
@@ -3893,7 +3896,7 @@
       (if (< arg short-size)
         1
         (+ 2 (floor
-               (log
+               ($log
                  (max 1 (- arg (* (quotient encoding-size 2) (- long-size 1))))
                  (quotient encoding-size 2))))))))
 
