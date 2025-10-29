@@ -124,6 +124,7 @@
      (exit 1))))
 
 ;; $make-table, $table-ref, $table-set!, $table-length and $table->list
+;; $table?, $table-copy
 
 (cond-expand
  (gambit
@@ -131,15 +132,19 @@
    (define ($table-ref table key default) (table-ref table key default))
    (define ($table-set! table key val) (table-set! table key val))
    (define ($table-length table) (table-length table))
-   (define ($table->list table) (table->list table)))
+   (define ($table->list table) (table->list table))
+   (define ($table? t) (table? t))
+   (define ($table-copy t) (table-copy t)))
 
- ((or chicken kawa)
+ ((or chicken kawa guile)
    (import (srfi 69)) ;; need to run with srfi-69
    (define ($make-table) (make-hash-table))
    (define ($table-ref table key default) (hash-table-ref/default table key default))
    (define ($table-set! table key value) (hash-table-set! table key value))
    (define ($table-length table) (hash-table-size table))
-   (define ($table->list table) (hash-table->alist table)))
+   (define ($table->list table) (hash-table->alist table))
+   (define ($table? table) (hash-table? table))
+   (define ($table-copy t) (hash-table-copy table)))
 
 
  (else
@@ -164,7 +169,12 @@
      (length (car table)))
 
    (define ($table->list table)
-     (car table))))
+     (car table))
+
+   ;; Not ideal
+   (define ($table? table)
+     (pair? table))
+   ))
 
 ;; $unchecked-table-ref
 
@@ -3891,7 +3901,7 @@
   ($fold
     (lambda (pair acc)
       (let ((value (cdr pair)))
-        (if (table? value)
+        (if ($table? value)
           (+ acc (sum-byte-count value (cons (car pair) keys) encoding-table encoding-size))
           (+ acc (* (cdr pair) (get-byte-count (reverse keys) (car pair) encoding-table encoding-size))))))
     0
@@ -3911,7 +3921,7 @@
         (let* ((key (car pair))
                (value (cdr pair))
                (level (cons key level))
-               (int-value (if (table? value)
+               (int-value (if ($table? value)
                             (sum-byte-count value level (encoding-list->encoding-table encoding-table) (encoding-size encoding-table))
                             (* value (get-byte-count (reverse (cdr level)) key (encoding-list->encoding-table encoding-table) (encoding-size encoding-table)))))
                (spacing (make-string (* 2 (length level)) #\space)))
@@ -3929,7 +3939,7 @@
               (number->string int-value)
               " bytes ]"))
           (newline)
-          (if (table? value)
+          (if ($table? value)
             (display-stats-aux
               value
               level
