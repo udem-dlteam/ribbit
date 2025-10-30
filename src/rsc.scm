@@ -274,12 +274,6 @@
          (<= pref-len str-len)
          (string=? (substring str 0 pref-len) pref))))
 
-(cond-expand
-  (gambit
-    (comp-when (>= (system-version) 409004)
-      (define $string-prefix string-prefix)))
-  (else))
-
 ;; $filter, $fold, $fold-right
 
 (define ($fold kons knil ls)
@@ -406,6 +400,28 @@
            (if ($string-prefix? "../" path)
              (loop (substring path 3 (string-length path)))
              path)))))
+
+;; error
+
+(cond-expand
+  (gambit)
+  (else
+    (define (error msg obj)
+      (display "*** Error - "
+      (display msg)
+      (display " : ")
+      (pp obj)
+      (exit-program-abnormally)))))
+
+
+;; $object->string
+
+(define ($object->string obj)
+  (cond
+    ((number? obj) (number->string obj))
+    ((symbol? obj) (symbol->string obj))
+    (else (error "Cannot convert object into string, type unknown" obj))))
+
 
 (cond-expand
 
@@ -4875,7 +4891,7 @@
   (string-append
     prefix
     ($string-concatenate
-      (map object->string lst)
+      (map $object->string lst)
       sep)
     suffix))
 
