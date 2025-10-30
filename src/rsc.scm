@@ -144,7 +144,7 @@
    (define ($table-length table) (hash-table-size table))
    (define ($table->list table) (hash-table->alist table))
    (define ($table? table) (hash-table? table))
-   (define ($table-copy t) (hash-table-copy table)))
+   (define ($table-copy table) (hash-table-copy table)))
 
 
  (else
@@ -3413,7 +3413,7 @@
                    (lst '()))
           (if (< index (- max offset))
             (let* ((optimal-table
-                     (let ((optimal (table-copy current-encoding-table)))
+                     (let ((optimal ($table-copy current-encoding-table)))
                        ($unchecked-table-ref optimal (append instruction (list 'long)))
                        ($table-set! optimal (append instruction (list 'long)) index)
                        optimal))
