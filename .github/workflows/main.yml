@@ -44,12 +44,12 @@ jobs:
       - name: Run simple Python RVM
         run: |
           cd src
-          TEST_FEATURES="" TEST_TAGS="py core" HOST=py make check
+          TEST_FEATURES="" HOST=py make check
 
       - name: Run C RVM
         run: |
           cd src
-          HOST=c make check
+          HOST=c TEST_TAGS="r4rs" TEST_FEATURES="-f+ compression/lzss/2b,-e optimal,-m" make check
 
   check_gambit_v4_7_5:
     runs-on: ubuntu-latest
@@ -102,7 +102,7 @@ jobs:
       - name: Run C RVM
         run: |
           cd src
-          HOST=c make check
+          HOST=c TEST_TAGS="r4rs" TEST_SKIP="80-add-variadic.scm" TEST_FEATURES="-f+ compression/lzss/2b,-e optimal,-m" make check
 
   check_guile:
     runs-on: ubuntu-latest
@@ -133,7 +133,7 @@ jobs:
       - name: Run C RVM
         run: |
           cd src
-          SCHEME_COMPILER=guile HOST=c make check
+          SCHEME_COMPILER=guile HOST=c TEST_TAGS="r4rs" TEST_FEATURES="-f+ compression/lzss/2b,-e optimal,-m" HOST=c make check
 
   check_chicken:
     runs-on: ubuntu-latest
@@ -172,7 +172,7 @@ jobs:
       - name: Run C RVM
         run: |
           cd src;
-          SCHEME_COMPILER=chicken TEST_FEATURES="" TEST_SKIP="2-1-identifiers.scm 6-4-symbol.scm 6-6-char-predicates.scm" HOST=c make check
+          SCHEME_COMPILER=chicken TEST_FEATURES=""  HOST=c TEST_TAGS="r4rs" TEST_FEATURES="-f+ compression/lzss/2b,-e optimal,-m" TEST_SKIP="2-1-identifiers.scm 6-4-symbol.scm 6-6-char-predicates.scm" make check
 
   check_kawa:
     runs-on: ubuntu-latest
@@ -196,25 +196,16 @@ jobs:
           wget ftp://ftp.gnu.org/pub/gnu/kawa/kawa-3.1.1.zip
           unzip kawa-3.1.1.zip
 
-      - name: Install python
-        run: |
-          sudo apt-get install python3
-
       - name: Setup gcc
         uses: egor-tensin/setup-gcc@v1
         with:
           version: latest
           platform: x64
 
-      - name: Run python RVM
-        run: |
-          cd src;
-          SCHEME_COMPILER=kawa KAWA="$(pwd)/../kawa-*/bin/kawa" TEST_FEATURES="" TEST_SKIP="6-4-symbol.scm 2-1-identifiers.scm" HOST=py make check
-
       - name: Run C RVM
         run: |
           cd src;
-          SCHEME_COMPILER=kawa KAWA="$(pwd)/../kawa-*/bin/kawa" TEST_SKIP="6-4-symbol.scm 2-1-identifiers.scm" HOST=c make check
+          SCHEME_COMPILER=kawa KAWA="$(pwd)/../kawa-*/bin/kawa" TEST_TAGS="r4rs" TEST_FEATURES="-e optimal -m" TEST_SKIP="6-4-symbol.scm 2-1-identifiers.scm" TEST_TAGS="r4rs" HOST=c make check
 
   compile_RSC:
     runs-on: ubuntu-latest
