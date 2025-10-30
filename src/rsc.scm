@@ -663,9 +663,9 @@
 (cond-expand
   (gambit
     (comp-when (>= (system-version) 409004)
-      (define $log log)))
+      (set! $log log)))
   ((or chicken kawa)
-   (define $log log))
+   (set! $log log))
   (else))
 
 
