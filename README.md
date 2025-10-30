@@ -1,6 +1,6 @@
 # Ribbit :frog:
 
-A portable, compact and extensible Scheme implementation that is **fully R4RS compliant**.
+A portable, compact and extensible Scheme implementation that is **R4RS compliant**.
 This includes closures, I/O, tail calls, first-class continuations and a Read Eval Print Loop (REPL).
 
  - **Very Compact**. Ribbit **removes unused code** and performs a specialized compression according to the
@@ -10,17 +10,57 @@ This includes closures, I/O, tail calls, first-class continuations and a Read Ev
  - **Extensible**. Ribbit can easily define new **primitives that interact with any of the 16 host languages**.
    [Read about our markup system.](http://www.iro.umontreal.ca/~feeley/papers/OLearyFeeleyMOREVMS23.pdf)
 
-For more information about Ribbit, you can look at our papers in the [paper section](#research-and-papers) or try the R4RS repl below !
+For more information about Ribbit, [look at our papers](#research-and-papers),
+[try it on your computer](#quick-start) or try it online:
 
 <p align="center" font-size="2em">
- <h3 align="center"><a href="https://udem-dlteam.github.io/ribbit/repl-r4rs-tc.html">🐸 Try the R4RS REPL here 🐸</a></h3>
+ <h3 align="center"><a href="https://udem-dlteam.github.io/ribbit/repl-r4rs-tc.html">🐸 Try the online R4RS REPL here 🐸</a></h3>
 </p>
 
-## Development
 
-Ribbit is a research project currently **under development**. A lot of enhancements have been made since the first paper
-(R4RS compliance, I/O primitives, define-primitive/define-feature, bignum/flonums etc.) and a new release is planned for the end of 2024.
-If you do encounter bugs, please report them in the issue section of Github.
+## Quick start
+
+Ribbit is regularly tested with the following Scheme compilers and interpreters:
+  - Gambit v4.7.5+
+  - Guile v3.0.10+
+  - Chicken v5.4.0+
+  - Kawa v3.1.1+
+
+If you have any of them installed on your system, it should work! Otherwise, you can install Gambit
+[from prebuilt binaries here](https://gambitscheme.org/latest/), or [from sources here](https://github.com/gambit/gambit).
+
+The compiler's source code is in a single file: `src/rsc.scm`. After cloning
+the repository, to interpret the Ribbit Scheme Compiler run your
+favourite Scheme interpreter with the `rsc.scm` file inside the `src` directory:
+
+```
+cd src
+
+gsi rsc.scm --help      # for Gambit's interpreter
+csi rsc.scm --help      # for Chicken's interpreter
+
+kawa rsc.scm --help     # for Kawa
+guile -s rsc.scm --help # for Guile
+```
+
+You can also compile the Ribbit Scheme Compiler with Gambit or Chicken using `make`:
+
+```
+cd src
+
+# for Gambit
+make rsc.exe
+
+# for Chicken Scheme
+SCHEME_COMPILER=chicken make rsc.exe
+
+# You can then run the compiler with:
+./rsc.exe --help
+```
+
+You are now ready to jump to the [examples](#usage-examples)!
+
+## Development
 
 Like all systems, Ribbit has some quirks. If you encounter problems that are not documented or if you have any questions, please
 reach out in the issues section of Github.
@@ -29,10 +69,6 @@ reach out in the issues section of Github.
 
 ## Usage
 
-Currently, Ribbit has only been tested with Gambit v4.7.5, and may not work with other
-Scheme implementations.
-
-The Ribbit AOT compiler is written in Scheme and can be executed with [Gambit v4.7.5](https://github.com/gambit/gambit).
 The compiler's source code is in a single file: `src/rsc.scm`.
 
 Ribbit currently compiles Scheme code to **more than 15 different host languages**. To select
@@ -52,16 +88,16 @@ The `-l` option allows selecting the Scheme runtime library (located in the
  - `max-tc` : Like `min` and `max` but with run time type checking.
  - `define-macro` : Necessary for using the `define-macro` construct.
 
-To compile an executable of the Ribbit Scheme Compiler (rsc.exe) with Gambit, you can use :
-
-```
-cd src
-make rsc.exe
-```
+For more options, run the rsc with the `--help` option.
 
 ## Usage Examples
 
-Here are a few examples, all assume that a `cd src` and `make rsc.exe` has been done first :
+Here are a few examples to showcase the capabilities or Ribbit.
+
+All commands need to be executed inside the `src` directory and supposes that `rsc.exe`
+has been compiled with either Gambit or Chicken. To use the interpreter
+instead, simply replace `./rsc.exe ...` with the correct interpreter invocation
+`<scheme-interpreter> rsc.scm ...`.
 
 ### Use RSC to compile an R4RS compliant REPL to Python
 
@@ -91,7 +127,7 @@ $ node repl.js
 Try it with different hosts (make sure they support R4RS in the [supported target list](#supported-targets)) :
 
 ```
-$ ./rsc.exe -t asm -l r4rs lib/r4rs/repl.scm -o repl.s (x86 assembly, need linux as it generates an ELF file)
+$ ./rsc.exe -t asm -l r4rs lib/r4rs/repl.scm -o repl.s # (x86 assembly, need linux as it generates an ELF file)
 $ ./rsc.exe -t c -l r4rs lib/r4rs/repl.scm -o repl.c
 $ ./rsc.exe -t hs -l r4rs lib/r4rs/repl.scm -o repl.hs
 ```
@@ -138,7 +174,7 @@ $ ./rsc.exe -t scala -l max hello.scm -o hello.scala
 $ ./rsc.exe -t zig   -l max hello.scm -o hello.zig
 ```
 
-### Interact with the host language (js and C here):
+### Create your own primitive in the the host language (js and C here):
 
 ```
 $ cat examples/square.scm
@@ -165,6 +201,7 @@ $ ./square
 ```
 
 ### Generate a simple typed-checked max REPL in any of the hosts
+
 Note that the incremental compiler used by the repl-max.scm only supports a subset
 of the Scheme special forms. In particular procedure definitions should use
 `(define f (lambda (x) ...))` instead of `(define (f x) ...)`.
@@ -196,33 +233,34 @@ The makefile in the `src` directory has these make targets:
 
 ## Supported targets
 
-Here :
+All targets support a varying level of features. The table below tracks what
+targets support which feature :
  - `core` means a traditional RVM implementation. These support minimal I/O (putchar, getchar only), and min/max/max-tc repls.
  - `variadics` means that the target supports functions with any numbers of parameters, for example, the `(define (f . rest) ...)` form.
- - `I/O` means that the target supports the full I/O primitives defined by R4RS (open-input-file, open-output-file, etc.).
+ - `file I/O` means that the target supports the file I/O primitives (open-input-file, open-output-file, etc.).
  - `r4rs` means that the target supports the full R4RS `essential` standard. This relies on all the above features.
 
-| Language             | Core | variadics | I/O  | R4RS |
-|----------------------|------|-----------|------|------|
-| x86 Assembly (`asm`) | ✅   |   ✅      |  ✅  |  ✅  |
-| C (`c`)              | ✅   |   ✅      |  ✅  |  ✅  |
-| Haskell (`hs`)       | ✅   |   ✅      |  ✅  |  ✅  |
-| JavaScript (`js`)    | ✅   |   ✅      |  ✅  |  ✅  |
-| Python (`py`)        | ✅   |   ✅      |  ✅  |  ✅  |
-| Clojure (`clj`)      | ✅   |   ✅      |  ❌  |  ❌  |
-| Common Lisp (`lisp`) | ✅   |   ✅      |  ❌  |  ❌  |
-| Prolog (`pro`)       | ✅   |   ✅      |  ❌  |  ❌  |
-| Scheme (`scm`)       | ✅   |   ✅      |  ❌  |  ❌  |
-| Posix-Shell (`sh`)   | ✅   |   ✅      |  ❌  |  ❌  |
-| Go (`go`)            | ✅   |   ❌      |  ❌  |  ❌  |
-| Lua (`lua`)          | ✅   |   ❌      |  ❌  |  ❌  |
-| OCaml (`ml`)         | ✅   |   ❌      |  ❌  |  ❌  |
-| Idris 2 (`idr`)      | ✅   |   ❌      |  ❌  |  ❌  |
-| Scala (`scala`)      | ✅   |   ❌      |  ❌  |  ❌  |
-| Zig (`zig`)          | ✅   |   ❌      |  ❌  |  ❌  |
-| Ruby (`rb`)          | 🚧   |   ❌      |  ❌  |  ❌  |
-| Java (`java`)        | 🚧   |   ❌      |  ❌  |  ❌  |
-| Rust (`rs`)          | 🚧   |   ❌      |  ❌  |  ❌  |
+| Language             | Core | variadics | file I/O  | R4RS |
+|----------------------|------|-----------|-----------|------|
+| x86 Assembly (`asm`) | ✅   |   ✅      |     ✅    |  ✅  |
+| C (`c`)              | ✅   |   ✅      |     ✅    |  ✅  |
+| Haskell (`hs`)       | ✅   |   ✅      |     ✅    |  ✅  |
+| JavaScript (`js`)    | ✅   |   ✅      |     ✅    |  ✅  |
+| Python (`py`)        | ✅   |   ✅      |     ✅    |  ✅  |
+| Clojure (`clj`)      | ✅   |   ✅      |     ❌    |  ❌  |
+| Common Lisp (`lisp`) | ✅   |   ✅      |     ❌    |  ❌  |
+| Prolog (`pro`)       | ✅   |   ✅      |     ❌    |  ❌  |
+| Scheme (`scm`)       | ✅   |   ✅      |     ❌    |  ❌  |
+| Posix-Shell (`sh`)   | ✅   |   ✅      |     ❌    |  ❌  |
+| Go (`go`)            | ✅   |   ❌      |     ❌    |  ❌  |
+| Lua (`lua`)          | ✅   |   ❌      |     ❌    |  ❌  |
+| OCaml (`ml`)         | ✅   |   ❌      |     ❌    |  ❌  |
+| Idris 2 (`idr`)      | ✅   |   ❌      |     ❌    |  ❌  |
+| Scala (`scala`)      | ✅   |   ❌      |     ❌    |  ❌  |
+| Zig (`zig`)          | ✅   |   ❌      |     ❌    |  ❌  |
+| Ruby (`rb`)          | 🚧   |   ❌      |     ❌    |  ❌  |
+| Java (`java`)        | 🚧   |   ❌      |     ❌    |  ❌  |
+| Rust (`rs`)          | 🚧   |   ❌      |     ❌    |  ❌  |
 
 <!--
 ## How to contribute
@@ -234,11 +272,12 @@ development of Ribbit can be found in the [CONTRIBUTING.md](./CONTRIBUTING.md) f
 
 ## Research and Papers
 
-We are actively developing Ribbit. If you have an idea, you can reach out to [leo-ard](https://github.com/leo-ard) or [feeley](https://www.iro.umontreal.ca/~feeley/).
+You can find [BibTeX entries for citing our work here](./CITATION.md).
+
+We are actively developing Ribbit. If you have an idea, you can reach out to [leo-ard](https://oestoleary.com) or [feeley](https://www.iro.umontreal.ca/~feeley/).
 All papers concerning Ribbit are available here :
 
 - [Leonard Oest O'Leary, Mathis Laroche and Marc Feeley, An R4RS compliant REPL in 7KB in SCHEME Workshop @ ICPF'23, January 2024](https://arxiv.org/abs/2310.13589)
 - [Leonard Oest O'Leary and Marc Feeley, A Compact and Extensible Portable Scheme VM. In MoreVMs Workshop (MOREVMS@PROGRAMMING'23), March 2023](http://www.iro.umontreal.ca/~feeley/papers/OLearyFeeleyMOREVMS23.pdf)
 - [Samuel Yvon and Marc Feeley, A Small Scheme VM, Compiler, and REPL in 4K. In Workshop on Virtual Machines and Intermediate Languages (VMIL@SPLASH'21), October 2021.](http://www.iro.umontreal.ca/~feeley/papers/YvonFeeleyVMIL21.pdf)
 
-**If you want to cite our work, [all BibTeX entries are available in the CITATION.bib file](./CITATION.md).**
