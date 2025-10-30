@@ -407,11 +407,11 @@
   (gambit)
   (else
     (define (error msg obj)
-      (display "*** Error - "
+      (display "*** Error - ")
       (display msg)
       (display " : ")
       (pp obj)
-      (exit-program-abnormally)))))
+      (exit-program-abnormally))))
 
 
 ;; $object->string
@@ -1849,7 +1849,7 @@
              `((define-feature ,name ,use-clause ()) . ,acc)
              acc))
           (else
-            (error "Cannot handle host feature " prim)))))
+            (error "Cannot handle host feature" prim)))))
 
     '()
     host-features))
@@ -2055,7 +2055,7 @@
                          (set! opt-params (append opt-params (list param)))
                          (loop (+ 1 i) (cdr params)))
 
-                        (else (error "Cannot put non-optional arguments after optional ones."))))))
+                        (else (error "Cannot put non-optional arguments after optional ones." param))))))
                 (if (null? opt-params)
                   (cons 'lambda
                         (cons params
@@ -2336,7 +2336,7 @@
        (if (= depth 1)
          (if (pair? (cdr x))
            (expand-expr (cadr x) mtx)
-           (error "unquote: bad syntax"))
+           (error "unquote: bad syntax" x))
          (list '%%qq-cons (expand-constant 'unquote) (parse (cdr x) (- depth 1)))))
       ((and (pair? (car x)) (eqv? (caar x) 'unquote-splicing))
        (if (= depth 1)
@@ -2385,7 +2385,7 @@
                        (let ((expander-name (cadr expr))
                              (expander-body (caddr expr)))
                          (if (not (eq? (car expander-body) 'lambda))
-                           (error "*** define-expander: expected lambda expression" expander-body))
+                           (error "define-expander: expected lambda expression" expander-body))
 
                          (mtx-add-cte
                            mtx
@@ -2421,12 +2421,14 @@
         (expand-constant 0)))) ;; unspecified value
 
 (define (report-error err-type . args)
-  (error (string-append "Error: "
-                        err-type
-                        " in "
-                        (resource-file current-resource)
-                        ". "
-                        ($string-concatenate (map object->string args) " "))))
+  (display
+    (string-append "*** Error - "
+                   err-type
+                   " in "
+                   (resource-file current-resource)
+                   ". "
+                   ($string-concatenate (map object->string args) " ")))
+  (exit-program-abnormally))
 
 
 
@@ -2506,7 +2508,7 @@
                         (let ((expander-name (cadr expr))
                               (expander-body (caddr expr)))
                           (if (not (eq? (car expander-body) 'lambda))
-                            (error "*** define-expander: expected lambda expression" expander-body)
+                            (error "define-expander: expected lambda expression" expander-body)
                             (mtx-add-global!
                               mtx
                               expander-name
@@ -2597,7 +2599,7 @@
 
 (define (add-resource-str-reader! name reader)
   (if (or (not (symbol? name)) (memq #\: (string->list (symbol->string name))))
-    (error "The resource reader name must be a symbol that doesn't contain #\\:"))
+    (error "The resource reader name must be a symbol that doesn't contain #\\:" name))
   (if (assq name resource-str-reader-table)
     (error "The resource reader already exists:" name))
   (set! resource-str-reader-table (append resource-str-reader-table (list (list name reader)))))
@@ -3668,7 +3670,7 @@
 
     (if (not (equal? dec
                 encoded-stream))
-      (error "Decompression failed"))
+      (error "Decompression failed" encoded-stream))
 
     (list (length stream) (length return) return)))
 
@@ -4690,7 +4692,7 @@
             (begin
 
               (if (and start match-start)
-                (error "Cannot start two macros @@( on the same line")) ; )
+                (error "Cannot start two macros @@( on the same line" line)) ; )
 
               ;(if (and (not start) match-end-inner)
               ;  (error "The ..@ macro must start with @.."))
@@ -4855,7 +4857,7 @@
                       (memq (caadr feature) used-features))
                      ((feature)
                       (eval-feature (cadr feature) used-features))
-                     (else (error "Cannot have a feature that is not a primitive or a feature"))))
+                     (else (error "Cannot have a feature that is not a primitive or a feature" feature))))
                  features))
              (current-features (car current-features-pair))
              (not-processed (cdr current-features-pair))
@@ -5227,7 +5229,7 @@
                 " "
                 exe-output-path))))
       (if (not (equal? status 0))
-        (error "Error generating executable\n")))))
+        (error "Cannot generating executable, returned status" status)))))
 
 ;;;----------------------------------------------------------------------------
 
