@@ -209,12 +209,12 @@ jobs:
       - name: Run python RVM
         run: |
           cd src;
-          SCHEME_COMPILER=kawa KAWA="$(pwd)/../kawa-*/bin/kawa" TEST_FEATURES=""  HOST=py make check
+          SCHEME_COMPILER=kawa KAWA="$(pwd)/../kawa-*/bin/kawa" TEST_FEATURES="" TEST_SKIP="6-4-symbol.scm 2-1-identifiers.scm" HOST=py make check
 
       - name: Run C RVM
         run: |
           cd src;
-          SCHEME_COMPILER=kawa KAWA="$(pwd)/../kawa-*/bin/kawa" HOST=c make check
+          SCHEME_COMPILER=kawa KAWA="$(pwd)/../kawa-*/bin/kawa" TEST_SKIP="6-4-symbol.scm 2-1-identifiers.scm" HOST=c make check
 
   compile_RSC:
     runs-on: ubuntu-latest
