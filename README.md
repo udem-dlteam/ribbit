@@ -7,7 +7,7 @@ This includes closures, I/O, tail calls, first-class continuations and a Read Ev
     source code. [Read about our Scheme interpreter implementation (REPL) inside 7KB](https://arxiv.org/abs/2310.13589)
  - **Portable**. Ribbit currently runs on **16 different hosts**, including : *JavaScript*, *Assembly (x86)*,
   *C*, *Python*, *POSIX Shell*, *Prolog* and more. [See all targets](#supported-targets).
- - **Extensible**. Ribbit can easily define new **primitives that interact with any of the 16 host languages**.
+ - **Extensible**. Ribbit can easily define new **primitives that interact with any of the 25 host languages**.
    [Read about our markup system.](http://www.iro.umontreal.ca/~feeley/papers/OLearyFeeleyMOREVMS23.pdf)
 
 For more information about Ribbit, [look at our papers](#research-and-papers),
@@ -144,7 +144,7 @@ $ echo '(+ 1 2)' | ./repl-asm.exe
 >
 ```
 
-### Generate a simple 'hello world' program in 16 different languages
+### Generate a simple 'hello world' program in 25 different languages
 
 ```
 $ echo '(display "Hello from Ribbit!")' > hello.scm
@@ -153,7 +153,7 @@ $ swipl hello.pro # run it with swi-prolog
 Hello from Ribbit!
 ```
 
-Then, choose among 16 host languages :
+Then, choose among 25 host languages :
 
 ```
 $ ./rsc.exe -t asm   -l max hello.scm -o hello.asm
@@ -172,6 +172,15 @@ $ ./rsc.exe -t ml    -l max hello.scm -o hello.ml
 $ ./rsc.exe -t idr   -l max hello.scm -o hello.idr
 $ ./rsc.exe -t scala -l max hello.scm -o hello.scala
 $ ./rsc.exe -t zig   -l max hello.scm -o hello.zig
+$ ./rsc.exe -t adb  -l max hello.scm -o hello.adb
+$ ./rsc.exe -t bas  -l max hello.scm -o hello.bas
+$ ./rsc.exe -t dart -l max hello.scm -o hello.dart
+$ ./rsc.exe -t java -l max hello.scm -o hello.java
+$ ./rsc.exe -t jl   -l max hello.scm -o hello.jl
+$ ./rsc.exe -t kt   -l max hello.scm -o hello.kt
+$ ./rsc.exe -t pl   -l max hello.scm -o hello.pl
+$ ./rsc.exe -t ps   -l max hello.scm -o hello.ps
+$ ./rsc.exe -t wat  -l max hello.scm -o hello.wat
 ```
 
 ### Create your own primitive in the the host language (js and C here):
@@ -188,8 +197,8 @@ $ cat examples/square.scm
                   push2(TAG_NUM(x*x), PAIR_TAG);
                  }")))
 
-(##putchar (square 8)) ;; prints '@' as 64 is the ASCII value of '@'
-(##putchar 10) ;; prints a newline
+(%%putchar (square 8)) ;; prints '@' as 64 is the ASCII value of '@'
+(%%putchar 10) ;; prints a newline
 
 $ ./rsc.exe -t py examples/square.scm -o square.py
 $ python3 square.py
@@ -247,6 +256,7 @@ targets support which feature :
 | Haskell (`hs`)       | ✅   |   ✅      |     ✅    |  ✅  |
 | JavaScript (`js`)    | ✅   |   ✅      |     ✅    |  ✅  |
 | Python (`py`)        | ✅   |   ✅      |     ✅    |  ✅  |
+| WASM (`wat`)         | ✅   |   ✅      |     ✅    |  ✅  |
 | Clojure (`clj`)      | ✅   |   ✅      |     ❌    |  ❌  |
 | Common Lisp (`lisp`) | ✅   |   ✅      |     ❌    |  ❌  |
 | Prolog (`pro`)       | ✅   |   ✅      |     ❌    |  ❌  |
@@ -258,8 +268,15 @@ targets support which feature :
 | Idris 2 (`idr`)      | ✅   |   ❌      |     ❌    |  ❌  |
 | Scala (`scala`)      | ✅   |   ❌      |     ❌    |  ❌  |
 | Zig (`zig`)          | ✅   |   ❌      |     ❌    |  ❌  |
+| Ada (`adb`)          | ✅   |   ❌      |     ❌    |  ❌  |
+| Visual Basic (`bas`) | ✅   |   ❌      |     ❌    |  ❌  |
+| Dart (`dart`)        | ✅   |   ❌      |     ❌    |  ❌  |
+| Java (`java`)        | ✅   |   ❌      |     ❌    |  ❌  |
+| Julia (`jl`)         | ✅   |   ❌      |     ❌    |  ❌  |
+| Kotlin (`kt`)        | ✅   |   ❌      |     ❌    |  ❌  |
+| Perl (`pl`)          | ✅   |   ❌      |     ❌    |  ❌  |
+| PostScript (`ps`)    | ✅   |   ❌      |     ❌    |  ❌  |
 | Ruby (`rb`)          | 🚧   |   ❌      |     ❌    |  ❌  |
-| Java (`java`)        | 🚧   |   ❌      |     ❌    |  ❌  |
 | Rust (`rs`)          | 🚧   |   ❌      |     ❌    |  ❌  |
 
 <!--
