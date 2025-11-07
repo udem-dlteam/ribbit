@@ -713,25 +713,25 @@
 
    (define (instance? type) (lambda (o) (and (rib? o) (eqv? (field2 o) type))))
 
-   (define rib-tag (cons '() '())) ;; make unique tag
+   (define rib-tag (cons 0 0)) ;; make unique tag
 
    (define (rib field0 field1 field2)
      (let ((r (make-vector 4)))
-       (vector-set! r 0 field0)
-       (vector-set! r 1 field1)
-       (vector-set! r 2 field2)
-       (vector-set! r 3 rib-tag)
+       (vector-set! r 0 rib-tag)
+       (vector-set! r 1 field0)
+       (vector-set! r 2 field1)
+       (vector-set! r 3 field2)
        r))
 
-   (define (rib? o) (and (vector? o) (= (vector-length o) 4) (eq? (vector-ref o 3) rib-tag)))
-   (define (field0 o) (vector-ref o 0))
-   (define (field1 o) (vector-ref o 1))
-   (define (field2 o) (vector-ref o 2))
-   (define (field0-set! o x) (vector-set! o 0 x) o)
-   (define (field1-set! o x) (vector-set! o 1 x) o)
-   (define (field2-set! o x) (vector-set! o 2 x) o)
+   (define (rib? o) (and (vector? o) (> (vector-length o) 1) (eq? (vector-ref o 0) rib-tag)))
+   (define (field0 o) (vector-ref o 1))
+   (define (field1 o) (vector-ref o 2))
+   (define (field2 o) (vector-ref o 3))
+   (define (field0-set! o x) (vector-set! o 1 x) o)
+   (define (field1-set! o x) (vector-set! o 2 x) o)
+   (define (field2-set! o x) (vector-set! o 3 x) o)
 
-   (define c-procedure? (instance? procedure-type))))
+   (define (c-procedure? o) (and (rib? o) (eqv? (field2 o) procedure-type)))))
 
 
 (define (c-make-procedure code env) (c-rib code env procedure-type))
@@ -943,47 +943,56 @@
 (cond-expand
 
   (ribbit
-    (define c-rib-type -1)
-
     (define hash-table-c-ribs ($make-table))
 
-    (define c-rib? (instance? c-rib-type))
+    (define c-rib? rib?)
 
-    (define (make-c-rib field0 field1 field2 hash)
-      (rib field0 (rib field1 hash field2) c-rib-type))
+    (define (make-c-rib field0 field1 field2 hash meta)
+      (rib field0 (rib field1 hash meta) field2))
 
     (define (c-rib-oper c-rib) (field0 c-rib))
     (define (c-rib-opnd c-rib) (field0 (field1 c-rib)))
-    (define (c-rib-next c-rib) (field2 (field1 c-rib)))
+    (define (c-rib-next c-rib) (field2 c-rib))
     (define (c-rib-hash c-rib) (field1 (field1 c-rib)))
+    (define (c-rib-meta c-rib) (field2 (field1 c-rib)))
 
     (define (c-rib-oper-set! c-rib v) (field0-set! c-rib v))
     (define (c-rib-opnd-set! c-rib v) (field0-set! (field1 c-rib) v))
-    (define (c-rib-next-set! c-rib v) (field2-set! (field1 c-rib) v)))
+    (define (c-rib-next-set! c-rib v) (field2-set! c-rib v))
+    (define (c-rib-meta-set! c-rib v) (field2-set! (field1 c-rib) v)))
 
   (else
 
     (define hash-table-c-ribs ($make-table))
 
     (define c-rib? rib?)
-    (define (make-c-rib field0 field1 field2 hash)
-      (rib field0 (rib field1 hash 0) field2))
+    (define (make-c-rib field0 field1 field2 hash meta)
+      (let ((r (make-vector 6)))
+        (vector-set! r 0 rib-tag)
+        (vector-set! r 1 field0)
+        (vector-set! r 2 field1)
+        (vector-set! r 3 field2)
+        (vector-set! r 4 hash)
+        (vector-set! r 5 meta) ;; meta node, to mark nodes as seen for example
+        r))
 
-    (define (c-rib-oper c-rib) (field0 c-rib))
-    (define (c-rib-opnd c-rib) (field0 (field1 c-rib)))
-    (define (c-rib-next c-rib) (field2 c-rib))
-    (define (c-rib-hash c-rib) (field1 (field1 c-rib)))
+    (define (c-rib-oper c-rib) (vector-ref c-rib 1))
+    (define (c-rib-opnd c-rib) (vector-ref c-rib 2))
+    (define (c-rib-next c-rib) (vector-ref c-rib 3))
+    (define (c-rib-hash c-rib) (vector-ref c-rib 4))
+    (define (c-rib-meta c-rib) (vector-ref c-rib 5))
 
-    (define (c-rib-oper-set! c-rib v) (field0-set! c-rib v))
-    (define (c-rib-opnd-set! c-rib v) (field0-set! (field1 c-rib) v))
-    (define (c-rib-next-set! c-rib v) (field2-set! c-rib v))))
+    (define (c-rib-oper-set! c-rib v) (vector-set! c-rib 1 v))
+    (define (c-rib-opnd-set! c-rib v) (vector-set! c-rib 2 v))
+    (define (c-rib-next-set! c-rib v) (vector-set! c-rib 3 v))
+    (define (c-rib-meta-set! c-rib v) (vector-set! c-rib 5 v))))
 
 ;; Creates a rib that is unique and hashable
 (define (c-rib field0 field1 field2)
   (let* ((hash-table hash-table-c-ribs)
          (hash (hash-c-rib field0 field1 field2))
          (hash-list ($table-ref hash-table hash #f))
-         (c-rib-ref (make-c-rib field0 field1 field2 hash)))
+         (c-rib-ref (make-c-rib field0 field1 field2 hash #f)))
 
     (if hash-list
       (let search ((search-iter hash-list))
@@ -1021,6 +1030,15 @@
   ($fold hash-combine 0 (string->list* str)))
 
 (define (c-rib-eq? c-rib1 c-rib2)
+  (define (check-eq val1 val2)
+    (if (c-rib? val1)
+      (and
+        (c-rib? val2)
+        (eq? val1 val2))
+      (and
+        (not (c-rib? val2))
+        (eqv? val1 val2))))
+
   (let ((op1   (c-rib-oper c-rib1))
         (op2   (c-rib-oper c-rib2))
         (opnd1 (c-rib-opnd c-rib1))
@@ -1031,23 +1049,37 @@
         (hash2 (c-rib-hash c-rib2)))
 
     (and
-      (or (not hash1)  ;; check if hashes are =. If not, we skip
-          (not hash2)
-          (eqv? hash1 hash2))
+      (eqv? hash1 hash2)
+      (check-eq op1 op2)
+      (check-eq opnd1 opnd2)
+      (check-eq next1 next2))))
 
-      (or
-        (eqv? op1 op2) ;;test operand
-        (and (c-rib? op1) (c-rib? op2) (c-rib-eq? op1 op2)))
+(define table-hash-size 64000)
 
-      (or  ;; test opnd
-        (eqv? opnd1 opnd2)
-        (and (c-rib? opnd1) (c-rib? opnd2) (c-rib-eq? opnd1 opnd2)))
-      (or ;; test next
-        (eqv? next1 next2)
-        (and (c-rib? next1) (c-rib? next2) (c-rib-eq? next1 next2))))))
+(define (aggregate lst)
+  (let loop ((lst lst) (result (list)))
+    (if (pair? lst)
+      (let ((val (assoc (caar lst) result)))
+        (if val
+          (begin
+            (set-cdr! val (+ 1 (cdr val)))
+            (loop (cdr lst) result))
+          (loop (cdr lst) (cons (cons (caar lst) 1) result))))
+      result)))
 
-(define table-hash-size 32000)
 
+(define (print-hash-consing-table)
+  (begin
+    (display "*** hash-consing table: \n")
+    (display "Hash table size: ")
+    (display ($table-length hash-table-c-ribs))
+    (display "\nHash table distribution:\n")
+    (display "(<lenght of one entry> . <number of keys with that lenght>)\n")
+    (pp
+      (aggregate
+        (map (lambda (pair)
+               (list (length (cdr pair)) (car pair)))
+             ($table->list hash-table-c-ribs))))))
 
 (define (hash-c-rib field0 field1 field2)
 
@@ -1138,6 +1170,48 @@
       (display-obj next)
       "]")))
 
+;; This utilitary function calls code-func on all ribs containing
+;; code and arg-func on the arguments of the code-ribs. This function
+;; is usefull as it avoids loops inside the code-graph using the meta
+;; tag of c-ribs.
+(define (for-each-c-rib root code-func arg-func)
+
+  (if (not (c-procedure? root))
+    (error "Argument to for-each-c-rib must be a procedure" root))
+
+  (let ((truth-tag (cons 0 0))) ;; unique tag
+    (c-rib-meta-set! root truth-tag)
+
+    ;; Simple BFS that marks seen ribs in the meta tag.
+    (let loop ((curr (c-rib-next (c-procedure-code root)))
+               (is-in-code? #t))
+
+      (if (c-rib? curr)
+        (if (not (eq? (c-rib-meta curr) truth-tag))
+          (begin
+            (c-rib-meta-set! curr truth-tag)
+
+            (if is-in-code?
+
+              (let ((op (c-rib-oper curr))
+                    (opnd  (c-rib-opnd curr)))
+                (code-func curr) ;; can mutate curr
+                (cond
+                  ((eqv? op if-op)
+                   (loop opnd #t))
+                  ((eqv? op const-op)
+                   (loop opnd #f)))
+
+                (loop (c-rib-next curr) #t))
+
+              (begin
+                (arg-func curr) ;; can mutate curr
+                (if (c-procedure? curr)
+                  (loop (c-rib-next (c-procedure-code curr))
+                        #t)
+                  0))))
+          0)
+        0))))
 
 ;;; --------------------------------------------------
 ;;; ============== RIBBIT's COMPILER =================
@@ -1937,13 +2011,7 @@
         (pp expansion)))
 
     (if (or (>= verbosity 3) (memq 'hash-table debug-info))
-      (begin
-        (display "*** hash-consing table: \n")
-        (pp
-          (list-sort
-            (lambda (x y) (< (car x) (car y)))
-            (map (lambda (pair)
-                   (list (car pair) (length (cdr pair)))) ($table->list hash-table-c-ribs))))))
+      (print-hash-consing-table))
 
     (if (or (>= verbosity 2) (memq 'rvm-code debug-info))
       (begin
@@ -3259,82 +3327,25 @@
                    (build-constant-in-global-var o v)
                    v))))))
 
-  (traverse-code
-    (c-rib-oper proc)
-    (lambda (code traverse)
-      (let ((op (c-rib-oper code))
-            (o  (c-rib-opnd code)))
-        (cond ((eqv? op if-op)
-               (traverse o))
-              ((eqv? op const-op)
-               (if (c-procedure? o)
-                 (traverse (c-rib-next (c-rib-oper o))))
-               (if (not (or (symbol? o)
-                            (c-procedure? o)
-                            (and (number? o) (>= o 0))))
-                   (let ((constant (constant-global-var o)))
-                     (c-rib-oper-set! code get-op)
-                     (c-rib-opnd-set! code constant))))))))
+  (for-each-c-rib
+    proc
+    (lambda (code)
+      (if (eq? (c-rib-oper code) const-op)
+        (let ((opnd (c-rib-opnd code)))
+          (if (not (or (symbol? opnd)
+                       (c-procedure? opnd)
+                       (and (number? opnd) (>= opnd 0))))
+            (let ((constant (constant-global-var opnd)))
+              (c-rib-oper-set! code get-op)
+              (c-rib-opnd-set! code constant)
+              constant)))))
+    (lambda (opnd) 0))
+
 
   (add-init-code proc))
 
-(define (traverse-code code func)
-  (let ((traverse (lambda (code) (traverse-code code func))))
-    (if (rib? code)
-      (begin
-        (func code traverse)
-        (traverse-code (c-rib-next code) func)))))
-
 (define (encode-symtbl proc exports host-config call-sym-short-size)
   (define syms ($make-table))
-
-  (define (scan-proc proc)
-    (scan (c-rib-next (c-procedure-code proc))))
-
-  (define (scan-opnd o pos)
-    (scan-opnd-aux o pos)
-    o)
-
-  (define (scan-opnd-aux o pos)
-    (cond ((symbol? o)
-           (let ((descr
-                  (or ($table-ref syms o #f)
-                      (let ((descr (rib 0 0 0)))
-                        ($table-set! syms o descr)
-                        descr))))
-             (cond ((= pos 0)
-                    (field0-set! descr (+ 1 (field0 descr))))
-                   ((= pos 1)
-                    (field1-set! descr (+ 1 (field1 descr))))
-                   ((= pos 2)
-                    (field2-set! descr (+ 1 (field2 descr)))))))
-          ((c-procedure? o)
-           (scan-proc o))))
-
-  (define (scan code)
-    (if (rib? code)
-        (begin
-          (scan-instr code)
-          (scan (c-rib-next code)))))
-
-  (define (scan-instr code)
-    (let ((op (c-rib-oper code))
-          (o  (c-rib-opnd code)))
-      (cond ((eqv? op if-op)
-             (scan o))
-            ((eqv? op jump/call-op)
-             (scan-opnd o 0)) ;; 0 = jump/call
-            ((eqv? op get-op)
-             (scan-opnd o 1)) ;; 1 = get
-            ((eqv? op const-op)
-             (if (or
-                   (symbol? o)
-                   (c-procedure? o)
-                   (and (number? o) (>= o 0)))
-                 (scan-opnd o 2) ;; 2 = const
-                 (error "Cannot encode constant with opnd " o)))
-            ((eqv? op set-op)
-             (scan-opnd o 3))))) ;; 3 = set
 
   (define (ordering sym-descr)
     (let ((sym (car sym-descr)))
@@ -3344,9 +3355,26 @@
             (let ((descr (cdr sym-descr)))
               (field0 descr))))))
 
-  (for-each (lambda (sym) (scan-opnd sym 3)) predefined)
+  (for-each (lambda (sym) ($table-set! syms sym (rib 0 0 1))) predefined)
 
-  (scan-proc proc)
+  (for-each-c-rib
+    proc
+    (lambda (code)
+      (let ((op (c-rib-oper code))
+            (opnd (c-rib-opnd code)))
+        (if (symbol? opnd)
+          (let ((descr
+                  (or ($table-ref syms opnd #f)
+                      (let ((descr (rib 0 0 0)))
+                        ($table-set! syms opnd descr)
+                        descr))))
+            (cond ((eqv? op jump/call-op)
+                   (field0-set! descr (+ 1 (field0 descr))))
+                  ((eqv? op get-op)
+                   (field1-set! descr (+ 1 (field1 descr))))
+                  ((eqv? op const-op)
+                   (field2-set! descr (+ 1 (field2 descr)))))))))
+    (lambda (opnd) 0))
 
     (let ((lst
             (list-sort
@@ -4155,10 +4183,10 @@
     (define (p/enc-symtbl)
       (let* ((symtbl-and-symbols*
                (encode-symtbl
-                 proc
-                 exports
-                 host-config
-                 (encoding-inst-size encoding (list 'call 'sym 'short))))
+                       proc
+                       exports
+                       host-config
+                       (encoding-inst-size encoding (list 'call 'sym 'short))))
              (symbol* (cdr symtbl-and-symbols*)))
         (set! symtbl   (car symtbl-and-symbols*))
         (set! stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base literal-encoding))))
@@ -5152,15 +5180,15 @@
          (encode*
           (lambda (byte-base literal-encoding)
             (let ((input
-                   (append
-                    (encode
-                     proc
-                     exports
-                     host-config
-                     byte-stats
-                     encoding-name
-                     byte-base
-                     literal-encoding)
+                    (append
+                      (encode
+                        proc
+                        exports
+                        host-config
+                        byte-stats
+                        encoding-name
+                        byte-base
+                        literal-encoding)
                     (if input-path
                         (string->list* (string-from-file input-path))
                         '()))))
