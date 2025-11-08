@@ -1007,7 +1007,8 @@
         ($table-set! hash-table hash (cons c-rib-ref '()))
         c-rib-ref))))
 
-;; Hash combine (taken from Gambit Scheme) https://github.com/gambit/gambit/blob/master/lib/_system%23.scm
+;; Hash combine (taken from Gambit Scheme)
+;; https://github.com/gambit/gambit/blob/master/lib/_system%23.scm
 ;; The FNV1a hash algorithm is adapted to hash values, in
 ;; particular the hashing constants are used (see
 ;; https://tools.ietf.org/html/draft-eastlake-fnv-12).  Because the
@@ -1016,14 +1017,16 @@
 ;; adapted to fit in a 32 bit fixnum.
 
 ;; FNV1a 32 bit constants
-(define fnv1a-prime-32bits   16777619)
+(define fnv1a-prime-32bits        16777619)
+(define fnv1a-offset-bias-32bit 2166136261)
 (define max-fixnum        $max-fixnum)
 
 
 (define (hash-combine a b)
   (modulo
-    (* fnv1a-prime-32bits
-       (+ a b))
+    (+
+      (* fnv1a-prime-32bits
+         a) b)
     max-fixnum))
 
 (define (hash-string str)
@@ -1054,7 +1057,7 @@
       (check-eq opnd1 opnd2)
       (check-eq next1 next2))))
 
-(define table-hash-size 64000)
+(define table-hash-size 5000)
 
 (define (aggregate lst)
   (let loop ((lst lst) (result (list)))
@@ -1076,32 +1079,35 @@
     (display "\nHash table distribution:\n")
     (display "(<lenght of one entry> . <number of keys with that lenght>)\n")
     (pp
-      (aggregate
-        (map (lambda (pair)
-               (list (length (cdr pair)) (car pair)))
-             ($table->list hash-table-c-ribs))))))
+      (list-sort
+        (lambda (a b) (< (car a) (car b)))
+        (aggregate
+          (map (lambda (pair)
+                 (list (length (cdr pair)) (car pair)))
+               ($table->list hash-table-c-ribs)))))))
 
 (define (hash-c-rib field0 field1 field2)
 
-  ;; This is a really simple hashing function. I tested it on the 50-repl test and I got good results
-  ;;   having at most 6 elements hashed to the same value with a 512 hash table size. Most hashes had one
-  ;;   or two elements inside it.
+  ;; This is a simple hashing function, based on Gambit's hashing. I tested it
+  ;; on rsc.scm (bootstrap) that hashes 45734 different ribs. I got good
+  ;; results with a hash table of size 5000: the highest collision count was 25
+  ;; and the average was around 10, which is expected.
 
   (define (op->hash op)
     (cond
-      ((eq? op jump/call-op) 0)
-      ((eq? op set-op)       1)
-      ((eq? op get-op)       2)
-      ((eq? op const-op)     3)
-      ((eq? op if-op)        4)
-      ((number? op)          (+ (abs op) 4))
+      ((eq? op jump/call-op) 1)
+      ((eq? op set-op)       3)
+      ((eq? op get-op)       7)
+      ((eq? op const-op)     11)
+      ((eq? op if-op)        13)
+      ((number? op)          (+ (abs op) 19))
       ((c-rib? op)           (c-rib-hash op))
 
       (else (error "Cannot hash the following instruction : " op))))
 
   (define (hash-combine-over-vector vec)
     (let ((len (vector-length vec)))
-      (let loop ((i 0) (acc 0))
+      (let loop ((i 0) (acc fnv1a-offset-bias-32bit))
         (if (< i (vector-length vec))
           (loop (+ i 1) (hash-combine acc (opnd->hash (vector-ref vec i))))
           acc))))
@@ -1109,11 +1115,11 @@
   (define (opnd->hash opnd)
     (cond
       ((null? opnd)
-       4)
+       23)
       ((eqv? #f opnd)
-       5)
+       29)
       ((eqv? #t opnd)
-       6)
+       31)
       ((symbol? opnd)
        (hash-string (symbol->string opnd)))
       ((number? opnd)
@@ -1123,7 +1129,7 @@
       ((char? opnd)
        (char->integer opnd))
       ((list? opnd)
-       ($fold hash-combine 0 (map opnd->hash opnd)))
+       ($fold hash-combine fnv1a-offset-bias-32bit (map opnd->hash opnd)))
       ((c-rib? opnd)
        (c-rib-hash opnd))
       ((vector? opnd)
@@ -3340,7 +3346,6 @@
               (c-rib-opnd-set! code constant)
               constant)))))
     (lambda (opnd) 0))
-
 
   (add-init-code proc))
 
