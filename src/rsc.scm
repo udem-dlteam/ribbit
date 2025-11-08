@@ -785,6 +785,20 @@
 ;;; ==================== DEBUG ====================
 ;;; -----------------------------------------------
 
+;;
+;; == Profiling guide with Gambit ==
+;;
+;; Uncomment the line below:
+;(import github.com/gambit/statprof)
+;;
+;; And then use the following functions for starting/stoping:
+;;   (statprof-start!)                  -- start the profiler
+;;   (statprof-stop!)                   -- stop the profiler
+;;   (statprof-write! "statprof-result) -- write the result (Must be done!!)
+;;
+;; More info: https://github.com/gambit/statprof
+;;
+
 ;; Displays a rib to stdout given a depth
 (define (display-rib rib depth)
   (if (> depth 0)
