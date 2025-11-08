@@ -5,7 +5,7 @@ This includes closures, I/O, tail calls, first-class continuations and a Read Ev
 
  - **Very Compact**. Ribbit **removes unused code** and performs a specialized compression according to the
     source code. [Read about our Scheme interpreter implementation (REPL) inside 7KB](https://arxiv.org/abs/2310.13589)
- - **Portable**. Ribbit currently runs on **16 different hosts**, including : *JavaScript*, *Assembly (x86)*,
+ - **Portable**. Ribbit currently runs on **25 different hosts**, including : *JavaScript*, *Assembly (x86)*,
   *C*, *Python*, *POSIX Shell*, *Prolog* and more. [See all targets](#supported-targets).
  - **Extensible**. Ribbit can easily define new **primitives that interact with any of the 25 host languages**.
    [Read about our markup system.](http://www.iro.umontreal.ca/~feeley/papers/OLearyFeeleyMOREVMS23.pdf)
@@ -71,7 +71,7 @@ reach out in the issues section of Github.
 
 The compiler's source code is in a single file: `src/rsc.scm`.
 
-Ribbit currently compiles Scheme code to **more than 15 different host languages**. To select
+Ribbit currently compiles Scheme code to **more than 25 different host languages**. To select
 a language, use the `-t` compiler option followed by the extension of the **target** language. For example, the option
 can be followed by `js` (JavaScript), `asm` (x86 Assembly), `c` (C), `py` (Python), `hs` (Haskell), `pro` (Prolog) 
 or [any of the supported targets](#supported-targets).
