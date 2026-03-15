@@ -31,7 +31,9 @@
 
   (declare
    (block)
-   (fixnum-arithmetic)
+   ;;Bug with fixnums and literal values
+   ;;see: https://bugs.call-cc.org/ticket/1867
+   ;;(fixnum-arithmetic)
    (usual-integrations)))
 
  (else))
@@ -404,7 +406,7 @@
 ;; error
 
 (cond-expand
-  (gambit)
+  ((or gambit chicken))
   (else
     (define (error msg obj)
       (display "*** Error - ")
@@ -1033,7 +1035,7 @@
 ;; FNV1a 32 bit constants
 (define fnv1a-prime-32bits        16777619)
 (define fnv1a-offset-bias-32bit 2166136261)
-(define max-fixnum        $max-fixnum)
+(define max-fixnum             $max-fixnum)
 
 
 (define (hash-combine a b)
