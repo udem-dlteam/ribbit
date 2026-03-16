@@ -144,16 +144,19 @@ void decompress(){
 #endif
 
 #ifndef NULL
-
-#define NULL 0
-typedef unsigned long size_t;
-
+#define NULL (0)
 #endif
 
-// basic def. of a boolean
-typedef unsigned char bool;
+typedef unsigned long size_t;
 
-#define true (1)
+
+// For versions of the standard lower than C23, bool, true and false needs to
+// be defined
+#if __STDC_VERSION__ < 202311L
+    typedef unsigned char bool;
+    #define true (1)
+    #define false (0)
+#endif
 
 // an unsigned byte value for the REPL's code
 typedef unsigned char byte;
