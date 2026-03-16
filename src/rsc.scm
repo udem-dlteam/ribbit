@@ -676,20 +676,18 @@
     (define $read-all read-all))
   (else))
 
-;; $log
+;; floor-log
 
-(define ($log a b)
-  (/ (log a)
-     (log b)))
+(define (floor-log a b)
+  ;(floor (log a b))
 
-(cond-expand
-  (gambit
-    (comp-when (>= (system-version) 409004)
-      (set! $log log)))
-  ((or chicken kawa)
-   (set! $log log))
-  (else))
+  ;; Assume both numbers are positive and b is not 0 or 1
+  (let loop ((current-power b) (i 0))
+    (if (< a current-power)
+      i
+      (loop (* current-power b) (+ i 1))))
 
+  )
 
 ;; Eval
 
@@ -3594,7 +3592,7 @@
   (define (bit-in-num x)
     (if (eqv? x 0)
       1
-      (ceiling ($log (+ x 1) (quotient encoding-size 2)))))
+      (+ 1 (floor-log x (quotient encoding-size 2)))))
 
   (define cost
     (lambda (x)
@@ -3966,10 +3964,9 @@
            (long-size   ($unchecked-table-ref encoding-table long-key)))
       (if (< arg short-size)
         1
-        (+ 2 (floor
-               ($log
-                 (max 1 (- arg (* (quotient encoding-size 2) (- long-size 1))))
-                 (quotient encoding-size 2))))))))
+        (+ 2 (floor-log
+               (max 1 (- arg (* (quotient encoding-size 2) (- long-size 1))))
+               (quotient encoding-size 2)))))))
 
 (define (sum-byte-count table keys encoding-table encoding-size)
   ($fold
