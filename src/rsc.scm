@@ -176,6 +176,10 @@
    ;; Not ideal
    (define ($table? table)
      (pair? table))
+
+   (define ($table-copy table)
+     (reverse (reverse table)))
+
    ))
 
 ;; $unchecked-table-ref
