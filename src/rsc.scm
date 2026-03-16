@@ -178,7 +178,7 @@
      (pair? table))
 
    (define ($table-copy table)
-     (reverse (reverse table)))
+     (cons (reverse (reverse (car table))) '()))
 
    ))
 
