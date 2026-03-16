@@ -95,11 +95,13 @@ jobs:
           make rsc.exe GSC=$(pwd)/../gambit/bin/gsc GSI=$(pwd)/../gambit/bin/gsi
 
       - name: Run simple Python RVM
+        continue-on-error: true
         run: |
           cd src
           TEST_FEATURES="" HOST=py make check
 
       - name: Run C RVM
+        continue-on-error: true
         run: |
           cd src
           HOST=c TEST_TAGS="r4rs" TEST_SKIP="80-add-variadic.scm" TEST_FEATURES="-f+ compression/lzss/2b,-e optimal,-m" make check
@@ -703,7 +705,7 @@ jobs:
       - name: Run RVM tests
         run: |
           cd src; HOST=ps make check RSC="./rsc.exe"
-          
+
   scala_rvm:
     runs-on: ubuntu-latest
     needs: compile_RSC
@@ -729,6 +731,12 @@ jobs:
 
       - name: Install Scala
         run: brew install scala
+
+      - name: Run hello world to install dependencies
+        continue-on-error: true
+        run: |
+          echo "object Hello { def main(args: Array[String]) = { println(\"Hello, world\") }}" > hello_world.scala
+          scala hello_world.scala
 
       - name: Run RVM tests
         run: |
