@@ -3389,6 +3389,8 @@
 (define (encode-symtbl proc exports host-config call-sym-short-size)
   (define syms ($make-table))
 
+  ;; Returns an integer value corresponding to the ordering of a given
+  ;; symbol descriptor.
   (define (ordering sym-descr)
     (let ((sym (car sym-descr)))
       (let ((pos (member sym predefined)))
@@ -3397,8 +3399,27 @@
             (let ((descr (cdr sym-descr)))
               (field0 descr))))))
 
+  (define (ordering-between sym1-descr sym2-descr)
+    (let ((sym1 (car sym1-descr))
+          (sym2 (car sym2-descr))
+          (sym1-ordering (ordering sym1-descr))
+          (sym2-ordering (ordering sym2-descr)))
+      (if (eqv? sym1-ordering sym2-ordering)
+        ;; Fallback on alphabetical ordering as it avoids relying on the
+        ;; specifics of the $table->string implementation.
+        (if (eqv? sym1 sym2)
+          #t
+          (string<? (symbol->string sym2)
+                    (symbol->string sym1)))
+        (< sym2-ordering sym1-ordering))))
+
   (for-each (lambda (sym) ($table-set! syms sym (rib 0 0 1))) predefined)
 
+  ;; Create a symbol description from its usage as the operand of a specific
+  ;; instruction (jump, get or const). The descriptor is a rib containing:
+  ;;
+  ;;    [number of jump/call, number of get, number of const]
+  ;;
   (for-each-c-rib
     proc
     (lambda (code)
@@ -3420,8 +3441,7 @@
 
     (let ((lst
             (list-sort
-              (lambda (a b)
-                (< (ordering b) (ordering a)))
+              ordering-between
               ($table->list syms))))
 
       (let loop1 ((i 0) (lst lst) (symbols '()))
