@@ -3827,13 +3827,13 @@
              encoding-size
              (lzss-variable-cost encoding-size tag))))
 
-  (add-variables! host-config tag)
+    (add-variables! host-config tag)
 
-  (encode
-    encoded-stream
-    '()
-    tag
-    (list tag 0))))
+    (encode
+      encoded-stream
+      '()
+      tag
+      (list tag 0))))
 
 
 ;; Inspired from the section 2.6.4 of https://ir.canterbury.ac.nz/bitstream/handle/10092/8411/bell_thesis.pdf?sequence=1&isAllowed=y
