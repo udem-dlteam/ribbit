@@ -1025,6 +1025,25 @@
         ($table-set! hash-table hash (cons c-rib-ref '()))
         c-rib-ref))))
 
+
+;; make-vector-with-default
+
+(cond-expand
+  ((or gambit kawa chicken)
+
+    (define (make-vector-with-default k v)
+      (make-vector k v)))
+
+  (else
+    (define (make-vector-with-default k value)
+      (let ((vec (make-vector k)))
+        (let loop ((i 0))
+          (if (< i k)
+            (begin 
+              (vector-set! vec i value)
+              (loop (+ i 1)))
+            vec))))))
+
 ;; Hash combine (taken from Gambit Scheme)
 ;; https://github.com/gambit/gambit/blob/master/lib/_system%23.scm
 ;; The FNV1a hash algorithm is adapted to hash values, in
@@ -4075,7 +4094,7 @@
 
 (define (string->stream string encoding-size literal-encoding)
   ;; This maps a char to its index in the literal encoding
-  (define reverse-literal-encoding (make-vector 128 #f))
+  (define reverse-literal-encoding (make-vector-with-default 128 #f))
 
   (let loop ((i 0))
     (if (< i (string-length literal-encoding))
