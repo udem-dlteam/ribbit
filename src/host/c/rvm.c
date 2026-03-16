@@ -4,7 +4,12 @@
 
 // @@(location import)@@
 
-// @@(feature debug
+
+// @@(feature debug (use debug-print debug-phases)
+#define DEBUG
+// )@@
+
+// @@(feature debug-print
 #define DEBUG_I_CALL
 // )@@
 
@@ -22,10 +27,6 @@
 
 #ifdef MARK_SWEEP_DSW
 #define MARK_SWEEP
-#endif
-
-#ifdef DEBUG_I_CALL
-#define DEBUG
 #endif
 
 #ifdef DEBUG
