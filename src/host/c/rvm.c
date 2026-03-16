@@ -984,7 +984,14 @@ void run() {
             // @@(feature arity-check
             num vari = nparams_vari&1;
             if (vari ? nparams > nargs : nparams != nargs) {
-                printf("*** Unexpected number of arguments nargs: %ld nparams: %ld vari: %ld\n", nargs, nparams, vari);
+                printf("*** Function called with an unexpected number of arguments\n");
+                printf("-> Number of expected argument by the function: %ld\n", nparams);
+                printf("-> Number of applied argument by the caller: %ld\n", nargs);
+#ifdef DEBUG
+                printf("-> Function symbol or location on stack:");
+                show_operand(CDR(pc));
+                printf("\n");
+#endif
                 exit(1);
             }
             // )@@
