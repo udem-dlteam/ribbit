@@ -963,21 +963,28 @@
   (ribbit
     (define hash-table-c-ribs ($make-table))
 
-    (define c-rib? rib?)
+    ;; c-ribs are emulated with ribs. This creates a problem, as we must
+    ;; distinguish between Ribbit values (which are ribs) and c-ribs which are
+    ;; an emulated, hashed intermediate representation of instruction-ribs. 
+    ;;
+    ;; The current solution is to assume that all c-ribs have a rib in their
+    ;; third field. This works as c-rib will never contain Ribbit instruction-ribs
+    ;; and all objects are tagged with a *number* at the end in ribbit.
+    (define (c-rib? o) (and (rib? o) (rib? (field2 o))))
 
     (define (make-c-rib field0 field1 field2 hash meta)
-      (rib field0 (rib field1 hash meta) field2))
+      (rib field0 field1 (rib field2 hash meta)))
 
     (define (c-rib-oper c-rib) (field0 c-rib))
-    (define (c-rib-opnd c-rib) (field0 (field1 c-rib)))
-    (define (c-rib-next c-rib) (field2 c-rib))
-    (define (c-rib-hash c-rib) (field1 (field1 c-rib)))
-    (define (c-rib-meta c-rib) (field2 (field1 c-rib)))
+    (define (c-rib-opnd c-rib) (field1 c-rib))
+    (define (c-rib-next c-rib) (field0 (field2 c-rib)))
+    (define (c-rib-hash c-rib) (field1 (field2 c-rib)))
+    (define (c-rib-meta c-rib) (field2 (field2 c-rib)))
 
     (define (c-rib-oper-set! c-rib v) (field0-set! c-rib v))
-    (define (c-rib-opnd-set! c-rib v) (field0-set! (field1 c-rib) v))
-    (define (c-rib-next-set! c-rib v) (field2-set! c-rib v))
-    (define (c-rib-meta-set! c-rib v) (field2-set! (field1 c-rib) v)))
+    (define (c-rib-opnd-set! c-rib v) (field1-set! c-rib v))
+    (define (c-rib-next-set! c-rib v) (field0-set! (field2 c-rib) v))
+    (define (c-rib-meta-set! c-rib v) (field2-set! (field2 c-rib) v)))
 
   (else
 
