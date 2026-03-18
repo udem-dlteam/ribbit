@@ -1,4 +1,3 @@
-
 (cond-expand
   ((host py)
 
@@ -55,31 +54,30 @@
 (let loop ((max-lens '(100 200 500 1000 2000 5000 10000 20000 50000)))
 
   (define max-len (car max-lens))
-  
-  
+
   (define test-vect (make-vect max-len (lambda (index) index)))
-  
+
   (display " -- ITER ") (display max-len) (display " -- ") (newline)
-  
+
   (define tree-vect
     (time "Tree vect creation"
           (lambda ()
             (make-vect max-len (lambda (index) index)))))
-  
+
   (define linear-vect
     (time "Linear vect creation"
           (lambda ()
             (make-vector max-len))))
-  
+
   ;(write "Tree vect: ") (write (vect->list tree-vect)) (newline)
   ;(write "Linear vect: ") (write (vector->list linear-vect)) (newline)
-  
+
   ;(display " -- One reverse bench -- ") (newline)
-  
+
   (time "Tree vect reverse one"
         (lambda ()
           (vect-reverse! tree-vect)))
-  
+
   (time "Linear vect reverse one"
         (lambda ()
           (vector-reverse! linear-vect)))
@@ -89,9 +87,7 @@
         (display " -- No more iterations -- ") (newline)
         (##exit 0)))
 
-  (loop (cdr max-lens))
-
-  )
+  (loop (cdr max-lens)))
 
 
 
