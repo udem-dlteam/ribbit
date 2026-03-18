@@ -425,6 +425,7 @@ void gc() {
   }
   if (*alloc == _NULL){
     printf("Heap is full\n");
+    exit(2);
   }
   // @@(location gc-end)@@
 }
@@ -494,8 +495,13 @@ void gc() {
 
   // scan the to_space to pull all live references
   scan = to_space;
-  while (scan != alloc) {
+  while (scan != alloc && alloc != alloc_limit) {
     copy();
+  }
+
+  if (alloc == alloc_limit) {
+    printf("Error: out of memory");
+    exit(2); // out of memory
   }
 
 #ifdef DEBUG_GC
