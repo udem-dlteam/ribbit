@@ -182,7 +182,12 @@
      (pair? table))
 
    (define ($table-copy table)
-     (cons (reverse (reverse (car table))) '()))
+     (cons
+       (map
+         (lambda (x)
+           (cons (car x) (cdr x)))
+         (car table))
+       '()))
 
    (define ($checked-table-ref table key)
      ;; not ideal, but will do
