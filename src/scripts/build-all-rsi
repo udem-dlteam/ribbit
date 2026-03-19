@@ -1,0 +1,43 @@
+
+OPT_JS="-t js -f+ quiet -l r4rs -ps"
+OPT_ASM="-t asm -f+ quiet -l r4rs -ps"
+
+OPT_ENC="-e optimal"
+OPT_ORG="-e original"
+
+OPT_COMP_JS="-f+ compression/lzss/tag"
+OPT_COMP_ASM="-f+ compression/lzss/2b"
+
+OPT_PNA="-f+ prim-no-arity"
+
+
+
+
+
+BUILD_DIR="all-rsi2"
+
+##./rsc $OPT_ASM $OPT_ORG ./lib/r4rs/repl.scm -o $BUILD_DIR/baseline-asm.asm -x $BUILD_DIR/baseline-asm
+#./rsc $OPT_ASM $OPT_ENC ./lib/r4rs/repl.scm -o $BUILD_DIR/asm_optimal_256.asm -x $BUILD_DIR/asm_optimal_256
+##./rsc $OPT_ASM $OPT_ORG $OPT_COMP_ASM ./lib/r4rs/repl.scm -o $BUILD_DIR/asm_original_comp.asm -x $BUILD_DIR/asm_original_comp
+#./rsc $OPT_ASM $OPT_ENC $OPT_COMP_ASM ./lib/r4rs/repl.scm -o $BUILD_DIR/asm_optimal_256_comp.asm -x $BUILD_DIR/asm_optimal_256_comp
+
+##./rsc $OPT_PNA $OPT_ASM $OPT_ORG ./lib/r4rs/repl.scm               -o $BUILD_DIR/asm_pna.asm                  -x $BUILD_DIR/asm_pna
+#./rsc $OPT_PNA $OPT_ASM $OPT_ENC ./lib/r4rs/repl.scm               -o $BUILD_DIR/asm_pna_optimal_256.asm      -x $BUILD_DIR/asm_pna_optimal_256
+##./rsc $OPT_PNA $OPT_ASM $OPT_ORG $OPT_COMP_ASM ./lib/r4rs/repl.scm -o $BUILD_DIR/asm_pna_original_comp.asm    -x $BUILD_DIR/asm_pna_original_comp
+#./rsc $OPT_PNA $OPT_ASM $OPT_ENC $OPT_COMP_ASM ./lib/r4rs/repl.scm -o $BUILD_DIR/asm_pna_optimal_256_comp.asm -x $BUILD_DIR/asm_pna_optimal_256_comp
+
+#./rsc $OPT_ASM $OPT_ENC ./lib/r4rs/repl.scm -o $BUILD_DIR/asm_optimal_92.asm -x $BUILD_DIR/asm_optimal_92
+#./rsc $OPT_ASM $OPT_ENC $OPT_COMP_ASM ./lib/r4rs/repl.scm -o $BUILD_DIR/asm_optimal_92_comp.asm -x $BUILD_DIR/asm_optimal_92_comp
+#./rsc $OPT_PNA $OPT_ASM $OPT_ENC $OPT_COMP_ASM ./lib/r4rs/repl.scm -o $BUILD_DIR/asm_pna_optimal_92_comp.asm -x $BUILD_DIR/asm_pna_optimal_92_comp
+#./rsc $OPT_PNA $OPT_ASM $OPT_ENC ./lib/r4rs/repl.scm               -o $BUILD_DIR/asm_pna_optimal_92.asm      -x $BUILD_DIR/asm_pna_optimal_92
+
+#./rsc $OPT_JS $OPT_ORG ./lib/r4rs/repl.scm -o $BUILD_DIR/baseline-js.js -x $BUILD_DIR/baseline-js
+#./rsc $OPT_JS $OPT_ENC ./lib/r4rs/repl.scm -o $BUILD_DIR/js_optimal_256.js -x $BUILD_DIR/js_optimal_256
+##./rsc $OPT_JS $OPT_ORG $OPT_COMP_JS ./lib/r4rs/repl.scm -o $BUILD_DIR/js_original_comp.js -x $BUILD_DIR/js_original_comp
+#./rsc $OPT_JS $OPT_ENC $OPT_COMP_JS ./lib/r4rs/repl.scm -o $BUILD_DIR/js_optimal_256_comp.js -x $BUILD_DIR/js_optimal_256_comp
+
+#./rsc $OPT_PNA $OPT_JS $OPT_ORG ./lib/r4rs/repl.scm               -o $BUILD_DIR/js_pna.js                  -x $BUILD_DIR/js_pna
+#./rsc $OPT_PNA $OPT_JS $OPT_ENC ./lib/r4rs/repl.scm               -o $BUILD_DIR/js_pna_optimal_256.js      -x $BUILD_DIR/js_pna_optimal_256
+##./rsc $OPT_PNA $OPT_JS $OPT_ORG $OPT_COMP_JS ./lib/r4rs/repl.scm -o $BUILD_DIR/js_pna_original_comp.js    -x $BUILD_DIR/js_pna_original_comp
+#./rsc $OPT_PNA $OPT_JS $OPT_ENC $OPT_COMP_JS ./lib/r4rs/repl.scm -o $BUILD_DIR/js_pna_optimal_256_comp.js -x $BUILD_DIR/js_pna_optimal_256_comp
+
