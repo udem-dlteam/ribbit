@@ -793,9 +793,9 @@
 ;(import github.com/gambit/statprof)
 ;;
 ;; And then use the following functions for starting/stoping:
-;;   (statprof-start!)                  -- start the profiler
-;;   (statprof-stop!)                   -- stop the profiler
-;;   (statprof-write! "statprof-result) -- write the result (Must be done!!)
+;;   (statprof-start!)                   ;; start the profiler
+;;   (statprof-stop!)                    ;; stop the profiler
+;;   (statprof-write! "statprof-result") ;; write the result (Must be done!!)
 ;;
 ;; More info: https://github.com/gambit/statprof
 ;;
