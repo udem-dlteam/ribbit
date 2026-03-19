@@ -109,3 +109,4 @@ src/rvm-sizes.log
 **/tmp*
 src/scripts/minify
 src/.tests
+.vscode/settings.json
