@@ -136,7 +136,8 @@
    (define ($table-length table) (table-length table))
    (define ($table->list table) (table->list table))
    (define ($table? t) (table? t))
-   (define ($table-copy t) (table-copy t)))
+   (define ($table-copy t) (table-copy t))
+   (define ($checked-table-ref table val) (table-ref table val)))
 
  ((or chicken kawa guile)
    (import (srfi 69)) ;; need to run with srfi-69
@@ -146,12 +147,15 @@
    (define ($table-length table) (hash-table-size table))
    (define ($table->list table) (hash-table->alist table))
    (define ($table? table) (hash-table? table))
-   (define ($table-copy table) (hash-table-copy table)))
+   (define ($table-copy table) (hash-table-copy table))
+   (define ($checked-table-ref table key) (hash-table-ref table key)))
 
 
  (else
+
    ;; Emulate tables with lists (can be slow)
    (define ($make-table)
+     ;; Create a table as a pair contaning an assoc list
      (cons '() '()))
 
    (define ($table-ref table key default)
@@ -180,32 +184,20 @@
    (define ($table-copy table)
      (cons (reverse (reverse (car table))) '()))
 
-   ))
+   (define ($checked-table-ref table key)
+     ;; not ideal, but will do
+     (let* ((magic (string->symbol "##table-ref-is-empty##"))
+            (val ($table-ref table key magic)))
+       (if (eq? val magic)
+         (begin
+           (write "*** Error in while calling $unchecked-table-ref.\n")
+           (write "Cannot find key (")
+           (write key)
+           (write ") in table\n")
+           (write "Use $table-ref to specify a default or make sure the key is always present")
+           (exit-program-abnormally))
+         val)))))
 
-;; $unchecked-table-ref
-
-(cond-expand
-  (gambit
-    (define ($unchecked-table-ref table val) (table-ref table val)))
-
-  (chicken
-    (import (srfi 69)) ;; need to run with srfi-69
-    (define ($unchecked-table-ref table key) (hash-table-ref table key)))
-
-  (else
-    (define ($unchecked-table-ref table key)
-      ;; not ideal, but will do
-      (let* ((magic (string->symbol "##table-ref-is-empty##"))
-             (val ($table-ref table key magic)))
-        (if (eq? val magic)
-          (begin
-            (write "*** Error in while calling $unchecked-table-ref.\n")
-            (write "Cannot find key (")
-            (write key)
-            (write ") in table\n")
-            (write "Use $table-ref to specify a default or make sure the key is always present")
-            (exit-program-abnormally))
-          val)))))
 
 ;; $max-fixnum
 
@@ -3529,7 +3521,7 @@
           (if (< index (- max offset))
             (let* ((optimal-table
                      (let ((optimal ($table-copy current-encoding-table)))
-                       ($unchecked-table-ref optimal (append instruction (list 'long)))
+                       ($checked-table-ref optimal (append instruction (list 'long)))
                        ($table-set! optimal (append instruction (list 'long)) index)
                        optimal))
                    (optimal-table-value (sum-byte-count value-table (reverse instruction) optimal-table encoding-size))
@@ -3564,13 +3556,13 @@
                   ((if (memq 'short encoding)
                      calculate-gain-short
                      calculate-gain-long)
-                   ($unchecked-table-ref
-                     ($unchecked-table-ref stats (car encoding))
+                   ($checked-table-ref
+                     ($checked-table-ref stats (car encoding))
                      (cadr encoding))
                    (list (car encoding)
                          (cadr encoding))
                    encoding-size-counter
-                   ($unchecked-table-ref solution encoding)
+                   ($checked-table-ref solution encoding)
                    solution
                    encoding-size))))))
         encodings))
@@ -3618,7 +3610,7 @@
       (let ((winner (select-winner)))
         (if (not (eqv? (car winner) 0))
           (begin
-            ($table-set! solution (car winner) (+ (cadr winner) ($unchecked-table-ref solution (car winner))))
+            ($table-set! solution (car winner) (+ (cadr winner) ($checked-table-ref solution (car winner))))
             (set! encoding-size-counter (- encoding-size-counter (cadr winner)))
             (if (< 0 encoding-size-counter)
               (loop))))))
@@ -4006,8 +3998,8 @@
     1
     (let* ((short-key   (append arg-list '(short)))
            (long-key    (append arg-list '(long)))
-           (short-size  ($unchecked-table-ref encoding-table short-key))
-           (long-size   ($unchecked-table-ref encoding-table long-key)))
+           (short-size  ($checked-table-ref encoding-table short-key))
+           (long-size   ($checked-table-ref encoding-table long-key)))
       (if (< arg short-size)
         1
         (+ 2 (floor-log
