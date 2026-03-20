@@ -3621,6 +3621,10 @@
             (if (< 0 encoding-size-counter)
               (begin
                 (recalculate (car winner))
+                (if (pair? (car winner))
+                  (if (memq 'short (car winner))
+                    (recalculate (append (list (car winner) (cadr winner)) '(long)))
+                    (recalculate (append (list (car winner) (cadr winner)) '(short)))))
                 (loop)))))))
 
     solution)
