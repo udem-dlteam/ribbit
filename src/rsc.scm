@@ -3487,7 +3487,8 @@
 
 (define (get-maximal-encoding encoding-instrs stats encoding-size)
 
-    (define encoding-size-counter encoding-size)
+    ;; The amount left to encode
+    (define encoding-size-left encoding-size)
 
     (define (get-running-sum lst)
       (reverse
@@ -3562,7 +3563,7 @@
                  (cadr encoding-instr))
                (list (car encoding-instr)
                      (cadr encoding-instr))
-               encoding-size-counter
+               encoding-size-left
                ($checked-table-ref solution encoding-instr)
                solution
                encoding-size))))))
@@ -3582,7 +3583,7 @@
           (lambda (sum)
             (let ((instruction (car sum)))
               (let loop ((index 0) (lst (cdr sum)))
-                (if (and (pair? lst) (< index encoding-size-counter))
+                (if (and (pair? lst) (<= index encoding-size-left))
                   (begin
                     (if (> (car lst) winner-value)
                       (begin
@@ -3593,7 +3594,7 @@
                       (+ 1 index)
                       (cdr lst)))))))
           ($table->list running-sums))
-        (list winner-inst winner-index winner-value)))
+        (list winner-inst winner-value winner-index)))
 
 
     ;; starting, set size 1 for long encodings
@@ -3604,27 +3605,30 @@
           encoding
           (if (and (pair? encoding) (memq 'short encoding))
             0
-            (begin (set! encoding-size-counter (- encoding-size-counter 1)) 1))))
+            (begin (set! encoding-size-left (- encoding-size-left 1)) 1))))
       encoding-instrs)
 
     (recalculate-all)
 
-    (if (< encoding-size-counter 0)
-      (error "Encoding size is not big enough to fit all encodings" encoding-size-counter))
+    (if (< encoding-size-left 0)
+      (error "Encoding size is not big enough to fit all encodings" encoding-size-left))
 
     (let loop ()
-      (let ((winner (select-winner)))
-        (if (not (eqv? (car winner) 0))
+      (let* ((winner (select-winner))
+             (winner-inst (car winner))
+             (winner-value (cadr winner))
+             (winner-index (caddr winner)))
+        (if (not (eqv? winner-inst 0)) ;; no winner found
           (begin
-            (set! encoding-size-counter (- encoding-size-counter (cadr winner)))
-            (if (< 0 encoding-size-counter)
+            (set! encoding-size-left (- encoding-size-left winner-index))
+            ($table-set! solution winner-inst (+ winner-index ($checked-table-ref solution winner-inst)))
+            (if (< 0 encoding-size-left)
               (begin
-                ($table-set! solution (car winner) (+ (cadr winner) ($checked-table-ref solution (car winner))))
-                (recalculate (car winner))
-                (if (pair? (car winner))
-                  (if (memq 'short (car winner))
-                    (recalculate (append (list (car winner) (cadr winner)) '(long)))
-                    (recalculate (append (list (car winner) (cadr winner)) '(short)))))
+                (recalculate winner-inst)
+                (if (pair? winner-index)
+                  (if (memq 'short winner-inst)
+                    (recalculate (append (list (car winner-inst) (cadr winner-inst)) '(long)))
+                    (recalculate (append (list (car winner-inst) (cadr winner-inst)) '(short)))))
                 (loop)))))))
 
     solution)
