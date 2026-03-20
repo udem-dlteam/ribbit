@@ -3582,7 +3582,7 @@
           (lambda (sum)
             (let ((instruction (car sum)))
               (let loop ((index 0) (lst (cdr sum)))
-                (if (pair? lst)
+                (if (and (pair? lst) (< index encoding-size-counter))
                   (begin
                     (if (> (car lst) winner-value)
                       (begin
@@ -3616,10 +3616,10 @@
       (let ((winner (select-winner)))
         (if (not (eqv? (car winner) 0))
           (begin
-            ($table-set! solution (car winner) (+ (cadr winner) ($checked-table-ref solution (car winner))))
             (set! encoding-size-counter (- encoding-size-counter (cadr winner)))
             (if (< 0 encoding-size-counter)
               (begin
+                ($table-set! solution (car winner) (+ (cadr winner) ($checked-table-ref solution (car winner))))
                 (recalculate (car winner))
                 (if (pair? (car winner))
                   (if (memq 'short (car winner))
