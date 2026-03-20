@@ -3485,7 +3485,7 @@
                       (loop4 (cdr symbols*))
                       (cons syms symbols*)))))))))))
 
-(define (get-maximal-encoding encodings stats encoding-size)
+(define (get-maximal-encoding encoding-instrs stats encoding-size)
 
     (define encoding-size-counter encoding-size)
 
@@ -3543,34 +3543,35 @@
     (define solution ($make-table))
     (define running-sums ($make-table))
 
+    (define (recalculate encoding-instr)
+      (if (and (pair? encoding-instr)
+               (let ((subtable ($table-ref stats (car encoding-instr) #f)))
+                 (if subtable
+                   ($table-ref subtable (cadr encoding-instr) #f)
+                   #f)))
+        ($table-set!
+          running-sums
+          encoding-instr
+          (normalize
+            (get-running-sum
+              ((if (memq 'short encoding-instr)
+                 calculate-gain-short
+                 calculate-gain-long)
+               ($checked-table-ref
+                 ($checked-table-ref stats (car encoding-instr))
+                 (cadr encoding-instr))
+               (list (car encoding-instr)
+                     (cadr encoding-instr))
+               encoding-size-counter
+               ($checked-table-ref solution encoding-instr)
+               solution
+               encoding-size))))))
 
-    (define (recalculate)
+
+    (define (recalculate-all)
       (for-each
-        (lambda (encoding)
-          (if (and (pair? encoding)
-
-                   (let ((subtable ($table-ref stats (car encoding) #f)))
-                     (if subtable
-                       ($table-ref subtable (cadr encoding) #f)
-                       #f)))
-            ($table-set!
-              running-sums
-              encoding
-              (normalize
-                (get-running-sum
-                  ((if (memq 'short encoding)
-                     calculate-gain-short
-                     calculate-gain-long)
-                   ($checked-table-ref
-                     ($checked-table-ref stats (car encoding))
-                     (cadr encoding))
-                   (list (car encoding)
-                         (cadr encoding))
-                   encoding-size-counter
-                   ($checked-table-ref solution encoding)
-                   solution
-                   encoding-size))))))
-        encodings))
+        recalculate
+        encoding-instrs))
 
     (define (select-winner)
       (let ((winner-inst 0)
@@ -3604,21 +3605,23 @@
           (if (and (pair? encoding) (memq 'short encoding))
             0
             (begin (set! encoding-size-counter (- encoding-size-counter 1)) 1))))
-      encodings)
+      encoding-instrs)
 
+    (recalculate-all)
 
     (if (< encoding-size-counter 0)
       (error "Encoding size is not big enough to fit all encodings" encoding-size-counter))
 
     (let loop ()
-      (recalculate)
       (let ((winner (select-winner)))
         (if (not (eqv? (car winner) 0))
           (begin
             ($table-set! solution (car winner) (+ (cadr winner) ($checked-table-ref solution (car winner))))
             (set! encoding-size-counter (- encoding-size-counter (cadr winner)))
             (if (< 0 encoding-size-counter)
-              (loop))))))
+              (begin
+                (recalculate (car winner))
+                (loop)))))))
 
     solution)
 
