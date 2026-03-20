@@ -3502,7 +3502,7 @@
         (lambda (x y)
           (if (eqv? y 0)
             0
-            (/ x y)))
+            (quotient x y)))
         lst
         ($iota (length lst))))
 
