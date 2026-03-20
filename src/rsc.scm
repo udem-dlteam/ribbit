@@ -5467,10 +5467,10 @@ COMPILATION OPTIONS
   Specify the compilation target. Can be any of: `rvm`, `js`, `py`, etc..
 
   `-o`, `--output PATH`
-  Define the output path for the compiled file.
+  Define the output path for the compiled file. If no path is given, default naming is used.
 
   `-x`, `--exe`, `--executable PATH`
-  Specify an executable output path. If no path is given, default naming is used.
+  Specify an executable output path, compiling it with a script inside the host folder.
 
   `-l`, `--library PATH`
   Add a library path.
