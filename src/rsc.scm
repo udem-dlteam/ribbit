@@ -3486,6 +3486,8 @@
                       (cons syms symbols*)))))))))))
 
 (define (get-maximal-encoding encoding-instrs stats encoding-size)
+    ;;DEBUG encoding calculation -- Add the following to verify the optimal encoding calculations
+    ;; Add `test` as an argument to the function
 
     ;; The amount left to encode
     (define encoding-size-left encoding-size)
@@ -3544,29 +3546,45 @@
     (define solution ($make-table))
     (define running-sums ($make-table))
 
+    ;;DEBUG encoding calculation -- Add the following to verify the optimal
+    ;;encoding calculations
+    ;;
+    ;;(define running-sums-raw ($make-table))
+    ;;(define program-size-start 0)
+
     (define (recalculate encoding-instr)
       (if (and (pair? encoding-instr)
                (let ((subtable ($table-ref stats (car encoding-instr) #f)))
                  (if subtable
                    ($table-ref subtable (cadr encoding-instr) #f)
                    #f)))
-        ($table-set!
-          running-sums
-          encoding-instr
-          (normalize
-            (get-running-sum
-              ((if (memq 'short encoding-instr)
-                 calculate-gain-short
-                 calculate-gain-long)
-               ($checked-table-ref
-                 ($checked-table-ref stats (car encoding-instr))
-                 (cadr encoding-instr))
-               (list (car encoding-instr)
+        (let ((value-table
+                (get-running-sum
+                  ((if (memq 'short encoding-instr)
+                     calculate-gain-short
+                     calculate-gain-long)
+                   ($checked-table-ref
+                     ($checked-table-ref stats (car encoding-instr))
                      (cadr encoding-instr))
-               encoding-size-left
-               ($checked-table-ref solution encoding-instr)
-               solution
-               encoding-size))))))
+                   (list (car encoding-instr)
+                         (cadr encoding-instr))
+                   encoding-size-left
+                   ($checked-table-ref solution encoding-instr)
+                   solution
+                   encoding-size))))
+          ($table-set!
+            running-sums
+            encoding-instr
+            (normalize value-table))
+
+          ;;DEBUG encoding calculation -- Add the following to verify the optimal
+          ;;encoding calculations
+          ;;
+          ;;($table-set!
+          ;;  running-sums-raw
+          ;;  encoding-instr
+          ;;  value-table)
+          )))
 
 
     (define (recalculate-all)
@@ -3596,7 +3614,6 @@
           ($table->list running-sums))
         (list winner-inst winner-value winner-index)))
 
-
     ;; starting, set size 1 for long encodings
     (for-each
       (lambda (encoding)
@@ -3607,6 +3624,9 @@
             0
             (begin (set! encoding-size-left (- encoding-size-left 1)) 1))))
       encoding-instrs)
+
+    ;;DEBUG encoding calculation -- Add the following to verify the optimal
+    ;;(set! program-size-start (length (test solution)))
 
     (recalculate-all)
 
@@ -3622,13 +3642,18 @@
           (begin
             (set! encoding-size-left (- encoding-size-left winner-index))
             ($table-set! solution winner-inst (+ winner-index ($checked-table-ref solution winner-inst)))
+
+            ;;DEBUG encoding calculation -- Add the following to verify the optimal encoding calculations
+            ;;(let* ((new-size (length (test solution)))
+            ;;       (diff (- program-size-start new-size))
+            ;;       (calculated-gain (list-ref ($table-ref running-sums-raw winner-inst #f) winner-index)))
+            ;;  (if (not (= diff calculated-gain))
+            ;;    (error "Calculated gain does not match actual gain" diff calculated-gain winner-inst winner-index))
+            ;;(set! program-size-start new-size)
+
             (if (< 0 encoding-size-left)
               (begin
                 (recalculate winner-inst)
-                (if (pair? winner-index)
-                  (if (memq 'short winner-inst)
-                    (recalculate (append (list (car winner-inst) (cadr winner-inst)) '(long)))
-                    (recalculate (append (list (car winner-inst) (cadr winner-inst)) '(short)))))
                 (loop)))))))
 
     solution)
@@ -4365,7 +4390,21 @@
                      (get-maximal-encoding
                        (map car encoding-skip-92)
                        stats
-                       (ribn-base)))))))
+                       (ribn-base)
+                       ;;DEBUG encoding calculation -- Add the following to
+                       ;;verify the optimal encoding calculations
+                       ;;
+                       ;; (lambda (solution)
+                       ;;   (encode-program
+                       ;;     proc
+                       ;;     (car symtbl-and-symbols*)
+                       ;;     (calculate-start
+                       ;;       (encoding-optimal-order
+                       ;;         (encoding-table->encoding-list
+                       ;;           solution)))
+                       ;;     #t
+                       ;;     (ribn-base)))
+                       ))))))
         ;(encoding-optimal-add-variables encoding host-config)
         encoding))
 
