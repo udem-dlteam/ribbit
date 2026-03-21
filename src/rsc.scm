@@ -516,7 +516,7 @@
    (define (list-sort compare list)
      (list-sort! compare (append list '())))))
 
-;; Can be redefined by ribbit to make this function somewhat fast. It would only be (rib lst len string-type)
+;; Can be redefined by ribbit to make this function somewhat faster.
 (cond-expand
   (ribbit
     (define (list->string* lst len)
@@ -540,9 +540,6 @@
   (else
     (define (string->list* str)
       (map char->integer (string->list str)))))
-
-
-
 
 (cond-expand
 
@@ -885,10 +882,9 @@
 ;;; The host config is a data structure that holds any of the host-specific
 ;;; information. This includes the primitives, the features, and the locations.
 
-;; these primitives are "forced first" meaning that they must exist before any
-;;     other code is executed. This is because the compiler uses them when
-;;     generating code. It's a hack.
-
+;; These primitives are "forced first" meaning that they must exist before any
+;; other code is executed. This is because the compiler uses them when
+;; generating code. It's a hack.
 (define forced-first-primitives (list '%%- '%%arg1))
 
 ;; host config definitions
@@ -948,8 +944,8 @@
 (define (host-config-feature-add! host-config feature value)
   (if (host-config-feature-live? host-config feature)
     (error "Feature already defined" feature)
-    (host-config-features-set! 
-      host-config 
+    (host-config-features-set!
+      host-config
       (cons (cons feature value) (host-config-features host-config)))))
 
 (define (host-config-is-primitive? host-config name)
@@ -964,7 +960,6 @@
 ;;; ======= HASHABLE RIBs ========
 ;;; ------------------------------
 
-
 (cond-expand
 
   (ribbit
@@ -972,7 +967,7 @@
 
     ;; c-ribs are emulated with ribs. This creates a problem, as we must
     ;; distinguish between Ribbit values (which are ribs) and c-ribs which are
-    ;; an emulated, hashed intermediate representation of instruction-ribs. 
+    ;; an emulated, hashed intermediate representation of instruction-ribs.
     ;;
     ;; The current solution is to assume that all c-ribs have a rib in their
     ;; third field. This works as c-rib will never contain Ribbit instruction-ribs
@@ -994,6 +989,8 @@
     (define (c-rib-meta-set! c-rib v) (field2-set! (field2 c-rib) v)))
 
   (else
+
+    ;; Emulation of c-ribs using vectors
 
     (define hash-table-c-ribs ($make-table))
 
