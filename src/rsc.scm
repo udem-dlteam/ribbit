@@ -4072,16 +4072,26 @@
                (quotient encoding-size 2)))))))
 
 (define (sum-byte-count table keys encoding-table encoding-size)
-  ($fold
-    (lambda (pair acc)
-      (let ((value (cdr pair)))
-        (if ($table? value)
-          (+ acc (sum-byte-count value (cons (car pair) keys) encoding-table encoding-size))
-          (+ acc (* (cdr pair) (get-byte-count (reverse keys) (car pair) encoding-table encoding-size))))))
-    0
-    ($table->list table)))
+  (let loop ((sum 0) (lst ($table->list table)))
+    (if (pair? lst)
+      (let ((pair (car lst)))
+        (loop
+          (+ sum (* (cdr pair)
+                    (get-byte-count (reverse keys) (car pair) encoding-table encoding-size)))
+          (cdr lst)))
+      sum)))
 
 (define (display-stats-aux stats level max-level encoding-table)
+  (define (general-sum-byte-count table keys encoding-table encoding-size)
+    ($fold
+      (lambda (pair acc)
+        (let ((value (cdr pair)))
+          (if ($table? value)
+            (+ acc (general-sum-byte-count value (cons (car pair) keys) encoding-table encoding-size))
+            (+ acc (* (cdr pair) (get-byte-count (reverse keys) (car pair) encoding-table encoding-size))))))
+      0
+      ($table->list table)))
+
   (define (sort-numbers lst)
     (if (and (pair? (car lst))
              (number? (caar lst)))
@@ -4096,7 +4106,7 @@
                (value (cdr pair))
                (level (cons key level))
                (int-value (if ($table? value)
-                            (sum-byte-count value level (encoding-list->encoding-table encoding-table) (encoding-size encoding-table))
+                            (general-sum-byte-count value level (encoding-list->encoding-table encoding-table) (encoding-size encoding-table))
                             (* value (get-byte-count (reverse (cdr level)) key (encoding-list->encoding-table encoding-table) (encoding-size encoding-table)))))
                (spacing (make-string (* 2 (length level)) #\space)))
           (display
