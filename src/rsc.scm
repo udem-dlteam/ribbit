@@ -1124,6 +1124,11 @@
     (display "*** hash-consing table: \n")
     (display "Hash table size: ")
     (display ($table-length hash-table-c-ribs))
+    (display "\nTotal number of elements: ")
+    (display ($fold
+               (lambda (a b) (+ b (length a)))
+               0
+               ($table->list hash-table-c-ribs)))
     (display "\nHash table distribution:\n")
     (display "(<lenght of one entry> . <number of keys with that lenght>)\n")
     (pp
@@ -5542,7 +5547,10 @@
           host-file
           encoding-name
           byte-stats
-          program-compiled))))
+          program-compiled))
+
+      (if (memq 'hash-table debug-info)
+        (print-hash-consing-table))))
 
 (define (parse-cmd-line args)
   (define usage 
