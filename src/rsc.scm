@@ -3562,7 +3562,7 @@
                            (index (- first-digit offset)))
                       (if (and (>= index 0) (< index lst-size))
                         (list-set! result index (+ (list-ref result index) quantity)))))))
-              (table->list value-table))
+              ($table->list value-table))
             result)
           '())))
 
