@@ -3649,7 +3649,7 @@
             ;;       (calculated-gain (list-ref ($table-ref running-sums-raw winner-inst #f) winner-index)))
             ;;  (if (not (= diff calculated-gain))
             ;;    (error "Calculated gain does not match actual gain" diff calculated-gain winner-inst winner-index))
-            ;;(set! program-size-start new-size)
+            ;;  (set! program-size-start new-size))
 
             (if (< 0 encoding-size-left)
               (begin
