@@ -3531,26 +3531,40 @@
               (cons gain lst)))
           (reverse lst))))
 
-    (define (calculate-gain-long value-table instruction max offset current-encoding-table encoding-size)
-      (let ((current-table-value (sum-byte-count value-table (reverse instruction) current-encoding-table encoding-size)))
-        (let loop ((index (+ offset 1))
-                   (old-gain current-table-value)
-                   (lst '()))
-          (if (< index (- max offset))
-            (let* ((optimal-table
-                     (let ((optimal ($table-copy current-encoding-table)))
-                       ($checked-table-ref optimal (append instruction (list 'long)))
-                       ($table-set! optimal (append instruction (list 'long)) index)
-                       optimal))
-                   (optimal-table-value (sum-byte-count value-table (reverse instruction) optimal-table encoding-size))
-                   (gain               (- old-gain optimal-table-value))
-                   (new-old-gain       optimal-table-value)
-                   (new-index          (+ index 1)))
-              (loop
-                new-index
-                new-old-gain
-                (cons gain lst)))
-            (reverse lst)))))
+    ;; Calculates the first digit of a number represented in a specific base
+    (define (first-digit-in-base number base)
+      (let loop ((v number))
+        (if (< v base)
+          v
+          (loop (quotient v base)))))
+
+
+    ;; Returns a list where each index corredond to the number of bytes saved
+    ;; if the size given for this instruction was increased to this index. The
+    ;; list is offsetted by the `offset`.
+    (define (calculate-gain-long value-table instruction limit offset current-encoding-table encoding-size)
+      (let* ((lst-size (min
+                         ;; Instructed limit depending on the progress of the algorithm
+                         (- limit offset)
+                         ;; Limit as the size accorded to long decoding instructions
+                         ;; cannot exceed encoding-size/2
+                         (- (quotient encoding-size 2) offset)))
+             (result (make-list lst-size 0)))
+
+        (if (> lst-size 0)
+          (begin
+            (for-each
+              (lambda (pair)
+                (let ((value (car pair))
+                      (quantity (cdr pair)))
+                  (if (>= value (quotient encoding-size 2)) ;; no gain for small values
+                    (let* ((first-digit (first-digit-in-base value (quotient encoding-size 2)))
+                           (index (- first-digit offset)))
+                      (if (and (>= index 0) (< index lst-size))
+                        (list-set! result index (+ (list-ref result index) quantity)))))))
+              (table->list value-table))
+            result)
+          '())))
 
 
     (define solution ($make-table))
