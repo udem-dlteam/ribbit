@@ -797,6 +797,16 @@
 ;;   (statprof-stop!)                    ;; stop the profiler
 ;;   (statprof-write! "statprof-result") ;; write the result (Must be done!!)
 ;;
+;; Or the following macro:
+;;
+;;(define-macro (profile name expr)
+;;  `(begin
+;;     (statprof-start!)
+;;     (let ((result ,expr))
+;;       (statprof-stop!)
+;;       (statprof-write! ,name)
+;;       result)))
+;;
 ;; More info: https://github.com/gambit/statprof
 ;;
 
