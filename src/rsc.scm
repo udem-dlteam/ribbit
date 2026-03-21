@@ -4057,12 +4057,19 @@
       ($table-set! arg-table arg (+ 1 ($table-ref arg-table arg 0))))))
 
 
-(define (get-byte-count arg-list arg encoding-table encoding-size)
-
-  (if (equal? arg-list '(if))
+;; Calculates in how many bytes a particular encoding instruction
+;; is encoded.
+;;
+;;  `instruction` is the instruction with argument type ex: '(jump sym).
+;;  `arg` is the argument of the instruction ex: 42.
+;;  `encoding-table` is a table that gives the encoding size of each
+;;     instruction for short and long encoding
+;;  `encoding-size` is the total encoding size available in bytes.
+(define (get-byte-count instruction arg encoding-table encoding-size)
+  (if (equal? instruction '(if))
     1
-    (let* ((short-key   (append arg-list '(short)))
-           (long-key    (append arg-list '(long)))
+    (let* ((short-key   (append instruction '(short)))
+           (long-key    (append instruction '(long)))
            (short-size  ($checked-table-ref encoding-table short-key))
            (long-size   ($checked-table-ref encoding-table long-key)))
       (if (< arg short-size)
@@ -4070,6 +4077,7 @@
         (+ 2 (floor-log
                (max 1 (- arg (* (quotient encoding-size 2) (- long-size 1))))
                (quotient encoding-size 2)))))))
+
 
 (define (sum-byte-count table keys encoding-table encoding-size)
   (let loop ((sum 0) (lst ($table->list table)))
