@@ -446,6 +446,8 @@
      (write obj)
      (newline))))
 
+;; list-sort!
+
 (cond-expand
 
   ((and gambit (or enable-bignum disable-bignum))) ;; recent Gambit?
@@ -515,6 +517,21 @@
 
    (define (list-sort compare list)
      (list-sort! compare (append list '())))))
+
+;; $list-set!
+
+(cond-expand
+  ((or ribbit gambit kawa)
+   (define $list-set! list-set!))
+  (else
+    (define ($list-set! lst index value)
+      (let loop ((lst lst) (i index))
+        (if (eqv? i 0)
+          (begin
+            (set-car! lst value)
+            lst)
+          (loop (cdr lst) (- i 1)))))))
+
 
 ;; Can be redefined by ribbit to make this function somewhat faster.
 (cond-expand
@@ -3565,7 +3582,7 @@
                     (let* ((first-digit (first-digit-in-base value (quotient encoding-size 2)))
                            (index (- first-digit offset)))
                       (if (and (>= index 0) (< index lst-size))
-                        (list-set! result index (+ (list-ref result index) quantity)))))))
+                        ($list-set! result index (+ (list-ref result index) quantity)))))))
               ($table->list value-table))
             result)
           '())))
