@@ -62,6 +62,7 @@ check-bootstrap:
 		${HOST_COMPILER} rsc-bootstrap1.exe -g rsc-bootstrap1.${HOST}; \
 		time ./rsc-bootstrap1.exe -ps -t ${HOST} -l r4rs -l prim-wrap ${BOOT0} -l boot-host -f+ v-port -o rsc-bootstrap2.${HOST} ${BOOT_FILE}; \
 	fi 
+	cd ../.. && diff rsc-bootstrap1.${HOST} rsc-bootstrap2.${HOST}
 
 
 check-repl:
