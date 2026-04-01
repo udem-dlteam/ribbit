@@ -49,16 +49,22 @@
       0))
 
 (define (append . lsts)
-  (define (append-aux lsts)
-    (if (pair? lsts)
-        (let ((lst (%%field0 lsts)))
-          (if (pair? lst)
-              (cons (%%field0 lst) (append-aux (cons (%%field1 lst) (%%field1 lsts))))
-              (if (null? (%%field1 lsts))
-                  lst
-                  (append-aux (%%field1 lsts)))))
-        '()))
-  (append-aux lsts))
+  ;; Inspired by the version of append in Gambit
+  ;; https://github.com/gambit/gambit/blob/3dda2d022362ba3b3924cd5c026f70dea4cb594e/lib/gambit/list/list.scm#L161
+
+  (define (append2 lst1 lst2)
+    (if (pair? lst1)
+        (cons (%%field0 lst1) (append2 (%%field1 lst1) lst2))
+        lst2))
+
+  (if (pair? lsts)
+      (let ((rev-lst (reverse lsts)))
+        (let loop ((rev-lst (%%field1 rev-lst)) (result (%%field0 rev-lst)))
+          (if (pair? rev-lst)
+              (loop (%%field1 rev-lst)
+                    (append2 (%%field0 rev-lst) result))
+              result)))
+      '()))
 
 (define (reverse lst)
   (reverse-aux lst '()))

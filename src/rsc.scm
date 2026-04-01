@@ -593,6 +593,8 @@
   (else
 
     (define ($string-concatenate string-list separator)
+      ;; Assumes that append does not copy its last argument.
+      ;; Else, can be very slow.
       (if (pair? string-list)
         (let ((rev-string-list (reverse string-list))
               (sep (string->list separator)))
