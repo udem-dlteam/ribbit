@@ -4331,116 +4331,6 @@
         (stream-symtbl #f));; symbols at the beginning of the RIBN
 
     ;; define phases
-    (define (p/enc-const)
-      (set! proc (encode-constants proc host-config)))
-
-    (define (p/enc-prog)
-      (set!
-        stream
-        (encode-program
-          proc
-          symtbl
-          encoding
-          (encoding-inst-get encoding (list 'skip 'int 'long))
-          (ribn-base))))
-
-    (define (p/enc-symtbl)
-      (let* ((symtbl-and-symbols*
-               (encode-symtbl
-                       proc
-                       exports
-                       host-config
-                       (encoding-inst-size encoding (list 'call 'sym 'short))))
-             (symbol* (cdr symtbl-and-symbols*)))
-        (set! symtbl   (car symtbl-and-symbols*))
-        (set! stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base literal-encoding))))
-
-    (define (p/comp-tag)
-      (set! stream
-        (encode-lzss-with-tag
-          stream
-          (ribn-base)
-          host-config)))
-
-    (define (p/comp-2b)
-      (set! compression-range-size compression-range-size-min)
-      (set! encoding (optimal-encoding))
-      (p/enc-symtbl)
-      (p/enc-prog)
-      (p/merge-prog-sym)
-      (let loop1 ((crs compression-range-size-min) (best-compression (list 99999999 99999999)))
-        (if (<= crs compression-range-size-max)
-            (let loop2 ((sb size-base-min) (best-compression best-compression))
-              (if (<= sb size-base-max)
-                  (begin
-                    (set! compression-range-size crs)
-                    (set! size-base sb)
-
-                    (let* ((compression
-                            (encode-lzss-2b
-                             stream
-                             compression-range-size
-                             size-base
-                             byte-base
-                             host-config))
-                           (ribn-size
-                            (car compression))
-                           (compressed-ribn-size
-                            (cadr compression))
-                           (stream
-                            (caddr compression)))
-                      (loop2 (+ sb 1)
-                             (if (< compressed-ribn-size (cadr best-compression))
-                                 (begin
-                                   ;(pp (list 'encode-lzss-2b 'stream compression-range-size size-base byte-base 'host-config '=> ribn-size compressed-ribn-size))
-                                   (append compression (list sb crs encoding)))
-                                 best-compression))))
-                  (begin
-                    (let ((new-crs(+ crs 2) ))
-                      (set! compression-range-size new-crs)
-                      (set! encoding (optimal-encoding))
-                      (p/enc-symtbl)
-                      (p/enc-prog)
-                      (p/merge-prog-sym)
-                      (loop1 new-crs best-compression)))))
-            (let ()
-
-              ;;TODO: fixme!
-
-
-              (define (add-variables! host-config ribn-size compressed-ribn-size)
-                (host-config-feature-add!
-                 host-config
-                 'compression/lzss/2b/byte-base
-                 byte-base)
-                (host-config-feature-add!
-                 host-config
-                 'compression/lzss/2b/size-base
-                 size-base)
-                (host-config-feature-add!
-                 host-config
-                 'compression/lzss/2b/ribn-base
-                 (ribn-base))
-                (host-config-feature-add!
-                 host-config
-                 'compression/lzss/2b/ribn-size
-                 ribn-size)
-                (host-config-feature-add!
-                 host-config
-                 'compression/lzss/2b/compressed-ribn-size
-                 compressed-ribn-size))
-
-              (set! size-base (cadddr best-compression))
-              (set! compression-range-size (car (cddddr best-compression)))
-              (set! encoding (cadr (cddddr best-compression)))
-
-              (add-variables! host-config (car best-compression) (cadr best-compression))
-
-              (set! stream (caddr best-compression))))))
-
-    (define (p/merge-prog-sym)
-      (set! stream (append stream-symtbl stream)))
-
 
     (define (optimal-encoding)
       (let* ((symtbl-and-symbols* (encode-symtbl proc exports host-config 20)) ;; we assume 20 shorts, will be re-evaluated
@@ -4492,7 +4382,7 @@
 
 
       ;; Dispatch logic
-      (p/enc-const) ;; always encode constants
+      (set! proc (encode-constants proc host-config))
 
       ;; Choose encoding
       (set! encoding
@@ -4508,8 +4398,23 @@
           (else
             (error "Cannot find encoding (or number of byte not supported) :" encoding-name))))
 
-      (p/enc-symtbl)
-      (p/enc-prog)
+      (let* ((symtbl-and-symbols*
+               (encode-symtbl
+                 proc
+                 exports
+                 host-config
+                 (encoding-inst-size encoding (list 'call 'sym 'short))))
+             (symbol* (cdr symtbl-and-symbols*)))
+        (set! symtbl   (car symtbl-and-symbols*))
+        (set! stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base literal-encoding)))
+      (set!
+        stream
+        (encode-program
+          proc
+          symtbl
+          encoding
+          (encoding-inst-get encoding (list 'skip 'int 'long))
+          (ribn-base)))
 
       ;; Apply hyperbyte
       (if hyperbyte?
@@ -4517,17 +4422,234 @@
 
       ;; compression on 92 applies only on the program (not symtbl)
       (if (and compression/2b? (eqv? byte-base 92))
-        (p/comp-2b))
+        (begin
+          (set! compression-range-size compression-range-size-min)
+          (set! encoding (optimal-encoding))
+
+          (let* ((symtbl-and-symbols*
+                   (encode-symtbl
+                     proc
+                     exports
+                     host-config
+                     (encoding-inst-size encoding (list 'call 'sym 'short))))
+                 (symbol* (cdr symtbl-and-symbols*)))
+            (set! symtbl   (car symtbl-and-symbols*))
+            (set! stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base literal-encoding)))
+          (set!
+            stream
+            (encode-program
+              proc
+              symtbl
+              encoding
+              (encoding-inst-get encoding (list 'skip 'int 'long))
+              (ribn-base)))
+          (set! stream (append stream-symtbl stream))
+          (let loop1 ((crs compression-range-size-min) (best-compression (list 99999999 99999999)))
+            (if (<= crs compression-range-size-max)
+              (let loop2 ((sb size-base-min) (best-compression best-compression))
+                (if (<= sb size-base-max)
+                  (begin
+                    (set! compression-range-size crs)
+                    (set! size-base sb)
+
+                    (let* ((compression
+                             (encode-lzss-2b
+                               stream
+                               compression-range-size
+                               size-base
+                               byte-base
+                               host-config))
+                           (ribn-size
+                             (car compression))
+                           (compressed-ribn-size
+                             (cadr compression))
+                           (stream
+                             (caddr compression)))
+                      (loop2 (+ sb 1)
+                             (if (< compressed-ribn-size (cadr best-compression))
+                               (begin
+                                 ;(pp (list 'encode-lzss-2b 'stream compression-range-size size-base byte-base 'host-config '=> ribn-size compressed-ribn-size))
+                                 (append compression (list sb crs encoding)))
+                               best-compression))))
+                  (begin
+                    (let ((new-crs(+ crs 2) ))
+                      (set! compression-range-size new-crs)
+                      (set! encoding (optimal-encoding))
+                      (let* ((symtbl-and-symbols*
+                               (encode-symtbl
+                                 proc
+                                 exports
+                                 host-config
+                                 (encoding-inst-size encoding (list 'call 'sym 'short))))
+                             (symbol* (cdr symtbl-and-symbols*)))
+                        (set! symtbl   (car symtbl-and-symbols*))
+                        (set! stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base literal-encoding)))
+
+                      (set!
+                        stream
+                        (encode-program
+                          proc
+                          symtbl
+                          encoding
+                          (encoding-inst-get encoding (list 'skip 'int 'long))
+                          (ribn-base)))
+                      (set! stream (append stream-symtbl stream))
+
+                      (loop1 new-crs best-compression)))))
+              (let ()
+
+                ;;TODO: fixme!
+
+
+                (define (add-variables! host-config ribn-size compressed-ribn-size)
+                  (host-config-feature-add!
+                    host-config
+                    'compression/lzss/2b/byte-base
+                    byte-base)
+                  (host-config-feature-add!
+                    host-config
+                    'compression/lzss/2b/size-base
+                    size-base)
+                  (host-config-feature-add!
+                    host-config
+                    'compression/lzss/2b/ribn-base
+                    (ribn-base))
+                  (host-config-feature-add!
+                    host-config
+                    'compression/lzss/2b/ribn-size
+                    ribn-size)
+                  (host-config-feature-add!
+                    host-config
+                    'compression/lzss/2b/compressed-ribn-size
+                    compressed-ribn-size))
+
+                (set! size-base (cadddr best-compression))
+                (set! compression-range-size (car (cddddr best-compression)))
+                (set! encoding (cadr (cddddr best-compression)))
+
+                (add-variables! host-config (car best-compression) (cadr best-compression))
+
+                (set! stream (caddr best-compression)))))))
 
       ;; merge symtbl and prog
-      (p/merge-prog-sym)
+      (set! stream (append stream-symtbl stream))
 
       ;; apply compression
       (if compression/tag?
-        (p/comp-tag))
+        (set! stream
+          (encode-lzss-with-tag
+            stream
+            (ribn-base)
+            host-config)))
 
       (if (and compression/2b? (eqv? byte-base 256))
-        (p/comp-2b))
+        (begin
+          (set! compression-range-size compression-range-size-min)
+          (set! encoding (optimal-encoding))
+
+          (let* ((symtbl-and-symbols*
+                   (encode-symtbl
+                     proc
+                     exports
+                     host-config
+                     (encoding-inst-size encoding (list 'call 'sym 'short))))
+                 (symbol* (cdr symtbl-and-symbols*)))
+            (set! symtbl   (car symtbl-and-symbols*))
+            (set! stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base literal-encoding)))
+          (set!
+            stream
+            (encode-program
+              proc
+              symtbl
+              encoding
+              (encoding-inst-get encoding (list 'skip 'int 'long))
+              (ribn-base)))
+          (set! stream (append stream-symtbl stream))
+          (let loop1 ((crs compression-range-size-min) (best-compression (list 99999999 99999999)))
+            (if (<= crs compression-range-size-max)
+              (let loop2 ((sb size-base-min) (best-compression best-compression))
+                (if (<= sb size-base-max)
+                  (begin
+                    (set! compression-range-size crs)
+                    (set! size-base sb)
+
+                    (let* ((compression
+                             (encode-lzss-2b
+                               stream
+                               compression-range-size
+                               size-base
+                               byte-base
+                               host-config))
+                           (ribn-size
+                             (car compression))
+                           (compressed-ribn-size
+                             (cadr compression))
+                           (stream
+                             (caddr compression)))
+                      (loop2 (+ sb 1)
+                             (if (< compressed-ribn-size (cadr best-compression))
+                               (begin
+                                 ;(pp (list 'encode-lzss-2b 'stream compression-range-size size-base byte-base 'host-config '=> ribn-size compressed-ribn-size))
+                                 (append compression (list sb crs encoding)))
+                               best-compression))))
+                  (begin
+                    (let ((new-crs(+ crs 2) ))
+                      (set! compression-range-size new-crs)
+                      (set! encoding (optimal-encoding))
+                      (let* ((symtbl-and-symbols*
+                               (encode-symtbl
+                                 proc
+                                 exports
+                                 host-config
+                                 (encoding-inst-size encoding (list 'call 'sym 'short))))
+                             (symbol* (cdr symtbl-and-symbols*)))
+                        (set! symtbl   (car symtbl-and-symbols*))
+                        (set! stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base literal-encoding)))
+
+                      (set!
+                        stream
+                        (encode-program
+                          proc
+                          symtbl
+                          encoding
+                          (encoding-inst-get encoding (list 'skip 'int 'long))
+                          (ribn-base)))
+                      (set! stream (append stream-symtbl stream))
+                      (loop1 new-crs best-compression)))))
+              (let ()
+
+                ;;TODO: fixme!
+
+
+                (define (add-variables! host-config ribn-size compressed-ribn-size)
+                  (host-config-feature-add!
+                    host-config
+                    'compression/lzss/2b/byte-base
+                    byte-base)
+                  (host-config-feature-add!
+                    host-config
+                    'compression/lzss/2b/size-base
+                    size-base)
+                  (host-config-feature-add!
+                    host-config
+                    'compression/lzss/2b/ribn-base
+                    (ribn-base))
+                  (host-config-feature-add!
+                    host-config
+                    'compression/lzss/2b/ribn-size
+                    ribn-size)
+                  (host-config-feature-add!
+                    host-config
+                    'compression/lzss/2b/compressed-ribn-size
+                    compressed-ribn-size))
+
+                (set! size-base (cadddr best-compression))
+                (set! compression-range-size (car (cddddr best-compression)))
+                (set! encoding (cadr (cddddr best-compression)))
+
+                (add-variables! host-config (car best-compression) (cadr best-compression))
+
+                (set! stream (caddr best-compression)))))))
 
 
       (host-config-feature-add!
