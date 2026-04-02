@@ -4300,17 +4300,13 @@
   (host-config-feature-add! host-config 'encoding/optimal/sizes (map caddr encoding))
   (host-config-feature-add! host-config 'encoding/optimal/start (map cadr encoding)))
 
-(define (encode-hyperbyte stream)
-  (let loop ((stream stream) (result '()))
-    (if (pair? stream)
-      (if (pair? (cdr stream))
-        (loop (cddr stream)
-              (cons (+ (* 16 (car stream)) (cadr stream)) result))
-        (cons (car stream) result))
-      result)))
 
 (define (encode proc exports host-config byte-stats encoding-name byte-base literal-encoding)
 
+  (define compression-range-size-min 70) ;; must be even
+  (define compression-range-size-max 70)
+  (define size-base-min 7)
+  (define size-base-max 13)
 
   (define (calculate-optimal-encoding proc exports host-config ribn-base)
     (let* ((symtbl-and-symbols* (encode-symtbl proc exports host-config 20)) ;; we assume 20 shorts, will be re-evaluated
@@ -4338,18 +4334,22 @@
                      ;;     #t
                      ;;     (ribn-base)))
                      ))))))
-      ;(encoding-optimal-add-variables encoding host-config)
       encoding))
+
+  (define (live? . syms)
+    (let loop ((syms syms))
+      (if (null? syms)
+        #f
+        (if (host-config-feature-live? host-config (car syms))
+          #t
+          (loop (cdr syms))))))
 
 
   ;; 1 = 128 codes reserved for compression (128-255)
   ;; 2 = 64  codes reserved for compression (192-255)
+
   (define compression-range-size 0)
-  (define compression-range-size-min 70) ;; must be even
-  (define compression-range-size-max 70)
   (define size-base 0)
-  (define size-base-min 7)
-  (define size-base-max 13)
 
   (define (ribn-base)
     (- byte-base compression-range-size))
@@ -4361,21 +4361,12 @@
         (stream-symtbl #f));; symbols at the beginning of the RIBN
 
     ;; dispatch
-
-    (define (live? . syms)
-      (let loop ((syms syms))
-        (if (null? syms)
-          #f
-          (if (host-config-feature-live? host-config (car syms))
-            #t
-            (loop (cdr syms))))))
-
     (let*
       ;; options
       ((compression/2b? (live? 'compression/lzss/2b))
        (compression/tag? (live? 'compression/lzss/tag 'compression/lzss 'compression))
-       (compression? (or compression/2b? compression/tag?))
-       (hyperbyte? (live? 'encoding/hyperbyte)))
+       (compression? (or compression/2b? compression/tag?)))
+
 
 
       ;; Dispatch logic
@@ -4412,10 +4403,6 @@
           encoding
           (encoding-inst-get encoding (list 'skip 'int 'long))
           (ribn-base)))
-
-      ;; Apply hyperbyte
-      (if hyperbyte?
-        (set! stream (encode-hyperbyte stream)))
 
       ;; compression on 92 applies only on the program (not symtbl)
       (if (and compression/2b? (eqv? byte-base 92))
