@@ -4310,7 +4310,7 @@
 
   (define (calculate-optimal-encoding proc exports host-config ribn-base)
     (let* ((symtbl-and-symbols* (encode-symtbl proc exports host-config 20)) ;; we assume 20 shorts, will be re-evaluated
-           (raw-stream (encode-program proc (car symtbl-and-symbols*) 'raw #t (ribn-base)))
+           (raw-stream (encode-program proc (car symtbl-and-symbols*) 'raw #t ribn-base))
            (stats (get-stat-from-raw ($make-table) raw-stream))
            (encoding
              (calculate-start
@@ -4319,7 +4319,7 @@
                    (get-maximal-encoding
                      (map car encoding-skip-92)
                      stats
-                     (ribn-base)
+                     ribn-base
                      ;;DEBUG encoding calculation -- Add the following to
                      ;;verify the optimal encoding calculations
                      ;;
@@ -4332,7 +4332,7 @@
                      ;;         (encoding-table->encoding-list
                      ;;           solution)))
                      ;;     #t
-                     ;;     (ribn-base)))
+                     ;;     ribn-base))
                      ))))))
       encoding))
 
@@ -4382,7 +4382,7 @@
                 (eqv? (ribn-base) 92))
            encoding-skip-92)
           ((string=? "optimal" encoding-name)
-           (calculate-optimal-encoding proc exports host-config ribn-base))
+           (calculate-optimal-encoding proc exports host-config (ribn-base)))
           (else
             (error "Cannot find encoding (or number of byte not supported) :" encoding-name))))
 
@@ -4408,7 +4408,7 @@
       (if (and compression/2b? (eqv? byte-base 92))
         (begin
           (set! compression-range-size compression-range-size-min)
-          (set! encoding (calculate-optimal-encoding proc exports host-config ribn-base))
+          (set! encoding (calculate-optimal-encoding proc exports host-config (ribn-base)))
 
           (let* ((symtbl-and-symbols*
                    (encode-symtbl
@@ -4458,7 +4458,7 @@
                   (begin
                     (let ((new-crs(+ crs 2) ))
                       (set! compression-range-size new-crs)
-                      (set! encoding (calculate-optimal-encoding proc exports host-config ribn-base))
+                      (set! encoding (calculate-optimal-encoding proc exports host-config (ribn-base)))
                       (let* ((symtbl-and-symbols*
                                (encode-symtbl
                                  proc
@@ -4529,7 +4529,7 @@
       (if (and compression/2b? (eqv? byte-base 256))
         (begin
           (set! compression-range-size compression-range-size-min)
-          (set! encoding (calculate-optimal-encoding proc exports host-config ribn-base))
+          (set! encoding (calculate-optimal-encoding proc exports host-config (ribn-base)))
 
           (let* ((symtbl-and-symbols*
                    (encode-symtbl
@@ -4579,7 +4579,7 @@
                   (begin
                     (let ((new-crs(+ crs 2) ))
                       (set! compression-range-size new-crs)
-                      (set! encoding (calculate-optimal-encoding proc exports host-config ribn-base))
+                      (set! encoding (calculate-optimal-encoding proc exports host-config (ribn-base)))
                       (let* ((symtbl-and-symbols*
                                (encode-symtbl
                                  proc
