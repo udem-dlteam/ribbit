@@ -4365,26 +4365,21 @@
       ;; options
       ((compression/2b? (live? 'compression/lzss/2b))
        (compression/tag? (live? 'compression/lzss/tag 'compression/lzss 'compression))
-       (compression? (or compression/2b? compression/tag?)))
+       (compression? (or compression/2b? compression/tag?))
+       (proc (encode-constants proc host-config))
+       (encoding 
+         (cond
+           ((and (string=? "original" encoding-name)
+                 (eqv? (ribn-base) 92))
+            encoding-original-92)
+           ((and (string=? "skip" encoding-name)
+                 (eqv? (ribn-base) 92))
+            encoding-skip-92)
+           ((string=? "optimal" encoding-name)
+            (calculate-optimal-encoding proc exports host-config (ribn-base)))
+           (else
+             (error "Cannot find encoding (or number of byte not supported) :" encoding-name)))))
 
-
-
-      ;; Dispatch logic
-      (set! proc (encode-constants proc host-config))
-
-      ;; Choose encoding
-      (set! encoding
-        (cond
-          ((and (string=? "original" encoding-name)
-                (eqv? (ribn-base) 92))
-           encoding-original-92)
-          ((and (string=? "skip" encoding-name)
-                (eqv? (ribn-base) 92))
-           encoding-skip-92)
-          ((string=? "optimal" encoding-name)
-           (calculate-optimal-encoding proc exports host-config (ribn-base)))
-          (else
-            (error "Cannot find encoding (or number of byte not supported) :" encoding-name))))
 
       (let* ((symtbl-and-symbols*
                (encode-symtbl
