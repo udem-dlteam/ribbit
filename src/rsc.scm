@@ -3421,8 +3421,66 @@
 
   (add-init-code proc))
 
-(define (encode-symtbl proc exports host-config call-sym-short-size)
-  (define syms ($make-table))
+;; Creates a representation of the symbol table of the program within the
+;; compiler. This is quite a simple representation, where each symbol is
+;; contained in a list with elements as such
+;;
+;;  (scheme-sym exported-sym index)
+;;
+;; Where:
+;;  - scheme-sym is the symbol as encoded within the *compiler*.
+;;  - exported-sym is the symbol as it should be exported in the symbol table of the bytecode.
+;;  - index is the index of the symbol when access is needed.
+(define (make-symtbl)
+  '())
+
+(define (symtbl-add symtbl exported-sym scheme-sym running-length)
+  ;; Note: The symbol table is assumed to be built incrementally, as the
+  ;; encoding of the symbol table assumes that the symbols are ordered by their
+  ;; index in the symbol table list.
+  (cons (list scheme-sym exported-sym running-length) symtbl))
+
+(define (symtbl->exported-symbol-list symtbl)
+  (map (lambda (entry) (cadr entry)) symtbl))
+
+(define (symtbl-length symtbl)
+  (length symtbl))
+
+(define (symtbl-index symtbl sym default)
+  (let ((entry (assq sym symtbl)))
+    (if entry
+      (caddr entry)
+      default)))
+
+(define symtbl-reverse reverse)
+
+(define (symtbl->stream symtbl ribn-base byte-base literal-encoding)
+
+  (let* ((exported-symbols (symtbl->exported-symbol-list symtbl))
+         (nb-empty-symbols (- (symtbl-length symtbl)
+                              (length exported-symbols))))
+    (encode-n
+      nb-empty-symbols
+      (append
+        (string->stream
+          ($string-concatenate
+            (map (lambda (s)
+                   (let ((str (symbol->str s)))
+                     (list->string
+                       (reverse (string->list str)))))
+                 ;; Assumes that the symbols are in reverse order of their index in the symbol table.
+                 exported-symbols)
+            ",")
+          byte-base
+          literal-encoding)
+        (string->stream ";" byte-base literal-encoding))
+      (quotient ribn-base 2))))
+
+(define (encode-symtbl proc exports call-sym-short-size)
+
+  ;; Table of symbol descriptors, meaning their appearance in the code within
+  ;; jump/call/get/const instructions.
+  (define syms-desc ($make-table))
 
   ;; Returns an integer value corresponding to the ordering of a given
   ;; symbol descriptor.
@@ -3448,7 +3506,7 @@
                     (symbol->string sym1)))
         (< sym2-ordering sym1-ordering))))
 
-  (for-each (lambda (sym) ($table-set! syms sym (rib 0 0 1))) predefined)
+  (for-each (lambda (sym) ($table-set! syms-desc sym (rib 0 0 1))) predefined)
 
   ;; Create a symbol description from its usage as the operand of a specific
   ;; instruction (jump, get or const). The descriptor is a rib containing:
@@ -3462,9 +3520,9 @@
             (opnd (c-rib-opnd code)))
         (if (symbol? opnd)
           (let ((descr
-                  (or ($table-ref syms opnd #f)
+                  (or ($table-ref syms-desc opnd #f)
                       (let ((descr (rib 0 0 0)))
-                        ($table-set! syms opnd descr)
+                        ($table-set! syms-desc opnd descr)
                         descr))))
             (cond ((eqv? op jump/call-op)
                    (field0-set! descr (+ 1 (field0 descr))))
@@ -3474,47 +3532,81 @@
                    (field2-set! descr (+ 1 (field2 descr)))))))))
     (lambda (opnd) 0))
 
-    (let ((lst
-            (list-sort
-              ordering-between
-              ($table->list syms))))
 
-      (let loop1 ((i 0) (lst lst) (symbols '()))
-        (if (and (pair? lst) (< i call-sym-short-size))
-          (let ((s (car lst)))
-            (let ((sym (car s)))
-              (let ((descr (cdr s)))
-                (let ((x (assq sym exports)))
-                  (let ((symbol (if x (cdr x) (str->uninterned-symbol ""))))
-                    (field0-set! descr i)
-                    (loop1 (+ i 1) (cdr lst) (cons symbol symbols)))))))
-          (let loop2 ((i i) (lst2 lst) (symbols symbols))
-            (if (pair? lst2)
-              (let ((s (car lst2)))
-                (let ((sym (car s)))
-                  (let ((x (assq sym exports)))
-                    (if x
-                      (let ((symbol (cdr x)))
-                        (let ((descr (cdr s)))
-                          (field0-set! descr i)
-                          (loop2 (+ i 1) (cdr lst2) (cons symbol symbols))))
-                      (loop2 i (cdr lst2) symbols)))))
-              (let loop3 ((i i) (lst3 lst) (symbols symbols))
-                (if (pair? lst3)
-                  (let ((s (car lst3)))
-                    (let ((sym (car s)))
-                      (let ((x (assq sym exports)))
-                        (if x
-                          (loop3 i (cdr lst3) symbols)
-                          (let ((symbol (str->uninterned-symbol "")))
-                            (let ((descr (cdr s)))
-                              (field0-set! descr i)
-                              (loop3 (+ i 1) (cdr lst3) (cons symbol symbols))))))))
-                  (let loop4 ((symbols* symbols))
-                    (if (and (pair? symbols*)
-                             (string=? (symbol->str (car symbols*)) ""))
-                      (loop4 (cdr symbols*))
-                      (cons syms symbols*)))))))))))
+    ;; The nested loops below have the goal of creating the symbol table
+    ;; representation in an order than minimizes the bytecode size. The
+    ;; bytecode is affected in two ways by the symbol table:
+    ;;   1. the size of encoding the instructions using symbols
+    ;;   2. the size of encoding the symbol table itself
+    ;;
+    ;; For this reason, the first loop adds the most used symbols, minimizing
+    ;; their access within instructions, while the second and third loop add
+    ;; the symbols with a string representation, minimizing the size of the
+    ;; symbol table itself.
+    (let ((symbols-by-occurence ;; list sorted by number of jump/call occurences, then alphabetically
+            (map
+              car
+              (list-sort
+                ordering-between
+                ($table->list syms-desc)))))
+
+      ;; The first symbols added are the ones that can be encoded within one byte inside the symbol table,
+      ;; meaning that their index is below call-sym-short-size.
+      (let add-frequent-symbols-loop
+        ((running-length 0)
+         (symbols-by-occurence symbols-by-occurence)
+         (symtbl (make-symtbl)))
+        (if (and (pair? symbols-by-occurence) (< running-length call-sym-short-size))
+          (let* ((sym (car symbols-by-occurence))
+                 (exported-sym? (assq sym exports))
+                 (exported-sym
+                   (if exported-sym?
+                     (cdr exported-sym?)
+                     (str->uninterned-symbol ""))))
+            (add-frequent-symbols-loop
+              (+ running-length 1)
+              (cdr symbols-by-occurence)
+              (symtbl-add symtbl exported-sym sym running-length)))
+
+          ;; Then, we add the symbols that need a string representation (also
+          ;; called exported symbols), as it minimizes the size of the symbol
+          ;; table encoding, as the encoding of the symbol table skips over
+          ;; symbols without a string representation.
+          (let add-exported-symbols-loop
+            ((running-length running-length)
+             (remaning-symbols symbols-by-occurence)
+             (symtbl symtbl))
+            (if (pair? remaning-symbols)
+              (let* ((sym (car remaning-symbols))
+                     (exported-sym? (assq sym exports)))
+                (if exported-sym?
+                  (let ((exported-sym (cdr exported-sym?)))
+                    (add-exported-symbols-loop
+                      (+ running-length 1)
+                      (cdr remaning-symbols)
+                      (symtbl-add symtbl exported-sym sym running-length)))
+                  (add-exported-symbols-loop running-length (cdr remaning-symbols) symtbl)))
+
+              ;; Finally, we add the remaining symbols that don't need a string representation
+              ;; to have a complete symbol table.
+              (let add-remaining-symbols-loop
+                ((running-length running-length)
+                 (remaning-symbols symbols-by-occurence) ;; loop on the remaining symbols **again**
+                 (symtbl symtbl))
+                (if (pair? remaning-symbols)
+                  (let* ((sym (car remaning-symbols))
+                         (exported-sym? (assq sym exports)))
+                    (if exported-sym?
+                      (add-remaining-symbols-loop
+                        running-length
+                        (cdr remaning-symbols)
+                        symtbl)
+                      (let ((exported-sym (str->uninterned-symbol "")))
+                        (add-remaining-symbols-loop
+                          (+ running-length 1)
+                          (cdr remaning-symbols)
+                          (symtbl-add symtbl exported-sym sym running-length)))))
+                  symtbl))))))))
 
 (define (get-maximal-encoding encoding-instrs stats encoding-size)
     ;;DEBUG encoding calculation -- Add the following to verify the optimal encoding calculations
@@ -4180,40 +4272,6 @@
       (get-stat-from-raw stats f2))
     stats))
 
-(define (symtbl->string symtbl symbols* encoding-size)
-  (string-append
-    (stream->default-string
-      (encode-n
-        (- ($table-length symtbl)
-           (length symbols*))
-        '()
-        (quotient encoding-size 2)))
-    ($string-concatenate
-      (map (lambda (s)
-             (let ((str (symbol->str s)))
-               (list->string
-                 (reverse (string->list str)))))
-           symbols*)
-      ",")
-    ";"))
-
-(define (symtbl->stream symtbl symbols* ribn-base byte-base literal-encoding)
-  (encode-n
-    (- ($table-length symtbl)
-       (length symbols*))
-    (append
-      (string->stream
-        ($string-concatenate
-          (map (lambda (s)
-                 (let ((str (symbol->str s)))
-                   (list->string
-                     (reverse (string->list str)))))
-               symbols*)
-          ",")
-        byte-base
-        literal-encoding)
-      (string->stream ";" byte-base literal-encoding))
-    (quotient ribn-base 2)))
 
 (define (string->stream string encoding-size literal-encoding)
   ;; This maps a char to its index in the literal encoding
@@ -4309,8 +4367,9 @@
   (define size-base-max 13)
 
   (define (calculate-optimal-encoding proc exports host-config ribn-base)
-    (let* ((symtbl-and-symbols* (encode-symtbl proc exports host-config 20)) ;; we assume 20 shorts, will be re-evaluated
-           (raw-stream (encode-program proc (car symtbl-and-symbols*) 'raw #t ribn-base))
+    ;; we assume all shorts to return a symtbl mostly optimized for symbol access
+    (let* ((symtbl (encode-symtbl proc exports 256))
+           (raw-stream (encode-program proc symtbl 'raw #t ribn-base))
            (stats (get-stat-from-raw ($make-table) raw-stream))
            (encoding
              (calculate-start
@@ -4391,15 +4450,13 @@
               (set! compression-range-size compression-range-size-min)
               (set! encoding (calculate-optimal-encoding proc exports host-config (ribn-base)))
 
-              (let* ((symtbl-and-symbols*
+              (let* ((symtbl-val
                        (encode-symtbl
                          proc
                          exports
-                         host-config
-                         (encoding-inst-size encoding (list 'call 'sym 'short))))
-                     (symbol* (cdr symtbl-and-symbols*)))
-                (set! symtbl   (car symtbl-and-symbols*))
-                (set! stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base literal-encoding)))
+                         (encoding-inst-size encoding (list 'call 'sym 'short)))))
+                (set! symtbl symtbl-val)
+                (set! stream-symtbl (symtbl->stream symtbl (ribn-base) byte-base literal-encoding)))
               (set!
                 stream
                 (encode-program
@@ -4440,15 +4497,13 @@
                         (let ((new-crs(+ crs 2) ))
                           (set! compression-range-size new-crs)
                           (set! encoding (calculate-optimal-encoding proc exports host-config (ribn-base)))
-                          (let* ((symtbl-and-symbols*
+                          (let* ((symtbl-val
                                    (encode-symtbl
                                      proc
                                      exports
-                                     host-config
-                                     (encoding-inst-size encoding (list 'call 'sym 'short))))
-                                 (symbol* (cdr symtbl-and-symbols*)))
-                            (set! symtbl   (car symtbl-and-symbols*))
-                            (set! stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base literal-encoding)))
+                                     (encoding-inst-size encoding (list 'call 'sym 'short)))))
+                            (set! symtbl symtbl-val)
+                            (set! stream-symtbl (symtbl->stream symtbl (ribn-base) byte-base literal-encoding)))
 
                           (set!
                             stream
@@ -4499,15 +4554,12 @@
           ;; apply compression
 
           (if compression/tag?
-            (let* ((symtbl-and-symbols*
+            (let* ((symtbl
                      (encode-symtbl
                        proc
                        exports
-                       host-config
                        (encoding-inst-size encoding (list 'call 'sym 'short))))
-                   (symbol* (cdr symtbl-and-symbols*))
-                   (symtbl (car symtbl-and-symbols*))
-                   (stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base literal-encoding))
+                   (stream-symtbl (symtbl->stream symtbl (ribn-base) byte-base literal-encoding))
                    (stream-before (encode-program
                                     proc
                                     symtbl
@@ -4522,34 +4574,31 @@
                   host-config))))
 
           (if (and compression/2b? (eqv? byte-base 256))
-            (let* ((symtbl-and-symbols*
+            (let* ((symtbl-val
                      (encode-symtbl
                        proc
                        exports
-                       host-config
                        (encoding-inst-size encoding (list 'call 'sym 'short))))
-                   (symbol* (cdr symtbl-and-symbols*))
-                   (symtbl (car symtbl-and-symbols*))
-                   (stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base literal-encoding))
+                   (stream-symtbl (symtbl->stream symtbl-val (ribn-base) byte-base literal-encoding))
                    (stream-before (encode-program
                                     proc
-                                    symtbl
+                                    symtbl-val
                                     encoding
                                     (encoding-inst-get encoding (list 'skip 'int 'long))
                                     (ribn-base)))
                    (stream-not-global (append stream-symtbl stream-before)))
+
+
               (set! compression-range-size compression-range-size-min)
               (set! encoding (calculate-optimal-encoding proc exports host-config (ribn-base)))
 
-              (let* ((symtbl-and-symbols*
+              (let* ((symtbl-val
                        (encode-symtbl
                          proc
                          exports
-                         host-config
-                         (encoding-inst-size encoding (list 'call 'sym 'short))))
-                     (symbol* (cdr symtbl-and-symbols*)))
-                (set! symtbl   (car symtbl-and-symbols*))
-                (set! stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base literal-encoding)))
+                         (encoding-inst-size encoding (list 'call 'sym 'short)))))
+                (set! symtbl symtbl-val)
+                (set! stream-symtbl (symtbl->stream symtbl-val (ribn-base) byte-base literal-encoding)))
               (set!
                 stream-not-global
                 (encode-program
@@ -4590,15 +4639,13 @@
                         (let ((new-crs(+ crs 2) ))
                           (set! compression-range-size new-crs)
                           (set! encoding (calculate-optimal-encoding proc exports host-config (ribn-base)))
-                          (let* ((symtbl-and-symbols*
+                          (let* ((symtbl-val
                                    (encode-symtbl
                                      proc
                                      exports
-                                     host-config
-                                     (encoding-inst-size encoding (list 'call 'sym 'short))))
-                                 (symbol* (cdr symtbl-and-symbols*)))
-                            (set! symtbl   (car symtbl-and-symbols*))
-                            (set! stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base literal-encoding)))
+                                     (encoding-inst-size encoding (list 'call 'sym 'short)))))
+                            (set! symtbl symtbl-val)
+                            (set! stream-symtbl (symtbl->stream symtbl-val (ribn-base) byte-base literal-encoding)))
 
                           (set!
                             stream-not-global
@@ -4663,15 +4710,12 @@
 
         ;; Normal encoding, no compression
         (else
-          (let* ((symtbl-and-symbols*
+          (let* ((symtbl
                    (encode-symtbl
                      proc
                      exports
-                     host-config
                      (encoding-inst-size encoding (list 'call 'sym 'short))))
-                 (symbol* (cdr symtbl-and-symbols*))
-                 (symtbl (car symtbl-and-symbols*))
-                 (stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base literal-encoding))
+                 (stream-symtbl (symtbl->stream symtbl (ribn-base) byte-base literal-encoding))
                  (stream (encode-program
                            proc
                            symtbl
@@ -4679,6 +4723,7 @@
                            (encoding-inst-get encoding (list 'skip 'int 'long))
                            (ribn-base)))
                  (merged-streams (append stream-symtbl stream)))
+
 
 
             (host-config-feature-add!
@@ -4709,18 +4754,22 @@
 
 
 
-(define (encode-program proc syms encoding skip-optimization? encoding-size)
+(define (encode-program proc symtbl encoding skip-optimization? encoding-size)
+
+  (define reversed-symtbl (symtbl-reverse symtbl)) ;; optimize access of frequent symbols
+
+  (define (encode-sym o)
+    (let ((index (symtbl-index reversed-symtbl o #f)))
+      (if index
+        index
+        (error "Symbol not found in symtbl, cannot encode" o))))
 
   (define skip-optimization (if (eqv? encoding 'raw)
                               #t
                               skip-optimization?))
 
-
   (define encoding-size/2 (quotient encoding-size 2))
 
-  (define (encode-sym o)
-    (let ((descr ($table-ref syms o #f)))
-      (field0 descr)))
 
   (define (encode-long1 code n stream)
     (cons code (encode-n n stream encoding-size/2)))
