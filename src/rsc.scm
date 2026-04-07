@@ -4499,25 +4499,25 @@
           ;; apply compression
 
           (if compression/tag?
-            (let ((symtbl-and-symbols*
-                    (encode-symtbl
-                      proc
-                      exports
-                      host-config
-                      (encoding-inst-size encoding (list 'call 'sym 'short))))
-                  (symbol* (cdr symtbl-and-symbols*))
-                  (symtbl (car symtbl-and-symbols*))
-                  (stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base literal-encoding))
-                  (stream-before (encode-program
-                                   proc
-                                   symtbl
-                                   encoding
-                                   (encoding-inst-get encoding (list 'skip 'int 'long))
-                                   (ribn-base)))
-                  (stream (append stream-symtbl stream-before)))
+            (let* ((symtbl-and-symbols*
+                     (encode-symtbl
+                       proc
+                       exports
+                       host-config
+                       (encoding-inst-size encoding (list 'call 'sym 'short))))
+                   (symbol* (cdr symtbl-and-symbols*))
+                   (symtbl (car symtbl-and-symbols*))
+                   (stream-symtbl (symtbl->stream symtbl symbol* (ribn-base) byte-base literal-encoding))
+                   (stream-before (encode-program
+                                    proc
+                                    symtbl
+                                    encoding
+                                    (encoding-inst-get encoding (list 'skip 'int 'long))
+                                    (ribn-base)))
+                   (stream-vv (append stream-symtbl stream-before)))
               (set! stream
                 (encode-lzss-with-tag
-                  stream
+                  stream-vv
                   (ribn-base)
                   host-config))))
 
