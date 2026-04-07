@@ -221,13 +221,13 @@ check-bootstrap: rsc.exe
 	if [ "$$HOST" = "" ]; then \
 	  for host in $(HOSTS); do \
 	    echo "====================== TESTING HOST $$host"; \
-	    cd host/$$host; RSC_COMPILER="${RSC}" $(MAKE) check-bootstrap; cd ../..; \
+	    cd host/$$host; RSC_COMPILER="${RSC}" $(MAKE) check-bootstrap; \
 	    if [ "$$?" != "0" ]; then \
 	      exit 1; \
 	    fi; \
 	  done; \
 	else \
-	  cd host/$$HOST; RSC_COMPILER="${RSC}" $(MAKE) check-bootstrap; cd ../..; \
+	  cd host/$$HOST; RSC_COMPILER="${RSC}" $(MAKE) check-bootstrap; \
 	  if [ "$$?" != "0" ]; then \
 	    exit 1; \
 	  fi; \
