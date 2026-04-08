@@ -195,11 +195,11 @@
             (val ($table-ref table key magic)))
        (if (eq? val magic)
          (begin
-           (write "*** Error in while calling $unchecked-table-ref.\n")
-           (write "Cannot find key (")
+           (display "*** Error in while calling $unchecked-table-ref.\n")
+           (display "Cannot find key ")
            (write key)
-           (write ") in table\n")
-           (write "Use $table-ref to specify a default or make sure the key is always present")
+           (display " in table\n")
+           (display "Use $table-ref to specify a default or make sure the key is always present")
            (exit-program-abnormally))
          val)))))
 
@@ -4258,7 +4258,7 @@
   (display-stats-aux stats '() max-value encoding-table))
 
 (define (get-stat-from-raw stats stream)
-  (if (rib? stream)
+  (if (not (null? stream))
     (let ((f0 (field0 stream))
           (f1 (field1 stream))
           (f2 (field2 stream)))
@@ -4701,7 +4701,7 @@
 
   (define (enc code encoding limit stream)
     (cond
-      ((not (rib? code)) (error "Rib expected, got :" code))
+      ((not (c-rib? code)) (error "Rib expected, got :" code))
       ((and limit (<= limit 0)) stream)
       (else
         (let* ((op      (c-rib-oper code))
