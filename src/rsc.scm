@@ -3441,7 +3441,12 @@
   (cons (list scheme-sym exported-sym running-length) symtbl))
 
 (define (symtbl->exported-symbol-list symtbl)
-  (map (lambda (entry) (cadr entry)) symtbl))
+  (let loop ((exported-symbol-list (map (lambda (entry) (cadr entry)) symtbl)))
+    ;; Skip empty symbols
+    (if (and (pair? exported-symbol-list)
+             (string=? (symbol->str (car exported-symbol-list)) ""))
+      (loop (cdr exported-symbol-list))
+      exported-symbol-list)))
 
 (define (symtbl-length symtbl)
   (length symtbl))
