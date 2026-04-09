@@ -4361,7 +4361,7 @@
 
 
 
-(define (encode proc exports host-config byte-stats encoding-name byte-base literal-encoding)
+(define (encode proc exports host-config byte-stats encoding-name byte-base literal-encoding debug-info)
 
   (define compression-range-size-min 70) ;; must be even
   (define compression-range-size-max 70)
@@ -4511,6 +4511,11 @@
           #t
           (loop (cdr syms))))))
 
+  (define (debug-display prop arg)
+    (if (memv prop debug-info)
+      (begin
+        (pp arg))))
+
   ;; dispatch
   (let*
     ;; options
@@ -4543,6 +4548,9 @@
 
          (add-typical-features! host-config ribn-base byte-base encoding-name encoding)
          (add-compression-features! host-config ribn-size compressed-ribn-size size-base)
+
+         (debug-display 'encoding encoding)
+
          (append (car stream-symtbl-code) compressed-code)))
 
       ((and compression/2b? (eqv? byte-base 256))
@@ -4566,6 +4574,8 @@
               (stream-symtbl-code     (caddr (cddddr best-compression)))
               (ribn-base (get-ribn-base compression-range-size)))
 
+         (debug-display 'encoding encoding)
+
          (add-typical-features! host-config ribn-base byte-base encoding-name encoding)
          (add-compression-features! host-config ribn-size compressed-ribn-size size-base)
          compressed-stream))
@@ -4588,6 +4598,8 @@
 
           (add-typical-features! host-config ribn-base byte-base encoding-name encoding)
 
+         (debug-display 'encoding encoding)
+
           (encode-lzss-with-tag
             stream
             ribn-base
@@ -4599,6 +4611,8 @@
                (encoding (get-encoding proc exports encoding-name ribn-base host-config))
                (stream-symtbl-and-code (encode-symtbl-and-code proc exports encoding byte-base ribn-base literal-encoding))
                (stream (append (car stream-symtbl-and-code) (cdr stream-symtbl-and-code)))) ;; merge streams
+
+         (debug-display 'encoding encoding)
 
           (add-typical-features! host-config ribn-base byte-base encoding-name encoding)
 
@@ -5429,7 +5443,8 @@
                         byte-stats
                         encoding-name
                         byte-base
-                        literal-encoding)
+                        literal-encoding
+                        debug-info)
                     (if input-path
                         (string->list* (string-from-file input-path))
                         '()))))
@@ -5680,7 +5695,7 @@ DEBUGING OPTIONS
 
   `-di`, `--debug-info INFO`
   Displays debug information to stdout.
-  Info can be any of : `host-expansion` `expansion`, `rvm-code`, `hash-table`, `exports` and `host-config`.
+  Info can be any of : `host-expansion` `expansion`, `rvm-code`, `hash-table`, `exports`, `encoding` and `host-config`.
 
   `-ps`, `--progress-status`
   Show progress status during compilation.
