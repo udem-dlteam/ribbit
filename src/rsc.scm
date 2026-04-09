@@ -3666,11 +3666,10 @@
                          (- limit offset)
                          ;; Limit as the size accorded to long decoding instructions
                          ;; cannot exceed encoding-size/2
-                         (- (quotient encoding-size 2) offset)))
-             (result (make-list lst-size 0)))
+                         (- (quotient encoding-size 2) offset))))
 
         (if (> lst-size 0)
-          (begin
+          (let ((result (make-list lst-size 0)))
             (for-each
               (lambda (pair)
                 (let ((value (car pair))
