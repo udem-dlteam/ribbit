@@ -4490,7 +4490,7 @@
                   (loop1 new-crs best-compression new-encoding new-stream)))))
           best-compression))))
 
-  (define (get-encoding name ribn-base)
+  (define (get-encoding proc exports name ribn-base host-config)
     (cond
       ((and (string=? "original" encoding-name)
             (eqv? ribn-base 92))
@@ -4573,9 +4573,13 @@
       ((and compression/tag? (eqv? byte-base 92)) ;; tag compression only works for 92 encoding
         (let* ((ribn-base (get-ribn-base 0))
                (encoding (get-encoding
+                           proc
+                           exports
                            encoding-name
-                           ribn-base))
-               (stream-symtbl-code (encode-symtbl-and-code proc exports
+                           ribn-base
+                           host-config))
+               (stream-symtbl-code (encode-symtbl-and-code proc
+                                                           exports
                                                            encoding
                                                            byte-base
                                                            ribn-base
@@ -4592,7 +4596,7 @@
       ;; Normal encoding, no compression
       (else
         (let* ((ribn-base (get-ribn-base 0))
-               (encoding (get-encoding encoding-name ribn-base))
+               (encoding (get-encoding proc exports encoding-name ribn-base host-config))
                (stream-symtbl-and-code (encode-symtbl-and-code proc exports encoding byte-base ribn-base literal-encoding))
                (stream (append (car stream-symtbl-and-code) (cdr stream-symtbl-and-code)))) ;; merge streams
 
