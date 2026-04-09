@@ -1855,10 +1855,10 @@
               (host-config-is-primitive? host-config name)))))
 
 (define (is-call? ctx name cont)
-  (and (rib? cont)
+  (and (c-rib? cont)
        (if (arity-check? ctx name)
            (and (eqv? (c-rib-oper cont) const-op)
-                (rib? (c-rib-next cont))
+                (c-rib? (c-rib-next cont))
                 (eqv? (c-rib-oper (c-rib-next cont)) jump/call-op)
                 (eqv? (c-rib-opnd (c-rib-next cont)) name))
            (and (eqv? (c-rib-oper cont) jump/call-op)
@@ -4718,7 +4718,7 @@
           stream))))
 
   (define (reverse-code code tail)
-    (if (rib? (c-rib-next code))
+    (if (c-rib? (c-rib-next code))
       (reverse-code (c-rib-next code) (cons code tail))
       (cons code tail)))
 
