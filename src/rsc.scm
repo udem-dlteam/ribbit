@@ -3680,13 +3680,32 @@
                            (index (- first-digit offset)))
                       (if (and (>= index 0) (< index lst-size))
                         ($list-set! result index (+ (list-ref result index) quantity)))))))
-              ($table->list value-table))
+              (list-sort (lambda (x y) (< (car x) (car y))) ($table->list value-table)))
             result)
           '())))
 
 
     (define solution ($make-table))
     (define running-sums ($make-table))
+
+    (define (list-index lst v)
+      (let loop ((index 0) (lst lst))
+        (if (pair? lst)
+          (if (equal? (car lst) v)
+            index
+            (loop (+ 1 index) (cdr lst)))
+          #f)))
+
+
+    ;; table->list doesn't garantee the order of the returned list. This can
+    ;; cause differences in the encoding calculation and thus in the generated
+    ;; bytecode or file. To avoid this, pass into this function.
+    (define (ensure-correct-order encoding-instr lst)
+      (list-sort
+        (lambda (x y)
+          (< (list-index encoding-instr (car x))
+             (list-index encoding-instr (car y))))
+        lst))
 
     ;;DEBUG encoding calculation -- Add the following to verify the optimal
     ;;encoding calculations
@@ -3753,7 +3772,7 @@
                     (loop
                       (+ 1 index)
                       (cdr lst)))))))
-          ($table->list running-sums))
+          (ensure-correct-order encoding-instrs ($table->list running-sums)))
         (list winner-inst winner-value winner-index)))
 
     ;; starting, set size 1 for long encodings
