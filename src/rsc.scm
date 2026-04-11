@@ -1035,7 +1035,8 @@
     (define (c-rib-next-set! c-rib v) (vector-set! c-rib 3 v))
     (define (c-rib-meta-set! c-rib v) (vector-set! c-rib 5 v))))
 
-;; Creates a rib that is unique and hashable
+;; Creates a rib that is unique and hashable. Alike to hash-consing, but with
+;; ribs. Useful for finding common subexpressions within code.
 (define (c-rib field0 field1 field2)
   (let* ((hash-table hash-table-c-ribs)
          (hash (hash-c-rib field0 field1 field2))
@@ -1055,6 +1056,16 @@
         ($table-set! hash-table hash (cons c-rib-ref '()))
         c-rib-ref))))
 
+;; Contrary to c-rib, unhashed code rib (uc-rib) do not guarantee that the
+;; returned rib is unique. It provides the same API as a c-rib, but without the
+;; overhead of hashing and can be used when it is known that there will be no
+;; duplicates to save on compute.
+;;
+;; To avoid possible errors, uc-rib are implemented to crash when they are
+;; hashed, meaning that they cannot be contained within a c-rib. This garantee
+;; that uc-rib can only englobe c-rib.
+(define (uc-rib field0 field1 field2)
+  (make-c-rib field0 field1 field2 #f #f))
 
 ;; make-vector-with-default
 
@@ -3221,109 +3232,123 @@
 
 (define (encode-constants proc host-config)
 
-  (define built-constants '())
+  (define predefined-constants '((#f false) (#t true) (() nil)))
+  (define constants-to-build predefined-constants)
+
+  (define (should-build-constant? opnd)
+    (not (or (symbol? opnd)
+             (c-procedure? opnd)
+             (and (number? opnd) (>= opnd 0)))))
 
   (define (add-nb-args prim? nb-args tail)
     (if (and (host-config-features host-config)
              (host-config-feature-live? host-config 'arity-check)
              (not (and prim? (host-config-feature-live? host-config 'prim-no-arity))))
-      (c-rib const-op
-             nb-args
-             tail)
+      (uc-rib const-op
+              nb-args
+              tail)
       tail))
 
-  (define (build-constant o tail)
-    (cond ((or (memv o '(#f #t ()))
-               (assq o built-constants))
-           (let ((v (constant-global-var o)))
-             (c-rib get-op
-                    v
-                    tail)))
-          ((symbol? o)
-           (c-rib const-op
-                  o
-                  tail))
-          ((number? o)
-           (if (< o 0)
-             (begin
+  (define (build-constant subconstant? constants-to-build const tail)
+    (let* ((constant-will-be-built? (and subconstant? (assoc const constants-to-build))))
+      (cond (constant-will-be-built?
+              ;; We are building constants in the reverse order than executed
+              ;; by the RVM. If we will build a subconstant that is scheduled
+              ;; to be built, it means we can just reference it.
+              (uc-rib get-op
+                      (cadr constant-will-be-built?)
+                      tail))
+            ((symbol? const)
+             (uc-rib const-op
+                     const
+                     tail))
+            ((number? const)
+             (if (< const 0)
+               (begin
+                 (if (not (host-config-feature-live? host-config '%%-))
+                   (host-config-feature-add! host-config '%%- #t))
 
-               (if (not (host-config-feature-live? host-config '%%-))
-                 (host-config-feature-add! host-config '%%- #t))
+                 (uc-rib const-op
+                         0
+                         (uc-rib const-op
+                                 (- const)
+                                 (add-nb-args
+                                   #t
+                                   2
+                                   (uc-rib jump/call-op
+                                           '%%-
+                                           tail)))))
+               (uc-rib const-op
+                       const
+                       tail)))
+            ((char? const)
+             (if (and (host-config-features host-config)
+                      (memq 'no-chars (host-config-features host-config)))
+               (uc-rib const-op
+                       (char->integer const)
+                       tail)
+               (uc-rib const-op
+                       (char->integer const)
+                       (uc-rib const-op
+                               0
+                               (uc-rib const-op
+                                       char-type
+                                       (add-nb-args
+                                         #t
+                                         3
+                                         (uc-rib jump/call-op
+                                                 '%%rib
+                                                 tail)))))))
+            ((pair? const)
+             (build-constant #t
+                             constants-to-build
+                             (car const)
+                             (build-constant #t
+                                             constants-to-build
+                                             (cdr const)
+                                             (uc-rib const-op
+                                                     pair-type
+                                                     (add-nb-args
+                                                       #t
+                                                       3
+                                                       (uc-rib jump/call-op
+                                                               '%%rib
+                                                               tail))))))
+            ((string? const)
+             (let ((chars (string->list* const)))
+               (build-constant #t
+                               constants-to-build
+                               chars
+                               (build-constant #t
+                                               constants-to-build
+                                               (length chars)
+                                               (uc-rib const-op
+                                                       string-type
+                                                       (add-nb-args
+                                                         #t
+                                                         3
+                                                         (uc-rib jump/call-op
+                                                                 '%%rib
+                                                                 tail)))))))
+            ((vector? const)
+             (let ((elems (vector->list const)))
+               (build-constant #t
+                               constants-to-build
+                               elems
+                               (build-constant #t
+                                               constants-to-build
+                                               (length elems)
+                                               (uc-rib const-op
+                                                       vector-type
+                                                       (add-nb-args
+                                                         #t
+                                                         3
+                                                         (uc-rib jump/call-op
+                                                                 '%%rib
+                                                                 tail)))))))
 
-               (c-rib const-op
-                      0
-                      (c-rib const-op
-                             (- o)
-                             (add-nb-args
-                               #t
-                               2
-                               (c-rib jump/call-op
-                                      '%%-
-                                      tail)))))
-               (c-rib const-op
-                      o
-                      tail)))
-          ((char? o)
-           (if (and (host-config-features host-config)
-                    (memq 'no-chars (host-config-features host-config)))
-             (c-rib const-op
-                    (char->integer o)
-                    tail)
-             (c-rib const-op
-                    (char->integer o)
-                    (c-rib const-op
-                           0
-                           (c-rib const-op
-                                  char-type
-                                  (add-nb-args
-                                    #t
-                                    3
-                                    (c-rib jump/call-op
-                                           '%%rib
-                                           tail)))))))
-          ((pair? o)
-           (build-constant (car o)
-                           (build-constant (cdr o)
-                                           (c-rib const-op
-                                                  pair-type
-                                                  (add-nb-args
-                                                    #t
-                                                    3
-                                                    (c-rib jump/call-op
-                                                           '%%rib
-                                                           tail))))))
-          ((string? o)
-           (let ((chars (string->list* o)))
-             (build-constant chars
-                             (build-constant (length chars)
-                                             (c-rib const-op
-                                                    string-type
-                                                    (add-nb-args
-                                                      #t
-                                                      3
-                                                      (c-rib jump/call-op
-                                                             '%%rib
-                                                             tail)))))))
-          ((vector? o)
-           (let ((elems (vector->list o)))
-             (build-constant elems
-                             (build-constant (length elems)
-                                             (c-rib const-op
-                                                    vector-type
-                                                    (add-nb-args
-                                                      #t
-                                                      3
-                                                      (c-rib jump/call-op
-                                                             '%%rib
-                                                             tail)))))))
-
-          (else
-           (error "can't build constant" o))))
-
-  (define (build-constant-in-global-var o v)
-    (let ((code (build-constant o 0)))
-      (set! built-constants (cons (cons o (cons v code)) built-constants))
-      v))
+            (else
+              (error "can't build constant" const)))))
 
   (define (add-init-primitives tail)
 
@@ -3332,22 +3357,21 @@
         (if (not prim)
           (error "Error, primitive needed by the compiler was not found in host :" sym))
         (let ((index (cadr prim)))
-          (c-rib const-op
-                 index
-                 (c-rib const-op
-                        0
-                        (c-rib const-op
-                               procedure-type
-                               (add-nb-args
-                                 #t
-                                 3
-                                 (c-rib jump/call-op
-                                        '%%rib
-                                        (c-rib set-op
-                                               sym
-                                               tail)))))))))
+          (uc-rib const-op
+                  index
+                  (uc-rib const-op
+                          0
+                          (uc-rib const-op
+                                  procedure-type
+                                  (add-nb-args
+                                    #t
+                                    3
+                                    (uc-rib jump/call-op
+                                            '%%rib
+                                            (uc-rib set-op
+                                                    sym
+                                                    tail)))))))))
 
-    ;; skip rib primitive that is predefined
     (let loop ((lst ($filter
                       (lambda (x) (host-config-feature-live? host-config x))
                       forced-first-primitives))
@@ -3358,68 +3382,62 @@
                   (prim-code sym tail)))
           tail)))
 
-  (define (append-code code tail)
-    (if (eqv? code 0)
+  (define (build-and-add-constants tail)
+    (let loop ((constants-to-build constants-to-build)
+               (tail tail))
+
+      ;; Skip predefined constants, as they are defined by the RVM
+      (if (eq? constants-to-build predefined-constants)
         tail
-        (c-rib (c-rib-oper code) (c-rib-opnd code) (append-code (c-rib-next code) tail))))
-
-  (define (add-init-constants tail)
-    (let loop ((lst built-constants) (tail tail))
-      (if (pair? lst)
-          (let* ((x (car lst))
-                 (o (car x))
-                 (v (cadr x))
-                 (code (cddr x)))
-            (loop (cdr lst)
-                  (append-code code (c-rib set-op v tail))))
-          tail)))
-
-  (define (add-init-code proc)
-    (let* ((code (c-rib-oper proc))
-           (new-code (add-init-primitives (add-init-constants (c-rib-next code)))))
-      (c-rib (c-rib
-               (c-rib-oper code)
-               (c-rib-opnd code)
-               new-code)
-             (c-rib-opnd proc)
-             (c-rib-next proc))))
-
+        (let* ((constant (car constants-to-build))
+               (constant-value (car constant))
+               (constant-name (cadr constant)))
+            (loop
+              (cdr constants-to-build)
+              (build-constant
+                #f ;; not a subconstant!
+                constants-to-build
+                constant-value
+                (uc-rib set-op
+                        constant-name
+                        tail)))))))
 
   (define constant-counter 0)
 
-  (define (constant-global-var o)
-    (cond ((eqv? o #f)
-           'false)
-          ((eqv? o #t)
-           'true)
-          ((eqv? o '())
-           'nil)
-          (else
-           (let ((x (assq o built-constants)))
-             (if x
-                 (cadr x)
-                 (let ((v (string->symbol
-                           (string-append "_"
-                                          (number->string constant-counter)))))
-                   (set! constant-counter (+ constant-counter 1))
-                   (build-constant-in-global-var o v)
-                   v))))))
+  (define (assign-name-to-constant const)
+    (let ((constant-exist? (assoc const constants-to-build)))
+      (if constant-exist?
+          (cadr constant-exist?)
+          (let ((name (string->symbol
+                        (string-append "_"
+                                       (number->string constant-counter)))))
+            (set! constant-counter (+ constant-counter 1))
+            (set! constants-to-build (cons (list const name) constants-to-build))
+            name))))
 
+  ;; First, collect all the constants without building them and mutate the code to
+  ;; reference their name.
   (for-each-c-rib
     proc
     (lambda (code)
       (if (eq? (c-rib-oper code) const-op)
         (let ((opnd (c-rib-opnd code)))
-          (if (not (or (symbol? opnd)
-                       (c-procedure? opnd)
-                       (and (number? opnd) (>= opnd 0))))
-            (let ((constant (constant-global-var opnd)))
+          (if (should-build-constant? opnd)
+            (let ((name (assign-name-to-constant opnd)))
               (c-rib-oper-set! code get-op)
-              (c-rib-opnd-set! code constant)
-              constant)))))
+              (c-rib-opnd-set! code name))))))
     (lambda (opnd) 0))
 
-  (add-init-code proc))
+  ;; Then, build and add the constants and finally add the forced-first-primitives.
+  (let* ((code              (c-rib-oper proc))
+         (code+consts       (build-and-add-constants (c-rib-next code)))
+         (code+consts+prims (add-init-primitives code+consts)))
+    (uc-rib (uc-rib
+              (c-rib-oper code)
+              (c-rib-opnd code)
+              code+consts+prims)
+            (c-rib-opnd proc)
+            (c-rib-next proc))))
 
 ;; Creates a representation of the symbol table of the program within the
 ;; compiler. This is quite a simple representation, where each symbol is
