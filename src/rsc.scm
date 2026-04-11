@@ -901,9 +901,9 @@
 ;;; The host config is a data structure that holds any of the host-specific
 ;;; information. This includes the primitives, the features, and the locations.
 
-;; These primitives are "forced first" meaning that they must exist before any
-;; other code is executed. This is because the compiler uses them when
-;; generating code. It's a hack.
+;; These primitives are needed by the compiler to generate constants, which are
+;; usually created before any user code runs. This means these primitives will be
+;; inserted before any constant creation.
 (define forced-first-primitives (list '%%- '%%arg1))
 
 ;; host config definitions
@@ -1236,28 +1236,72 @@
               (op->hash field0))
             (next->hash field2))
           table-hash-size))
-;; helper function to display the hash table
-(define (display-c-rib c-rib)
 
-  (define (display-obj obj)
-    (if (rib? obj)
-      (string-append
-        "%"
-        (number->string (c-rib-hash obj))
-        "%")
-      (object->string obj)))
+(define (display-c-rib c-rib indent)
+
+  (define (oper->string oper next)
+    (cond
+      ((eq? oper jump/call-op)
+       (if (c-rib? next)
+         "call"
+         "jump"))
+      ((eq? oper set-op)       "set")
+      ((eq? oper get-op)       "get")
+      ((eq? oper const-op)     "const")
+      ((eq? oper if-op)        "if")
+      (else (string-append "UNKNOW_OP(" (object->string oper) ")"))))
+
+  (define (opnd->string opnd)
+    (cond
+      ((null? opnd) "nil")
+      ((eqv? #f opnd) "false")
+      ((eqv? #t opnd) "true")
+      ((symbol? opnd) (string-append "'" (symbol->string opnd)))
+      ((number? opnd) (number->string opnd))
+      ((string? opnd) (string-append "\"" opnd "\""))
+      ((char? opnd) (string-append "#\\" (string opnd)))
+      ((list? opnd) (string-append "(" (apply string-append (map opnd->string opnd)) ")"))
+      ((vector? opnd) (string-append "#(" (apply string-append (map opnd->string (vector->list opnd))) ")"))
+      ((pair? opnd) (string-append "(" (opnd->string (car opnd)) " . " (opnd->string (cdr opnd)) ")"))
+      (else (string-append "UNKNOW_OPND(" (object->string opnd) ")"))))
+
+  (define (indent->string indent)
+    (let loop ((i 0) (acc ""))
+      (if (< i indent)
+        (loop (+ i 1) (string-append acc "  "))
+        acc)))
 
   (let ((op   (c-rib-oper c-rib))
         (opnd (c-rib-opnd c-rib))
         (next (c-rib-next c-rib)))
-    (string-append
-      "["
-      (display-obj op)
-      " "
-      (display-obj opnd)
-      " "
-      (display-obj next)
-      "]")))
+
+    (display (indent->string indent))
+    (cond
+      ((eq? op if-op)
+       (display "if TOS then")
+       (newline)
+       (display-c-rib opnd (+ indent 1))
+       (display (indent->string indent))
+       (display "else")
+       (newline)
+       (display-c-rib next (+ indent 1)))
+      ((and (eq? op const-op) (c-rib? opnd) (eq? (c-rib-next opnd) 1))
+       (let ((code (c-rib-oper opnd)))
+         (display (oper->string op next)) ;; const
+         (display " lambda(")
+         (display (number->string (c-rib-oper code))) ;; nargs ish
+         (display ")")
+         (newline)
+         (display-c-rib (c-rib-next code) (+ indent 1))
+         (display-c-rib next indent)))
+      (else
+        (display (oper->string op next))
+        (display " ")
+        (display (opnd->string opnd))
+        (newline)
+        (if (c-rib? next)
+         (display-c-rib next indent))))))
+
 
 ;; This utilitary function calls code-func on all ribs containing
 ;; code and arg-func on the arguments of the code-ribs. This function
@@ -1306,9 +1350,8 @@
 ;;; ============== RIBBIT's COMPILER =================
 ;;; --------------------------------------------------
 
-
 ;;; CONTEXT DEFINITIONS
-;;; The ctx object contains information while compiling. This include the 
+;;; The ctx object contains information while compiling. This include the
 ;;; variables that are in scope, the live features, the exports, and the
 ;;; live variables.
 (define (make-ctx cte live exports live-features)
@@ -2104,8 +2147,9 @@
 
     (if (or (>= verbosity 2) (memq 'rvm-code debug-info))
       (begin
-        (display "*** RVM code:\n")
-        (pp (vector-ref return 0))))
+        (display "*** RVM code before any constant encoding:\n")
+        (display-c-rib (c-rib-next (c-procedure-code (vector-ref return 0))) 0)))
+
     (if (or (>= verbosity 3) (memq 'exports debug-info))
       (begin
         (display "*** exports:\n")
@@ -3230,7 +3274,7 @@
   ($fold + 0 (map cadr encoding)))
 
 
-(define (encode-constants proc host-config)
+(define (encode-constants proc host-config debug-info)
 
   (define predefined-constants '((#f false) (#t true) (() nil)))
   (define constants-to-build predefined-constants)
@@ -3427,6 +3471,12 @@
               (c-rib-oper-set! code get-op)
               (c-rib-opnd-set! code name))))))
     (lambda (opnd) 0))
+
+  (if (memv 'constants debug-info)
+    (begin
+      (display "*** Table assigning names to literal constants (value . symbol): ")
+      (newline)
+      (pp (reverse constants-to-build))))
 
   ;; Then, build and add the constants and finally add the forced-first-primitives.
   (let* ((code              (c-rib-oper proc))
@@ -4558,7 +4608,12 @@
     ((compression/2b? (live? 'compression/lzss/2b))
      (compression/tag? (live? 'compression/lzss/tag 'compression/lzss 'compression))
      (compression? (or compression/2b? compression/tag?))
-     (proc (encode-constants proc host-config)))
+     (proc (encode-constants proc host-config debug-info)))
+
+    (if (memv 'rvm-code-with-constants debug-info)
+      (begin
+        (display "*** RVM code after constant encoding:") (newline)
+        (display-c-rib (c-rib-next (c-procedure-code proc)) 0)))
 
     (cond
       ((and compression/2b? (eqv? byte-base 92))
@@ -5693,34 +5748,34 @@ SYNOPSIS
 `rsc` [OPTION]... [FILE]
 
 COMPILATION OPTIONS
-  `-t`, `--target TARGET`
+  `-t TARGET`, `--target TARGET`
   Specify the compilation target. Can be any of: `rvm`, `js`, `py`, etc..
 
-  `-o`, `--output PATH`
+  `-o PATH`, `--output PATH`
   Define the output path for the compiled file. If no path is given, default naming is used.
 
-  `-x`, `--exe`, `--executable PATH`
+  `-x PATH`, `--exe PATH`, `--executable PATH`
   Specify an executable output path, compiling it with a script inside the host folder.
 
-  `-l`, `--library PATH`
+  `-l PATH`, `--library PATH`
   Add a library path.
 
   `-m`, `--minify`
   Enable minification of the output.
 
-  `-e`, `--encoding NAME`
+  `-e NAME`, `--encoding NAME`
   Set the encoding name. Default is 'auto'.
 
-  `-r`, `--rvm PATH`
+  `-r PATH`, `--rvm PATH`
   Define the RVM path. Defaults to ./host/`target`/rvm.`target`
 
-  `-f+`, `--enable-feature FEATURE`
+  `-f+ FEATURE`, `--enable-feature FEATURE`
   Enable a specific feature.
 
-  `-f-`, `--disable-feature FEATURE`
+  `-f- FEATURE`, `--disable-feature FEATURE`
   Disable a specific feature.
 
-  `-i`, `--input PATH_TO_FILE`
+  `-i FEATURE`, `--input PATH_TO_FILE`
   Set an stdin buffer at compile time included in the resulting RVM. This is usefull to compress data as
   some information could be kept in the stdin and processed later on.
 
@@ -5729,14 +5784,24 @@ DEBUGING OPTIONS
   `-v`, `-vv`, `-vvv`
   Set verbosity level. Multiple 'v's increase verbosity.
 
-  `-di`, `--debug-info INFO`
+  `-di INFO`, `--debug-info INFO`
   Displays debug information to stdout.
-  Info can be any of : `host-expansion` `expansion`, `rvm-code`, `hash-table`, `exports`, `encoding` and `host-config`.
+  INFO can be any of :
+    `host-expansion` - Expansion of the host RVM file.
+    `expansion` - Expansion of the Scheme code after macro expansion.
+    `rvm-code` - Virtual machine instructions with Scheme constants inside `const` instructions.
+    `rvm-code-with-constants` - Virtual machine instructions with initialization code for literal constants.
+    `constants` - Table assigning literal constants to their symbolic name in the RVM code.
+    `hash-table` - Stats about the hash table used for hash consing within the compiler.
+    `exports` - List of all exported symbols, meaning symbols that need a string representation.
+    `encoding` - The encoding used for encoding the RVM code into the RIBN (alike to the bytecode).
+    `host-config` - The value, order and location of features and primitives.
+  To display multiple debug information, provide multiple `-di INFO` options.
 
   `-ps`, `--progress-status`
   Show progress status during compilation.
 
-  `-bs`, `--byte-stats STATS`
+  `-bs STATS`, `--byte-stats STATS`
   Set byte statistics.
 
   `-cs`, `--call-stats`
@@ -5750,7 +5815,7 @@ DEBUGING OPTIONS
 
 EXAMPLE
 `rsc -t c -l r4rs source.scm -o output.c -x run-output.exe -m -v`
-This command compiles `source.scm` to C with verbosity set to 1 and minification enabled. 
+This command compiles `source.scm` to C with verbosity set to 1 and minification enabled.
 The output is written to output.c, with an executable compiled to run-output.exe (with gcc).")
 
   (let ((verbosity 0)
@@ -5795,22 +5860,22 @@ The output is written to output.c, with an executable compiled to run-output.exe
                  (set! rvm-path (car rest))
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-f+" "--enable-feature")))
-                 (set! features 
-                   (cons 
+                 (set! features
+                   (cons
                      (cons (string->symbol (car rest)) #t)
                      features))
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-f-" "--disable-feature")))
-                 (set! features 
-                   (cons 
+                 (set! features
+                   (cons
                      (cons (string->symbol (car rest)) #f)
                      features))
                  (loop (cdr rest)))
 
                 ((and (pair? rest) (pair? (cdr rest)) (member arg '("-f=" "--set-feature")))
-                 (set! features 
-                   (cons 
-                     (cons (string->symbol (car rest)) 
+                 (set! features
+                   (cons
+                     (cons (string->symbol (car rest))
                            (read (open-input-string (cadr rest)))) ;; use reader to transform information
                      features))
                  (loop (cddr rest)))
