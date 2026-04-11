@@ -1135,7 +1135,20 @@
       (check-eq opnd1 opnd2)
       (check-eq next1 next2))))
 
-(define table-hash-size 5000)
+;; The size of the hash table has been optimized for the bootstrap of rsc.scm
+;; by Ribbit. After a small benchmark, I found that 1000 buckets give decent
+;; speed while being quite large for implementation having real tables/arrays:
+;;
+;; 250 -> 1m26.640s
+;; 500 -> 1m27.420s
+;; 750 -> 1m28.936s
+;; 1000 -> 1m31.672s (picked)
+;; 2500 -> 1m45.450s
+;; 5000 -> 2m6.322s
+;; 7500 -> 2m23.703s
+;; 10000 -> 2m38.330s
+(define table-hash-size 1000)
+
 
 (define (aggregate lst)
   (let loop ((lst lst) (result (list)))
@@ -5735,13 +5748,10 @@
           host-file
           encoding-name
           byte-stats
-          program-compiled))
-
-      (if (memq 'hash-table debug-info)
-        (print-hash-consing-table))))
+          program-compiled))))
 
 (define (parse-cmd-line args)
-  (define usage 
+  (define usage
 "`rsc` - The Ribbit Scheme Compiler
 
 SYNOPSIS
@@ -5813,10 +5823,22 @@ DEBUGING OPTIONS
   `-h`, `--help`
   Displays this help message.
 
+MISC OPTIONS
+
+  `--hash-table-size SIZE`
+  Sets the size of the internal hash table. Default is 1000.
+
 EXAMPLE
-`rsc -t c -l r4rs source.scm -o output.c -x run-output.exe -m -v`
-This command compiles `source.scm` to C with verbosity set to 1 and minification enabled.
-The output is written to output.c, with an executable compiled to run-output.exe (with gcc).")
+
+  `rsc -t py -l r4rs source.scm -o output.py`
+  Compiles `source.scm` to Python using the r4rs library. The output is written to output.py.
+
+  `rsc -t js -l r4rs source.scm -o output.js -m`
+  Compiles `source.scm` to JavaScript with minification enabled. The output is written to output.js.
+
+  `rsc -t c -l r4rs source.scm -o output.c -x run-output.exe -m -v`
+  This command compiles `source.scm` to C with verbosity set to 1 and minification enabled.
+  The output is written to output.c, with an executable compiled to run-output.exe (with gcc).")
 
   (let ((verbosity 0)
         (debug-info '())
@@ -5858,6 +5880,9 @@ The output is written to output.c, with an executable compiled to run-output.exe
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-r" "--rvm")))
                  (set! rvm-path (car rest))
+                 (loop (cdr rest)))
+                ((and (pair? rest) (member arg '("--table-hash-size")))
+                 (set! table-hash-size (string->number (car rest)))
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-f+" "--enable-feature")))
                  (set! features
