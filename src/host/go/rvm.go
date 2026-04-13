@@ -616,13 +616,13 @@ func run() {
 				c2 := allocRib(tagNum(0), proc, tagNum(PairTag))
 				s2 := c2
 
-				arity_number := code.Field0().Value()
+				arityNumber := code.Field0().Value()
 				nparams := arityNumber >> 1
 
 				// @@(feature arity-check
 				{
 					var shouldCrash bool
-					if arity_number & 1 == 0 {
+					if arityNumber & 1 == 0 {
 						shouldCrash = nparams < nargs
 					} else {
 						shouldCrash = nparams != nargs
@@ -635,7 +635,7 @@ func run() {
 
 				// @@(feature rest-param (use arity-check)
 				nargs -= nparams
-				if arity_number & 1 == 1 {
+				if arityNumber & 1 == 1 {
 					rest := NIL
 					for nargs > 0 {
 						rest = allocRib(pop(), rest, tagNum(PairTag))
