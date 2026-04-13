@@ -638,7 +638,7 @@ func run() {
 				// @@(feature rest-param (use arity-check)
 				nargs -= nparams
 				if arityNumber & 1 == 1 {
-					rest := NIL
+					rest := Obj(NIL)
 					for nargs > 0 {
 						rest = allocRib(pop(), rest, tagNum(PairTag))
 						nargs--
