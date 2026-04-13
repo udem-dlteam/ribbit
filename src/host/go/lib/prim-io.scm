@@ -14,7 +14,7 @@
   "filenameScheme := pop()
   filename := scm2str(filenameScheme)
   if file, err := os.Open(filename); err == nil {
-    push(file)
+    push(tagNum(file.Fd())) // push file descriptor as a number
   } else {
     push(FALSE)
   }")
@@ -28,8 +28,10 @@
   (use py/io)
   "
   fd := pop()
+  // Second argument is not the name of the file but debugging infos
+  file:= os.newFile(fd, \"\")
   b1 := make([]byte, 1)
-  if n, err := fd.Read(b1); err == nil && n > 0 {
+  if n, err := file.Read(b1); err == nil && n > 0 {
     push(tagNum(int(b1[0])))
   } else {
     push(NIL)
@@ -41,26 +43,29 @@
   (use py/io)
   "
   fd := pop()
+  // Second argument is not the name of the file but debugging infos
+  file := os.newFile(fd, \"\")
   ch := pop()
   b1 := []byte{byte(ch)}
-  if _, err := fd.Write(b1); err != nil {
+  if _, err := file.Write(b1); err != nil {
     panic(err)
   }
-  fd.Sync()
+  file.Sync()
 ")
 
-(define-primitive
-  (%%close-input-fd fd)
-  (use py/io)
-  "
-  fd := pop()
-  if err := fd.Close(); err != nil {
-    panic(err)
-  }
-  ")
+; Do not close file descriptors accessed with .Fd(). They are closed by the GC
+; and, according to the doc, must not be closed manually. (see docs)
+(define %%close-input-fd %%id)
+(define %%close-output-fd %%id)
 
-(define-feature
-  %%close-output-fd
-  (use %%close-input-fd))
+;(define-primitive
+;  (%%close-input-fd fd)
+;  (use py/io)
+;  "
+;  ")
 
-(define (%%close-output-fd port) (%%close-input-fd port))
+;(define-feature
+;  %%close-output-fd
+;  (use %%close-input-fd))
+
+;(define (%%close-output-fd port) (%%close-input-fd port))
