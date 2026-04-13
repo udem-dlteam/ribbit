@@ -472,8 +472,8 @@ func scm2str(s Obj) string {
 }
 // )@@
 
-// @@(feature scm2str
-func scm2str(c string) Obj {
+// @@(feature str2scm
+func str2scm(c string) Obj {
 	obj := Obj(NIL)
 	length := len(c)
 
