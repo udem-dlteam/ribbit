@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"io"
+	"io" // @@(feature go/io)@@
 	"os"
 )
 
@@ -541,7 +541,7 @@ func prim(primNo int) {
 		doPrim2(func(x, y Obj) Obj {
 			return tagNum(x.Value() / y.Value())
 		}) // )@@
-	case 18: // @@(primitive (%%getchar)
+	case 18: // @@(primitive (%%getchar) (use go/io)
 		if pos < len(Input) {
 			push(tagNum(int(getByte())))
 		} else {
