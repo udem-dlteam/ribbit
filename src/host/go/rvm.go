@@ -457,15 +457,15 @@ func boolean(x bool) Obj {
 }
 
 // @@(feature scm2str
-func scm2str(s Obj) string {
-	func chars2str(chars Obj) string {
-		if chars == NIL {
-			return ""
-		} else {
-			return string(byte(chars.Field0().Value())) + chars2str(chars.Field1())
-		}
+func chars2str(chars Obj) string {
+	if chars == NIL {
+		return ""
+	} else {
+		return string(byte(chars.Field0().Value())) + chars2str(chars.Field1())
 	}
+}
 
+func scm2str(s Obj) string {
 	return chars2str(s.Field1())
 }
 // )@@
