@@ -18,14 +18,15 @@
 
 (define-primitive
   (%%get-fd-input-file filename)
-  (use go/os scm2str go/runtime)
+  (use go/os scm2str)
   "
   filenameScheme := pop()
   filename := scm2str(filenameScheme)
-  if file, err := os.Open(filename); err == nil {
+
+  if fd, err := syscall.Open(filename, syscall.O_RDONLY, 0644); err == nil {
     // prevent Go from closing the file descriptor when the file object is garbage collected
-    runtime.SetFinalizer(file, nil)
-    push(tagNum((int)(file.Fd()))) // push file descriptor as a number
+    //runtime.SetFinalizer(file, nil)
+    push(tagNum(fd)) // push file descriptor as a number
   } else {
     push(FALSE)
   }
@@ -35,13 +36,13 @@
 
 (define-primitive
   (%%get-fd-output-file filename)
-  (use go/os scm2str go/runtime)
+  (use go/os scm2str)
   "filenameScheme := pop()
   filename := scm2str(filenameScheme)
-  if file, err := os.OpenFile(filename, os.O_RDWR | os.O_APPEND | os.O_CREATE, 0644); err == nil {
+  if fd, err := syscall.Open(filename, syscall.O_RDWR | syscall.O_APPEND | syscall.O_CREAT, 0644); err == nil {
     // prevent Go from closing the file descriptor when the file object is garbage collected
-    runtime.SetFinalizer(file, nil)
-    push(tagNum((int)(file.Fd()))) // push file descriptor as a number
+    //runtime.SetFinalizer(file, nil)
+    push(tagNum(fd)) // push file descriptor as a number
   } else {
     push(FALSE)
   }")
@@ -49,7 +50,7 @@
 
 (define-primitive
   (%%read-char-fd fd)
-  (use go/os go/runtime go/syscall)
+  (use go/os go/syscall)
   "
   fd := pop().Value()
   // Second argument is not the name of the file but debugging infos
