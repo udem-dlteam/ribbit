@@ -598,6 +598,8 @@ func run() {
 			code := proc.Field0()
 
 			if code.Number() {
+				pop(); // @@(feature arity-check)@@
+
 				prim(code.Value())
 
 				if call {
