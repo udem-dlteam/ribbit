@@ -486,10 +486,10 @@ func str2scm(c string) Obj {
 // )@@
 
 // @@(feature list2scm
-func list2scm(s string[]) Obj {
+func list2scm(s []string) Obj {
 	obj := Obj(NIL)
 	for i := len(s) - 1; i >= 0; i-- {
-		obj = allocRib(scm2str(s[i]), obj, tagNum(PairTag))
+		obj = allocRib(str2scm(s[i]), obj, tagNum(PairTag))
 	}
 
 	return obj
