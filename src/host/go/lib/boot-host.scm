@@ -1,7 +1,7 @@
 
 (define-primitive (command-line)
   (use list2scm go/os)
-  "{push(list2scm(os.Args))}")
+  "{push(list2scm(os.Args[1:]))}")
 
 
 (define (file-exists? file)
