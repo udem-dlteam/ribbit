@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"io" // @@(feature go/io)@@
-	"os"
+	"os" // @@(feature go/os)@@
 )
 
 const DebugICall = false
@@ -456,6 +456,21 @@ func boolean(x bool) Obj {
 	}
 }
 
+// @@(feature scm2str
+func scm2str(s Obj) string {
+	func chars2str(chars Obj) string {
+		if chars == NIL {
+			return ""
+		} else {
+			return string(byte(chars.Field0().Value())) + chars2str(chars.Field1())
+		}
+	}
+
+	return chars2str(s.Field1())
+}
+// )@@
+
+
 func prim(primNo int) Obj {
 
 	if DebugICall {
@@ -541,7 +556,7 @@ func prim(primNo int) Obj {
 		doPrim2(func(x, y Obj) Obj {
 			return tagNum(x.Value() / y.Value())
 		}) // )@@
-	case 18: // @@(primitive (%%getchar) (use go/io)
+	case 18: // @@(primitive (%%getchar) (use go/io) (use go/os)
 		if pos < len(Input) {
 			push(tagNum(int(getByte())))
 		} else {
@@ -719,7 +734,7 @@ func run() {
 			fmt.Printf("Unknown instruction: %d\n", instr)
 			fallthrough
 		case InstrHalt:
-			os.Exit(0)
+			return
 		}
 	}
 }
