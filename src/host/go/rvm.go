@@ -611,7 +611,7 @@ func run() {
 					fmt.Printf("Calling a symbol\n")
 				}
 
-				nargs := pop() // @@(feature arity-check)@@
+				nargs := pop().Value() // @@(feature arity-check)@@
 
 				c2 := allocRib(tagNum(0), proc, tagNum(PairTag))
 				s2 := c2
