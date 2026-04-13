@@ -456,7 +456,7 @@ func boolean(x bool) Obj {
 	}
 }
 
-func prim(primNo int) {
+func prim(primNo int) Obj {
 
 	if DebugICall {
 		fmt.Printf("Calling primitive %d\n", primNo)
@@ -567,6 +567,8 @@ func prim(primNo int) {
 		}) //)@@
 // )@@
 	}
+
+	return tagNum(0)
 }
 
 func getCont() Obj {
@@ -597,77 +599,85 @@ func run() {
 			}
 
 			proc := getOperand(operand)
-			code := proc.Field0()
 
-			if code.Number() {
-				pop(); // @@(feature arity-check)@@
+			for {
+			  code := proc.Field0()
 
-				prim(code.Value())
+			  if code.Number() {
+			  	pop(); // @@(feature arity-check)@@
 
-				if call {
-					code = pc
-				} else {
-					code = getCont()
-					stack.Field1Set(code.Field0())
-				}
-			} else {
-				if DebugICall {
-					fmt.Printf("Calling a symbol\n")
-				}
+			  	ret := prim(code.Value())
 
-				nargs := pop().Value() // @@(feature arity-check)@@
-
-				c2 := allocRib(tagNum(0), proc, tagNum(PairTag))
-				s2 := c2
-
-				arityNumber := code.Field0().Value()
-				nparams := arityNumber >> 1
-
-				// @@(feature arity-check
-				{
-					var shouldCrash bool
-					if arityNumber & 1 == 1 {
-						shouldCrash = nparams > nargs
-					} else {
-						shouldCrash = nparams != nargs
-					}
-					if shouldCrash {
-						panic(fmt.Sprintf("Arity mismatch: expected %d, got %d, arityNumber=%d", nparams, nargs, arityNumber))
-					}
-				}
-				// )@@
-
-				// @@(feature rest-param (use arity-check)
-				nargs -= nparams
-				if arityNumber & 1 == 1 {
-					rest := Obj(NIL)
-					for nargs > 0 {
-						rest = allocRib(pop(), rest, tagNum(PairTag))
-						nargs--
+					if ret.Rib() {
+						continue
 					}
 
-					s2 = allocRib(rest, s2, tagNum(PairTag))
-				}
-				// )@@
+			  	if call {
+			  		code = pc
+			  	} else {
+			  		code = getCont()
+			  		stack.Field1Set(code.Field0())
+			  	}
+			  } else {
+			  	if DebugICall {
+			  		fmt.Printf("Calling a symbol\n")
+			  	}
 
-				for nparams > 0 {
-					nparams--
-					s2 = allocRib(pop(), s2, tagNum(PairTag))
-				}
+			  	nargs := pop().Value() // @@(feature arity-check)@@
 
-				if call {
-					c2.Field0Set(stack)
-					c2.Field2Set(pc.Field2())
-				} else {
-					cont := getCont()
-					c2.Field0Set(cont.Field0())
-					c2.Field2Set(cont.Field2())
-				}
+			  	c2 := allocRib(tagNum(0), proc, tagNum(PairTag))
+			  	s2 := c2
 
-				stack = s2
-			}
+			  	arityNumber := code.Field0().Value()
+			  	nparams := arityNumber >> 1
 
-			pc = code.Field2()
+			  	// @@(feature arity-check
+			  	{
+			  		var shouldCrash bool
+			  		if arityNumber & 1 == 1 {
+			  			shouldCrash = nparams > nargs
+			  		} else {
+			  			shouldCrash = nparams != nargs
+			  		}
+			  		if shouldCrash {
+			  			panic(fmt.Sprintf("Arity mismatch: expected %d, got %d, arityNumber=%d", nparams, nargs, arityNumber))
+			  		}
+			  	}
+			  	// )@@
+
+			  	// @@(feature rest-param (use arity-check)
+			  	nargs -= nparams
+			  	if arityNumber & 1 == 1 {
+			  		rest := Obj(NIL)
+			  		for nargs > 0 {
+			  			rest = allocRib(pop(), rest, tagNum(PairTag))
+			  			nargs--
+			  		}
+
+			  		s2 = allocRib(rest, s2, tagNum(PairTag))
+			  	}
+			  	// )@@
+
+			  	for nparams > 0 {
+			  		nparams--
+			  		s2 = allocRib(pop(), s2, tagNum(PairTag))
+			  	}
+
+			  	if call {
+			  		c2.Field0Set(stack)
+			  		c2.Field2Set(pc.Field2())
+			  	} else {
+			  		cont := getCont()
+			  		c2.Field0Set(cont.Field0())
+			  		c2.Field2Set(cont.Field2())
+			  	}
+
+			  	stack = s2
+			  }
+
+			  pc = code.Field2()
+			  break
+		  }
 		case InstrSet: // set
 			if DebugICall {
 				fmt.Println("--- set")
