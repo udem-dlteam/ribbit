@@ -1,12 +1,12 @@
 (define-primitive
   (%%stdin-fd)
   (use go/os)
-  "{push(os.Stdin)}")
+  "{push(tagNum(0))}")
 
 (define-primitive
   (%%stdout-fd)
   (use go/os)
-  "{push(os.Stdout)}")
+  "{push(tagNum(1))}")
 
 (define-primitive
   (%%get-fd-input-file filename)
@@ -14,8 +14,9 @@
   "filenameScheme := pop()
   filename := scm2str(filenameScheme)
   if file, err := os.Open(filename); err == nil {
-    push(tagNum(file.Fd())) // push file descriptor as a number
+    push(tagNum((int)(file.Fd()))) // push file descriptor as a number
   } else {
+    panic(err);
     push(FALSE)
   }")
 
@@ -27,13 +28,14 @@
   (%%read-char-fd fd)
   (use py/io)
   "
-  fd := pop()
+  fd := (uintptr)(pop().Value())
   // Second argument is not the name of the file but debugging infos
-  file:= os.newFile(fd, \"\")
+  file:= os.NewFile(fd, \"\")
   b1 := make([]byte, 1)
   if n, err := file.Read(b1); err == nil && n > 0 {
     push(tagNum(int(b1[0])))
   } else {
+    panic(err)
     push(NIL)
   }
   ")
@@ -42,15 +44,16 @@
   (%%write-char-fd ch fd)
   (use py/io)
   "
-  fd := pop()
+  fd := (uintptr)(pop().Value())
   // Second argument is not the name of the file but debugging infos
-  file := os.newFile(fd, \"\")
-  ch := pop()
+  file := os.NewFile(fd, \"\")
+  ch := pop().Value()
   b1 := []byte{byte(ch)}
   if _, err := file.Write(b1); err != nil {
     panic(err)
   }
   file.Sync()
+  push(TRUE)
 ")
 
 ; Do not close file descriptors accessed with .Fd(). They are closed by the GC
