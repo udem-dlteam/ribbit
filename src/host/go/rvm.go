@@ -558,7 +558,7 @@ func prim(primNo int) Obj {
 		doPrim2(func(x, y Obj) Obj {
 			return tagNum(x.Value() / y.Value())
 		}) // )@@
-	case 18: // @@(primitive (%%getchar) (use go/io) (use go/os)
+	case 18: // @@(primitive (%%getchar) (use go/io go/os)
 		if pos < len(Input) {
 			push(tagNum(int(getByte())))
 		} else {
