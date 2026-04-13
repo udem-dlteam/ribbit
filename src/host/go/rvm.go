@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io" // @@(feature go/io)@@
 	"os" // @@(feature go/os)@@
+	"runtime" // @@(feature go/runtime)@@
+	"syscall" // @@(feature go/syscall)@@
 )
 
 const DebugICall = false
