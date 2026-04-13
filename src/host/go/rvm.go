@@ -463,54 +463,55 @@ func prim(primNo int) {
 	}
 
 	switch primNo {
-	case 0: //
+		// @@(primitives (gen "case " index ":" body)
+	case 0: // @@(primitive (%%rib a b c)
 		doPrim3(func(x, y, z Obj) Obj {
 			return allocRib(x, y, z)
-		})
-	case 1:
+		}) // )@@
+	case 1: // @@(primitive (%%id x)
 		doPrim1(func(x Obj) Obj {
 			return x
-		})
-	case 2:
-		pop()
-	case 3:
+		}) // )@@
+	case 2: // @@(primitive (%%arg1 x y)
+		pop() // )@@
+	case 3: // @@(primitive (%%arg2 x y)
 		x := pop()
 		pop()
-		push(x)
-	case 4:
+		push(x) // )@@
+	case 4: // @@(primitive (%%close rib)
 		x := stack.Field0().Field0()
 		y := stack.Field1()
 		z := tagNum(ClosureTag)
-		stack.Field0Set(allocRib(x, y, z))
-	case 5:
+		stack.Field0Set(allocRib(x, y, z)) // )@@
+	case 5: // @@(primitive (%%rib? rib)
 		doPrim1(func(x Obj) Obj {
 			return boolean(x.Rib())
-		})
-	case 6:
+		}) // )@@
+	case 6: // @@(primitive (%%field0 rib)
 		doPrim1(func(x Obj) Obj {
 			return x.Field0()
-		})
-	case 7:
+		}) // )@@
+	case 7: // @@(primitive (%%field1 rib)
 		doPrim1(func(x Obj) Obj {
 			return x.Field1()
-		})
-	case 8:
+		}) // )@@
+	case 8: // @@(primitive (%%field2 rib)
 		doPrim1(func(x Obj) Obj {
 			return x.Field2()
-		})
-	case 9:
+		}) // )@@
+	case 9: // @@(primitive (%%field0-set! rib val)
 		doPrim2(func(x, y Obj) Obj {
 			return x.Field0Set(y)
-		})
-	case 10:
+		}) // )@@
+	case 10: // @@(primitive (%%field1-set! rib val)
 		doPrim2(func(x, y Obj) Obj {
 			return x.Field1Set(y)
-		})
-	case 11:
+		}) // )@@
+	case 11: // @@(primitive (%%field2-set! rib val)
 		doPrim2(func(x, y Obj) Obj {
 			return x.Field2Set(y)
-		})
-	case 12:
+		}) // )@@
+	case 12: // @@(primitive (%%eqv? x y)
 		doPrim2(func(x, y Obj) Obj {
 			if x.Number() && y.Number() {
 				return boolean(x.Value() == (y.Value()))
@@ -519,28 +520,28 @@ func prim(primNo int) {
 			} else {
 				return FALSE
 			}
-		})
-	case 13:
+		}) // )@@
+	case 13: // @@(primitive (%%< x y)
 		doPrim2(func(x, y Obj) Obj {
 			return boolean(x.Value() < y.Value())
-		})
-	case 14:
+		}) // )@@
+	case 14: // @@(primitive (%%+ x y)
 		doPrim2(func(x, y Obj) Obj {
 			return tagNum(x.Value() + y.Value())
-		})
-	case 15:
+		}) // )@@
+	case 15: // @@(primitive (%%- x y)
 		doPrim2(func(x, y Obj) Obj {
 			return tagNum(x.Value() - y.Value())
-		})
-	case 16:
+		}) // )@@
+	case 16: // @@(primitive (%%* x y)
 		doPrim2(func(x, y Obj) Obj {
 			return tagNum(x.Value() * y.Value())
-		})
-	case 17:
+		}) // )@@
+	case 17: // @@(primitive (%%quotient x y)
 		doPrim2(func(x, y Obj) Obj {
 			return tagNum(x.Value() / y.Value())
-		})
-	case 18:
+		}) // )@@
+	case 18: // @@(primitive (%%getchar)
 		if pos < len(Input) {
 			push(tagNum(int(getByte())))
 		} else {
@@ -558,12 +559,13 @@ func prim(primNo int) {
 			  push(tagNum(int(buff[0])))
       }
 
-		}
-	case 19:
+		} // )@@
+	case 19: // @@(primitive (%%putchar x)
 		doPrim1(func(x Obj) Obj {
 			fmt.Printf("%c", byte(x.Value()))
 			return x
-		})
+		}) //)@@
+// )@@
 	}
 }
 
