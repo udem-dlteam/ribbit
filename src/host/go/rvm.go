@@ -624,13 +624,13 @@ func run() {
 				// @@(feature arity-check
 				{
 					var shouldCrash bool
-					if arityNumber & 1 == 0 {
-						shouldCrash = nparams < nargs
+					if arityNumber & 1 == 1 {
+						shouldCrash = nparams > nargs
 					} else {
 						shouldCrash = nparams != nargs
 					}
 					if shouldCrash {
-						panic(fmt.Sprintf("Arity mismatch: expected %d, got %d", nparams, nargs))
+						panic(fmt.Sprintf("Arity mismatch: expected %d, got %d, arityNumber=%d", nparams, nargs, arityNumber))
 					}
 				}
 				// )@@
