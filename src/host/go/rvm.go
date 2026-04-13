@@ -611,13 +611,43 @@ func run() {
 					fmt.Printf("Calling a symbol\n")
 				}
 
-				argC := code.Field0().Value() >> 1
+				nargs := pop() // @@(feature arity-check)@@
 
 				c2 := allocRib(tagNum(0), proc, tagNum(PairTag))
 				s2 := c2
 
-				for argC > 0 {
-					argC--
+				arity_number := code.Field0().Value()
+				nparams := arityNumber >> 1
+
+				// @@(feature arity-check
+				{
+					var shouldCrash bool
+					if arity_number & 1 == 0 {
+						shouldCrash = nparams < nargs
+					} else {
+						shouldCrash = nparams != nargs
+					}
+					if shouldCrash {
+						panic(fmt.Sprintf("Arity mismatch: expected %d, got %d", nparams, nargs))
+					}
+				}
+				// )@@
+
+				// @@(feature rest-param (use arity-check)
+				nargs -= nparams
+				if arity_number & 1 == 1 {
+					rest := NIL
+					for nargs > 0 {
+						rest = allocRib(pop(), rest, tagNum(PairTag))
+						nargs--
+					}
+
+					s2 = allocRib(rest, s2, tagNum(PairTag))
+				}
+				// )@@
+
+				for nparams > 0 {
+					nparams--
 					s2 = allocRib(pop(), s2, tagNum(PairTag))
 				}
 
