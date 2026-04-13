@@ -466,7 +466,7 @@ func chars2str(chars Obj) string {
 }
 
 func scm2str(s Obj) string {
-	return chars2str(s.Field1())
+	return chars2str(s.Field0())
 }
 // )@@
 

@@ -16,13 +16,22 @@
   if file, err := os.Open(filename); err == nil {
     push(tagNum((int)(file.Fd()))) // push file descriptor as a number
   } else {
-    panic(err);
     push(FALSE)
   }")
 
-(define %%get-fd-output-file %%get-fd-input-file)
 
-(define-feature %%read-fd-output-file (use %%get-fd-input-file))
+(define-primitive
+  (%%get-fd-output-file filename)
+  (use go/os scm2str)
+  "filenameScheme := pop()
+  filename := scm2str(filenameScheme)
+  if file, err := os.OpenFile(filename, os.O_RDWR | os.O_APPEND | os.O_CREATE, 0644); err == nil {
+    push(tagNum((int)(file.Fd()))) // push file descriptor as a number
+  } else {
+    panic(err)
+    push(FALSE)
+  }")
+
 
 (define-primitive
   (%%read-char-fd fd)
@@ -35,7 +44,6 @@
   if n, err := file.Read(b1); err == nil && n > 0 {
     push(tagNum(int(b1[0])))
   } else {
-    panic(err)
     push(NIL)
   }
   ")
@@ -45,9 +53,9 @@
   (use py/io)
   "
   fd := (uintptr)(pop().Value())
+  ch := pop().Value()
   // Second argument is not the name of the file but debugging infos
   file := os.NewFile(fd, \"\")
-  ch := pop().Value()
   b1 := []byte{byte(ch)}
   if _, err := file.Write(b1); err != nil {
     panic(err)
