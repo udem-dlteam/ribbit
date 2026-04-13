@@ -472,6 +472,30 @@ func scm2str(s Obj) string {
 }
 // )@@
 
+// @@(feature scm2str
+func scm2str(c string) Obj {
+	obj := Obj(NIL)
+	length := len(c)
+
+	for i := length - 1; i >= 0; i-- {
+		obj = allocRib(tagNum(int(c[i])), obj, tagNum(PairTag))
+	}
+
+	return obj
+}
+// )@@
+
+// @@(feature list2scm
+func list2scm(s string[]) Obj {
+	obj := Obj(NIL)
+	for i := len(s) - 1; i >= 0; i-- {
+		obj = allocRib(scm2str(s[i]), obj, tagNum(PairTag))
+	}
+
+	return obj
+}
+// )@@
+
 
 func prim(primNo int) Obj {
 
@@ -656,7 +680,7 @@ func run() {
 			  			shouldCrash = nparams > nargs
 			  		} else {
 			  			shouldCrash = nparams != nargs
-			  		}
+}
 			  		if shouldCrash {
 			  			panic(fmt.Sprintf("Arity mismatch: expected %d, got %d, arityNumber=%d", nparams, nargs, arityNumber))
 			  		}
