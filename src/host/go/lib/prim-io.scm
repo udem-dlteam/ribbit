@@ -1,47 +1,62 @@
 (define-primitive
+
   (%%stdin-fd)
-  (use go/os)
-  "{push(tagNum(0))}")
+  (use go/os go/syscall)
+  "{
+    //runtime.SetFinalizer(os.Stdin, nil)
+    push(tagNum((int)(os.Stdin.Fd())))
+  }")
 
 (define-primitive
   (%%stdout-fd)
-  (use go/os)
-  "{push(tagNum(1))}")
+  (use go/os go/syscall)
+  "
+  {
+  //runtime.SetFinalizer(os.Stdout, nil)
+  push(tagNum((int)(os.Stdout.Fd())))
+  }")
 
 (define-primitive
   (%%get-fd-input-file filename)
-  (use go/os scm2str)
-  "filenameScheme := pop()
+  (use go/os scm2str go/runtime)
+  "
+  filenameScheme := pop()
   filename := scm2str(filenameScheme)
   if file, err := os.Open(filename); err == nil {
+    // prevent Go from closing the file descriptor when the file object is garbage collected
+    runtime.SetFinalizer(file, nil)
     push(tagNum((int)(file.Fd()))) // push file descriptor as a number
   } else {
     push(FALSE)
-  }")
+  }
+
+  ")
 
 
 (define-primitive
   (%%get-fd-output-file filename)
-  (use go/os scm2str)
+  (use go/os scm2str go/runtime)
   "filenameScheme := pop()
   filename := scm2str(filenameScheme)
   if file, err := os.OpenFile(filename, os.O_RDWR | os.O_APPEND | os.O_CREATE, 0644); err == nil {
+    // prevent Go from closing the file descriptor when the file object is garbage collected
+    runtime.SetFinalizer(file, nil)
     push(tagNum((int)(file.Fd()))) // push file descriptor as a number
   } else {
-    panic(err)
     push(FALSE)
   }")
 
 
 (define-primitive
   (%%read-char-fd fd)
-  (use py/io)
+  (use go/os go/runtime go/syscall)
   "
-  fd := (uintptr)(pop().Value())
+  fd := pop().Value()
   // Second argument is not the name of the file but debugging infos
-  file:= os.NewFile(fd, \"\")
+  //file := os.NewFile(fd, \"\")
+  //runetime.SetFinalizer(file, nil)
   b1 := make([]byte, 1)
-  if n, err := file.Read(b1); err == nil && n > 0 {
+  if n, err := syscall.Read(fd, b1); err == nil && n > 0 {
     push(tagNum(int(b1[0])))
   } else {
     push(NIL)
@@ -50,17 +65,18 @@
 
 (define-primitive
   (%%write-char-fd ch fd)
-  (use py/io)
+  (use go/os go/syscall)
   "
-  fd := (uintptr)(pop().Value())
+  fd := pop().Value()
   ch := pop().Value()
   // Second argument is not the name of the file but debugging infos
-  file := os.NewFile(fd, \"\")
+  //file := os.NewFile(fd, \"\")
+  //runtime.SetFinalizer(file, nil)
   b1 := []byte{byte(ch)}
-  if _, err := file.Write(b1); err != nil {
+  if _, err := syscall.Write(fd, b1); err != nil {
     panic(err)
   }
-  file.Sync()
+  //file.Sync()
   push(TRUE)
 ")
 
