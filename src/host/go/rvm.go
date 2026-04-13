@@ -609,6 +609,7 @@ func run() {
 			  	ret := prim(code.Value())
 
 					if ret.Rib() {
+						proc = ret
 						continue
 					}
 
