@@ -688,6 +688,14 @@ func prim(primNo int) Obj {
 			fmt.Printf("%c", byte(x.Value()))
 			return x
 		}) //)@@
+
+  case 20:  // @@(primitive (%%exit n) (use go/os)
+  {
+		doPrim1(func(x Obj) Obj {
+			os.Exit(x.Value())
+			return x
+		})
+  } // )@@
 // )@@
 	}
 
