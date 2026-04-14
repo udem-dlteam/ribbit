@@ -296,7 +296,7 @@ func instTail(list, i Obj) Obj {
 	if i.Value() == 0 {
 		return list
 	} else {
-		return listTail(list.Field2(), i.Add(-1))
+		return instTail(list.Field2(), i.Add(-1))
 	}
 }
 
@@ -375,7 +375,13 @@ func decode() {
 			range_index++
 		}
 
+		//fmt.Printf("Decoded code: %d\n", code)
+		//fmt.Printf("Range index: %d\n", range_index)
+		//fmt.Printf("Argument: %d\n", arg)
+		//os.Stdout.Sync()
+
     if (range_index < 4) { push(tagNum(0)) } // JUMP
+		//fmt.Printf("n= %d\n", n.Value())
     if (range_index < 24) {
 			if range_index%2>0{
 				arg = tagNum(getInt(arg.Value()))
@@ -405,6 +411,11 @@ func decode() {
 			arg = pop()
 			i=4;
 		}
+
+		//fmt.Printf("i= %d\n", i)
+		//fmt.Printf("n=")
+		//ShowRib(arg, 3)
+		//fmt.Printf("\n")
 
 		stack.Field0Set(allocRib(tagNum(i), arg, stack.Field0()))
 	}
