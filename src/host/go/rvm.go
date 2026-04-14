@@ -481,11 +481,11 @@ func str2scm(c string) Obj {
 		obj = allocRib(tagNum(int(c[i])), obj, tagNum(PairTag))
 	}
 
-	return obj
+	return allocRib(obj, tagNum(length), tagNum(StringTag))
 }
 // )@@
 
-// @@(feature list2scm
+// @@(feature list2scm (use str2scm)
 func list2scm(s []string) Obj {
 	obj := Obj(NIL)
 	for i := len(s) - 1; i >= 0; i-- {
