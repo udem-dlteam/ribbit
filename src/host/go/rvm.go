@@ -230,9 +230,10 @@ func getInt(n int) int {
 // ===============================================
 // ===============================================
 
-var stack = tagNum(0)
-var symbolTable = tagNum(0)
-var pc = tagNum(0)
+var NUM0 = tagNum(0)
+var stack = NUM0
+var symbolTable = NUM0
+var pc = NUM0
 
 var FALSE *Rib = nil
 var TRUE *Rib = nil
@@ -353,15 +354,10 @@ func buildSymTable() {
 }
 
 // @@(feature encoding/optimal
-func decodeOptimal() {
+func decode() {
 	var ranges = []int{1, 2, 3} // @@(replace "{1, 2, 3}" (list->host encoding/optimal/start "{" "," "}"))@@
 
-  //obj n;
-  //int d;
-  //int op;
-  //int i;
 	var n Obj
-	var d int
 	var i int
 
 	for {
@@ -378,11 +374,13 @@ func decodeOptimal() {
 			range_index++
 		}
 
-    if (range_index < 4) push(0); // JUMP
+    if (range_index < 4) { push(tagNum(0)) } // JUMP
     if (range_index < 24) {
-			n = range_index%2
-			if n>0{
-				n = getInt(n)
+			n_temp := range_index%2
+			if n_temp>0{
+				n = tagNum(getInt(n_temp))
+			} else {
+				n = tagNum(n_temp)
 			}
 		}
 
@@ -392,24 +390,25 @@ func decodeOptimal() {
 				i = 0
 			}
 			if (range_index % 4) / 2 >= 1{
-				n = symbol_ref(n)
+				n = symbolRef(n)
 			}
 		} else if range_index < 22 { // const proc
-			n = alloc_rib(alloc_rib(tagNum(n), tagNum(0), pop()), Obj(NIL), tagNum(ClosureTag))
+			n = allocRib(allocRib(n, NUM0, pop()), Obj(NIL), tagNum(ClosureTag))
 			i=3;
-			if stack == NUM_0 {
+			if stack == NUM0 {
 				break
 			}
-		} else if range < 24 { // skip
-			stack = alloc_rib(inst_tail(stack.field0(), n), stack, 0)
+		} else if range_index < 24 { // skip
+			stack = allocRib(instTail(stack.Field0(), n), stack, NUM0)
 			continue
-		} else if (op < 25) { // return
+		} else if (range_index < 25) { // if
 			n = pop()
 			i=4;
 
 		}
 
-		stack.field0Set(alloc_rib(tagNum(i), n, stack.field0()))
+		stack.Field0Set(allocRib(tagNum(i), n, stack.Field0()))
+	}
 }
 // )@@
 
