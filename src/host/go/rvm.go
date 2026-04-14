@@ -30,7 +30,7 @@ func ShowRib(rib Obj, depth int) {
     return
   }
   if (rib == TRUE) {
-    fmt.Printf("#t") 
+    fmt.Printf("#t")
     return
   }
   if (rib == FALSE) {
@@ -357,30 +357,28 @@ func buildSymTable() {
 func decode() {
 	var ranges = []int{1, 2, 3} // @@(replace "{1, 2, 3}" (list->host encoding/optimal/start "{" "," "}"))@@
 
-	var n Obj
+	//var n Obj
 	var i int
+	var arg Obj
 
 	for {
 		code := getCode()
-		arg := code
+		arg = tagNum(code)
 		range_index := 0
 
 		for {
-			if arg < ranges[range_index] {
+			if arg.Value() < ranges[range_index] {
 				break
 			}
 
-			arg -= ranges[range_index]
+			arg = tagNum(arg.Value() - ranges[range_index])
 			range_index++
 		}
 
     if (range_index < 4) { push(tagNum(0)) } // JUMP
     if (range_index < 24) {
-			n_temp := range_index%2
-			if n_temp>0{
-				n = tagNum(getInt(n_temp))
-			} else {
-				n = tagNum(n_temp)
+			if range_index%2>0{
+				arg = tagNum(getInt(arg.Value()))
 			}
 		}
 
@@ -389,27 +387,29 @@ func decode() {
 			if i < 0 {
 				i = 0
 			}
-			n = tagNum((range_index % 4) / 2)
-			if n.Value() >= 1{
-				n = symbolRef(n)
+			if (range_index % 4) / 2 >= 1{
+				arg = symbolRef(arg)
+			} else {
+				arg = arg
 			}
 		} else if range_index < 22 { // const proc
-			n = allocRib(allocRib(n, NUM0, pop()), Obj(NIL), tagNum(ClosureTag))
+			arg = allocRib(allocRib(arg, NUM0, pop()), Obj(NIL), tagNum(ClosureTag))
 			i=3;
 			if stack == NUM0 {
 				break
 			}
 		} else if range_index < 24 { // skip
-			stack = allocRib(instTail(stack.Field0(), n), stack, NUM0)
+			stack = allocRib(instTail(stack.Field0(), arg), stack, NUM0)
 			continue
 		} else if (range_index < 25) { // if
-			n = pop()
+			arg = pop()
 			i=4;
-
 		}
 
-		stack.Field0Set(allocRib(tagNum(i), n, stack.Field0()))
+		stack.Field0Set(allocRib(tagNum(i), arg, stack.Field0()))
 	}
+
+	pc = arg.Field0().Field2()
 }
 // )@@
 
