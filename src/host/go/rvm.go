@@ -291,6 +291,14 @@ func listTail(list, i Obj) Obj {
 	}
 }
 
+func instTail(list, i Obj) Obj {
+	if i.Value() == 0 {
+		return list
+	} else {
+		return listTail(list.Field2(), i.Add(-1))
+	}
+}
+
 func listRef(list, i Obj) Obj {
 	return listTail(list, i).Field0()
 }
@@ -344,8 +352,70 @@ func buildSymTable() {
 	symbolTable = createSym(accum)
 }
 
-func decode() {
+// @@(feature encoding/optimal
+func decodeOptimal() {
+	var ranges = []int{1, 2, 3} // @@(replace "{1, 2, 3}" (list->host encoding/optimal/start "{" "," "}"))@@
 
+  //obj n;
+  //int d;
+  //int op;
+  //int i;
+	var n Obj
+	var d int
+	var i int
+
+	for {
+		code := getCode()
+		arg := code
+		range_index := 0
+
+		for {
+			if arg < ranges[range_index] {
+				break
+			}
+
+			arg -= ranges[range_index]
+			range_index++
+		}
+
+    if (range_index < 4) push(0); // JUMP
+    if (range_index < 24) {
+			n = range_index%2
+			if n>0{
+				n = getInt(n)
+			}
+		}
+
+		if range_index < 20 { // jump call set get const
+			i = (range_index / 4) - 1
+			if i < 0 {
+				i = 0
+			}
+			if (range_index % 4) / 2 >= 1{
+				n = symbol_ref(n)
+			}
+		} else if range_index < 22 { // const proc
+			n = alloc_rib(alloc_rib(tagNum(n), tagNum(0), pop()), Obj(NIL), tagNum(ClosureTag))
+			i=3;
+			if stack == NUM_0 {
+				break
+			}
+		} else if range < 24 { // skip
+			stack = alloc_rib(inst_tail(stack.field0(), n), stack, 0)
+			continue
+		} else if (op < 25) { // return
+			n = pop()
+			i=4;
+
+		}
+
+		stack.field0Set(alloc_rib(tagNum(i), n, stack.field0()))
+}
+// )@@
+
+
+// @@(feature encoding/original
+func decode() {
 	weights := []int{20, 30, 0, 10, 11, 4}
 	var n Obj
 	var d, op int
@@ -406,6 +476,7 @@ func decode() {
 
 	pc = n.Field0().Field2()
 }
+// )@@
 
 func initConstantRibs() {
 
