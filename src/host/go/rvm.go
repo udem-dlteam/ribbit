@@ -389,7 +389,8 @@ func decode() {
 			if i < 0 {
 				i = 0
 			}
-			if (range_index % 4) / 2 >= 1{
+			n = tagNum((range_index % 4) / 2)
+			if n.Value() >= 1{
 				n = symbolRef(n)
 			}
 		} else if range_index < 22 { // const proc
