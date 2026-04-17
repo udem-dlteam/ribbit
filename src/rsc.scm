@@ -58,6 +58,24 @@
     (define ($shell-command cmd) (system cmd))
     (define ($delete-file path) (delete-file path)))
 
+  (ribbit
+    (if-feature shell-command
+      (define ($shell-command cmd) (shell-command cmd))
+      (define ($shell-command cmd)
+        (display "*** Warning: the compiler tried to use the shell but it is not implemented in this version of Ribbit.\n")
+        (display "You might want to run the command manually: \n")
+        (display cmd)
+        (newline)
+        1))
+
+    (if-feature delete-file
+      (define ($delete-file path) (delete-file path))
+      (define ($delete-file path)
+        (display "*** Warning: the compiler tried to delete a file but is not supported in this version of Ribbit.\n")
+        (display "You might want to delete:\n")
+        (display path)
+        (newline))))
+
   (else
     (define ($shell-command cmd) (shell-command cmd))
     (define ($delete-file cmd) (delete-file cmd))))
@@ -410,7 +428,7 @@
   ((or gambit chicken))
   (else
     (define (error msg obj)
-      (display "*** Error - ")
+      (display "*** Error: ")
       (display msg)
       (display " : ")
       (pp obj)
@@ -2636,7 +2654,7 @@
 
 (define (report-error err-type . args)
   (display
-    (string-append "*** Error - "
+    (string-append "*** Error: "
                    err-type
                    " in "
                    (resource-file current-resource)
@@ -5617,7 +5635,7 @@
                 " "
                 exe-output-path))))
       (if (not (equal? status 0))
-        (error "Cannot generating executable, returned status" status)))))
+        (error "Cannot generate executable, returned status" status)))))
 
 ;;;----------------------------------------------------------------------------
 
