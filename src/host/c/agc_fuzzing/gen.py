@@ -1,3 +1,8 @@
+# Python script that generate random scripts for testing the AGC in Ribbit
+#
+# To run, run `python gen.py <number_of_nodes> [output_path]`
+#
+
 import matplotlib.pyplot as plt
 import networkx as nx
 
@@ -131,7 +136,7 @@ def print_tree(T, root, buffer):
         fieldn = T[root][n]['field']
         fields[fieldn] = (n,)
 
-    buffer.write(f"(##rib ;; {root}\n")
+    buffer.write(f"(%%rib ;; {root}\n")
     for f in fields:
         if type(f) == tuple:
             print_tree(T, f[0], buffer)
@@ -160,7 +165,7 @@ def node_as_string(node, var):
         return var
 
     field = node[0]
-    return node_as_string(node[1:], "(##field" + str(field) + " " + var + ")")
+    return node_as_string(node[1:], "(%%field" + str(field) + " " + var + ")")
 
 def get_node_path(nodes, node):
     path = nodes[node][0]
@@ -188,7 +193,7 @@ def write_graph_ribbit(G, T, main_root, nb_stack_roots, include_false_root, buff
         src = get_node_path(nodes, edge[0])
         dst = get_node_path(nodes, edge[1])
 
-        buffer.write("(##field" + str(field) + "-set! " + src + " " + dst + f");; {edge[0]} -{field}-> {edge[1]}\n")
+        buffer.write("(%%field" + str(field) + "-set! " + src + " " + dst + f");; {edge[0]} -{field}-> {edge[1]}\n")
 
     buffer.write("(gc_check)")
 
@@ -217,14 +222,14 @@ def write_graph_ribbit(G, T, main_root, nb_stack_roots, include_false_root, buff
             temp_1_root = r.choice(list(G.nodes()))
 
         src = get_node_path(nodes, temp_1_root)
-        buffer.write(f"(##field0-set! #t {src}) ;; set temp_1 root {temp_1_root}\n")
-        other_roots.append(("(##field0 #t)", temp_1_root))
+        buffer.write(f"(%%field0-set! #t {src}) ;; set temp_1 root {temp_1_root}\n")
+        other_roots.append(("(%%field0 #t)", temp_1_root))
 
     while len(G.nodes()) > len(other_roots) + 1:
         edge_to_remove = r.choice(list(G.edges(data=True)))
         field = edge_to_remove[2]['field']
         src = get_node_path(nodes, edge_to_remove[0])
-        buffer.write(f"(##field" + str(field) + "-set! " + src + f" 99) ;; {edge_to_remove[0]} -X{field}X-> {edge_to_remove[1]}\n")
+        buffer.write(f"(%%field" + str(field) + "-set! " + src + f" 99) ;; {edge_to_remove[0]} -X{field}X-> {edge_to_remove[1]}\n")
         buffer.write("(gc_check)\n")
         G.remove_edge(edge_to_remove[0], edge_to_remove[1], key=field)
 
@@ -253,9 +258,9 @@ def write_graph_ribbit(G, T, main_root, nb_stack_roots, include_false_root, buff
 
 
     for root in other_roots:
-        buffer.write(f"(##field0 {root[0]})\n")
+        buffer.write(f"(%%field0 {root[0]})\n")
 
-    buffer.write("(##field0 root)\n")
+    buffer.write("(%%field0 root)\n")
 
     buffer.write("\n\n")
 

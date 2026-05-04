@@ -43,7 +43,11 @@
 #include <stdlib.h>
 
 // basic def. of a boolean
-typedef unsigned char bool;
+#if __STDC_VERSION__ < 202311L
+    typedef unsigned char bool;
+    #define true (1)
+    #define false (0)
+#endif
 
 // an unsigned byte value for the REPL's code
 typedef unsigned char byte;
@@ -1820,7 +1824,7 @@ obj bool2scm(bool x) { return x ? TRUE : FALSE; }
 obj prim(int no) {
   switch (no) { 
   // @@(primitives (gen "case " index ":" body)
-  case 0: // @@(primitive (##rib a b c)
+  case 0: // @@(primitive (%%rib a b c)
   {
 #ifdef REF_COUNT
     PRIM3();
@@ -1843,26 +1847,26 @@ obj prim(int no) {
 #endif
     break;
   } // )@@
-  case 1: // @@(primitive (##id x)
+  case 1: // @@(primitive (%%id x)
   {
     PRIM1();
     push(x);
     DEC_PRIM1();
     break;
   } // )@@
-  case 2: // @@(primitive (##arg1 x y)
+  case 2: // @@(primitive (%%arg1 x y)
   {
     set_stack(CDR(stack)); // pop without using the argument
     break;
   } // )@@
-  case 3: // @@(primitive (##arg2 x y)
+  case 3: // @@(primitive (%%arg2 x y)
   {
     PRIM2();
     push(y);
     DEC_PRIM2();
     break;
   } //)@@
-  case 4: // @@(primitive (##close rib)
+  case 4: // @@(primitive (%%close rib)
   {
     obj x = CAR(TOS); // code
     obj y = CDR(stack); // stack (env)
@@ -1876,7 +1880,7 @@ obj prim(int no) {
 #endif
     break;
   } //)@@
-  case 5: // @@(primitive (##rib? rib) (use bool2scm)
+  case 5: // @@(primitive (%%rib? rib) (use bool2scm)
   {
     /* PRIM1(); */
     /* push2(bool2scm(IS_RIB(x)), PAIR_TAG); */
@@ -1889,28 +1893,28 @@ obj prim(int no) {
     push(res);
     break;
   } //)@@
-  case 6: // @@(primitive (##field0 rib)
+  case 6: // @@(primitive (%%field0 rib)
   {
     PRIM1();
     push(CAR(x));
     DEC_PRIM1();
     break;
   } //)@@
-  case 7: // @@(primitive (##field1 rib)
+  case 7: // @@(primitive (%%field1 rib)
   {
     PRIM1();
     push(CDR(x));
     DEC_PRIM1();
     break;
   } //)@@
-  case 8:  // @@(primitive (##field2 rib)
+  case 8:  // @@(primitive (%%field2 rib)
   {
     PRIM1();
     push(TAG(x));
     DEC_PRIM1();
     break;
   } //)@@
-  case 9: // @@(primitive (##field0-set! rib x)
+  case 9: // @@(primitive (%%field0-set! rib x)
   { 
     PRIM2();
     SET_CAR(x, y);
@@ -1921,7 +1925,7 @@ obj prim(int no) {
     DEC_PRIM2();
     break;
   } //)@@
-  case 10:  // @@(primitive (##field1-set! rib x)
+  case 10:  // @@(primitive (%%field1-set! rib x)
   {
     PRIM2();
     SET_CDR(x, y);
@@ -1932,7 +1936,7 @@ obj prim(int no) {
     DEC_PRIM2();
     break;
   } //)@@
-  case 11:  // @@(primitive (##field2-set! rib x)
+  case 11:  // @@(primitive (%%field2-set! rib x)
   {
     PRIM2();
     SET_TAG(x, y);
@@ -1943,7 +1947,7 @@ obj prim(int no) {
     DEC_PRIM2();
     break;
   } // )@@
-  case 12:  // @@(primitive (##eqv? rib1 rib2) (use bool2scm)
+  case 12:  // @@(primitive (%%eqv? rib1 rib2) (use bool2scm)
   {
     /* PRIM2(); */
     /* push2(bool2scm(x == y), PAIR_TAG); */
@@ -1956,42 +1960,42 @@ obj prim(int no) {
     push(res);
     break;
   } //)@@
-  case 13:  // @@(primitive (##< x y) (use bool2scm)
+  case 13:  // @@(primitive (%%< x y) (use bool2scm)
   {
     PRIM2();
     push(bool2scm(NUM(x) < NUM(y)));
     DEC_PRIM2();
     break;
   } //)@@
-  case 14:  // @@(primitive (##+ x y)
+  case 14:  // @@(primitive (%%+ x y)
   {
     PRIM2();
     push(x + y - 1);
     DEC_PRIM2();
     break;
   } //)@@
-  case 15:  // @@(primitive (##- x y)
+  case 15:  // @@(primitive (%%- x y)
   {
     PRIM2();
     push(x - y + 1);
     DEC_PRIM2();
     break;
   } //)@@
-  case 16:  // @@(primitive (##* x y)
+  case 16:  // @@(primitive (%%* x y)
   {
     PRIM2();
     push(TAG_NUM((NUM(x) * NUM(y))));
     DEC_PRIM2();
     break;
   } // )@@
-  case 17:  // @@(primitive (##quotient x y)
+  case 17:  // @@(primitive (%%quotient x y)
   {
     PRIM2();
     push(TAG_NUM((NUM(x) / NUM(y))));
     DEC_PRIM2();
     break;
   } // )@@
-  case 18:  // @@(primitive (##getchar)
+  case 18:  // @@(primitive (%%getchar)
   {
     int read;
     read = getchar();
@@ -1999,7 +2003,7 @@ obj prim(int no) {
     push(TAG_NUM(read));
     break;
   } // )@@
-  case 19:  // @@(primitive (##putchar c)
+  case 19:  // @@(primitive (%%putchar c)
   {
     PRIM1();
     putchar((char)NUM(x));
@@ -2008,7 +2012,7 @@ obj prim(int no) {
     DEC_PRIM1();
     break;
   } // )@@
-  case 20:  // @@(primitive (##exit n)
+  case 20:  // @@(primitive (%%exit n)
   {
     PRIM1();
     vm_exit(NUM(x));

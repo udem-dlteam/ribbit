@@ -1,9 +1,28 @@
+# Script to fuzz the agc. Follow instructions below to run.
+#
+# Instructions:
+# 1. Make sure you have python3 installed and available in your PATH, else
+# change the PYTHON variable
+# 2. Create a virtual environment with the dependencies in
+# host/c/agc_fuzzing/requirements.txt, and activate it
+# 3. Run this script.
+
+GEN_SCRIPT_LOCATION="./host/c/agc_fuzzing/gen.py"
+PYTHON="python3"
+TIMEOUT=180 # seconds
+
+
+# Run undependently of the current working directory
+SCRIPTPATH=$(dirname "$0")
+RIBBITPATH=$(realpath $SCRIPTPATH/../../..)
+cd $RIBBITPATH
+
+
 if [ "$1" == "" ] || [ "$2" == "" ]; then
   echo "Usage: $0 <number of iterations> <graph_size>"
   exit 1
 fi
 
-TIMEOUT=180 # seconds
 
 function error {
   echo_ "==> ERROR: $1"
@@ -36,7 +55,9 @@ function compile_and_run {
   readable_config=$(echo $args | sed "s/ /_/g" | sed "s/-f+//g" | sed "s/\//_/g" )
 
   echo_ "==> $4 Compiling & Running with '$args'"
-  ./rsc.exe --rvm ./host/c/es.c -t c -l test-es -f+ c/gc/es -o $file_dir/run.c -x $file_dir/run.exe $file_dir/run.scm $args
+
+  cmd="./rsc.exe --rvm ./host/c/agc.c -t c -l test-es -f+ c/gc/es -o $file_dir/run.c -x $file_dir/run.exe $file_dir/run.scm $args"
+  $cmd
   if [ "$?" != "0" ]; then
     error "Failed to compile" "$file_dir" "$iters" "$readable_config"
     return 1;
@@ -64,7 +85,7 @@ function run_fuzz {
   FUZZ_RUN_DIR=$2
   iters=$3
   echo "===== Generating random program"
-  python3 ./host/c/gen_graph/gen.py $graph_size $FUZZ_RUN_DIR/run.scm
+  $PYTHON $GEN_SCRIPT_LOCATION $graph_size $FUZZ_RUN_DIR/run.scm
   compile_and_run "$FUZZ_RUN_DIR" "-f+ gc/c/es" "$iters"
   compile_and_run "$FUZZ_RUN_DIR" "-f+ gc/c/es -f+ queue-no-remove" "$iters"
   compile_and_run "$FUZZ_RUN_DIR" "-f+ gc/c/es -f+ linked-list" "$iters"
@@ -92,8 +113,11 @@ function echo_ {
 FUZZ_DIR=.fuzz_fail
 mkdir -p .fuzz_fail
 
+# Make sure rsc.exe is built
+make rsc.exe
+
 FUZZ_INDEX=0
-while ! mkdir $FUZZ_DIR/$FUZZ_INDEX; do
+while ! mkdir $FUZZ_DIR/$FUZZ_INDEX 2>/dev/null; do
   FUZZ_INDEX=$((FUZZ_INDEX + 1))
 done
 

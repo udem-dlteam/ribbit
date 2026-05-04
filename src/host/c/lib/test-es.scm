@@ -1,8 +1,12 @@
+;; Library to test the AGC.
+;;
+;; Allows the visualization of the heap, forcing a gc pass and count the number of 
+
+
 (define-primitive (gc_check)
                   (use debug/clean-ribs)
-                  
   "{
-    gc(true);
+    gc();
     push(TAG_NUM(0));
     break;
    }")
