@@ -195,7 +195,6 @@ typedef struct {
 } rib;
 
 rib *heap_start;
-#define MAX_NB_OBJS 1000000 // 48000 is minimum for bootstrap
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
 #define heap_bot ((obj *)(heap_start))
 #define heap_top (heap_bot + (HEAP_SIZE_FIELDS))
