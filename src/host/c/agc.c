@@ -1470,7 +1470,6 @@ void mark(obj *o) { // Recursive version of marking phase
 void gc() {
   int leftovers = 0;
   int wrongly_collected = 0;
-  //printf("\t--GC called\n");
   // Mark (only 3 possible roots)
   mark(&stack);
   mark(&pc);
