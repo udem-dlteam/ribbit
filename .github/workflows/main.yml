@@ -4,11 +4,9 @@ on:
   push:
     branches:
       - main
-      - l4haie/even-shiloach
   pull_request:
     branches:
       - main
-      - l4haie/even-shiloach
 jobs:
   check_gambit_from_ubuntu:
     runs-on: ubuntu-latest
@@ -1184,15 +1182,3 @@ jobs:
       - name: Run RVM tests
         run: |
           cd src; HOST=bas make check RSC="./rsc.exe"
-
-  check_es:
-      - name: Setup gcc
-        uses: egor-tensin/setup-gcc@v1
-        with:
-          version: latest
-          platform: x64
-
-      - name: Run RVM tests
-        run: |
-          cd src; make check-es;
-
