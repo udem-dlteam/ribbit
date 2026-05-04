@@ -159,7 +159,7 @@ typedef long num;
 
 // ATTENTION PLEASE: don't change the base size during testing
 #ifndef BASE_HEAP_SIZE_FIELDS
-#define BASE_HEAP_SIZE_FIELDS 12000000
+#define BASE_HEAP_SIZE_FIELDS 24000000
 #endif
 
 #define RIB_NB_FIELDS 3
@@ -337,10 +337,8 @@ void init_heap() {
   }
 
 #else
-
-  fprintf(stderr, "allocated space size = %lu \n", HEAP_SIZE_BYTES);
   heap_start = malloc(HEAP_SIZE_BYTES);
-  
+
   if (!heap_start) {
     vm_exit(EXIT_NO_MEMORY);
   }
