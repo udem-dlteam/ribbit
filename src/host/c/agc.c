@@ -31,10 +31,6 @@ typedef unsigned long obj;
 // a number
 typedef long num;
 
-// @@(feature ref-count
-#define REF_COUNT
-// )@@
-
 // @@(feature queue-no-remove
 #define QUEUE_NO_REMOVE
 // )@@
@@ -124,11 +120,7 @@ void check_spanning_tree_impl();
 #define DEBUG_FIELD_count 0
 #endif
 
-#ifdef REF_COUNT
-#define RIB_NB_FIELDS 4
-#else
 #define RIB_NB_FIELDS (10+QUEUE_NO_REMOVE_count+DEBUG_FIELD_count)
-#endif
 
 #ifndef BASE_HEAP_SIZE_FIELDS
 #define BASE_HEAP_SIZE_FIELDS 12000000
@@ -185,7 +177,6 @@ typedef struct {
 #define CDR(x) RIB(x)->fields[1]
 #define TAG(x) RIB(x)->fields[2]
 
-#ifndef REF_COUNT
 #define M_CAR(x) RIB(x)->m_fields[0]
 #define M_CDR(x) RIB(x)->m_fields[1]
 #define M_TAG(x) RIB(x)->m_fields[2]
@@ -197,7 +188,6 @@ typedef struct {
 #define PQ_NEXT(x) RIB(x)->catch_queue
 #else
 #define PQ_NEXT(x) Q_NEXT(x)
-#endif
 #endif
 
 #define get_field(x,i) RIB(x)->fields[i]
@@ -380,14 +370,12 @@ obj NIL = NUM_0;
 #define TEMP3 CAR(NIL)
 #define TEMP4 CDR(NIL)
 
-#ifndef REF_COUNT
 // We use the space of an entire rib on the heap for the end of the free list,
 // might as well use that rib to store temporary values (e.g. popped ribs)
 obj null_rib; // temporary values
 #define TEMP5 (CAR(null_rib))
 #define TEMP6 (CDR(null_rib))
 #define TEMP7 (TAG(null_rib))
-#endif
 
 obj *alloc;
 obj *scan;
@@ -399,11 +387,10 @@ rib *heap_start;
 #define heap_top (heap_bot + (MAX_NB_OBJS*RIB_NB_FIELDS))
 
 
-#ifndef REF_COUNT
 
 //==============================================================================
 
-// Data structures (ES Trees)
+// Supporting data structures for ES Trees
 
 
 // Drop queue 
@@ -1016,9 +1003,7 @@ void dealloc_rib(obj dx) {
 
   while (!Q_IS_EMPTY()) {
     x = q_dequeue();
-#ifndef REF_COUNT
     deallocate(x); // deallocated rib, this way we just ignore cycles
-#endif
     _x = RIB(x)->fields;
     for (int i = 0; i < 3; i++) {
       if (IS_RIB(_x[i])) {
@@ -1066,9 +1051,7 @@ void dealloc_rib(obj dx) {
 }
 
 /* void dealloc_rib(obj x){ */
-/* #ifndef REF_COUNT */
 /*   deallocate(x); // deallocated rib, this way we just ignore cycles */
-/* #endif */
 /*   obj *_x = RIB(x)->fields; */
 /*   for (int i = 0; i < 3; i++) { */
 /*     if (IS_RIB(_x[i])) { */
@@ -1236,93 +1219,14 @@ void set_stack(obj new_stack) {
   obj old_pc = pc;                                                              \
   pc = new_pc;                                                                  \
   if (pc != NUM_0){                                                             \
-    get_parent(pc) = _NULL;                                                       \
-  }                                                                            \
-                                                                               \
+    get_parent(pc) = _NULL;                                                     \
+  }                                                                             \
+                                                                                \
   remove_root(old_pc);
-
-#else
 
 //==============================================================================
 
-// Reference counting
-
-// Write barries
-
-void inc_count(obj o) {
-  // assumes o is a rib
-  obj *ptr = RIB(o)->fields;
-  num count = NUM(ptr[3])+1;
-  ptr[3] = TAG_NUM(count);
-}
-
-void dec_count(obj o) {
-  // assumes o is a rib
-  obj *ptr = RIB(o)->fields;
-  num count = NUM(ptr[3])-1;
-  
-  if (count < 1) {
-    for (int i = 0; i < 3; i++) {
-      if (IS_RIB(ptr[i])) {
-        dec_count(ptr[i]);
-      }
-    }
-    ptr[0] = (obj)alloc; // reference to next availabe slot in memory
-    alloc = &ptr[0];
-    
-    // FIXME Simplifies the generated graph but redundant with rib allocation
-    ptr[1] = _NULL;
-    ptr[2] = _NULL;
-    ptr[3] = TAG_NUM(0);
-  }
-  else {
-    ptr[3] = TAG_NUM(count);
-  }
-}
-
-// only increment count of ribs, not nums
-#define INC_COUNT(o) if (IS_RIB(o)) inc_count(o)
-#define DEC_COUNT(o) if (IS_RIB(o)) dec_count(o)
-
-
-void set_field(obj src, int i, obj dest) {
-  obj *p_src = RIB(src)->fields;
-  // always increase before decreasing 
-  INC_COUNT(dest);
-  DEC_COUNT(p_src[i]);
-  p_src[i] = dest;
-}
-
-#define SET_CAR(src, dest) set_field(src, 0, dest)
-#define SET_CDR(src, dest) set_field(src, 1, dest)
-#define SET_TAG(src, dest) set_field(src, 2, dest)
-
-void set_sym_tbl(obj new_sym_tbl) {
-  obj old_sym_tbl = symbol_table;
-  symbol_table = new_sym_tbl;
-  INC_COUNT(symbol_table);
-  DEC_COUNT(old_sym_tbl);
-}
-
-void set_stack(obj new_stack) {
-  obj old_stack = stack;
-  stack = new_stack;
-  INC_COUNT(stack);
-  DEC_COUNT(old_stack);
-}
-
-void set_pc(obj new_pc) {
-  obj old_pc = pc;
-  pc = new_pc;
-  INC_COUNT(pc);
-  DEC_COUNT(old_pc);
-}
-
-#endif
-
-// The basic mark-and-sweep GC is used mainly for collecting cyclic garbage
-// not reclaimed when using ref count but we also use if with the incremental
-// collector to see if any garbage was left uncollected when running the tests
+// Mark-and-sweep 
 
 void mark(obj *o) { // Recursive version of marking phase
   if (IS_RIB(*o)) {
@@ -1354,16 +1258,12 @@ void gc() {
         wrongly_collected++;
       }
     } else {
-#ifdef REF_COUNT
-      if (RIB((obj)scan)->fields[3] != 0) leftovers++;
-#else
       if (get_rank((obj)scan) != UNALLOCATED_RIB_RANK && ((obj)scan) != null_rib) {
         if (!is_root((obj)scan) && !is_immortal((obj)scan) && is_protected((obj)scan)){ // <--- ICI on check
           printf("Found protected value!! => count = %lu\n", get_parent((obj)scan));
         }
         leftovers++;
       }
-#endif
       *scan = (obj)alloc;
       alloc = scan;
     }
@@ -1371,17 +1271,10 @@ void gc() {
   }
   printf("***REMAINING_RIBS = %d\n", leftovers);
   printf("***ALIVE_BUT_COLLECTED = %d\n", wrongly_collected);
-#ifdef REF_COUNT
-  if (*alloc == _NULL){
-    printf("Heap is full\n");
-    exit(1);
-  }
-#else
   /* if (((obj)alloc) == null_rib) { */
   /*   printf("Heap is full\n"); */
   /*   // exit(1); */
   /* } */
-#endif
 }
 
 
@@ -1391,8 +1284,6 @@ void gc() {
 
 
 // Stack and heap management
-
-#ifndef REF_COUNT
 
 obj pop() {
   obj tos = CAR(stack);
@@ -1533,87 +1424,6 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
 
 #define alloc_rib2(car, cdr, tag) alloc_rib(car, cdr, tag)
 
-#else
-
-// The count of CAR(stack) must be increased before setting the stack to
-// CDR(stack) to make sure we don't dealloc the popped object. This also means
-// that the caller of pop must decrease the count when the object is no longer
-// needed... this is pretty tedious but that's how it is for now
-obj pop() {
-  obj x = CAR(stack);
-  INC_COUNT(x);
-  set_stack(CDR(stack));
-  return x;
-}
-
-// to avoid too many preprocessor instructions in the RVM code
-#define DEC_POP(o) DEC_COUNT(o)
-
-#define PRIM1() obj x = pop()
-#define PRIM2() obj y = pop(); PRIM1()
-#define PRIM3() obj z = pop(); PRIM2()
-
-#define DEC_PRIM1() DEC_COUNT(x)
-#define DEC_PRIM2() DEC_COUNT(y); DEC_PRIM1()
-#define DEC_PRIM3() DEC_COUNT(z); DEC_PRIM2()
-
-void push2(obj car, obj tag) {
-  obj tmp = *alloc; // next available slot in freelist
-  
-  // default stack frame is (value, ->, NUM_0)
-  *alloc++ = car;
-  *alloc++ = stack;
-  *alloc++ = tag;
-  *alloc++ = TAG_NUM(1); // ref count of 1 cos pointed by stack
-  alloc += (RIB_NB_FIELDS-4);
-  
-  stack = TAG_RIB((rib *)(alloc - RIB_NB_FIELDS));
-  alloc = (obj *)tmp;
-  
-  // no need to increase ref count of stack because it remains unchanged
-  // only difference is that the ref comes from the rib pointed by instead
-  // of the stack pointer itself
-  INC_COUNT(car);
-  INC_COUNT(tag);
-  
-  if (!IS_RIB(tmp) || *alloc == _NULL) { // empty freelist?
-    gc();
-  }
-}
-
-rib *alloc_rib(obj car, obj cdr, obj tag) {
-  push2(car, cdr); // tag is set
-  
-  obj old_stack = CDR(stack);
-  obj allocated = stack;
-
-  CDR(allocated) = TAG(allocated);
-  TAG(allocated) = tag;
-
-  INC_COUNT(tag);
-
-  stack = old_stack;
-
-  return RIB(allocated);
-}
-
-rib *alloc_rib2(obj car, obj cdr, obj tag) {
-  push2(car, tag);
-  obj old_stack = CDR(stack);
-  obj allocated = stack;
-
-  CDR(allocated) = cdr;
-
-  INC_COUNT(cdr);
-
-  stack = old_stack;
-
-  return RIB(allocated);
-}
-
-#endif
-
-
 //------------------------------------------------------------------------------
 
 // Program execution
@@ -1695,16 +1505,6 @@ obj prim(int no) {
   // @@(primitives (gen "case " index ":" body)
   case 0: // @@(primitive (%%rib a b c)
   {
-#ifdef REF_COUNT
-    PRIM3();
-    obj new_rib = TAG_RIB(alloc_rib(NUM_0, NUM_0, NUM_0));
-    CAR(new_rib) = x;
-    CDR(new_rib) = y;
-    TAG(new_rib) = z;
-    push(new_rib);
-    DEC_COUNT(new_rib); // remove redundant new_rib count
-    DEC_PRIM3();
-#else
     // No need to protect the 3 arguments since they'll  be reachable
     // from the newly allocated rib
     obj z = CAR(stack);
@@ -1713,7 +1513,6 @@ obj prim(int no) {
     obj r = TAG_RIB(alloc_rib(x, y, z));
     set_stack(CDR(CDR(CDR(stack))));
     push(r);
-#endif
     break;
   } // )@@
   case 1: // @@(primitive (%%id x)
@@ -1743,10 +1542,6 @@ obj prim(int no) {
     // x and y count increased in push2 and the newly allocated rib as
     // well but need to decrease the count of the initial TOS
     SET_CAR(stack, closure);
-#ifdef REF_COUNT
-    DEC_COUNT(closure);
-    DEC_COUNT(CAR(closure));
-#endif
     break;
   } //)@@
   case 5: // @@(primitive (%%rib? rib) (use bool2scm)
@@ -1788,9 +1583,6 @@ obj prim(int no) {
     PRIM2();
     SET_CAR(x, y);
     push(y);
-#ifdef REF_COUNT
-    DEC_COUNT(y);
-#endif
     DEC_PRIM2();
     break;
   } //)@@
@@ -1799,9 +1591,6 @@ obj prim(int no) {
     PRIM2();
     SET_CDR(x, y);
     push(y);
-#ifdef REF_COUNT
-    DEC_COUNT(y);
-#endif
     DEC_PRIM2();
     break;
   } //)@@
@@ -1810,9 +1599,6 @@ obj prim(int no) {
     PRIM2();
     SET_TAG(x, y);
     push(y);
-#ifdef REF_COUNT
-    DEC_COUNT(y);
-#endif
     DEC_PRIM2();
     break;
   } // )@@
@@ -1958,10 +1744,6 @@ void run() { // evaluator
           obj new_stack = TAG_RIB(alloc_rib(NUM_0, proc, STACK_PAIR_TAG));
           proc = CDR(new_stack);
           SET_CDR(new_stack, CDR(proc)); // @@(feature flat-closure)@@
-#ifdef REF_COUNT
-          // No need to save the procedure for ES
-          SET_CAR(pc, CAR(proc)); // save the proc from the mighty gc
-#endif
           num nparams_vari = NUM(CAR(CAR(proc)));
           num nparams = nparams_vari >> 1;
           // @@(feature arity-check
@@ -1982,35 +1764,17 @@ void run() { // evaluator
           if (vari){
             obj rest = NIL;
             for(int i = 0; i < nargs; ++i){
-#ifdef REF_COUNT
-              rest = TAG_RIB(alloc_rib(pop(), rest, PAIR_TAG));
-              DEC_COUNT(CDR(rest)); // old rest
-              DEC_POP(CAR(rest));
-#else
               rest = TAG_RIB(alloc_rib(CAR(s), rest, PAIR_TAG));
               s = CDR(s);
-#endif
             }
             new_stack = TAG_RIB(alloc_rib(rest, new_stack, STACK_PAIR_TAG));
-#ifdef REF_COUNT
-            DEC_COUNT(CAR(new_stack)); // rest
-            DEC_COUNT(CDR(new_stack)); // old new stack
-#endif
           }
           // )@@
           for (int i = 0; i < nparams; ++i) {
-#ifdef REF_COUNT
-            new_stack = TAG_RIB(alloc_rib(pop(), new_stack, PAIR_TAG));
-            DEC_COUNT(CDR(new_stack)); // old new stack
-            DEC_POP(CAR(new_stack));
-#else
             new_stack = TAG_RIB(alloc_rib(CAR(s), new_stack, STACK_PAIR_TAG));
             s = CDR(s);
-#endif
           }
-#ifndef REF_COUNT
           if (s != stack) { set_stack(s); }
-#endif
           
           nparams = nparams + vari; // @@(feature arity-check)@@
           obj new_cont = TAG_RIB(list_tail(RIB(new_stack), nparams));
@@ -2018,25 +1782,12 @@ void run() { // evaluator
             obj k = get_cont();
             SET_CAR(new_cont, CAR(k)); // CAR(new_cont) = CAR(k);
             SET_TAG(new_cont, TAG(k)); // TAG(new_cont) = TAG(k);
-#ifdef REF_COUNT
-            DEC_COUNT(k);
-#endif
           } else {
             SET_CAR(new_cont, stack); // CAR(new_cont) = stack;
-#ifdef REF_COUNT
-            DEC_COUNT(stack);
-#endif
             SET_TAG(new_cont, TAG(pc)); // TAG(new_cont) = TAG(pc);
           }
-#ifdef REF_COUNT
-          stack = new_stack;
-          obj _new_pc = CAR(pc); // proc entry point
-          SET_CAR(pc, TAG_NUM(instr));
-          set_pc(TAG(_new_pc));
-#else
           set_pc(TAG(CAR(proc)));
           set_stack(new_stack);
-#endif
         }
         break;
       }
@@ -2098,15 +1849,11 @@ void init_heap() {
   }
   // initialize freelist
   scan = heap_top;
-#ifdef REF_COUNT
-  *scan = _NULL;
-#else
   scan -= RIB_NB_FIELDS;
   null_rib = TAG_RIB((rib *)(scan));
   // scan -= RIB_NB_FIELDS; // skip the null rib
   // // rank should always be 0 since popped values will be saved there temporarly
   // set_rank(null_rib, 0);
-#endif
   while (scan != heap_bot) {
     set_rank(scan, UNALLOCATED_RIB_RANK);
     alloc = scan; // alloc <- address of previous slot
@@ -2163,14 +1910,7 @@ obj lst_length(obj list) {
 rib *create_sym(obj name) {
   rib *list = alloc_rib(name, lst_length(name), STRING_TAG);
   rib *sym = alloc_rib(FALSE, TAG_RIB(list), SYMBOL_TAG);
-#ifdef REF_COUNT
-  DEC_COUNT(CDR(sym)); // redundant count
-#endif
   rib *root = alloc_rib(TAG_RIB(sym), symbol_table, PAIR_TAG);
-#ifdef REF_COUNT
-  DEC_COUNT(CAR(root)); // redundant count
-  DEC_COUNT(CDR(root)); // redundant count
-#endif
   return root;
 }
 
@@ -2185,23 +1925,14 @@ void build_sym_table() {
     byte c = get_byte();
     if (c == 44) {
       set_sym_tbl(TAG_RIB(create_sym(accum))); // symbol_table = TAG_RIB(create_sym(accum));
-#ifdef REF_COUNT
-    DEC_COUNT(accum);
-#endif
       accum = NIL;
       continue;
     }
     if (c == 59)
       break;
     accum = TAG_RIB(alloc_rib(TAG_NUM(c), TAG_RIB(accum), PAIR_TAG));
-#ifdef REF_COUNT
-    DEC_COUNT(CDR(accum));
-#endif
   }
   set_sym_tbl(TAG_RIB(create_sym(accum))); // symbol_table = TAG_RIB(create_sym(accum));
-#ifdef REF_COUNT
-  DEC_COUNT(accum);
-#endif
 }
 
 
@@ -2246,20 +1977,11 @@ void decode() {
       i = (op / 4) - 1;
       i = i < 0 ? 0 : i;
       n = !(op & 0b10)  ? TAG_NUM(n) : TAG_RIB(symbol_ref(n));
-#ifdef REF_COUNT
-      INC_COUNT(n);
-#endif
     }
     else if (op < 22) {
       obj r = TAG_RIB(alloc_rib2(TAG_NUM(n), NUM_0, pop()));
-#ifndef REF_COUNT
       DEC_POP(TAG(r));
-#endif
       n = TAG_RIB(alloc_rib(r, NIL, CLOSURE_TAG));
-#ifdef REF_COUNT
-      DEC_COUNT(TAG(r));
-      DEC_COUNT(r);
-#endif
       i = 3;
       if (stack == NUM_0) {
         break;
@@ -2268,9 +1990,6 @@ void decode() {
     else if (op < 24){
       obj tmp = TAG_RIB(inst_tail(RIB(TOS), n));
       push2(tmp, NUM_0);
-#ifdef REF_COUNT
-      DEC_COUNT(tmp);
-#endif
       continue;
     }
     else if (op < 25){
@@ -2282,19 +2001,10 @@ void decode() {
     SET_TAG(c, TOS); //  c->fields[2] = TOS;
     SET_CAR(stack, c); // TOS = TAG_RIB(c);
     // SET_CAR(stack, TAG_RIB(alloc_rib(TAG_NUM(i), n, TOS))); // TOS = TAG_RIB(c);
-#ifdef REF_COUNT
-    DEC_COUNT(CDR(c)); // n
-    DEC_COUNT(TOS); // c
-#else
     if (check == 1) { DEC_POP(n); check = 0; }
-#endif 
   }
   set_pc(TAG(CAR(n)));
-#ifdef REF_COUNT
-  DEC_COUNT(n);
-#else
   if (IS_RIB(n)) remove_root(n);
-#endif
 }
 // )@@
 
@@ -2357,23 +2067,12 @@ void set_global(obj c) {
 }
 
 // initialize primitive 0, FALSE, TRUE, and NIL
-#ifdef REF_COUNT
-#define INIT_GLOBAL()                                                          \
-  obj tmp = TAG_RIB(alloc_rib(NUM_0, symbol_table, CLOSURE_TAG));              \
-  DEC_COUNT(CDR(tmp));                                                         \
-  set_global(tmp);                                                             \
-  DEC_COUNT(tmp);                                                              \
-  set_global(FALSE);                                                           \
-  set_global(TRUE);                                                            \
-  set_global(NIL)
-#else
 #define INIT_GLOBAL()                                                          \
   obj tmp = TAG_RIB(alloc_rib(NUM_0, symbol_table, CLOSURE_TAG));              \
   set_global(tmp);                                                             \
   set_global(FALSE);                                                           \
   set_global(TRUE);                                                            \
   set_global(NIL)
-#endif
 
 void init_stack() {
   push2(NUM_0, PAIR_TAG);
@@ -2393,10 +2092,8 @@ void init_stack() {
 
 void init() {
   init_heap();
-#ifndef REF_COUNT
   Q_INIT();
   PQ_INIT();
-#endif
   INIT_FALSE(); // don't really care about the ref count of FALSE, TRUE, and NIL
   build_sym_table();
   decode();
@@ -2406,7 +2103,9 @@ void init() {
 }
 
 
+//==============================================================================
 
+// Debugging
 
 #ifdef VIZ
 
