@@ -271,6 +271,7 @@ static inline bool adupt_start_heuristic(obj adoptee, int depth) {
   #endif
 
   return false;
+  /* return depth < 5; */
 }
 
 // DEFAULT: rerank searches until found or root reached
@@ -344,8 +345,6 @@ size_t pos = 0;
 // FALSE, for the check to work in `add_ref`, TRUE and NIL must be defined
 // before FALSE become an object, this also allows for FALSE to become their
 // parent before we stop chaining their referrers
-// FIXME apply the same logic to FALSE, something causes a leak if I don't
-// chain FALSE for the moment, not sure why that is
 obj TRUE = NUM_0;
 obj NIL = NUM_0;
 /* #define TRUE (CAR(FALSE)) */
@@ -358,13 +357,6 @@ obj NIL = NUM_0;
 // WARNING when using the ES garbage collector, the rank of a temporary
 // register must be set to the same rank as the rib's current parent (or
 // a lower rank) to avoid breaking the rank order invariant
-
-// FIXME if there's a bug with the `apply` primitive when using the ES
-// garbage collector, it might me because the rank should be set to 0
-// instead of 1 but the rank should be set back to 0 when clearing the
-// register (see the lib files). The rank must be reset before using
-// the registers because the IO primitives (among other things) use
-// TRUE/NIL which can change their rank.
 #define TEMP1 CAR(TRUE)
 #define TEMP2 CDR(TRUE)
 #define TEMP3 CAR(NIL)
@@ -584,14 +576,6 @@ void pq_remove(obj o) {
 //          |            X +---+---+---+---+---+---+-|-+     |
 //          +------------->| _ | _ | _ | _ | _ | _ | + |<----+
 //                         +---+---+---+---+---+---+---+
-// 
-// Additional notes:
-//
-//  - The friends/co-friends relationship between each objects represents the
-//    object graph(s) while the parent/child relationship forms the spanning
-//    tree of those graphs. The reachability of an object is determined by its
-//    rank (i.e. its distance from the root which is itself determined by the
-//    spanning tree)
 
 #define get_rank(x) (NUM(RANK(x)))
 #define set_rank(x, rank) (RANK(x) = TAG_NUM(rank))
@@ -624,10 +608,6 @@ void und_sub_rank(obj x, num d){
 #define is_collectable(x) (!is_root(x) && !is_protected(x))
 #define is_root(x) (x == pc || x == stack || x == FALSE)
 #define is_immortal(x) (x == TRUE || x == NIL || x == FALSE)
-
-
-// TODO need to document this section, the comments are the same as the ones
-// for the no parent field version
 
 void remove_node(obj x);
 
@@ -906,10 +886,6 @@ bool adUpt(obj x, int depth) {
   }
   return 0;
 }
-
-// FIXME
-// #define close_enough(ref) true
-/* #define close_enough(ref) (get_rank(ref) - get_rank(stack) < MAX_RANK) */
 
 
 void drop() {
@@ -1224,6 +1200,7 @@ void set_stack(obj new_stack) {
                                                                                 \
   remove_root(old_pc);
 
+
 //==============================================================================
 
 // Mark-and-sweep 
@@ -1370,12 +1347,6 @@ void push2(obj car, obj tag) {
 static inline void push(obj car){
   push2(car, STACK_PAIR_TAG);
 }
-
-// We don't need to link a newly allocated rib from the stack since we
-// don't trigger a GC cycle when allocating a new rib: since we deallocate
-// objects instantly when they're no longer needed (even if they're part of
-// a cycle) then the number of live objects at all time in the program
-// corresponds to the maximum number of objects allowed by the program.
 
 rib *alloc_rib(obj car, obj cdr, obj tag) {
   // allocates a rib without protecting it from the GC
@@ -1822,7 +1793,7 @@ void run() { // evaluator
       break;
     }
     case INSTR_HALT: { // halt
-      gc();
+      // gc();
 #ifdef MIN_HEAP_SIZE
       min_nb_objects++; // null rib
       num min_heap_size = min_nb_objects * RIB_NB_FIELDS * 8;
