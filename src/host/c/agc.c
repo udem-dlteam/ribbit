@@ -39,10 +39,6 @@ typedef long num;
 #define QUEUE_NO_REMOVE
 // )@@
 
-// @@(feature linked-list
-#define LINKED_LIST
-// )@@
-
 // @@(feature debug-field
 #define DEBUG_FIELD
 // )@@
@@ -453,27 +449,6 @@ obj q_dequeue() {
 
 // Catch queue 
 
-// Picking the right data structure to implement the priority queue is pretty
-// important since the complexity of deleting an edge depends a lot on that...
-// some options:
-//
-//  - Linked list (used temporarily): simple and requires only 1 extra field
-//    but enqueue, dequeue, and remove are all in O(n)
-//
-//  - Buckets: O(#ranks) for enqueue, O(1) for dequeue, and O(#ranks + m) where
-//    m is the number of ribs in the largest bucket. Requires 2  extra field to
-//    keep a reference to the next rib of the same bucket (of the same rank)
-//    and one to keep a reference of the first rib in the next bucket (bucket
-//    with rank+=1)
-//
-//  - Red-black trees: O(lg(n)) for enqueue and dequeue/removal but requires 3
-//    extra fields: 2 for the left and right subtrees and 1 for the parent.
-//    Tagging can be used for the colour
-//
-//  - Heap
-//
-//  - Something else...?
-
 obj pq_head;
 obj pq_tail;
 
@@ -481,83 +456,6 @@ obj pq_tail;
 
 #define PQ_IS_EMPTY() (pq_head == _NULL)
 
-
-#ifdef LINKED_LIST
-
-// Priority queue implemented with a singly linked list and a remove
-// operation (requires no extra field)
-
-void pq_enqueue(obj o) {
-  // the lower the rank, the closer the rib is to pq_head
-  if (PQ_NEXT(o) == _NULL && pq_tail != o) {
-    if (PQ_IS_EMPTY()){
-      pq_head = o;
-      pq_tail = o;
-    }
-    else if (NUM(RANK(o)) > NUM(RANK(pq_head))) { 
-      PQ_NEXT(o) = pq_head;
-      pq_head = o;
-    }
-    else {
-      // insert new rib after the first rib that has a lower rank
-      obj prev = pq_head;
-      obj curr = PQ_NEXT(pq_head);
-      while (curr != _NULL && RANK(curr) > RANK(o)){
-        prev = curr;
-        curr = PQ_NEXT(curr);
-      }
-      if (curr == _NULL) {
-        pq_tail = o;
-      }
-      PQ_NEXT(o) = curr; // could be _NULL, potentially redundant
-      PQ_NEXT(prev) = o;
-    }
-  }
-}
-
-obj pq_dequeue() {
-  if (PQ_IS_EMPTY()){
-    return _NULL;
-  }
-  if (pq_head == pq_tail) {
-    pq_tail = _NULL;
-  }
-  obj tmp = pq_head;
-  pq_head = PQ_NEXT(tmp); // could be _NULL, potentially redundant
-  PQ_NEXT(tmp) = _NULL; // same as above
-  return tmp;
-}
-
-void pq_remove(obj o) {
-  if (PQ_NEXT(o) == _NULL && pq_tail != o) { // o not in set?
-    return;
-  }
-  if (pq_head == o) {
-    obj tmp = pq_head;
-    pq_head = PQ_NEXT(tmp);
-    if (pq_tail == o) {
-      pq_tail = _NULL;
-      return;
-    }
-    PQ_NEXT(tmp) = _NULL;
-  } else {
-    obj curr = PQ_NEXT(pq_head);
-    obj prev = pq_head;
-    // Assumes that PQ_NEXT of a rib can't contain a reference to itself
-    while (curr != o && curr != _NULL) {
-      prev = curr;
-      curr = PQ_NEXT(curr);
-    }
-    if (curr == pq_tail) {
-      pq_tail = prev;
-    }
-    PQ_NEXT(prev) = PQ_NEXT(curr);
-    PQ_NEXT(curr) = _NULL;
-    PQ_NEXT(o) = _NULL;
-  }
-}
-
-#else
 
 void pq_enqueue(obj o) {
   // In the case of the pqueue, we could attempt to add the
@@ -656,7 +554,6 @@ void pq_remove(obj o) {
   }
 }
 
-#endif
 #endif
 
 
