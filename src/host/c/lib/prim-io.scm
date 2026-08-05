@@ -1,6 +1,5 @@
-(if-feature c/gc/es
-
-  ;; ref count or even-shiloach gc
+(if-feature (or c/gc/es c/gc/ett)
+  ;; AGC or ETT-GC
   (begin
 
     (define-primitive

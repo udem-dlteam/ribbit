@@ -4,6 +4,8 @@
 
 ;; Add c global definitions to keep track of time
 
+;; FIXME need to revert some changes 
+
 (define-feature c/gc/profile-time
   (use c/include-stdint.h c/include-stdio.h c/include-stdlib.h c/include-sys/time.h)
 (
@@ -147,7 +149,8 @@ __profile_adopt_in_remove_edge_cycles += tmp_catch_cycles_drop_in_remove_edge_cy
 
 ;; Starts a new timer
 (define-primitive (%%timer-start)
-  (use c/timer/globals c/timer/gc-globals)
+  ;; (use c/timer/globals c/timer/gc-globals)
+  (use c/gc/profile-time)
   "{
   @@(location profile-time-start)@@
   @@(location profile-cycles-start)@@
@@ -157,7 +160,8 @@ __profile_adopt_in_remove_edge_cycles += tmp_catch_cycles_drop_in_remove_edge_cy
 
 ;; Ends the timer
 (define-primitive (%%timer-end)
-  (use c/time/globals c/time/gc-globals)
+  ;; (use c/time/globals c/time/gc-globals)
+  (use c/gc/profile-time)
   "{
   @@(location profile-time-stop)@@
   @@(location profile-cycles-stop)@@
@@ -179,27 +183,40 @@ __profile_adopt_in_remove_edge_cycles += tmp_catch_cycles_drop_in_remove_edge_cy
 ;;break;
 ;;}")
   
-  (define-primitive (%%timer-display)
-    (use c/time/globals c/time/gc-globals c/time/profiling-decl)
-    "{
-  long long time_difference_ns = (time_after.tv_sec-time_before.tv_sec)*1000000LL + time_after.tv_usec-time_before.tv_usec;
+  ;; (define-primitive (%%timer-display)
+  ;;   (use c/time/globals c/time/gc-globals c/time/profiling-decl)
+  ;;   "{
+  ;; long long time_difference_ns = (time_after.tv_sec-time_before.tv_sec)*1000000LL + time_after.tv_usec-time_before.tv_usec;
+  ;; printf(
+  ;;   \"%.6f seconds (%.6f seconds in GC, %d invocations, %ld total cycles, %ld gc cycles(%.3f), %ld drop cycles (%.3f), %ld catch cycles(%.3f), %ld collect cycles(%.3f), %ld remove-ref cycles(%.3f))\\n\",
+  ;;   ((double)time_difference_ns) / 1000000,
+  ;;   ((double)time_gc_accumulated) / 1000000, 
+  ;;   gc_invocations,
+  ;;   __profiling_total_total,
+  ;;   __profiling_gc_total,
+  ;;   ((float)__profiling_gc_total /(float)__profiling_total_total),
+  ;;   __profiling_drop_total,
+  ;;   ((float)__profiling_drop_total/(float)__profiling_total_total),
+  ;;   __profiling_catch_total,
+  ;;   ((float)__profiling_catch_total/(float)__profiling_total_total),
+  ;;   __profiling_collect_total,
+  ;;   ((float)__profiling_collect_total/(float)__profiling_total_total),
+  ;;   __profiling_remove_ref_total,
+  ;;   ((float)__profiling_remove_ref_total/(float)__profiling_total_total)
+  ;;   );
+  ;; push(TAG_NUM(0));
+  ;; break;
+  ;; }")
+
+(define-primitive (%%timer-display)
+  (use c/gc/profile-time)
+  "{
   printf(
-    \"%.6f seconds (%.6f seconds in GC, %d invocations, %ld total cycles, %ld gc cycles(%.3f), %ld drop cycles (%.3f), %ld catch cycles(%.3f), %ld collect cycles(%.3f), %ld remove-ref cycles(%.3f))\\n\",
-    ((double)time_difference_ns) / 1000000,
-    ((double)time_gc_accumulated) / 1000000, 
-    gc_invocations,
-    __profiling_total_total,
-    __profiling_gc_total,
-    ((float)__profiling_gc_total /(float)__profiling_total_total),
-    __profiling_drop_total,
-    ((float)__profiling_drop_total/(float)__profiling_total_total),
-    __profiling_catch_total,
-    ((float)__profiling_catch_total/(float)__profiling_total_total),
-    __profiling_collect_total,
-    ((float)__profiling_collect_total/(float)__profiling_total_total),
-    __profiling_remove_ref_total,
-    ((float)__profiling_remove_ref_total/(float)__profiling_total_total)
-    );
+    \"%.6f seconds (%.6f seconds in GC, %d invocations)\\n\",
+    __profile_total_time,
+    __profile_gc_time,
+    __profile_gc_invocations
+  );
   push(TAG_NUM(0));
   break;
   }")

@@ -240,6 +240,14 @@ clean:
 	done
 	rm -f rsc-bootstrap*
 
+check-ett: rsc-gsc.exe
+	HOST=c \
+	RSC="./rsc.exe --rvm ./host/c/agc.c -f+ c/gc/ett" \
+	POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" \
+	TEST_FEATURES="" \
+	TEST_TAGS="c core variadics r4rs bench" \
+	make check
+
 check-es: rsc-gsc.exe
 	HOST=c \
 	RSC="./rsc.exe --rvm ./host/c/agc.c -f+ c/gc/es -f+ check-spanning-tree -f+ runtime-checks" \

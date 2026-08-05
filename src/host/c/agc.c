@@ -31,6 +31,10 @@ typedef unsigned long obj;
 // a number
 typedef long num;
 
+// @@(feature c/gc/ett
+#define ETT
+// )@@
+
 // @@(feature queue-no-remove
 #define QUEUE_NO_REMOVE
 // )@@
@@ -108,22 +112,25 @@ void check_spanning_tree_impl();
 #define MAX_RANK 1152921504606846974
 #define MIN_RANK -1152921504606846976
 
+#ifdef ETT
+#define RIB_NB_FIELDS 24
+#else // AGC
 #ifdef QUEUE_NO_REMOVE
 #define QUEUE_NO_REMOVE_count 1
 #else
 #define QUEUE_NO_REMOVE_count 0
-#endif
-
+#endif // QUEUE_NO_REMOVE
 #ifdef DEBUG_FIELD
 #define DEBUG_FIELD_count 1
 #else
 #define DEBUG_FIELD_count 0
-#endif
-
+#endif // DEBUG_FIELD
 #define RIB_NB_FIELDS (10+QUEUE_NO_REMOVE_count+DEBUG_FIELD_count)
+#endif // ETT
 
 #ifndef BASE_HEAP_SIZE_FIELDS
-#define BASE_HEAP_SIZE_FIELDS 12000000
+// 12000000 works fine for every benchmark except for `primes` when using ETT-GC
+#define BASE_HEAP_SIZE_FIELDS 20000000 // 12000000
 #endif
 
 #ifdef MIN_HEAP_SIZE
@@ -152,14 +159,67 @@ num allocated_objects = 0;
 #define HEAP_SIZE_FIELDS (BASE_HEAP_SIZE_FIELDS * HEAP_SIZE_FACTOR)
 #endif
 
+#define MAX_NB_OBJS (HEAP_SIZE_FIELDS / RIB_NB_FIELDS)
+
+#ifdef ETT
+struct splaynode {
+  struct splaynode *left, *right, *parent; // tree representation of the tour
+  struct splaynode *next, *prev; // linked list representation of the tour
+  obj is_start; // first node in tour?
+};
+
+typedef struct {
+  struct splaynode start, end; 
+} ettnode;
+
+// FIXME use pointer-to-pointer trick for `prev_from` and `prev_to`
+typedef struct gc_link {
+  obj from;
+  obj to;
+  struct gc_link *next_from; 
+  struct gc_link *prev_from;
+  struct gc_link *next_to; 
+  struct gc_link *prev_to;
+} gc_link;
+
+// Mirrors TAG_RIB but for GC links
+#define TAG_LINK(ptr) ((obj)(ptr))
+#define LINK(x) ((gc_link *)(x))
+
+// Maximum of number of links that we need to allocate is, in theory, capped
+// by the number of reference field (3 by rib)
+#define MAX_NB_LINKS (MAX_NB_OBJS * 3)
+#define LINK_HEAP_SIZE_BYTES (MAX_NB_LINKS * sizeof(gc_link))
+#endif // ETT
+
 #ifndef HEAP_SIZE_BYTES
+#ifdef ETT
+#define HEAP_SIZE_BYTES (HEAP_SIZE_FIELDS * sizeof(obj) + LINK_HEAP_SIZE_BYTES)
+#else
 #define HEAP_SIZE_BYTES (HEAP_SIZE_FIELDS * sizeof(obj))
 #endif
-
-#define MAX_NB_OBJS (HEAP_SIZE_FIELDS / RIB_NB_FIELDS)
+#endif
 
 typedef struct {
   obj fields[3];   // fields, references or nums
+
+#ifdef ETT
+  obj stack_refs; // number of references from a root
+  ettnode node;   // associated euler tour node
+  obj outgoing_links; // linked list of outgoing links
+  obj incoming_links; // linked list of incoming links
+  obj D_generation;
+  obj memo_generation;
+  obj plink_memo; // parent link memoization
+  obj parent;
+  // FIXME we don't actually use the `is_terminal` field, since we don't
+  // use ref count for terminal objects... need to remove this
+  obj is_terminal;
+  // FIXME currently used for the GC check at the end, but we could get
+  // rid of this field as well since Ribbit has no finalizers
+  obj deleting; 
+
+#else // AGC
   obj m_fields[3]; // mirror fields
   obj refs;        // list of referrers
   obj rank;        // object's rank
@@ -171,12 +231,28 @@ typedef struct {
 #ifdef DEBUG_FIELD
   obj debug;       // debug field
 #endif
+#endif // ETT
 } rib;
 
+#define get_field(x,i) RIB(x)->fields[i]
 #define CAR(x) RIB(x)->fields[0]
 #define CDR(x) RIB(x)->fields[1]
 #define TAG(x) RIB(x)->fields[2]
-
+#ifdef ETT
+#define STACK_REFS(x)  (RIB(x)->stack_refs)
+#define ETT_NODE(x)    (RIB(x)->node)
+#define OUTGOING(x)    (RIB(x)->outgoing_links)
+#define INCOMING(x)    (RIB(x)->incoming_links)
+#define D_GEN(x)       (RIB(x)->D_generation)
+#define MEMO_GEN(x)    (RIB(x)->memo_generation)
+#define PLINK_MEMO(x)  (RIB(x)->plink_memo)
+#define PARENT(x)      (RIB(x)->parent)
+#define IS_TERMINAL(x) (RIB(x)->is_terminal)
+#define DELETING(x)    (RIB(x)->deleting)
+// Reuse the field: 1 => allocated, 0 => not allocated
+#define ALLOCATED(x)   (RIB(x)->deleting)
+#else // AGC
+#define get_m_field(x,i) RIB(x)->m_fields[i]
 #define M_CAR(x) RIB(x)->m_fields[0]
 #define M_CDR(x) RIB(x)->m_fields[1]
 #define M_TAG(x) RIB(x)->m_fields[2]
@@ -188,10 +264,8 @@ typedef struct {
 #define PQ_NEXT(x) RIB(x)->catch_queue
 #else
 #define PQ_NEXT(x) Q_NEXT(x)
-#endif
-
-#define get_field(x,i) RIB(x)->fields[i]
-#define get_m_field(x,i) RIB(x)->m_fields[i]
+#endif 
+#endif // ETT
 
 #define UNTAG(x) ((x) >> 2)
 #define NUM(x) ((num)(UNTAG((num)(x))))
@@ -271,7 +345,6 @@ static inline bool adupt_start_heuristic(obj adoptee, int depth) {
   #endif
 
   return false;
-  /* return depth < 5; */
 }
 
 // DEFAULT: rerank searches until found or root reached
@@ -282,7 +355,7 @@ static inline bool adupt_start_heuristic(obj adoptee, int depth) {
 #define ADUPT_RERANK_DEPTH 25
 // )@@
 // @@(feature adupt-rerank-depth-100
-#define ADUPT_RERANK_DEPTH 100
+`#define ADUPT_RERANK_DEPTH 100
 // )@@
 // @@(feature adupt-rerank-depth-500
 #define ADUPT_RERANK_DEPTH 500
@@ -306,11 +379,9 @@ static inline bool adupt_continue_heuristic(int depth) {
   return true;
 }
 
-
 // @@(feature debug/clean-ribs
 #define CLEAN_RIBS
 // )@@
-
 
 // @@(feature runtime-checks (use check-spanning-tree)
 #define ASSERT(cond, msg) if(!(cond)){ printf("Runtime assert violated on line %d: %s", __LINE__, msg); exit(7); }
@@ -320,15 +391,11 @@ static inline bool adupt_continue_heuristic(int depth) {
 #define ASSERT(cond, msg) 0
 #endif
 
-
-
 // @@(feature (not compression/lzss/2b)
 // @@(replace "41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121" (encode-as-bytes "auto" "" "," "")
 unsigned char input[] = {41,59,39,117,63,62,118,68,63,62,118,82,68,63,62,118,82,65,63,62,118,82,65,63,62,118,82,58,63,62,118,82,61,33,40,58,108,107,109,33,39,58,108,107,118,54,121,0}; // RVM code that prints HELLO!
 // )@@
 // )@@
-
-
 
 // the only three roots allowed
 obj stack = NUM_0;
@@ -378,12 +445,583 @@ rib *heap_start;
 #define heap_bot ((obj *)(heap_start))
 #define heap_top (heap_bot + (MAX_NB_OBJS*RIB_NB_FIELDS))
 
+#ifdef ETT
+// FIXME some of these are slightly redundant but I'll leave them there for
+// now to remain consistent with the rest of the RVM
+obj null_link; 
+gc_link *link_alloc; // head of links freelist
+gc_link *link_scan;
+gc_link *link_heap_start;
+#define link_heap_top (link_heap_start + MAX_NB_LINKS)
+#endif // ETT
 
+
+#ifdef ETT
+
+//==============================================================================
+// Euler Tour Tree Garbage Collector (ETT-GC)
+
+// This GC is adapted from the OOPSLA'25 paper "Pathological Cases for a
+// Class of Reachability-Based Garbage Collectors" by Matthew Sotoudeh.
+// The implementation is based on the paper's accompanying artifact.
+
+// Global generation counter for the D set
+unsigned long _GC_D_GENERATION = 0;
+
+#define IN_D(x) (NUM(D_GEN(x)) == (num)_GC_D_GENERATION)
+
+
+//------------------------------------------------------------------------------
+// Splay Trees (adapted almost verbatim from Sotoudeh's implementation)
+
+static struct splaynode *SPLAY_SCRATCH;
+
+// Helper to get a pointer to the pointer in the parent that points to @node.
+static struct splaynode **splay_pp(struct splaynode *node) {
+  if (!(node->parent)) return &SPLAY_SCRATCH;
+  return (node->parent->left == node) ? &(node->parent->left)
+                                      : &(node->parent->right);
+}
+
+// https://www.cs.cornell.edu/courses/cs3110/2013sp/recitations/rec08-splay/rec08.html
+#define SPLAY_SET_CHILD(PAR, WHICH, CHI) \
+  do { (PAR)->WHICH = (CHI); if (CHI) (CHI)->parent = (PAR); } while (0)
+
+// Right rotation routine.
+static struct splaynode *splay_rotate_r(struct splaynode *a) {
+  struct splaynode **ap = splay_pp(a),
+        *b = a->left,
+        *d = b ? b->right : 0;
+  b->parent = a->parent;  *ap = b;
+  SPLAY_SET_CHILD(b, right, a);
+  SPLAY_SET_CHILD(a, left, d);
+  return b;
+}
+
+// Left rotation routine.
+static struct splaynode *splay_rotate_l(struct splaynode *a) {
+  struct splaynode **ap = splay_pp(a),
+        *c = a->right,
+        *d = c ? c->left : 0;
+  c->parent = a->parent;  *ap = c;
+  SPLAY_SET_CHILD(c, left, a);
+  SPLAY_SET_CHILD(a, right, d);
+  return c;
+}
+
+// Main splay routine.
+static struct splaynode *splay_splay(struct splaynode *node) {
+  while (node->parent) {
+    if (!(node->parent->parent)) {
+      // rotate around the parent first
+      if (node->parent->left == node) {
+        splay_rotate_r(node->parent);
+      } else {
+        splay_rotate_l(node->parent);
+      }
+    } else {
+      // 0 -> left, 1 -> right
+      int side = (node->parent->right == node);
+      int parent_side = (node->parent->parent->right == node->parent);
+      if (side == 0 && parent_side == 0) {
+        splay_rotate_r(node->parent->parent);
+        splay_rotate_r(node->parent);
+      } else if (side == 1 && parent_side == 1) {
+        splay_rotate_l(node->parent->parent);
+        splay_rotate_l(node->parent);
+      } else if (side == 0 && parent_side == 1) {
+        splay_rotate_r(node->parent);
+        splay_rotate_l(node->parent);
+      } else {
+        splay_rotate_l(node->parent);
+        splay_rotate_r(node->parent);
+      }
+    }
+  }
+  return node;
+}
+
+// Split a splay tree into everything <@new_head and everything >=@new_head.
+static void splay_split(struct splaynode *new_head) {
+  // (0) fix the nexts and prevs
+  if (new_head->prev) new_head->prev->next = 0;
+  new_head->prev = 0;
+  
+  splay_splay(new_head);
+  if (new_head->left) new_head->left->parent = 0;
+  new_head->left = 0;
+}
+
+// Join two splay trees, given the largest element in one (@tail) and the
+// smallest element in the other (@head), assuming @tail < @head.
+static void splay_join(struct splaynode *tail, struct splaynode *head) {
+  // (0) fix the nexts and prevs
+  tail->next = head;
+  head->prev = tail;
+
+  // (1) splay up the min element in head and make tail its left child
+  splay_splay(head);
+  while (tail->parent) tail = tail->parent;
+  SPLAY_SET_CHILD(head, left, tail);
+}
+
+// Find the smallest element in the tree containing @node by splaying it to the
+// root, following left pointers, and then splaying again.
+static struct splaynode *splay_head(struct splaynode *node) {
+  splay_splay(node);
+  while (node->left) node = node->left;
+  splay_splay(node);
+  return node;
+}
+
+//------------------------------------------------------------------------------
+// Euler Tour Trees Operations (adapted from Sotoudeh's implementation)
+
+// Note: No equivalent implementation of `ett_free_all` and `ETT_ITER` 
+
+// WARNING
+// `__builtin_offsetof` is built-in in GCC and Clang but is not standarized.
+// Using this for now to avoid having to include <stddef.h> to use `offsetof`
+// but might need to fix that at some point
+
+// Instead of keeping a backpointer to the enclosing rib (the struct), we
+// simply offset the current reference to `ettnode` to get the reference (this
+// is what the Lua version does, so might as well do it too)
+
+// From Linux.
+// Recover a (well-typed) pointer to the enclosing struct, e.g. from `ettnode`
+// to `rib` or from a `splaynode` field to the corresponmding `ettnode`
+#define container_of(ptr, type, member) \
+    ((type *)( (char *)(ptr) - __builtin_offsetof(type, member) ))
+
+// splaynode* -> ettnode*
+// Need to check whether `splaynode` is the start or end node to get the
+// proper offset
+static inline ettnode *SN2ETT(struct splaynode *sn) {
+  return sn->is_start ? container_of(sn, ettnode, start)
+                      : container_of(sn, ettnode, end);
+}
+
+// ettnode* -> rib obj
+#define ETT2RIB(e) TAG_RIB(container_of(e, rib, node))
+#define RIB2ETT(x) (&(RIB(x)->node))
+
+// splice out subtour [node.start, node.end] from the surrounding (splay) tour
+static void ett_cut(ettnode *node) {
+  struct splaynode *head_tail = node->start.prev;
+  struct splaynode *tail_head = node->end.next;
+  
+  splay_split(&(node->start));
+  if (tail_head) {
+    splay_split(tail_head);
+  }
+  if (tail_head && head_tail) {
+    splay_join(head_tail, tail_head);
+  }
+}
+
+// splice *in* [child.start, child.end]. can splice it in to
+// right-after-the-front or right-before-the-end, as desired.
+static void ett_link(ettnode *parent, ettnode *child) {
+    struct splaynode *parent_head = &(parent->start);
+    struct splaynode *parent_penhead = parent->start.next;
+
+    splay_split(parent_penhead);
+    splay_join(&(child->end), parent_penhead);
+
+    splay_join(parent_head, &(child->start));
+}
+
+// Get the root node of the tree containing @node.
+static ettnode *ett_root(ettnode *node) {
+  return container_of(splay_head(&(node->start)), ettnode, start);
+}
+
+// Creates and initializes a singleton tree (i.e. singleton tour)
+// FIXME `is_start` is an `obj` but I don't tag it as a `num` here
+static void ett_singleton_inplace(ettnode *node) {
+  // initialize `start` splay node
+  node->start.left = node->start.right = node->start.parent = NULL;
+  node->start.next = node->start.prev = NULL;
+  node->start.is_start = 1;
+  
+  // initialize `end` splay node
+  node->end.left = node->end.right = node->end.parent = NULL;
+  node->end.next = node->end.prev = NULL;
+  node->end.is_start = 0;
+
+  splay_join(&(node->start), &(node->end));
+}
+
+//------------------------------------------------------------------------------
+// Link (Edge) Management
+
+// Links are preallocated, we just need to write the data when a new reference
+// is created 
+
+// Allocate and insert a link `from->to`. The link is inserted at the beginning
+// of the incoming (outgoing) list of links. Equivalent to `_gc_insert_link` in
+// Lua's version.
+// NOTE: the caller must check that `from->to` is not a self-reference and for
+//       setting the `stack_ref` count if `to` is a root
+gc_link *alloc_link(obj from, obj to) {
+  // FIXME currently we can have multiple instance of a link `from->to` in a
+  // list rather than counting multiplicities with some sort of counter. In
+  // practice I don't think it changes much but still worth implementing
+  // multiplicites to compare the performance (Lua's version also allows for
+  // multiple instances of a link)
+
+  gc_link *l = link_alloc;
+  link_alloc = LINK(l->from); // next free link slot
+
+  l->from = from;
+  l->to = to;
+  l->next_from = LINK(OUTGOING(from));
+  l->prev_from = NULL;
+  l->next_to = LINK(INCOMING(to));
+  l->prev_to = NULL;
+
+  // Set next link's predecessor to the new link (if not null)
+  if (l->next_from) l->next_from->prev_from = l;
+  if (l->next_to) l->next_to->prev_to = l;
+
+  // Set from's (to's) outgoing (incoming) list to point to `l`
+  OUTGOING(from) = TAG_LINK(l);
+  INCOMING(to) = TAG_LINK(l);
+  return l;
+}
+
+// Remove the edge `l` from the heap graph and add the slot to the freelist
+void dealloc_link(gc_link *l) {
+  obj from = l->from;
+  obj to = l->to;
+
+  // Unlink edge from `from`'s outgoing list
+  if (l->prev_from) { 
+    l->prev_from->next_from = l->next_from; 
+  } else {
+    // If `l` was the first link in the list, we just need to set the outgoing
+    // link's list to the next link in the list
+    OUTGOING(from) = TAG_LINK(l->next_from);
+  }
+  if (l->next_from) { // not last?
+    l->next_from->prev_from = l->prev_from; 
+  }
+
+  // Unlink edge from `to`'s incoming list
+  if (l->prev_to) { 
+    l->prev_to->next_to = l->next_to;
+  } else {
+    // If `l` was the first link in the list, we just need to set the incoming
+    // link's list to the next link in the list
+    INCOMING(to) = TAG_LINK(l->next_to);
+  }
+  if (l->next_to) { // not last?
+    l->next_to->prev_to = l->prev_to;
+  }
+
+  // Return to freelist (via `from` field)
+  l->from = TAG_LINK(link_alloc);
+  link_alloc = l;
+}
+
+// IMPORTANT
+// The following function gives a good intuition as to why we track outgoing
+// edges (as opposed to accessing the `gc_link` struct through the reference
+// field and then via the incoming links list): we have to go through at most
+// 3 structs since the number of reference fields in a rib is at most 3 (so
+// finding a "referrer" (or reference really) is O(1) unlike AGC)
+gc_link *find_link(obj from, obj to) {
+  for (gc_link *l = LINK(OUTGOING(from)); l; l = l->next_from) {
+    if (l->to == to) {
+      return l;
+    }
+  }
+  return NULL; // no link between `from` and `to`
+}
+
+
+//------------------------------------------------------------------------------
+// GC Operations
+
+// Not needed: luaC_delete, GC_IS_FINALIZING, luaC_finalize
+
+#define is_root(r) (PARENT(r) == _NULL)
+// #define is_root(x) (x == pc || x == stack || x == FALSE)
+
+#define is_immortal(x) (x == TRUE || x == NIL || x == FALSE)
+
+// Cut `to` (and its subtree) out of its current spanning tree
+static inline void _gc_deparent(obj to) {
+  PARENT(to) = _NULL;
+  ett_cut(&ETT_NODE(to));
+}
+
+// Make `from` the parent of `to` in the spanning forest (ETLink)
+// Note that the signature is slightly different than Lua's version: instead
+// of taking a `gc_link` as an argument, which corresponds to the new parent
+// link, we directly pass the two tagged references to the ribs.
+static inline void _gc_parent(obj from, obj to) {
+  if (PARENT(to) != _NULL) _gc_deparent(to);
+  PARENT(to) = from;
+  ett_link(&ETT_NODE(from), &ETT_NODE(to));
+}
+
+// Free every rib the subtree rooted at `root` (everything left in its
+// disconnected euler tour). Note that it differs a lot from Lua's version
+// since Ribbit doesn't have finalizers (so we don't need to do a first tour
+// to mark the nodes and a second one for the finalizers to execute). We
+// simply remove the incoming edges and reclaim the unreachable memory
+void _gc_free_subtree(obj scooby) {
+  struct splaynode *head =  &(RIB2ETT(scooby)->start);
+  for (struct splaynode *curr = head; curr; ) {
+    struct splaynode *next = curr->next;
+    if (curr->is_start) {
+      obj r = ETT2RIB(SN2ETT(curr));
+      // FIXME I don't think this could ever happen but I need to convince
+      // myself before removing that check
+      if (is_immortal(r)) {
+        curr = next;
+        continue;
+      }
+      // Remove all outgoing links, incoming links are not our responsibility
+      // (they'll be removed when we reach that rib in the tour)
+      while (OUTGOING(r)) {
+        dealloc_link(LINK(OUTGOING(r)));
+      }
+      // Return the rib to the freelist
+      ALLOCATED(r) = NUM_0; // mark as not live for GC
+      CAR(r) = (obj)alloc;
+      alloc = (obj *)r;
+    }
+    curr = next;
+  }
+}
+
+// Main loop of Algorithm 23 from Sotoudeh's paper.
+// `scooby` (and its subtree) was just cut from its spanning tree and is no
+// longer reachable from a root, find a new parent for any "falling" nodes
+// or collect them if there's no path from a root to these nodes
+void _gc_rehome(obj scooby) {
+  ettnode *scoob_ett = RIB2ETT(scooby);
+  ettnode *ett_node = NULL; // node_
+  ettnode *root = NULL;
+  obj _rib = _NULL; // node
+  gc_link *link = NULL;
+  gc_link *plink = NULL;
+
+  // `keep_going` replaces `c` in the algorithm
+  for (int keep_going = 1; keep_going--; ) {
+     _GC_D_GENERATION++; // set D to the emptyset
+     // Loop over the nodes in Euler tour order. `curr` is the current
+     // `splaynode` associated with the `ettnode` in the Euler tour
+     for (struct splaynode *curr_sn = &(scoob_ett->start); curr_sn; ) {
+       if (!(curr_sn->is_start)) { // second visit (going back up), skip it
+         curr_sn = curr_sn->next;
+         continue;
+       }
+       ett_node = container_of(curr_sn, ettnode, start); 
+       _rib = ETT2RIB(ett_node);
+
+       // If the rib is protected (root or temporarly protected), then we
+       // can make this rib the root of a subtree
+       if (NUM(STACK_REFS(_rib))) {
+         curr_sn = ett_node->end.next; // skip subtree
+         // root the subtree at `rib` if not already rooted
+         if (PARENT(_rib) != _NULL) { 
+           _gc_deparent(_rib);
+           keep_going = 1;
+           continue;
+         }
+       }
+       // Not protected or a root, need to find a replacement parent, i.e.
+       // a rib that points to the current "falling" rib, that's not in
+       // D (not "falling" itself), and is not reachable/a descendent from
+       // the current examinated rib
+
+       // Optimization from the paper: incoming edge traversal memoization
+       if (NUM(MEMO_GEN(_rib)) == (num)_GC_D_GENERATION) {
+         plink = LINK(PLINK_MEMO(_rib));
+       } else {
+         plink = LINK(INCOMING(_rib));
+       }
+
+       // Continue looping over incoming edges to find a new parent
+       int found = 0;
+       for (link = plink; link; link = link->next_to) {
+         obj m = link->from; // potential parent
+
+         if (m == PARENT(_rib)) continue; // old parent 
+         if (IN_D(m)) continue; // `m` in `D` (falling)
+
+         // Check if `m` is a descedent of `_rib` to avoid forming a cycle.
+         // NOTE: The check is done by temporarly cutting `_rib` from the
+         // subtree, and then relinking it again. During that procedure, if
+         // `m`'s root is now `_rib` then we know that it was its descendant.
+         // This is expensive to do but much simpler than the procedure
+         // described in the paper. I'll leave it this way since this is also
+         // how it's implemented in the Lua version
+         if (PARENT(_rib) != _NULL) ett_cut(ett_node); 
+         root = ett_root(RIB2ETT(m)); 
+         if (PARENT(_rib) != _NULL) ett_link(RIB2ETT(PARENT(_rib)), ett_node);
+         if (root == ett_node) continue; // `m` is a descendent of `_rib`
+
+         // If we get here, then `m` is a valid replacement parent for now, and
+         // thus can set it as `_rib`'s parent and skip the subtree rooted at
+         // `m` since it is reachable from a root (for now)
+         curr_sn = ett_node->end.next; // skip subtree in Euler tour
+         _gc_parent(m, _rib); 
+
+         // If `m` originated from outside the subtree rooted at `scooby`,
+         // then the subtree rooted at `m` is safe and thus we need to start
+         // over loop since some nodes currently in `D` may now be reachable
+         if (root != scoob_ett) { 
+           keep_going = 1;
+         } else {
+           // If `m` came from inside the subtree rooted at `scooby`, then we
+           // memorize the position in the incoming link iteration loop
+           // (memoization optimization if `m` becomes unreachable later on)
+           PLINK_MEMO(_rib) = TAG_LINK(link->next_to);
+           MEMO_GEN(_rib) = TAG_NUM((num)_GC_D_GENERATION);
+         }
+
+         // If `scooby` is reconnected then the whole subtree is reachable from
+         // a root
+         if (_rib == scooby) return;
+         found = 1;
+         break; 
+       }
+       // Didn't find a replacement edge, `_rib` is added to D and we move on
+       // to the next rib in the Euler tour
+       if (!found) {
+         D_GEN(_rib) = TAG_NUM((num)_GC_D_GENERATION);
+         curr_sn = curr_sn->next;
+       }
+     }
+  }
+  // If we reach that point, then `scooby` is no longer reachable from a root.
+  // Anything in the subtour starting from `scooby` is also unreachable, and
+  // thus collectable
+  _gc_free_subtree(scooby);
+}
+
+// Add (delta = +1) or remove (delta = -1) a reference `from->to` from the
+// reference graph
+// NOTE: This version of `_gc_delta_link` differs from the Lua version in a
+// nontrivial way: we set the parent of `to` if it has none when inserting an
+// edge. This is necessary because `alloc_rib` doesn't a root a newly allocated
+// rib by default and the initial count of `stack_refs` is set to 0 (the RVM
+// sometimes manipulate unrooted ribs e.g. when constructing the symbol table).
+// In contrast, an object in Lua is always allocated from the stack and so is
+// protected by default regardless of whether it has a parent.
+// CORRECTNESS: I know what I'm doing
+static inline void _gc_delta_link(obj from, obj to, num delta) {
+  // Self loops and references to NULL can be ignored
+  if (from == to || !to) return;
+
+  if (!from) {
+    STACK_REFS(to) = TAG_NUM(NUM(STACK_REFS(to)) + delta);
+    // if `to` is no longer protected and has no parent, then it needs to
+    // be rehomed (adopted)
+    if (NUM(STACK_REFS(to)) == 0 && is_root(to)) {
+      _gc_rehome(to);
+    }
+    return;
+  }
+
+  // Edge addition
+  // If the rib has no parent but has referrers, the edge could be a
+  // backpointer (i.e. form a cycle). We want to avoid setting `from`
+  // as the parent in this case
+  if (delta > 0) {
+    int had_refs = (INCOMING(to) != _NULL); // cycle guard
+    alloc_link(from, to);
+    if (PARENT(to) == _NULL && !had_refs && NUM(STACK_REFS(to)) == 0) {
+      PARENT(to) = from;
+      ett_link(&(RIB(from)->node), &(RIB(to)->node));
+    }
+    return;
+  }
+
+  // Edge deletion (delta < 0)
+  gc_link *link = find_link(from, to); // edge to be deleted
+  if (!link) return; // why not
+
+  int was_parent = (PARENT(to) == from);
+  dealloc_link(link);
+  // Only repair the spanning forest if the removed edge was a spanning tree
+  // edge (same logic as AGC).
+  // NOTE: We do a second `find_link` call to check if there's more than one
+  // instance of the removed edge (since I don't track multiplicities). This
+  // is a cheap call in practice since we're iterating through at most 2 structs
+  if (was_parent && !find_link(from, to)) {
+    _gc_deparent(to);
+    // If `to` is not protected then it needs to be rehomed
+    if (NUM(STACK_REFS(to)) == 0) {
+      _gc_rehome(to);
+    }
+  }
+}
+
+#define protect(x)  _gc_delta_link(_NULL, x, +1)
+#define unprotect(x)  _gc_delta_link(_NULL, x, -1)
+
+
+//------------------------------------------------------------------------------
+// Write Barriers
+
+// Equivalent to `_gc_overwrite_pointer` in Lua's version, except that:
+// - Ribbit has no finalizers so the write always go through unless `from == to`
+// - The bookkeeping and the actual write are performed in that function (Lua's
+//   version doesn't do the actual write in this function)
+static inline void set_field(obj src, int i, obj dest) {
+  obj *ref = RIB(src)->fields;
+  obj old = ref[i];
+  if (old == dest) return;
+  // insert before deleting, so no need to protect
+  if (IS_RIB(dest)) {
+    _gc_delta_link(src, dest, +1); // `GCInsert` in paper
+  }
+  ref[i] = dest;
+  if (IS_RIB(src)) {
+    _gc_delta_link(src, old, -1); // `GCDelete` in paper
+  }
+}
+
+#define SET_CAR(src, dest) if (IS_RIB(src)) set_field(src, 0, dest)
+#define SET_CDR(src, dest) if (IS_RIB(src)) set_field(src, 1, dest)
+#define SET_TAG(src, dest) if (IS_RIB(src)) set_field(src, 2, dest)
+
+// TODO write a set_root procedure to avoid code duplication below
+
+// FIXME Shouldn't be treating `symbol_table` as a root
+static inline void set_sym_tbl(obj new_sym_tbl) {
+  obj old_sym_tbl = symbol_table;
+  if (IS_RIB(new_sym_tbl)) _gc_delta_link(_NULL, new_sym_tbl, +1); 
+  symbol_table = new_sym_tbl;
+  if (IS_RIB(old_sym_tbl)) _gc_delta_link(_NULL, old_sym_tbl, -1);
+}
+
+static inline void set_stack(obj new_stack) {
+  obj old_stack = stack;
+  if (IS_RIB(new_stack)) _gc_delta_link(_NULL, new_stack, +1);
+  stack = new_stack;
+  if (IS_RIB(old_stack)) _gc_delta_link(_NULL, old_stack, -1);
+}
+
+static inline void set_pc(obj new_pc) {
+  obj old_pc = pc;
+  if (IS_RIB(new_pc)) _gc_delta_link(_NULL, new_pc, +1);
+  pc = new_pc;
+  if (IS_RIB(old_pc)) _gc_delta_link(_NULL, old_pc, -1);
+}
+
+
+#else
 
 //==============================================================================
 
-// Supporting data structures for ES Trees
-
+// Arborescent Garbage Collector (AGC)
 
 // Drop queue 
 
@@ -535,8 +1173,7 @@ void pq_remove(obj o) {
 
 #endif
 
-
-//==============================================================================
+//------------------------------------------------------------------------------
 
 // Even-Shiloach trees
 
@@ -1181,8 +1818,7 @@ void set_field(obj src, int i, obj dest) { // write barrier
   symbol_table = new_st;                                                        \
   remove_root(old_st)
 
-void set_stack(obj new_stack) {
-  // TODO make set_stack a macro as well (conflict with _pop)
+static inline void set_stack(obj new_stack) {
   obj old_stack = stack;
   stack = new_stack;
   if (stack != NUM_0){
@@ -1200,6 +1836,7 @@ void set_stack(obj new_stack) {
                                                                                 \
   remove_root(old_pc);
 
+#endif // ETT
 
 //==============================================================================
 
@@ -1231,27 +1868,35 @@ void gc() {
     obj tag = *(scan+2);
     if (IS_MARKED(tag)) {
       *(scan+2) = UNMARK(tag);
+#ifdef ETT
+      if (ALLOCATED((obj)scan) == NUM_0) {
+         wrongly_collected++;
+      }
+#else
       if (get_rank((obj)scan) == UNALLOCATED_RIB_RANK) {
-        wrongly_collected++;
+         wrongly_collected++;
       }
+#endif
     } else {
-      if (get_rank((obj)scan) != UNALLOCATED_RIB_RANK && ((obj)scan) != null_rib) {
-        if (!is_root((obj)scan) && !is_immortal((obj)scan) && is_protected((obj)scan)){ // <--- ICI on check
-          printf("Found protected value!! => count = %lu\n", get_parent((obj)scan));
+#ifdef ETT
+        if (NUM(ALLOCATED((obj)scan)) != 0 && ((obj)scan) != null_rib) {
+          leftovers++;
         }
-        leftovers++;
-      }
-      *scan = (obj)alloc;
-      alloc = scan;
+#else
+        if (get_rank((obj)scan) != UNALLOCATED_RIB_RANK && ((obj)scan) != null_rib) {
+          if (!is_root((obj)scan) && !is_immortal((obj)scan) && is_protected((obj)scan)){
+            printf("Found protected value!! => count = %lu\n", get_parent((obj)scan));
+          }
+          leftovers++;
+        }
+#endif
+        *scan = (obj)alloc;
+        alloc = scan;
     }
     scan += RIB_NB_FIELDS; // next rib object
   }
   printf("***REMAINING_RIBS = %d\n", leftovers);
   printf("***ALIVE_BUT_COLLECTED = %d\n", wrongly_collected);
-  /* if (((obj)alloc) == null_rib) { */
-  /*   printf("Heap is full\n"); */
-  /*   // exit(1); */
-  /* } */
 }
 
 
@@ -1292,6 +1937,56 @@ obj pop() {
 #define DEC_PRIM3() _unprotect(z); DEC_PRIM2()
 
 
+#ifdef ETT
+
+// The allocation structure is slightly different than AGC's. The embedded
+// `ettnode` makes the code pretty unreadable if we inititialize the entire
+// rib by bumping the `alloc` pointer
+
+// Allocate and initialize a rib without rooting it (caller is responsible
+// for linking it). Equivalent to `gc_new_inplace` and `gc_new` in Lua's version
+rib *alloc_rib(obj car, obj cdr, obj tag) {
+  rib *r = (rib *)alloc; 
+  alloc = (obj *)(r->fields[0]); // next free slot in freelist
+
+  // data fields
+  r->fields[0] = car;
+  r->fields[1] = cdr;
+  r->fields[2] = tag;
+
+  // GC metadata
+  r->stack_refs = TAG_NUM(0);
+  r->outgoing_links = _NULL;
+  r->incoming_links = _NULL;
+  r->D_generation = TAG_NUM(0);
+  r->memo_generation = TAG_NUM(0);
+  r->plink_memo = _NULL;
+  r->parent = _NULL;
+  r->is_terminal = TAG_NUM(0);
+  r->deleting = TAG_NUM(1); // allocated flag
+
+  // Initialize the empty tour
+  ett_singleton_inplace(&(r->node));
+
+  obj new_rib = TAG_RIB(r);
+  // FIXME change the name of `_gc_delta_link`
+  if (IS_RIB(car)) _gc_delta_link(new_rib, car, +1);
+  if (IS_RIB(cdr)) _gc_delta_link(new_rib, cdr, +1);
+  if (IS_RIB(tag)) _gc_delta_link(new_rib, tag, +1);
+
+  return r;
+}
+
+// Push a newly (tagged) rib onto the stack and set it as the new stack root.
+// This is much cleaner than AGC's version
+void push2(obj car, obj tag) {
+  obj new_frame = TAG_RIB(alloc_rib(car, stack, tag));
+  set_stack(new_frame);
+}
+
+
+#else // AGC
+
 void push2(obj car, obj tag) {
   obj tmp = *alloc; // next available slot in freelist
   
@@ -1304,9 +1999,9 @@ void push2(obj car, obj tag) {
   *alloc++ = _NULL;      // mirror 3
   *alloc++ = _NULL;      // co-friends
 #ifdef GLOBAL_RANK_COUNTER
-  *alloc++ = TAG_NUM(alloc_rank); 
+  *alloc++ = TAG_NUM(alloc_rank);
 #else
-  *alloc++ = TAG_NUM(0); 
+  *alloc++ = TAG_NUM(0);
 #endif
   *alloc++ = _NULL;      // queue and priority queue
 #ifdef QUEUE_NO_REMOVE
@@ -1341,11 +2036,6 @@ void push2(obj car, obj tag) {
   add_ref(new_rib, tag, 2);
   
   alloc = (obj *)tmp;
-}
-
-// Simple version of push for stack operations
-static inline void push(obj car){
-  push2(car, STACK_PAIR_TAG);
 }
 
 rib *alloc_rib(obj car, obj cdr, obj tag) {
@@ -1393,7 +2083,22 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   return RIB(new_rib);
 }
 
+#endif // ETT
+
+// FIXME somehow AGC version doesn't work with this:
+
+/* void push2(obj car, obj tag) { */
+/*   obj new_frame = TAG_RIB(alloc_rib(car, stack, tag)); */
+/*   set_stack(new_frame); */
+/* } */
+
+// Simple version of push for stack operations
+static inline void push(obj car){
+  push2(car, STACK_PAIR_TAG);
+}
+
 #define alloc_rib2(car, cdr, tag) alloc_rib(car, cdr, tag)
+
 
 //------------------------------------------------------------------------------
 
@@ -1813,28 +2518,43 @@ void run() { // evaluator
 // Program initialization
 
 void init_heap() {
-  fprintf(stderr, "allocated space size = %lu \n", HEAP_SIZE_BYTES);
+  // fprintf(stderr, "allocated space size = %lu \n", HEAP_SIZE_BYTES);
   heap_start = malloc(HEAP_SIZE_BYTES); // (SPACE_SZ+1));
   if (!heap_start) {
     vm_exit(EXIT_NO_MEMORY);
   }
-  // initialize freelist
+#ifdef ETT
+  // initialize link's freelist (upward)
+  link_heap_start = (gc_link *)heap_top;
+  null_link = TAG_LINK(link_heap_start); // need to tag since `from` is an `obj`
+  link_scan = link_heap_start++; // next slot
+  link_alloc = LINK(null_link);
+  while (link_scan < link_heap_top) {
+    link_scan->from = (obj)link_alloc; // first field of a `gc_link`
+    link_alloc = link_scan;
+    link_scan++;
+  }
+#endif
+  // initialize rib's freelist (downward)
   scan = heap_top;
-  scan -= RIB_NB_FIELDS;
+  scan -= RIB_NB_FIELDS; // skip null rib
   null_rib = TAG_RIB((rib *)(scan));
-  // scan -= RIB_NB_FIELDS; // skip the null rib
-  // // rank should always be 0 since popped values will be saved there temporarly
-  // set_rank(null_rib, 0);
   while (scan != heap_bot) {
+#ifdef ETT
+    // FIXME logic is similar for both ETT and AGC, would need to have a
+    // convention for both GCs
+    ALLOCATED((obj)scan) = NUM_0; // unallocated rib
+#else
     set_rank(scan, UNALLOCATED_RIB_RANK);
+#endif
     alloc = scan; // alloc <- address of previous slot
     scan -= RIB_NB_FIELDS; // scan <- address of next rib slot
     *scan = (obj)alloc; // CAR(next rib) <- address of previous slot
   }
-  // // rank should always be 0 since popped values will be saved there temporarly
-  // set_rank(null_rib, 2);
+#ifndef ETT
   // rank should always be 0 since popped values will be saved there temporarly
   set_rank(null_rib, 0);
+#endif
   alloc = scan;
   stack = NUM_0;
 }
@@ -1975,7 +2695,14 @@ void decode() {
     if (check == 1) { DEC_POP(n); check = 0; }
   }
   set_pc(TAG(CAR(n)));
-  if (IS_RIB(n)) remove_root(n);
+  
+  if (IS_RIB(n)) {
+#ifdef ETT
+    _gc_rehome(n); // FIXME
+#else
+    remove_root(n);
+#endif
+  }
 }
 // )@@
 
@@ -2052,10 +2779,7 @@ void init_stack() {
   obj first = CDR(stack);
   CDR(stack) = NUM_0;
   TAG(stack) = first;
-/* #ifndef REF_COUNT */
-/*   add_ref(stack, first, 2); */
-/* #endif */
-
+  
   CAR(first) = TAG_NUM(INSTR_HALT);
   CDR(first) = NUM_0; 
   TAG(first) = STACK_PAIR_TAG;
@@ -2063,13 +2787,19 @@ void init_stack() {
 
 void init() {
   init_heap();
+#ifndef ETT
   Q_INIT();
   PQ_INIT();
-  INIT_FALSE(); // don't really care about the ref count of FALSE, TRUE, and NIL
+#endif
+  INIT_FALSE();
   build_sym_table();
   decode();
   INIT_GLOBAL();
   init_stack();
+#ifdef ETT
+  // FIXME `symbol_table` has one too many reference at this point
+  STACK_REFS(symbol_table) = TAG_NUM(NUM(STACK_REFS(symbol_table)) - 1);
+#endif
   run();
 }
 
