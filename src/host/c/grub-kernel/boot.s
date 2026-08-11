@@ -14,6 +14,43 @@
     CHECKSUM     equ -MAGIC_NUMBER  ; calculate the checksum
                                     ; (magic number + checksum + flags should equal 0)
 
+struc multiboot_info
+    .flags: resd 1
+    .mem_lower: resd 1
+    .mem_upper: resd 1
+    .boot_device: resd 1
+    .cmdline: resd 1
+    .mods_count: resd 1
+    .mods_addr: resd 1
+    .u: resd 4
+    .mmap_length: resd 1
+    .mmap_addr: resd 1
+    .drives_length: resd 1
+    .drives_addr: resd 1
+    .config_table: resd 1
+    .boot_loader_name: resd 1
+    .apm_table: resd 1
+    .vbe_control_info: resd 1
+    .vbe_mode_info: resd 1
+    .vbe_mode: resw 1
+    .vbe_interface_seg: resw 1
+    .vbe_interface_off: resw 1
+    .vbe_interface_len: resw 1
+    .framebuffer_addr: resq 1
+    .framebuffer_pitch: resd 1
+    .framebuffer_width: resd 1
+    .framebuffer_height: resd 1
+    .framebuffer_bpp: resb 1
+endstruc
+
+struc   multiboot_mmap_entry
+    .size:           resd 1
+    .addr_low:       resd 1
+    .addr_high:      resd 1
+    .len_low:        resd 1
+    .len_high:       resd 1
+    .type:           resd 1
+endstruc
 
 %macro irq_handler_noerror 1
   align 4
@@ -70,7 +107,11 @@
        mov ss,ax
        mov ax,0xf001
        out 0x60,ax
-       mov esp, kernel_stack + KERNEL_STACK_SIZE 
+       mov ebp, [ebx+multiboot_info.mmap_addr]
+       mov esp, [ebp+multiboot_mmap_entry.addr_low]
+       add esp, 8192
+       add dword [ebp+multiboot_mmap_entry.addr_low],8192
+       sub dword [ebp+multiboot_mmap_entry.len_low],8192
        lea eax, end_of_mem
        push eax
        push edx
@@ -193,7 +234,7 @@ gdt_data:
   db 0x00
   
 
-    KERNEL_STACK_SIZE equ 16384; size of stack in bytes
+    KERNEL_STACK_SIZE equ 10; size of stack in bytes
     section .bss
     align 4                                     ; align at 4 bytes
     kernel_stack:                               ; label points to beginning of memory

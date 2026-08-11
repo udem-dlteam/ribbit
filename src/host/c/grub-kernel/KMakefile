@@ -12,3 +12,4 @@ boot.o : boot.s
 	$(CC) $(CFLAGS) $< -o $@
 kernel.elf: $(OBJECTS)
 	$(LD) $(LDFLAGS) $(OBJECTS) -o kernel.elf
+	strip kernel.elf

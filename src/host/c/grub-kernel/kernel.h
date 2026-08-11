@@ -107,7 +107,6 @@ extern FILE* stdin;
 extern FILE* stdout;
 extern FILE* stderr;
 extern int errno;
-extern char kernel_heap[];
 extern struct heap_chunk *heap;
 
 extern void set_page_directory(page_directory *page);

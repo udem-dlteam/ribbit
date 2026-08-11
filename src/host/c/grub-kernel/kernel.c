@@ -10,12 +10,12 @@ void vga_write(char c, uint8_t color, int index) {
 }
 int errno = 0;
 int position = 0;
-char kernel_heap[1024 * 1024];
 static char scancode_to_ascii[128] =
     "&&1234567890-=\b\tqwertyuiop[]\n&asdfghjkl;'`\xff\\zxcvbnm,./\xff*& ";
 static char scancode_to_ascii_shift[128] =
     "&&!@#$%^&*()_+\b\tQWERTYUIOP{}\n&ASDFGHJKL:\"~\xff|ZXCVBNM<>?\xff*& ";
-struct heap_chunk *heap = (struct heap_chunk*)kernel_heap;
+struct heap_chunk base;
+struct heap_chunk *heap = &base;
 struct stack_frame *last_frame = NULL;
 
 struct idt idt;
@@ -60,11 +60,12 @@ void kernel_main(multiboot_info_t *info, unsigned magic,void* end) {
     exit(-1);
   }
   heap->next = NULL;
-  heap->size = sizeof(kernel_heap);
+  heap->size = sizeof(struct heap_chunk);
   struct heap_chunk* local = heap;
   for (int i=0;i < info->mmap_length;i += sizeof(multiboot_memory_map_t)) {
     multiboot_memory_map_t *map = (void*)(info->mmap_addr + i);
     if (map->type == MULTIBOOT_MEMORY_AVAILABLE) {
+      printf("new map: addr:0x%lx len: 0x%lx\n",map->addr_low,map->len_low);
       if ((void*)(map->addr_low + map->len_low) > end) {
         if ((void*)map->addr_low >= end) {
            local->next = (void*)map->addr_low; 
@@ -113,6 +114,7 @@ void handle_irq(const int number,const int has_code,const int code)
 }
 
 void *malloc(size_t size) {
+  printf("malloc(0x%lx)\n",size);
   static int heap_lock = 0;
   if (heap_lock == 1) return NULL;
   else heap_lock = 1;
