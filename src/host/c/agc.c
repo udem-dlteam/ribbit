@@ -39,6 +39,10 @@ typedef long num;
 #define QUEUE_NO_REMOVE
 // )@@
 
+// @@(feature in-place-dealloc
+#define IN_PLACE_DEALLOC
+// )@@
+
 // @@(feature debug-field
 #define DEBUG_FIELD
 // )@@
@@ -1248,6 +1252,10 @@ void und_sub_rank(obj x, num d){
 
 void remove_node(obj x);
 
+#ifdef IN_PLACE_DEALLOC
+void dealloc_in_place(obj x);
+#endif
+
 #define is_parent(x, p) (PAR(x) == p)
 #define get_parent(x) PAR(x)
 #define set_parent(x,p,i) get_parent(x) = p
@@ -1267,7 +1275,16 @@ bool adUpt(obj x, int depth); // needed by unprotect
 static inline bool remove_root(obj old_root) {
   if (IS_RIB(old_root)) {
     if (CFR(old_root) == _NULL) {
+      /* remove_node(old_root); */
+#ifdef IN_PLACE_DEALLOC
+      if (is_collectable(old_root)) {
+        dealloc_in_place(old_root);
+      } else {
+        remove_node(old_root);
+      }
+#else
       remove_node(old_root);
+#endif
     } else {
       // @@(location profile-start-adopt-in-unprotect)@@
       if (!adUpt(old_root, 0)) {
@@ -1602,7 +1619,6 @@ void catch() {
   } while (!PQ_IS_EMPTY());
 }
 
-
 // non-recursive deallocation
 void dealloc_rib(obj dx) {
 
@@ -1705,6 +1721,44 @@ void dealloc_rib(obj dx) {
 /*   } */
 /* #endif */
 /* } */
+
+
+#ifdef IN_PLACE_DEALLOC
+
+void remove_edge(obj from, obj to, int i);
+
+void dealloc_in_place(obj dx) {
+  deallocate(dx);
+
+  obj *_x = RIB(dx)->fields;
+
+  for (int i = 0; i < 3; i++) {
+    if (IS_RIB(_x[i])) {
+      if (is_parent(_x[i], dx)) {
+        remove_edge(dx, _x[i], i);
+      } else { // not a child, only need to remove x from co-friend's list
+        // TODO faster way to check if we try to wipe the same co-friend twice
+        if (!is_immortal(_x[i]) && !is_falling(_x[i]) && CFR(_x[i]) != _NULL) {
+          if (i == 0) {
+            wipe_cofriend(_x[i], dx, i);
+          } else if (i == 1 && _x[1] != _x[0]) {
+            wipe_cofriend(_x[i], dx, i);
+          } else if (i == 2 && _x[2] != _x[0] && _x[2] != _x[1]) {
+            wipe_cofriend(_x[i], dx, i);
+          }
+        }
+      }
+    }
+  }
+  CAR(dx) = (obj)alloc; // deallocate the rib by adding it to the freelist
+  alloc = (obj *)dx;
+  _x[6] = _NULL;
+  get_parent(dx) = _NULL;
+#ifdef MIN_HEAP_SIZE
+  allocated_objects--;
+#endif
+}
+#endif // in-place dealloc
   
 void remove_edge(obj from, obj to, int i) {
   // `from` and `to` are assumed to be ribs, `i` is the index where `to` is
@@ -1726,6 +1780,14 @@ void remove_edge(obj from, obj to, int i) {
   remove_parent(to, from, i); 
   if (is_collectable(to) && !is_parent(to, from)) {
     // @@(location profile-start-adopt-in-remove-edge)@@
+
+#ifdef IN_PLACE_DEALLOC
+    if (CFR(to) == _NULL) {
+      dealloc_in_place(to);
+      return;
+    }
+#endif
+
     if (!_adUpt(to, 0)) {
       // @@(location profile-stop-adopt-in-remove-edge)@@
       // @@(location profile-start-drop-in-remove-edge)@@
