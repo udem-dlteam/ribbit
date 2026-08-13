@@ -359,7 +359,7 @@ static inline bool adupt_start_heuristic(obj adoptee, int depth) {
 #define ADUPT_RERANK_DEPTH 25
 // )@@
 // @@(feature adupt-rerank-depth-100
-`#define ADUPT_RERANK_DEPTH 100
+#define ADUPT_RERANK_DEPTH 100
 // )@@
 // @@(feature adupt-rerank-depth-500
 #define ADUPT_RERANK_DEPTH 500
