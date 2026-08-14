@@ -108,8 +108,10 @@ void check_spanning_tree_impl();
 #define RIB_NB_FIELDS (10+QUEUE_NO_REMOVE_count+DEBUG_FIELD_count)
 #endif // ETT
 
+#ifndef HEAP_SIZE_FIELDS
 // 12000000 works fine for every benchmark except for `primes` when using ETT-GC
 #define HEAP_SIZE_FIELDS 20000000 // 12000000
+#endif
 
 #ifdef MIN_HEAP_SIZE
 // `min_nb_objects` is the number of objects required to run the program
