@@ -47,30 +47,6 @@ typedef long num;
 #define DEBUG_FIELD
 // )@@
 
-// @@(feature c/gc/bigger-heap-2
-#define BIGGER_HEAP_2
-// )@@
-
-// @@(feature c/gc/bigger-heap-4
-#define BIGGER_HEAP_4
-// )@@
-
-// @@(feature c/gc/bigger-heap-8
-#define BIGGER_HEAP_8
-// )@@
-
-// @@(feature c/gc/bigger-heap-16
-#define BIGGER_HEAP_16
-// )@@
-
-// @@(feature c/gc/bigger-heap-32
-#define BIGGER_HEAP_32
-// )@@
-
-// @@(feature c/gc/bigger-heap-64
-#define BIGGER_HEAP_64
-// )@@
-
 // @@(feature c/gc/min-heap-size
 #define MIN_HEAP_SIZE
 // )@@
@@ -132,35 +108,13 @@ void check_spanning_tree_impl();
 #define RIB_NB_FIELDS (10+QUEUE_NO_REMOVE_count+DEBUG_FIELD_count)
 #endif // ETT
 
-#ifndef BASE_HEAP_SIZE_FIELDS
 // 12000000 works fine for every benchmark except for `primes` when using ETT-GC
-#define BASE_HEAP_SIZE_FIELDS 20000000 // 12000000
-#endif
+#define HEAP_SIZE_FIELDS 20000000 // 12000000
 
 #ifdef MIN_HEAP_SIZE
 // `min_nb_objects` is the number of objects required to run the program
 num min_nb_objects = 0;
 num allocated_objects = 0;
-#endif
-
-#if defined(BIGGER_HEAP_2)
-#define HEAP_SIZE_FACTOR 2
-#elif defined(BIGGER_HEAP_4)
-#define HEAP_SIZE_FACTOR 4
-#elif defined(BIGGER_HEAP_8)
-#define HEAP_SIZE_FACTOR 8
-#elif defined(BIGGER_HEAP_16)
-#define HEAP_SIZE_FACTOR 16
-#elif defined(BIGGER_HEAP_32)
-#define HEAP_SIZE_FACTOR 32
-#elif defined(BIGGER_HEAP_64)
-#define HEAP_SIZE_FACTOR 64
-#else
-#define HEAP_SIZE_FACTOR 1
-#endif
-
-#ifndef HEAP_SIZE_FIELDS
-#define HEAP_SIZE_FIELDS (BASE_HEAP_SIZE_FIELDS * HEAP_SIZE_FACTOR)
 #endif
 
 #define MAX_NB_OBJS (HEAP_SIZE_FIELDS / RIB_NB_FIELDS)
@@ -1341,8 +1295,15 @@ void add_cofriend(obj x, obj cfr, int i) {
     // have no impact on the root's rank (see the paper for a counter-example
     // where a cycle is created and an unsafe adoption occurs because of that)
     if (is_collectable(x)) {
+      // FIXME need to rename some stuff. The `remove_root` is done because
+      // the rank of `x` might be smaller than the rank of `cfr` (which might
+      // require a rerank for the subtree rooted at `x`)
+      /* if (get_rank(cfr) < get_rank(x)) { */
+      /*   get_parent(x) = cfr; */
+      /* } else { */
+      /*   remove_root(x); */
+      /* } */
       remove_root(x);
-      //get_parent(x) = cfr;
     }
     return;
   }
