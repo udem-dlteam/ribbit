@@ -2523,7 +2523,7 @@ void run() { // evaluator
       break;
     }
     case INSTR_HALT: { // halt
-      // gc();
+      gc();
 #ifdef MIN_HEAP_SIZE
       min_nb_objects++; // null rib
       num min_heap_size = min_nb_objects * RIB_NB_FIELDS * 8;

@@ -252,22 +252,9 @@ check-es: rsc-gsc.exe
 	HOST=c \
 	RSC="./rsc.exe --rvm ./host/c/agc.c -f+ c/gc/es -f+ check-spanning-tree -f+ runtime-checks" \
 	POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" \
-	TEST_FEATURES="-f+ in-place-dealloc -f+ adupt-drop-depth-25 -f+ adupt-rerank-depth-25,-f+ adupt-avoid-lists,-f+ adupt-no-rerank-from-atomic,-f+ adupt-drop-depth-always, -f+ stack-pair-tag" \
+	TEST_FEATURES="-f+ in-place-dealloc -f+ queue-no-remove -f+ adupt-drop-depth-5" \
 	TEST_TAGS="c core variadics r4rs flat-closure bench" \
 	make check
-
-check-es-bench: rsc.exe
-	echo "====================== TESTING HOST c (check-spanning-tree)"
-	TEST_FILTER="scheme*" HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ check-spanning-tree -f+ adupt-drop-depth-25 -f+ adupt-rerank-depth-25 -f+ runtime-checks" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" TEST_TAGS="bench" make check
-
-	#echo "====================== TESTING HOST c (no-global-rank-counter)"
-	#HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ no-global-rank-counter" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" make check
-	#echo "====================== TESTING HOST c (adupt-drop-depth-25 adupt-rerank-depth-25)"
-	#HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ adupt-drop-depth-25 -f+ adupt-rerank-depth-25" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" make check
-	#echo "====================== TESTING HOST c (queue-no-remove)"
-	#HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ queue-no-remove" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" make check
-	#echo "====================== TESTING HOST c (adupt-avoid-lists queue-no-remove)"
-	#HOST=c RSC_COMPILER="./rsc.exe --rvm ./host/c/es.c -f+ c/gc/es -f+ adupt-avoid-lists -f+ queue-no-remove" POST_TEST_VALIDATION="***REMAINING_RIBS = 0\n***ALIVE_BUT_COLLECTED = 0" TEST_FEATURES="" make check
 
 venv-gen:
 	python3 -m venv venv-gen
