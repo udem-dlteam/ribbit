@@ -17,7 +17,6 @@ static char scancode_to_ascii_shift[128] =
 struct heap_chunk base;
 struct heap_chunk *heap = &base;
 struct stack_frame *last_frame = NULL;
-
 struct idt idt;
 struct gate_descriptor gates[256];
 typedef void (*irq_handler)();
@@ -100,6 +99,7 @@ void kernel_main(multiboot_info_t *info, unsigned magic,void* end) {
 
 void handle_irq(const int number,const int has_code,const int code)
 {
+  received_interruption = 1;
   if (irqs.i >= sizeof(irqs.data)/sizeof(irqs.data[0])-1) {
     printf("unhandled irq %d\n",number);
     return;

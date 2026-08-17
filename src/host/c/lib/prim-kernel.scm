@@ -63,6 +63,20 @@
   push2(FALSE,PAIR_TAG);
   }")
 
+(define-primitive (register-handler)
+"{
+  PRIM1();
+  TEMP2 = TAG_RIB(x);
+  push2(FALSE,PAIR_TAG);
+  break; 
+}")
+
+(define-primitive (cause-interrupt)
+ "{
+ received_interruption = 1;
+ push2(FALSE,PAIR_TAG);
+ break;
+ }")
 
 (define com (lambda (k) (+ 1016 k)))
 

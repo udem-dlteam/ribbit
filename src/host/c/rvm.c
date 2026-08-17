@@ -27,7 +27,7 @@
 #define MARK_SWEEP_DSW // Deutsch-Schorr-Waite graph marking algorithm version
 // )@@
 
-// @@(feature grub-kernel
+// @@(feature grub-kernel (use str2scm)
 #define KERNEL
 // )@@
 
@@ -66,6 +66,7 @@
 #ifdef KERNEL
 #include "kernel.h"
 #endif
+int received_interruption = 0;
 
 #ifndef KERNEL
 #ifdef DEBUG
@@ -1273,7 +1274,6 @@ void show_stack(){
 }
 
 #endif
-
 void run() {
 #define ADVANCE_PC()                                                           \
   do {                                                                         \
@@ -1281,6 +1281,23 @@ void run() {
     pc = TAG(pc);                                                              \
   } while (0)
   while (1) {
+#ifdef KERNEL
+    if (received_interruption == 1 && IS_RIB(TEMP2)) { // emit a call to interrupt handler
+        obj closure = (obj)alloc_rib(TEMP2,str2scm("interrupt"),TAG_NUM(2));
+        push(closure);
+        obj instruction = (obj)alloc_rib(TAG_NUM(INSTR_AP),closure,pc);
+        PC_CHANGE_BARRIER(instruction); 
+        pc = instruction;
+        received_interruption = 0;
+    #ifdef DEBUG
+        puts("interruption received. adding this rib before pc:");
+        show_rib(instruction,3);
+    #endif
+        pop();
+        puts("");
+        push(NUM_0);
+    }
+#endif
     num instr = NUM(CAR(pc));
     switch (instr) {
     default: { // error
@@ -1666,6 +1683,7 @@ void init() {
   set_global(NIL);
 
   setup_stack();
+  TEMP2 = NUM_0;
   run();
 }
 

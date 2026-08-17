@@ -24,6 +24,7 @@ typedef unsigned size_t;
 
 
 #define NULL (void *)0
+extern int received_interruption;
 extern void enable_paging(void);
 extern void* irq_handlers[256];
 struct stack {
