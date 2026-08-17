@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+dir="$(echo $0 | sed 's/mk-kernel$//')/grub-kernel"
+bck=$(pwd)
+echo $dir $0
+cp "$1" $dir/repl.c
+cd $dir
+make -f KMakefile kernel.elf
+rm repl.c repl.o
+cd $bck
+mv $dir/kernel.elf "$2"
