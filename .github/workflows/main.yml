@@ -51,7 +51,7 @@ jobs:
           cd src
           HOST=c TEST_TAGS="r4rs" TEST_FEATURES="-f+ compression/lzss/2b,-e optimal,-m" make check
 
-  check_gambit_v4_7_5:
+  check_gambit_v4_9_0:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the ribbit repository
@@ -76,7 +76,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           repository: gambit/gambit
-          ref: v4.7.5
+          ref: v4.9.0
           path: gambit-src
 
       - name: Build Gambit for Use
@@ -95,16 +95,14 @@ jobs:
           make rsc.exe GSC=$(pwd)/../gambit/bin/gsc GSI=$(pwd)/../gambit/bin/gsi
 
       - name: Run simple Python RVM
-        continue-on-error: true
         run: |
           cd src
-          TEST_FEATURES="" HOST=py make check
+          TEST_FEATURES="" HOST=py make check GSC=$(pwd)/../gambit/bin/gsc GSI=$(pwd)/../gambit/bin/gsi
 
       - name: Run C RVM
-        continue-on-error: true
         run: |
           cd src
-          HOST=c TEST_TAGS="r4rs" TEST_SKIP="80-add-variadic.scm" TEST_FEATURES="-f+ compression/lzss/2b,-e optimal,-m" make check
+          HOST=c TEST_TAGS="r4rs" TEST_FEATURES="-f+ compression/lzss/2b,-e optimal,-m" make check GSC=$(pwd)/../gambit/bin/gsc GSI=$(pwd)/../gambit/bin/gsi
 
   check_guile:
     runs-on: ubuntu-latest
