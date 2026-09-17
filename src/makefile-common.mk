@@ -60,7 +60,7 @@ check-bootstrap:
 		time ${HOST_INTERPRETER} rsc-bootstrap1.${HOST} -ps -t ${HOST} -l r4rs -l prim-wrap ${BOOT0} -l boot-host -f+ v-port -o rsc-bootstrap2.${HOST} ${BOOT_FILE}; \
 		if [ $$? != 0 ]; then echo "Bootstrap failed"; exit 1; fi; \
   else \
-		${HOST_COMPILER} rsc-bootstrap1.exe -g rsc-bootstrap1.${HOST}; \
+		${HOST_COMPILER} rsc-bootstrap1.exe rsc-bootstrap1.${HOST}; \
 		if [ $$? != 0 ]; then echo "Could not compile bootstrap"; exit 1; fi; \
 		time ./rsc-bootstrap1.exe -ps -t ${HOST} -l r4rs -l prim-wrap ${BOOT0} -l boot-host -f+ v-port -o rsc-bootstrap2.${HOST} ${BOOT_FILE}; \
 		if [ $$? != 0 ]; then echo "Bootstrap failed"; exit 1; fi; \
