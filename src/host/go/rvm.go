@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"os"
+	"io" // @@(feature go/io)@@
+	"os" // @@(feature go/os)@@
+	"runtime" // @@(feature go/runtime)@@
+	"syscall" // @@(feature go/syscall)@@
 )
 
 const DebugICall = false
@@ -28,7 +30,7 @@ func ShowRib(rib Obj, depth int) {
     return
   }
   if (rib == TRUE) {
-    fmt.Printf("#t") 
+    fmt.Printf("#t")
     return
   }
   if (rib == FALSE) {
@@ -228,9 +230,10 @@ func getInt(n int) int {
 // ===============================================
 // ===============================================
 
-var stack = tagNum(0)
-var symbolTable = tagNum(0)
-var pc = tagNum(0)
+var NUM0 = tagNum(0)
+var stack = NUM0
+var symbolTable = NUM0
+var pc = NUM0
 
 var FALSE *Rib = nil
 var TRUE *Rib = nil
@@ -289,6 +292,14 @@ func listTail(list, i Obj) Obj {
 	}
 }
 
+func instTail(list, i Obj) Obj {
+	if i.Value() == 0 {
+		return list
+	} else {
+		return instTail(list.Field2(), i.Add(-1))
+	}
+}
+
 func listRef(list, i Obj) Obj {
 	return listTail(list, i).Field0()
 }
@@ -342,8 +353,80 @@ func buildSymTable() {
 	symbolTable = createSym(accum)
 }
 
+// @@(feature encoding/optimal
 func decode() {
+	var ranges = []int{1, 2, 3} // @@(replace "{1, 2, 3}" (list->host encoding/optimal/start "{" "," "}"))@@
 
+	//var n Obj
+	var i int
+	var arg Obj
+
+	for {
+		code := getCode()
+		arg = tagNum(code)
+		range_index := 0
+
+		for {
+			if arg.Value() < ranges[range_index] {
+				break
+			}
+
+			arg = tagNum(arg.Value() - ranges[range_index])
+			range_index++
+		}
+
+		//fmt.Printf("Decoded code: %d\n", code)
+		//fmt.Printf("Range index: %d\n", range_index)
+		//fmt.Printf("Argument: %d\n", arg)
+		//os.Stdout.Sync()
+
+    if (range_index < 4) { push(tagNum(0)) } // JUMP
+		//fmt.Printf("n= %d\n", n.Value())
+    if (range_index < 24) {
+			if range_index%2>0{
+				arg = tagNum(getInt(arg.Value()))
+			}
+		}
+
+		if range_index < 20 { // jump call set get const
+			i = (range_index / 4) - 1
+			if i < 0 {
+				i = 0
+			}
+			if (range_index % 4) / 2 >= 1{
+				arg = symbolRef(arg)
+			} else {
+				arg = arg
+			}
+		} else if range_index < 22 { // const proc
+			arg = allocRib(allocRib(arg, NUM0, pop()), Obj(NIL), tagNum(ClosureTag))
+			i=3;
+			if stack == NUM0 {
+				break
+			}
+		} else if range_index < 24 { // skip
+			stack = allocRib(instTail(stack.Field0(), arg), stack, NUM0)
+			continue
+		} else if (range_index < 25) { // if
+			arg = pop()
+			i=4;
+		}
+
+		//fmt.Printf("i= %d\n", i)
+		//fmt.Printf("n=")
+		//ShowRib(arg, 3)
+		//fmt.Printf("\n")
+
+		stack.Field0Set(allocRib(tagNum(i), arg, stack.Field0()))
+	}
+
+	pc = arg.Field0().Field2()
+}
+// )@@
+
+
+// @@(feature encoding/original
+func decode() {
 	weights := []int{20, 30, 0, 10, 11, 4}
 	var n Obj
 	var d, op int
@@ -404,6 +487,7 @@ func decode() {
 
 	pc = n.Field0().Field2()
 }
+// )@@
 
 func initConstantRibs() {
 
@@ -456,61 +540,101 @@ func boolean(x bool) Obj {
 	}
 }
 
-func prim(primNo int) {
+// @@(feature scm2str
+func chars2str(chars Obj) string {
+	if chars == NIL {
+		return ""
+	} else {
+		return string(byte(chars.Field0().Value())) + chars2str(chars.Field1())
+	}
+}
+
+func scm2str(s Obj) string {
+	return chars2str(s.Field0())
+}
+// )@@
+
+// @@(feature str2scm
+func str2scm(c string) Obj {
+	obj := Obj(NIL)
+	length := len(c)
+
+	for i := length - 1; i >= 0; i-- {
+		obj = allocRib(tagNum(int(c[i])), obj, tagNum(PairTag))
+	}
+
+	return allocRib(obj, tagNum(length), tagNum(StringTag))
+}
+// )@@
+
+// @@(feature list2scm (use str2scm)
+func list2scm(s []string) Obj {
+	obj := Obj(NIL)
+	for i := len(s) - 1; i >= 0; i-- {
+		obj = allocRib(str2scm(s[i]), obj, tagNum(PairTag))
+	}
+
+	return obj
+}
+// )@@
+
+
+func prim(primNo int) Obj {
 
 	if DebugICall {
 		fmt.Printf("Calling primitive %d\n", primNo)
 	}
 
 	switch primNo {
-	case 0: //
+		// @@(primitives (gen "case " index ":" body)
+	case 0: // @@(primitive (%%rib a b c)
 		doPrim3(func(x, y, z Obj) Obj {
 			return allocRib(x, y, z)
-		})
-	case 1:
+		}) // )@@
+	case 1: // @@(primitive (%%id x)
 		doPrim1(func(x Obj) Obj {
 			return x
-		})
-	case 2:
-		pop()
-	case 3:
+		}) // )@@
+	case 2: // @@(primitive (%%arg1 x y)
+		pop() // )@@
+	case 3: // @@(primitive (%%arg2 x y)
 		x := pop()
 		pop()
-		push(x)
-	case 4:
+		push(x) // )@@
+	case 4: // @@(primitive (%%close rib)
 		x := stack.Field0().Field0()
 		y := stack.Field1()
 		z := tagNum(ClosureTag)
-		stack.Field0Set(allocRib(x, y, z))
-	case 5:
+		stack.Field0Set(allocRib(x, y, z)) // )@@
+	case 5: // @@(primitive (%%rib? rib)
 		doPrim1(func(x Obj) Obj {
 			return boolean(x.Rib())
-		})
-	case 6:
+		}) // )@@
+	case 6: // @@(primitive (%%field0 rib)
 		doPrim1(func(x Obj) Obj {
 			return x.Field0()
-		})
-	case 7:
+		}) // )@@
+	case 7: // @@(primitive (%%field1 rib)
 		doPrim1(func(x Obj) Obj {
 			return x.Field1()
-		})
-	case 8:
+		}) // )@@
+	case 8: // @@(primitive (%%field2 rib)
 		doPrim1(func(x Obj) Obj {
 			return x.Field2()
-		})
-	case 9:
+		}) // )@@
+	case 9: // @@(primitive (%%field0-set! rib val)
 		doPrim2(func(x, y Obj) Obj {
 			return x.Field0Set(y)
-		})
-	case 10:
+		}) // )@@
+	case 10: // @@(primitive (%%field1-set! rib val)
 		doPrim2(func(x, y Obj) Obj {
 			return x.Field1Set(y)
-		})
-	case 11:
+		}) // )@@
+	case 11: // @@(primitive (%%field2-set! rib val)
 		doPrim2(func(x, y Obj) Obj {
 			return x.Field2Set(y)
-		})
-	case 12:
+		}) // )@@
+	case 12: // @@(primitive (%%eqv? x y)
 		doPrim2(func(x, y Obj) Obj {
 			if x.Number() && y.Number() {
 				return boolean(x.Value() == (y.Value()))
@@ -519,28 +643,28 @@ func prim(primNo int) {
 			} else {
 				return FALSE
 			}
-		})
-	case 13:
+		}) // )@@
+	case 13: // @@(primitive (%%< x y)
 		doPrim2(func(x, y Obj) Obj {
 			return boolean(x.Value() < y.Value())
-		})
-	case 14:
+		}) // )@@
+	case 14: // @@(primitive (%%+ x y)
 		doPrim2(func(x, y Obj) Obj {
 			return tagNum(x.Value() + y.Value())
-		})
-	case 15:
+		}) // )@@
+	case 15: // @@(primitive (%%- x y)
 		doPrim2(func(x, y Obj) Obj {
 			return tagNum(x.Value() - y.Value())
-		})
-	case 16:
+		}) // )@@
+	case 16: // @@(primitive (%%* x y)
 		doPrim2(func(x, y Obj) Obj {
 			return tagNum(x.Value() * y.Value())
-		})
-	case 17:
+		}) // )@@
+	case 17: // @@(primitive (%%quotient x y)
 		doPrim2(func(x, y Obj) Obj {
 			return tagNum(x.Value() / y.Value())
-		})
-	case 18:
+		}) // )@@
+	case 18: // @@(primitive (%%getchar) (use go/io go/os)
 		if pos < len(Input) {
 			push(tagNum(int(getByte())))
 		} else {
@@ -558,13 +682,24 @@ func prim(primNo int) {
 			  push(tagNum(int(buff[0])))
       }
 
-		}
-	case 19:
+		} // )@@
+	case 19: // @@(primitive (%%putchar x)
 		doPrim1(func(x Obj) Obj {
 			fmt.Printf("%c", byte(x.Value()))
 			return x
+		}) //)@@
+
+  case 20:  // @@(primitive (%%exit n) (use go/os)
+  {
+		doPrim1(func(x Obj) Obj {
+			os.Exit(x.Value())
+			return x
 		})
+  } // )@@
+// )@@
 	}
+
+	return tagNum(0)
 }
 
 func getCont() Obj {
@@ -595,45 +730,86 @@ func run() {
 			}
 
 			proc := getOperand(operand)
-			code := proc.Field0()
 
-			if code.Number() {
-				prim(code.Value())
+			for {
+			  code := proc.Field0()
 
-				if call {
-					code = pc
-				} else {
-					code = getCont()
-					stack.Field1Set(code.Field0())
-				}
-			} else {
-				if DebugICall {
-					fmt.Printf("Calling a symbol\n")
-				}
+			  if code.Number() {
+			  	pop(); // @@(feature arity-check)@@
 
-				argC := code.Field0().Value() >> 1
+			  	ret := prim(code.Value())
 
-				c2 := allocRib(tagNum(0), proc, tagNum(PairTag))
-				s2 := c2
+					if ret.Rib() {
+						proc = ret
+						continue
+					}
 
-				for argC > 0 {
-					argC--
-					s2 = allocRib(pop(), s2, tagNum(PairTag))
-				}
+			  	if call {
+			  		code = pc
+			  	} else {
+			  		code = getCont()
+			  		stack.Field1Set(code.Field0())
+			  	}
+			  } else {
+			  	if DebugICall {
+			  		fmt.Printf("Calling a symbol\n")
+			  	}
 
-				if call {
-					c2.Field0Set(stack)
-					c2.Field2Set(pc.Field2())
-				} else {
-					cont := getCont()
-					c2.Field0Set(cont.Field0())
-					c2.Field2Set(cont.Field2())
-				}
+			  	nargs := pop().Value() // @@(feature arity-check)@@
 
-				stack = s2
-			}
+			  	c2 := allocRib(tagNum(0), proc, tagNum(PairTag))
+			  	s2 := c2
 
-			pc = code.Field2()
+			  	arityNumber := code.Field0().Value()
+			  	nparams := arityNumber >> 1
+
+			  	// @@(feature arity-check
+			  	{
+			  		var shouldCrash bool
+			  		if arityNumber & 1 == 1 {
+			  			shouldCrash = nparams > nargs
+			  		} else {
+			  			shouldCrash = nparams != nargs
+}
+			  		if shouldCrash {
+			  			panic(fmt.Sprintf("Arity mismatch: expected %d, got %d, arityNumber=%d", nparams, nargs, arityNumber))
+			  		}
+			  	}
+			  	// )@@
+
+			  	// @@(feature rest-param (use arity-check)
+			  	nargs -= nparams
+			  	if arityNumber & 1 == 1 {
+			  		rest := Obj(NIL)
+			  		for nargs > 0 {
+			  			rest = allocRib(pop(), rest, tagNum(PairTag))
+			  			nargs--
+			  		}
+
+			  		s2 = allocRib(rest, s2, tagNum(PairTag))
+			  	}
+			  	// )@@
+
+			  	for nparams > 0 {
+			  		nparams--
+			  		s2 = allocRib(pop(), s2, tagNum(PairTag))
+			  	}
+
+			  	if call {
+			  		c2.Field0Set(stack)
+			  		c2.Field2Set(pc.Field2())
+			  	} else {
+			  		cont := getCont()
+			  		c2.Field0Set(cont.Field0())
+			  		c2.Field2Set(cont.Field2())
+			  	}
+
+			  	stack = s2
+			  }
+
+			  pc = code.Field2()
+			  break
+		  }
 		case InstrSet: // set
 			if DebugICall {
 				fmt.Println("--- set")
@@ -674,7 +850,7 @@ func run() {
 			fmt.Printf("Unknown instruction: %d\n", instr)
 			fallthrough
 		case InstrHalt:
-			os.Exit(0)
+			return
 		}
 	}
 }
