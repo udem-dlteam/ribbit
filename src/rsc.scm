@@ -4974,8 +4974,9 @@
 (define (read-library lib-path)
   `((%%include-once (ribbit ,lib-path))))
 
-(define (read-program lib-path src-path)
+(define (read-program lib-path src-path prefix-code)
   (append (apply append (map read-library lib-path))
+          (if (not prefix-code) '() (read-from-file prefix-code))
           (if (equal? src-path "-")
               ($read-all (current-input-port))
               (read-from-file src-path))))
@@ -5666,6 +5667,7 @@
 
 (define target "rvm")
 (define (fancy-compiler src-path
+                        prefix-code
                         output-path
                         exe-output-path
                         rvm-path
@@ -5737,7 +5739,7 @@
          (program-read
            (report-status
              "Reading program source code"
-             (read-program lib-path src-path)))
+             (read-program lib-path src-path prefix-code)))
 
          (program-compiled
            (report-status
@@ -5861,6 +5863,7 @@ EXAMPLE
   (let ((verbosity 0)
         (debug-info '())
         (target "rvm")
+        (prefix-code #f)
         (input-path #f)
         (output-path #f)
         (exe-output-path #f)
@@ -5883,6 +5886,9 @@ EXAMPLE
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-i" "--input")))
                  (set! input-path (car rest))
+                 (loop (cdr rest)))
+                ((and (pair? rest) (member arg '("--prefix-code")))
+                 (set! prefix-code (car rest))
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-o" "--output")))
                  (set! output-path (car rest))
@@ -5983,6 +5989,7 @@ EXAMPLE
 
       (fancy-compiler
         src-path
+        prefix-code
         (or output-path
             (if (or (equal? src-path "-") (equal? target "rvm"))
               "-"
