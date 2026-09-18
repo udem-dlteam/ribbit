@@ -4951,8 +4951,10 @@
 (define (root-dir)
   ($path-directory (or (script-file) (executable-path))))
 
+(define RIBBIT-ROOT-DIR-CONST ($path-directory (executable-path)))
+
 (define (ribbit-root-dir) ;; TODO: make it work (maybe with a primitive or a env variable)
-  (root-dir))
+  RIBBIT-ROOT-DIR-CONST)
 
 ; Path where to find the ribbit libraries
 (define ribbit-path (list (path-expand "lib" (ribbit-root-dir))))
@@ -5590,7 +5592,7 @@
                   (string-append
                    "host/"
                    (string-append target "/minify"))
-                  (root-dir))
+                  (ribbit-root-dir))
                  target-code-before-minification))))
 
 
@@ -5955,6 +5957,9 @@ EXAMPLE
                  (set! call-stats #t)
                  (loop rest))
 
+                ((and (pair? rest) (member arg '("--root-dir")))
+                 (set! RIBBIT-ROOT-DIR-CONST (car rest))
+                 (loop (cdr rest)))
                 ((member arg '("-v" "--v"))
                  (set! verbosity (+ verbosity 1))
                  (loop rest))
@@ -6009,7 +6014,7 @@ EXAMPLE
                 (string-append
                   target
                   (string-append "/rvm." target)))
-              ($path-directory (car ($command-line)))))
+              (ribbit-root-dir)))
         target
         input-path
         (if (null? lib-path) '("empty") lib-path)
