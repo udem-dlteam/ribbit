@@ -5957,7 +5957,7 @@ EXAMPLE
                  (set! call-stats #t)
                  (loop rest))
 
-                ((and (pair? rest) (member arg '("--root-dir")))
+                ((and (pair? rest) (member arg '("--ribbit-root-dir")))
                  (set! RIBBIT-ROOT-DIR-CONST (car rest))
                  (loop (cdr rest)))
                 ((member arg '("-v" "--v"))
