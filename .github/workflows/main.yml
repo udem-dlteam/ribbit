@@ -572,7 +572,7 @@ jobs:
       # Install idris through homebrew
       - name: Set up Homebrew
         id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@main
 
       - name: Install Idris
         run: brew install idris2
@@ -666,7 +666,7 @@ jobs:
       # ocaml and ocamlc were not found in path. I'm using homebrew instead to download ocaml
       - name: Set up Homebrew
         id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@main
 
       - name: Install Ocaml
         run: brew install ocaml
@@ -756,7 +756,7 @@ jobs:
       # Install Scala through homebrew
       - name: Set up Homebrew
         id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@main
 
       - name: Install Scala
         run: brew install scala
