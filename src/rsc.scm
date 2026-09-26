@@ -602,8 +602,7 @@
    (define (script-file)
      (car ($command-line)))
 
-   (define (executable-path)
-     "")))
+   (define executable-path script-file)))
 
 ; $string-concatenate
 
@@ -4951,10 +4950,10 @@
 (define (root-dir)
   ($path-directory (or (script-file) (executable-path))))
 
-(define RIBBIT-ROOT-DIR-CONST ($path-directory (executable-path)))
+(define RIBBIT-ROOT-DIR-VALUE ($path-directory (executable-path)))
 
 (define (ribbit-root-dir) ;; TODO: make it work (maybe with a primitive or a env variable)
-  RIBBIT-ROOT-DIR-CONST)
+  RIBBIT-ROOT-DIR-VALUE)
 
 ; Path where to find the ribbit libraries
 (define ribbit-path (list (path-expand "lib" (ribbit-root-dir))))
@@ -5772,6 +5771,15 @@
           byte-stats
           program-compiled))))
 
+(define (alread-set-arg-guard arg-name value default)
+  (if (equal? value default)
+    #t
+    (begin
+      (display "The arg '")
+      (display arg-name)
+      (display "' was already set before.\n")
+      (exit-program-abnormally))))
+
 (define (parse-cmd-line args)
   (define usage
 "`rsc` - The Ribbit Scheme Compiler
@@ -5877,37 +5885,46 @@ EXAMPLE
         (progress-status #f)
         (byte-stats #f)
         (call-stats #f)
-        (encoding-name "auto"))
+        (encoding-name "auto")
+        (ribbit-root-dir-value-set #f))
 
     (let loop ((args (cdr args)))
       (if (pair? args)
         (let ((arg (car args))
               (rest (cdr args)))
           (cond ((and (pair? rest) (member arg '("-t" "--target")))
+                 (alread-set-arg-guard arg target "rvm")
                  (set! target (car rest))
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-i" "--input")))
+                 (alread-set-arg-guard arg input-path #f)
                  (set! input-path (car rest))
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("--prefix-code")))
+                 (alread-set-arg-guard arg prefix-code #f)
                  (set! prefix-code (car rest))
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-o" "--output")))
+                 (alread-set-arg-guard arg output-path #f)
                  (set! output-path (car rest))
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-l" "--library")))
                  (set! lib-path (cons (car rest) lib-path))
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-m" "--minify")))
+                 (alread-set-arg-guard arg minify? #f)
                  (set! minify? #t)
                  (loop rest))
                 ((and (pair? rest) (member arg '("-e" "--encoding")))
+                 (alread-set-arg-guard arg encoding-name "auto")
                  (set! encoding-name (car rest))
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-r" "--rvm")))
+                 (alread-set-arg-guard arg rvm-path #f)
                  (set! rvm-path (car rest))
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("--table-hash-size")))
+                 (alread-set-arg-guard arg table-hash-size 1000)
                  (set! table-hash-size (string->number (car rest)))
                  (loop (cdr rest)))
                 ((and (pair? rest) (member arg '("-f+" "--enable-feature")))
@@ -5932,6 +5949,7 @@ EXAMPLE
                  (loop (cddr rest)))
 
                 ((and (pair? rest) (member arg '("-bs" "--byte-stats")))
+                 (alread-set-arg-guard arg byte-stats #f)
                  (set! byte-stats (string->number (car rest)))
                  (loop (cdr rest)))
 
@@ -5954,11 +5972,14 @@ EXAMPLE
                      (loop rest))))
 
                 ((member arg '("-cs" "--call-stats"))
+                 (alread-set-arg-guard arg call-stats #f)
                  (set! call-stats #t)
                  (loop rest))
 
                 ((and (pair? rest) (member arg '("--ribbit-root-dir")))
-                 (set! RIBBIT-ROOT-DIR-CONST (car rest))
+                 (alread-set-arg-guard arg ribbit-root-dir-value-set #f)
+                 (set! RIBBIT-ROOT-DIR-VALUE (car rest))
+                 (set! ribbit-root-dir-value-set #t)
                  (loop (cdr rest)))
                 ((member arg '("-v" "--v"))
                  (set! verbosity (+ verbosity 1))
@@ -5970,6 +5991,7 @@ EXAMPLE
                  (set! verbosity (+ verbosity 3))
                  (loop rest))
                 ((member arg '("-ps" "--progress-status"))
+                 (alread-set-arg-guard arg progress-status #f)
                  (set! progress-status #t)
                  (loop rest))
                 ((member arg '("-q")) ;; silently ignore Chicken's -q option
