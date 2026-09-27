@@ -109,7 +109,7 @@ rsc-gsc.exe: rsc.scm
 # Guile config
 #
 
-rsc-guile:
+rsc-guile: rsc.scm
 	@echo "==> Creating callable shell script in ./rsc-guile"
 	@# Write file to rsc-guile.exe
 	@echo "${GUILE} -s '$(shell pwd)/rsc.scm' \$$@" > rsc-guile
@@ -118,7 +118,7 @@ rsc-guile:
 #
 # Chicken config
 #
-rsc-csc:
+rsc-csc: rsc.scm
 	@echo "==> Compiling Ribbit with Chicken"
 	${CSC} rsc.scm -o rsc-csc
 

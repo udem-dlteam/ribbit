@@ -346,6 +346,25 @@
   (define ($path-directory path)
     (path-directory path)))
 
+ (chicken
+
+  (import (chicken pathname))
+
+  (define ($path-extension path)
+    (let ((ext (pathname-extension path)))
+      (if ext (string-append "." ext) "")))
+
+  (define ($path-directory path)
+    (let ((dir (pathname-directory path)))
+      (if dir dir "")))
+
+  (define (path-expand path dir)
+     (if (or (= (string-length dir) 0) ($string-prefix? dir path))
+         path
+         (if (eqv? (string-ref dir (- (string-length dir) 1)) #\/)
+             (string-append dir path)
+             (string-append dir (string-append "/" path))))))
+
  (kawa
 
   (define ($path-extension path)
@@ -5686,7 +5705,7 @@
              #f
              (string-from-file
                (path-expand rvm-path
-                            (root-dir)))))
+                            (ribbit-root-dir)))))
          (host-file
            (if (equal? _target "rvm")
              #f

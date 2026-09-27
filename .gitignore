@@ -113,3 +113,5 @@ src/.tests
 
 src/rsc.exe
 src/rsc-gsc.exe
+src/rsc-csc
+src/rsc-csc.c
