@@ -528,7 +528,7 @@
 (define (read-str-until predicate (port (current-input-port)))
   (let read-str-aux ((c (read-char port)) (result ""))
     (cond 
-      ((predicate result) result)
+      ((predicate c) result)
       ((eof-object? c) #f)
       (else (read-str-aux (read-char port) (string-append result (string c)))))))
 
