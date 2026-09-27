@@ -110,3 +110,6 @@ src/rvm-sizes.log
 src/scripts/minify
 src/.tests
 .vscode/settings.json
+
+src/rsc.exe
+src/rsc-gsc.exe
