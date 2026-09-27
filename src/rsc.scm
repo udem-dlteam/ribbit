@@ -358,8 +358,12 @@
     (let ((dir (pathname-directory path)))
       (if dir dir "")))
 
-  (define (path-expand path dir)
-    (make-pathname dir path)))
+   (define (path-expand path dir)
+     (if (or (= (string-length dir) 0) ($string-prefix? dir path))
+         path
+         (if (eqv? (string-ref dir (- (string-length dir) 1)) #\/)
+             (string-append dir path)
+             (string-append dir (string-append "/" path))))))
 
  (kawa
 
