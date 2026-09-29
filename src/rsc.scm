@@ -413,7 +413,7 @@
    (define (path-expand path dir)
      (if (or (= (string-length dir) 0) ($string-prefix? dir path))
          path
-         (if (eqv? (string-ref dir (- (string-length dir) 1)) #\/)
+         (if (eqv? (string-end dir) #\/)
              (string-append dir path)
              (string-append dir (string-append "/" path)))))))
 
