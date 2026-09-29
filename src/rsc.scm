@@ -598,10 +598,6 @@
   (define (executable-path)
     (executable-pathname)))
 
- (ribbit
-   (define (script-file)
-     (car (command-line))))
-
  (else
    (define (script-file)
      (car ($command-line)))
