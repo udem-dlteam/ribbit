@@ -1,3 +1,7 @@
-#!/bin/sh 
-
-gcc -o "$2" "$1"
+#!/bin/sh
+kernel=$(grep -c "#define KERNEL" <"$1")
+if [ $kernel -ne 0 ] # checks wether -f+ kernel was supplied
+then
+  exec $(echo "$0" | sed 's/mk-exe$/mk-kernel/') "$1" "$2"
+fi
+gcc -O3 -g -o "$2" "$1"
