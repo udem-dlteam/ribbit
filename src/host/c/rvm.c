@@ -216,17 +216,22 @@ typedef struct ribs {
 } rib;
 
 #ifdef TREADMILL
-struct list {
-  rib* start;
-  rib* end;
-};
 static inline void add_to_list(struct list* list,rib* obj);
 static inline void write_barrier(rib* object,rib* new_ptr);
 int do_not_collect = 0;
-struct list new;
-struct list black;
-struct list grey;
-struct list white;
+#define new_start white_end
+rib* white_start = NULL;
+rib* white_end = NULL;
+rib* black_start = NULL;
+rib* grey_start = NULL;
+#define new_end grey_start
+#define grey_end black_start
+#define black_end white_start
+// white_start --> white_end == new_start --> new_end == grey_start
+// ^                                                         |
+// |                                                         v
+// white_start == black_end <----------- black_start == grey_end
+//
 #endif
 #ifdef TREADMILL
 #define WRITE_BARRIER(src,old,new) write_barrier((rib*)src,(rib*)new);
@@ -410,19 +415,16 @@ void init_heap() {
       puts("unaligned heap start");
       exit(-1);
   }
-  initial_scan = heap_start;
-  new.start = (void*)&new;
-  new.end = NULL;
-  black.start = (void*)&black;
-  black.end = NULL;
-  grey.start = (void*)&grey;
-  grey.end = NULL;
-  white.start = (void*)&white;
-  white.end = NULL;
-  white.start = &real_root;
-  real_root.li_prev = (void*)&white;
-  real_root.li_next = (void*)&white;
-  white.end = &real_root;
+  initial_scan = heap_start+2;
+  new_start = heap_start;
+  new_end = heap_start+1;
+  heap_start->li_next = heap_start+1;
+  heap_start->li_prev = heap_start+1;
+  (heap_start+1)->li_prev = heap_start;
+  (heap_start+1)->li_next = heap_start;
+  white_start = white_end = new_end;
+  grey_start = grey_end = new_end;
+  black_start = black_end = new_end;
 #endif
 
 #ifdef MARK_SWEEP
@@ -699,100 +701,68 @@ static inline void write_barrier(rib* object,rib* new_ptr) {
   if (IS_NUM((obj)new_ptr)) return;
   if (!IS_BLACK(object->li_next)) return; // source is not black
   if (!IS_WHITE(new_ptr->li_next)) return; //dst is black
-  add_to_list(&grey,new_ptr);
+  rib* next = new_ptr;
+  unlink(next);
+  next->li_next = TAG_GREY(grey_start->li_next);
+  link(next,grey_start,TR_UNTAG(grey_start->li_next));
 }
+static inline void unlink(rib* object) {
+    TR_UNTAG(object->li_next)->li_prev = object->li_prev;
+    obj tag = object->li_prev->li_next & 7;
+    object->li_prev->li_next = TR_UNTAG(object->li_next) | tag;
+}
+
+static inline void link(rib* object,rib* prev,rib* next) {
+    obj tag = object->li_next & 7;
+    object->li_next = TR_UNTAG(next) | tag; 
+    object->li_prev = prev;
+    tag = prev->li_next;
+    prev->li_next = object | tag;
+    next->li_prev = object;
+}
+    
 static inline void rt_gc() {
   if (do_not_collect) return;
-  if (grey.start == (void*)&grey && (flags & GC_STARTED )== 0) {
-    add_to_list(&grey,root);
+
+  if (grey_start == grey_end && (flags & GC_STARTED )== 0) {
+    root->li_next = TAG_GREY(grey_start->li_next); 
+    root->li_prev = grey_start->li_prev;
+    grey_start = root;
+    grey_end = root->li_next;
     flags |= GC_STARTED;
   }
 
-
-  if (grey.start == (void*)&grey) {
-    if (white.start != (void*)&white) {
-        if (new.start != (void*)&new) {
-            struct list backup = new;
-            new.start = white.start;
-            white.start->li_prev = (void*)&new;
-            white.end->li_next = backup.start; 
-            backup.start->li_prev = white.end;
-        } else {
-            new.start = white.start;
-            new.end = white.end;
-            new.start->li_prev = (void*)&new;
-            new.end->li_next = (void*)&new;
-        }
-        white.end = NULL;
-        white.start = (void*)&white;
-    }
+  if (grey_start == grey_end) {
+    new_start = white_start;
     flipped = 1 - flipped;
-    white.start = black.start;
-    white.end = black.end;
-    black.start->li_prev = (void*)&white;
-    black.end->li_next = (void*)((obj)&white | ((obj)black.end->li_next & 3));
-    black.start = (void*)&black;
-    black.end = NULL;
+    white_start = black_start;
     flags &= ~GC_STARTED;
   } else {
-    rib* object = grey.start;
+    rib* object = grey_end->li_prev;
     if (!IS_NUM((obj)PTR_1(object)) && IS_WHITE(PTR_1(object)->li_next)) {
-      add_to_list(&grey,PTR_1(object));
+        rib* next = PTR_1(object);
+        unlink(next);
+        next->li_next = TAG_GREY(grey_start->li_next);
+        link(next,grey_start,TR_UNTAG(grey_start->li_next));
     }
     if (!IS_NUM((obj)PTR_2(object)) && IS_WHITE(PTR_2(object)->li_next)) {
-      add_to_list(&grey,PTR_2(object));
+        rib* next = PTR_2(object);
+        unlink(next);
+        next->li_next = TAG_GREY(grey_start->li_next);
+        link(next,grey_start,TR_UNTAG(grey_start->li_next));
     }
 
     if (!IS_NUM((obj)PTR_3(object)) && IS_WHITE(PTR_3(object)->li_next)) {
-      add_to_list(&grey,PTR_3(object));
+        rib* next = PTR_3(object);
+        unlink(next);
+        next->li_next = TAG_GREY(grey_start->li_next);
+        link(next,grey_start,TR_UNTAG(grey_start->li_next));
     }
-    
-
-    add_to_list(&black,object);
+    object->li_next = TAG_BLACK(TR_UNTAG(object->li_next)); 
+    grey_end = grey_end->li_prev;
   }
-
 }
 
-static inline void add_to_list(struct list* list,rib* object) {
-  if (object == NULL || list == NULL)
-    return;
-  if (TR_UNTAG(object->li_next) && TR_UNTAG(object->li_prev)) {
-  if (!IS_LIST_END(TR_UNTAG(object->li_next))) {
-    TR_UNTAG(object->li_next)->li_prev = object->li_prev;
-    if (!IS_LIST_END(object->li_prev)) {
-      object->li_prev->li_next = object->li_next;
-    } else {
-      ((struct list*)object->li_prev)->start = TR_UNTAG(object->li_next);
-      TR_UNTAG(object->li_next)->li_prev = object->li_prev;
-    }
-  } else {
-    ((struct list*)TR_UNTAG(object->li_next))->end = object->li_prev;
-    if (!IS_LIST_END(TR_UNTAG(object->li_prev))) {
-        object->li_prev->li_next = object->li_next;  
-    } else {
-       struct list* li = (void*)TR_UNTAG(object->li_next);
-       li->start = (void*)li; 
-       li->end = NULL;
-    }
-  }
-  }
-  if (list == &grey) {
-    object->li_next = TAG_GREY(list->start);
-  } else if (list == &black) {
-    object->li_next = TAG_BLACK(list->start);
-  } else if (list == &white) {
-    object->li_next = TAG_WHITE(list->start);
-  } else {
-    object->li_next = list->start;
-  }
-  if (list->start != NULL && list->start != (void*)list)
-    list->start->li_prev = object;
-  else {
-    list->end = object;
-  }
-  list->start = object;
-  object->li_prev = (void*)list;
-}
 
 #endif
 
@@ -807,25 +777,25 @@ void push2(obj car, obj tag) {
 #ifdef TREADMILL
     if (initial_scan < heap_start + MAX_NB_OBJS) {
         rib* start = initial_scan;
-        start->li_next = NULL;
-        start->li_prev = NULL;
+        start->li_next = 0;
+        start->li_prev = 0;
+        link(start,new_start,TR_UNTAG(new_start->li_next));
         start->fields[0] = 1;
         start->fields[1] = 1;
         start->fields[2] = 1;
-        add_to_list(&new,start); 
         initial_scan++;
-    } else if (new.end == NULL || new.start == (void*)&new) { // list is empty
-        for (int i=0; i < HEAP_SIZE_FIELDS && new.start == (void*)&new;i++) {
+    } else if (new_start == new_end) { // list is empty
+        for (int i=0; i < HEAP_SIZE_FIELDS && new_start == new_end;i++) {
             rt_gc();
         }
-        if (new.start == (void*)&new) {
+        if (new_start == new_end) {
             puts("out of memory");
             exit(-1);
         }
     }
-    rib* result = new.start;
+    rib* result = new_start;
     result->li_next = TAG_WHITE(result->li_next);
-    add_to_list(&white,result);
+    new_start = TR_UNTAG(new_start->li_next);
     result->fields[0] = car;
     result->fields[1] = stack;
     result->fields[2] = tag;
