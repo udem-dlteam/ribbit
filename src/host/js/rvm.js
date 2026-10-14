@@ -192,6 +192,7 @@ while (1) {
 symtbl = [[0,[accum,n,3],2],symtbl,0];
 
 symbol_ref = (n) => list_tail(symtbl,n)[0];
+
 // @@(feature (or debug debug-trace error-msg) (use sym2str chars2str)
 symbol_ref_debug = (n) => list_tail(symtbl_debug,n)[0];
 // )@@
@@ -305,7 +306,7 @@ while (1) {
 }
 // )@@
 
-// @@(feature (or debug debug-trace error-msg) (use sym2str chars2str)
+// @@(feature (or debug debug-trace error-msg symtbl_debug) (use sym2str chars2str)
 symtbl_debug = symtbl;
 // )@@
 
@@ -353,10 +354,9 @@ str2scm = (s) => {
 };
 // )@@
 
-// @@(feature find_sym (use scm2list)
+// @@(feature find_sym (use scm2list symtbl_debug)
 find_sym = (name, symtbl) => {
   lst = scm2list(symtbl);
-  console.log(lst);
   return list_tail(symtbl, lst.indexOf(name))[0];
 
 };
@@ -365,38 +365,40 @@ find_sym = (name, symtbl) => {
 // @@(feature function2scm (use foreign call find_sym)
 function2scm = (f) => {
   let host_call = find_sym('host-call', symtbl);
-  let id = find_sym('id', symtbl);
-  let arg2 = find_sym('arg2', symtbl);
+  let arg2 = find_sym('%%arg2', symtbl);
+
   let rib = [[0, 0, 1], [NIL, 0, 3], 2];
-  if (host_call == -1 || id == -1){
+  if (host_call == -1){
     console.log("ERROR : you must define host-call as a primitive to convert a function to a rib");
     return;
   }
 
-  let code = [3, foreign(f),  // push(foreign(f))
-              [2, 1, // inverse arguments
-               [0, host_call,  // call host_call primitive
-                [0, arg2, // discard argument on stack
-                 [0, id, 0]]]]]; // return
-  let i = f.length; // number of args
-  while(i--){
-    code = [3, 0,  // push 0
-             [0, rib, // call rib
-              code]];
-  }
-  code = [f.length, 0,     // number of params
-          [3, NIL, code]]; // push nil
+  code = [1, 0,     // arity number - always 1 because it is variadic
+              [3, foreign(f),  // push(foreign(f))
+                [3, 0, // dummy number of argument to be discarded by the call protocol
+                  [0, host_call, 0]]]]; // push nil
 
   let env = 0; // no environnement
   return [code, env, 1]; // return the procedure
 };
 // )@@
 
-// @@(feature host2scm (use list2scm str2scm bool2scm function2scm)
+// @@(feature host2scm (use str2scm bool2scm function2scm object2scm)
 host2scm = (v) => {
-  return ({"number":(x)=>x,"boolean":bool2scm,"string":str2scm,"object":list2scm, 'function':function2scm, 'undefined':()=>NIL}[typeof v](v));
+  return ({"number":(x)=>x,"boolean":bool2scm,"string":str2scm,"object":object2scm, 'function':function2scm, 'undefined':()=>NIL}[typeof v](v));
 };
 // )@@
+
+// @@(feature object2scm (use list2scm foreign)
+object2scm = (o) => {
+  if (Array.isArray(o)){
+    return list2scm(o);
+  } else {
+    return foreign(o);
+  }
+}
+// )@@
+
 
 // @@(feature list2scm (use host2scm)
 list2scm = (l,i=0) => (i<l.length?[host2scm(l[i]),list2scm(l,i+1),0]:NIL);
@@ -426,6 +428,7 @@ scm2bool = (r) => {
 
 // @@(feature scm2list (use scm2host)
 scm2list = (r) => {
+  if (r === NIL) return [];
   let elems = r[2] === 0 ? r : r[0];
   let lst = [];
   let f = (c) => {
@@ -477,6 +480,8 @@ scm2host = (r) => {
   if (typeof r === "number")
     return r;
   let tag = r[2];
+  if (tag == 7) return r[1]; // @@(feature foreign)@@
+  //console.log("Converting scm to host : ", r, " with tag ", tag);
   return [scm2list, scm2function, scm2symbol, scm2str, scm2list, scm2bool][tag](r);
 };
  // )@@
@@ -488,10 +493,24 @@ foreign = r => [0, r, 7]; // 7 is to tag a foreign object
 
 // @@(feature host_call (use scm2list)
 // f is a foreign object representing a function
-host_call = () =>{
+host_call = async () =>{
+  f = pop()[1]; // function f
   args = pop();
-  f = pop()[1];
-  return push(host2scm(f(...scm2list(args))));
+
+  let args_list = scm2list(args);
+
+  let result = f(...args_list);
+
+  if (result instanceof Promise){
+    try{
+      result = await result;
+    } catch(e){
+      console.error("Error in host function call : ", e);
+      return push(FALSE);
+    }
+  }
+
+  return push(host2scm(result));
 };
 // )@@
 
@@ -536,7 +555,7 @@ primitives = [
 // )@@
 ];
 
-run = () => {
+run = async () => {
   while (1) {
     let o = pc[1];
     switch (pc[0]) {
@@ -604,7 +623,7 @@ run = () => {
                 pop();
                 // )@@
 
-                o=primitives[c]();
+                o=await primitives[c]();
                 if (!o) return;
                 if (is_rib(o)) continue;
                 if (pc[2]===0) {
