@@ -45,12 +45,31 @@ KAWA ?= kawa
 # == Default config for Gambit ==
 ifeq (${SCHEME_COMPILER},gambit)
 
-# Check availability of -:r4rs on Gambit.
-ifeq ($(shell ${GSC} -:r4rs -e '' > /dev/null 2>&1; echo $$?), 0)
-GSC_OPTIONS += -:r4rs
-R4RS_WARNING ?= 0
-else
-R4RS_WARNING ?= 1
+define gambit_msg_install
+To install, see https://gambitscheme.org/
+endef
+
+define gambit_error_msg
+You are using an old version of Gambit, and some Ribbit features will not work properly.
+
+Please install Gambit v4.9.0 or newer. ${gambit_msg_install}
+
+PS: If you know what you are doing, you can set the environment variable GAMBIT_VERSION_ERROR to 0 to ignore this error.
+endef
+
+ifneq ($(shell ${GSC} -e '' > /dev/null 2>&1; echo $$?), 0)
+  $(error A working Gambit Scheme Compiler was not found at '${GSC}'. Either install it or set the $$GSC or $$SHEME_COMPILER environment variable accordingly. ${gambit_msg_install})
+endif
+
+GSC_VERSION := $(shell ${GSC} -e '(display (system-version))' || echo '0')
+GSC_VERSION_OK? := $(shell test "${GSC_VERSION}" -ge 409000 && echo "1" || echo "0")
+
+ifeq (${GSC_VERSION_OK?}, 0)
+  ifeq (${GAMBIT_VERSION_ERROR},0)
+    $(info ${gambit_error_msg})
+  else
+    $(error ${gambit_error_msg})
+  endif
 endif
 
 RSC_DEPS ?= rsc-gsc.exe
@@ -95,12 +114,6 @@ rsc.exe: ${RSC_DEPS}
 #
 
 rsc-gsc.exe: rsc.scm
-	@echo "==> Checking Gambit install..."
-	@if [ "${R4RS_WARNING}" = "1" ]; then \
-		echo "WARNING: You are using an old version of Gambit, and some ribbit features might not work properly, especially regarding R4RS symbols."; \
-		echo "It is suggested to use Gambit v4.9.4+. Type 'gsc -v' to see your version."; \
-		echo "To install from sources, see https://github.com/gambit/gambit."; \
-	fi
 	@echo "==> Building 'rsc-gsc.exe' with ${GSC}..."
 	@echo "This might take a while..."
 	${GSC} ${GSC_OPTIONS} -exe -o rsc-gsc.exe rsc.scm
