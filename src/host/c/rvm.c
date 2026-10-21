@@ -216,7 +216,8 @@ typedef struct ribs {
 } rib;
 
 #ifdef TREADMILL
-static inline void add_to_list(struct list* list,rib* obj);
+static inline void unlink(rib* object);
+static inline void link(rib* object,rib* prev,rib* next);
 static inline void write_barrier(rib* object,rib* new_ptr);
 int do_not_collect = 0;
 #define new_start white_end
@@ -708,16 +709,16 @@ static inline void write_barrier(rib* object,rib* new_ptr) {
 }
 static inline void unlink(rib* object) {
     TR_UNTAG(object->li_next)->li_prev = object->li_prev;
-    obj tag = object->li_prev->li_next & 7;
-    object->li_prev->li_next = TR_UNTAG(object->li_next) | tag;
+    obj tag = (obj)object->li_prev->li_next & 7;
+    object->li_prev->li_next = (rib*)((obj)TR_UNTAG(object->li_next) | tag);
 }
 
 static inline void link(rib* object,rib* prev,rib* next) {
-    obj tag = object->li_next & 7;
-    object->li_next = TR_UNTAG(next) | tag; 
+    obj tag = (obj)object->li_next & 7;
+    object->li_next = (rib*)((obj)TR_UNTAG(next) | tag); 
     object->li_prev = prev;
-    tag = prev->li_next;
-    prev->li_next = object | tag;
+    tag = (obj)prev->li_next & 7;
+    prev->li_next = (rib*)((obj)object | tag);
     next->li_prev = object;
 }
     
@@ -801,7 +802,7 @@ void push2(obj car, obj tag) {
     result->fields[2] = tag;
     STACK_CHANGE_BARRIER(TAG_RIB(result));
     stack = TAG_RIB(result);
-    if (free_alloc > 0) {
+    if (free_alloc > 0 || initial_scan < heap_start + MAX_NB_OBJS) {
         free_alloc--;
     } else {
         rt_gc();
