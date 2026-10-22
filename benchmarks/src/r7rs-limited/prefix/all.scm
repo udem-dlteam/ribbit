@@ -1,0 +1,10 @@
+(define (run-bench-aux run ok?)
+  (let loop ((i repetitions) (result '(undefined)))
+    (if (> i 0)
+        (loop (- i 1) (run))
+        (if (ok? result)
+            (begin (display "ok\n") result)
+            (error "wrong result")))))
+
+(define (run-bench run ok?)
+  (time (run-bench-aux run ok?)))
