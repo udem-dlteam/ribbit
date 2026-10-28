@@ -12,7 +12,6 @@
 // @@(feature debug-print
 #define DEBUG_I_CALL
 // )@@
-
 // @@(feature debug-gc
 #define DEBUG_GC
 // )@@
@@ -30,6 +29,9 @@
 // @@(feature grub-kernel
 #define KERNEL
 // )@@
+#ifdef TREADMILL
+#include <assert.h>
+#endif
 
 #ifdef MARK_SWEEP_DSW
 #define MARK_SWEEP
@@ -240,6 +242,7 @@ rib* grey_start = NULL;
     WRITE_BARRIER(root,CAR(root),new_stack); \
     CAR(root) = new_stack; 
 #define PC_CHANGE_BARRIER(new_pc) \
+    assert(IS_RIB(new_pc)); \
     WRITE_BARRIER(root,CDR(root),new_pc); \
     CDR(root) = new_pc; 
 #define FALSE_CHANGE_BARRIER(new_false) \
@@ -409,23 +412,29 @@ void init_heap() {
   }
 #endif
 #ifdef TREADMILL
-  real_root.fields[0] = (obj)stack;
-  real_root.fields[1] = (obj)FALSE;
-  real_root.fields[2] = (obj)pc;
   if ((obj)heap_start & 7) {
       puts("unaligned heap start");
       exit(-1);
   }
-  initial_scan = heap_start+2;
+  root = heap_start;
+  initial_scan = heap_start;
   new_start = heap_start;
-  new_end = heap_start+1;
-  heap_start->li_next = heap_start+1;
-  heap_start->li_prev = heap_start+1;
-  (heap_start+1)->li_prev = heap_start;
-  (heap_start+1)->li_next = heap_start;
-  white_start = white_end = new_end;
-  grey_start = grey_end = new_end;
-  black_start = black_end = new_end;
+  new_end = heap_start+5;
+  for (int i=0;i <= 5;i++) {
+      rib* prev = i > 0 ? heap_start + (i-1) : heap_start + 5;
+      rib* next = i < 5 ? heap_start + (i+1) : heap_start;
+      (heap_start+i)->li_prev = prev; 
+      (heap_start+i)->li_next = next; 
+      (heap_start+i)->fields[0] = 1;
+      (heap_start+i)->fields[1] = 1;
+      (heap_start+i)->fields[2] = 1;
+      initial_scan++;
+  }
+  white_start = white_end = new_start;
+  grey_end = grey_start;
+  root->fields[0] = (obj)stack;
+  root->fields[1] = (obj)FALSE;
+  root->fields[2] = (obj)pc;
 #endif
 
 #ifdef MARK_SWEEP
@@ -708,17 +717,30 @@ static inline void write_barrier(rib* object,rib* new_ptr) {
   link(next,grey_start,TR_UNTAG(grey_start->li_next));
 }
 static inline void unlink(rib* object) {
+    assert(((obj) object & 7) == 0);
     TR_UNTAG(object->li_next)->li_prev = object->li_prev;
     obj tag = (obj)object->li_prev->li_next & 7;
     object->li_prev->li_next = (rib*)((obj)TR_UNTAG(object->li_next) | tag);
 }
 
 static inline void link(rib* object,rib* prev,rib* next) {
+    assert(((obj) object & 7) == 0);
+    assert(((obj) prev & 7) == 0);
+    assert(((obj) next & 7) == 0);
+    assert(object->fields[0] != 0);
+    assert(object->fields[1] != 0);
+    assert(object->fields[2] != 0);
+    assert(prev->fields[0] != 0);
+    assert(prev->fields[1] != 0);
+    assert(prev->fields[2] != 0);
+    assert(next->fields[0] != 0);
+    assert(next->fields[1] != 0);
+    assert(next->fields[2] != 0);
     obj tag = (obj)object->li_next & 7;
+    obj tag2 = (obj)prev->li_next & 7;
     object->li_next = (rib*)((obj)TR_UNTAG(next) | tag); 
     object->li_prev = prev;
-    tag = (obj)prev->li_next & 7;
-    prev->li_next = (rib*)((obj)object | tag);
+    prev->li_next = (rib*)((obj)object | tag2);
     next->li_prev = object;
 }
     
@@ -726,37 +748,45 @@ static inline void rt_gc() {
   if (do_not_collect) return;
 
   if (grey_start == grey_end && (flags & GC_STARTED )== 0) {
-    root->li_next = TAG_GREY(grey_start->li_next); 
-    root->li_prev = grey_start->li_prev;
-    grey_start = root;
-    grey_end = root->li_next;
+    puts("start");
+    unlink(root);
+    link(root,grey_start,TR_UNTAG(grey_start->li_next));
+    grey_end = TR_UNTAG(root->li_next);
     flags |= GC_STARTED;
   }
 
   if (grey_start == grey_end) {
+    puts("collect");
     new_start = white_start;
     flipped = 1 - flipped;
     white_start = black_start;
     flags &= ~GC_STARTED;
+    rib* object = new_start;
+    while (object != new_end) {
+        object->fields[0] = 0x6161616161616162;
+        object->fields[1] = 0x6161616161616162;
+        object->fields[2] = 0x6161616161616162;
+        object = TR_UNTAG(object->li_next);
+    }
   } else {
     rib* object = grey_end->li_prev;
     if (!IS_NUM((obj)PTR_1(object)) && IS_WHITE(PTR_1(object)->li_next)) {
         rib* next = PTR_1(object);
         unlink(next);
-        next->li_next = TAG_GREY(grey_start->li_next);
+        next->li_next = TAG_GREY(TR_UNTAG(grey_start->li_next));
         link(next,grey_start,TR_UNTAG(grey_start->li_next));
     }
     if (!IS_NUM((obj)PTR_2(object)) && IS_WHITE(PTR_2(object)->li_next)) {
         rib* next = PTR_2(object);
         unlink(next);
-        next->li_next = TAG_GREY(grey_start->li_next);
+        next->li_next = TAG_GREY(TR_UNTAG(grey_start->li_next));
         link(next,grey_start,TR_UNTAG(grey_start->li_next));
     }
 
     if (!IS_NUM((obj)PTR_3(object)) && IS_WHITE(PTR_3(object)->li_next)) {
         rib* next = PTR_3(object);
         unlink(next);
-        next->li_next = TAG_GREY(grey_start->li_next);
+        next->li_next = TAG_GREY(TR_UNTAG(grey_start->li_next));
         link(next,grey_start,TR_UNTAG(grey_start->li_next));
     }
     object->li_next = TAG_BLACK(TR_UNTAG(object->li_next)); 
@@ -777,25 +807,37 @@ obj pop() {
 void push2(obj car, obj tag) {
 #ifdef TREADMILL
     if (initial_scan < heap_start + MAX_NB_OBJS) {
+        if (new_start == new_end) {
+            puts("empty before");
+        }
         rib* start = initial_scan;
         start->li_next = 0;
         start->li_prev = 0;
+        start->fields[0] = 0x6161616161616161;
+        start->fields[1] = 0x6161616161616161;
+        start->fields[2] = 0x6161616161616161;
         link(start,new_start,TR_UNTAG(new_start->li_next));
-        start->fields[0] = 1;
-        start->fields[1] = 1;
-        start->fields[2] = 1;
+        if (new_start == new_end) {
+            puts("empty");
+            new_end = TR_UNTAG(new_start->li_next);
+        }
         initial_scan++;
     } else if (new_start == new_end) { // list is empty
-        for (int i=0; i < HEAP_SIZE_FIELDS && new_start == new_end;i++) {
+        puts("out of real time");
+        for (int i=0; i < HEAP_SIZE_FIELDS && new_start == new_end && do_not_collect == 0;i++) {
             rt_gc();
         }
         if (new_start == new_end) {
+            printf("do_not_collect = %d\n",do_not_collect);
             puts("out of memory");
             exit(-1);
         }
-    }
+    } else puts("normal alloc");
     rib* result = new_start;
-    result->li_next = TAG_WHITE(result->li_next);
+    if (result == (rib*)0x7fffe4ad8618) {
+        puts("allocated target");
+    }
+    result->li_next = TAG_WHITE(TR_UNTAG(result->li_next));
     new_start = TR_UNTAG(new_start->li_next);
     result->fields[0] = car;
     result->fields[1] = stack;
