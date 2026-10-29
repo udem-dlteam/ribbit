@@ -1,9 +1,9 @@
 /*
+ *
  * The Ribbit VM implementation in C
  */
 
 // @@(location import)@@
-
 
 // @@(feature debug (use debug-print debug-phases)
 #define DEBUG
@@ -12,11 +12,12 @@
 // @@(feature debug-print
 #define DEBUG_I_CALL
 // )@@
-
 // @@(feature debug-gc
 #define DEBUG_GC
 // )@@
-
+// @@(feature c/gc/treadmill
+#define TREADMILL
+// )@@
 // @@(feature c/gc/mark-sweep
 #define MARK_SWEEP
 // )@@
@@ -24,6 +25,13 @@
 // @@(feature c/gc/mark-sweep-dsw
 #define MARK_SWEEP_DSW // Deutsch-Schorr-Waite graph marking algorithm version
 // )@@
+
+// @@(feature grub-kernel
+#define KERNEL
+// )@@
+#ifdef TREADMILL
+#include <assert.h>
+#endif
 
 #ifdef MARK_SWEEP_DSW
 #define MARK_SWEEP
@@ -54,6 +62,14 @@
 // )@@
 
 
+#ifdef DEBUG_I_CALL
+#define DEBUG
+#endif
+#ifdef KERNEL
+#include "kernel.h"
+#endif
+
+#ifndef KERNEL
 #ifdef DEBUG
 
 #include <stdio.h>
@@ -70,6 +86,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#endif
 #endif
 
 #define ARG_V // @@(feature argv)@@
@@ -134,7 +151,9 @@ void decompress(){
 #define NULL (0)
 #endif
 
+#ifndef KERNEL
 typedef unsigned long size_t;
+#endif
 
 
 // For versions of the standard lower than C23, bool, true and false needs to
@@ -190,9 +209,53 @@ typedef long num;
 
 #define MAX_NB_OBJS (HEAP_SIZE_FIELDS / RIB_NB_FIELDS)
 
-typedef struct {
+typedef struct ribs {
   obj fields[RIB_NB_FIELDS];
+#ifdef TREADMILL
+    struct ribs* li_next;
+    struct ribs* li_prev;
+#endif
 } rib;
+
+#ifdef TREADMILL
+static inline void unlink(rib* object);
+static inline void link(rib* object,rib* prev,rib* next);
+static inline void write_barrier(rib* object,rib* new_ptr);
+int do_not_collect = 0;
+#define new_start white_end
+rib* white_start = NULL;
+rib* white_end = NULL;
+rib* black_start = NULL;
+rib* grey_start = NULL;
+#define new_end grey_start
+#define grey_end black_start
+#define black_end white_start
+// white_start --> white_end == new_start --> new_end == grey_start
+// ^                                                         |
+// |                                                         v
+// white_start == black_end <----------- black_start == grey_end
+//
+#endif
+#ifdef TREADMILL
+#define WRITE_BARRIER(src,old,new) write_barrier((rib*)src,(rib*)new);
+// TODO: change barriers so write happens in barrier
+#define STACK_CHANGE_BARRIER(new_stack) \
+    WRITE_BARRIER(root,CAR(root),new_stack); \
+    CAR(root) = new_stack; 
+#define PC_CHANGE_BARRIER(new_pc) \
+    assert(IS_RIB(new_pc)); \
+    WRITE_BARRIER(root,CDR(root),new_pc); \
+    CDR(root) = new_pc; 
+#define FALSE_CHANGE_BARRIER(new_false) \
+    assert(IS_RIB(new_false)); \
+    WRITE_BARRIER(root,TAG(root),new_false); \
+    TAG(root) = new_false;
+#else
+#define WRITE_BARRIER(src,old,new) ;
+#define STACK_CHANGE_BARRIER(new_stack) ;
+#define PC_CHANGE_BARRIER(new_pc) ;
+#define FALSE_CHANGE_BARRIER(new_false) ;
+#endif
 
 rib *heap_start;
 #define SPACE_SZ (MAX_NB_OBJS * RIB_NB_FIELDS)
@@ -327,6 +390,9 @@ void *sys_brk(void *addr) {
 
 #endif
 
+rib real_root;
+rib *root = &real_root;
+rib* initial_scan;
 void init_heap() {
 #ifdef NO_STD
   heap_start = sys_brk((void *)NULL);
@@ -337,11 +403,40 @@ void init_heap() {
   }
 
 #else
+#ifdef TREADMILL
+  heap_start = malloc(sizeof(obj) * MAX_NB_OBJS*5);
+#else
   heap_start = malloc(HEAP_SIZE_BYTES);
+#endif
 
   if (!heap_start) {
     vm_exit(EXIT_NO_MEMORY);
   }
+#endif
+#ifdef TREADMILL
+  if ((obj)heap_start & 7) {
+      puts("unaligned heap start");
+      exit(-1);
+  }
+  root = heap_start;
+  initial_scan = heap_start;
+  new_start = heap_start;
+  new_end = heap_start+5;
+  for (int i=0;i <= 5;i++) {
+      rib* prev = i > 0 ? heap_start + (i-1) : heap_start + 5;
+      rib* next = i < 5 ? heap_start + (i+1) : heap_start;
+      (heap_start+i)->li_prev = prev; 
+      (heap_start+i)->li_next = next; 
+      (heap_start+i)->fields[0] = 1;
+      (heap_start+i)->fields[1] = 1;
+      (heap_start+i)->fields[2] = 1;
+      initial_scan++;
+  }
+  white_start = white_end = new_start;
+  grey_end = grey_start;
+  CAR(root) = (obj)stack;
+  CDR(root) = (obj)pc;
+  TAG(root) = (obj)FALSE;
 #endif
 
 #ifdef MARK_SWEEP
@@ -360,6 +455,7 @@ void init_heap() {
   alloc = heap_bot;
   alloc_limit = heap_mid;
 #endif
+  STACK_CHANGE_BARRIER(NUM_0);
   stack = NUM_0;
 }
 
@@ -568,14 +664,195 @@ void gc() {
   // @@(location profile-stop-gc)@@
 }
 #endif // end of GC algorithms
+#ifdef TREADMILL
+#define GC_STARTED 1
+#define IS_LIST_END(object) (((obj)object == (obj)&new || (obj)object == (obj)&black || (obj)object == (obj)&grey || (obj)object == (obj)&white))
+#define TR_UNTAG(arg) ( (rib*) ((obj)arg & ~7))
+#define PTR_1(obj) ((rib*)obj->fields[0])
+#define PTR_2(obj) ((rib*)obj->fields[1])
+#define PTR_3(obj) ((rib*)obj->fields[2])
+#define TG_WHITE(x) (rib*)tagp((obj) x,1,flipped)
+#define TG_BLACK(x) (rib*)tagp((obj)x,1,1 - flipped)
+#define TAG_GREY(x) (rib*)tagp((obj)x,0,1)
+#define UNTAG_GREY(x) (rib*)tagp((obj)x,0,0)
+#define TAG_WHITE(x) TG_WHITE(UNTAG_GREY(x))
+#define TAG_BLACK(x) TG_BLACK(UNTAG_GREY(x))
+#define IS_GREY(x) is_grey((obj)x)
+#define IS_BLACK(x) is_black((obj)x)
+#define IS_WHITE(x) is_white((obj)x)
+#define TAG_BITS 3
+
+#define GREY 1
+#define BLACK_WHITE 2
+#define WHITE_BLACK 0
+int free_alloc = 2;
+
+
+int flags;
+int  flipped = 0;
+static inline int is_grey(obj x) {
+    return x & GREY;
+}
+static inline int is_black(obj x) {
+    return (!is_grey(x) && ((x & 2) ^ (flipped << 1)));
+}
+static inline int is_white(obj x) {
+    return !is_grey(x) && !is_black(x);
+}
+
+static inline long tagp(obj input,obj offset,char value) {
+    if (value) {
+        input |= (1 << offset);
+    } else {
+        input &= ~(1 << offset);
+    }
+    return input;
+}
+
+static inline void write_barrier(rib* object,rib* new_ptr) {
+  if (IS_NUM((obj)new_ptr)) return;
+  if (!IS_BLACK(object->li_next)) return; // source is not black
+  if (!IS_WHITE(new_ptr->li_next)) return; //dst is black
+  rib* next = new_ptr;
+  unlink(next);
+  next->li_next = TAG_GREY(grey_start->li_next);
+  link(next,grey_start,TR_UNTAG(grey_start->li_next));
+}
+static inline void unlink(rib* object) {
+    assert(((obj) object & 7) == 0);
+    TR_UNTAG(object->li_next)->li_prev = object->li_prev;
+    obj tag = (obj)object->li_prev->li_next & 7;
+    object->li_prev->li_next = (rib*)((obj)TR_UNTAG(object->li_next) | tag);
+}
+
+static inline void link(rib* object,rib* prev,rib* next) {
+    assert(((obj) object & 7) == 0);
+    assert(((obj) prev & 7) == 0);
+    assert(((obj) next & 7) == 0);
+    assert(object->fields[0] != 0);
+    assert(object->fields[1] != 0);
+    assert(object->fields[2] != 0);
+    assert(prev->fields[0] != 0);
+    assert(prev->fields[1] != 0);
+    assert(prev->fields[2] != 0);
+    assert(next->fields[0] != 0);
+    assert(next->fields[1] != 0);
+    assert(next->fields[2] != 0);
+    obj tag = (obj)object->li_next & 7;
+    obj tag2 = (obj)prev->li_next & 7;
+    object->li_next = (rib*)((obj)TR_UNTAG(next) | tag); 
+    object->li_prev = prev;
+    prev->li_next = (rib*)((obj)object | tag2);
+    next->li_prev = object;
+}
+    
+static inline void rt_gc() {
+  if (do_not_collect) return;
+
+  if (grey_start == grey_end && (flags & GC_STARTED )== 0) {
+    puts("start");
+    unlink(root);
+    link(root,grey_start,TR_UNTAG(grey_start->li_next));
+    grey_end = TR_UNTAG(root->li_next);
+    flags |= GC_STARTED;
+  }
+
+  if (grey_start == grey_end) {
+    puts("collect");
+    new_start = white_start;
+    flipped = 1 - flipped;
+    white_start = black_start;
+    flags &= ~GC_STARTED;
+    rib* object = new_start;
+    while (object != new_end) {
+        object->fields[0] = 0x6161616161616162;
+        object->fields[1] = 0x6161616161616162;
+        object->fields[2] = 0x6161616161616162;
+        object = TR_UNTAG(object->li_next);
+    }
+  } else {
+    rib* object = grey_end->li_prev;
+    if (!IS_NUM((obj)PTR_1(object)) && IS_WHITE(PTR_1(object)->li_next)) {
+        rib* next = PTR_1(object);
+        unlink(next);
+        next->li_next = TAG_GREY(TR_UNTAG(grey_start->li_next));
+        link(next,grey_start,TR_UNTAG(grey_start->li_next));
+    }
+    if (!IS_NUM((obj)PTR_2(object)) && IS_WHITE(PTR_2(object)->li_next)) {
+        rib* next = PTR_2(object);
+        unlink(next);
+        next->li_next = TAG_GREY(TR_UNTAG(grey_start->li_next));
+        link(next,grey_start,TR_UNTAG(grey_start->li_next));
+    }
+
+    if (!IS_NUM((obj)PTR_3(object)) && IS_WHITE(PTR_3(object)->li_next)) {
+        rib* next = PTR_3(object);
+        unlink(next);
+        next->li_next = TAG_GREY(TR_UNTAG(grey_start->li_next));
+        link(next,grey_start,TR_UNTAG(grey_start->li_next));
+    }
+    object->li_next = TAG_BLACK(TR_UNTAG(object->li_next)); 
+    grey_end = grey_end->li_prev;
+  }
+}
+
+
+#endif
 
 obj pop() {
   obj x = CAR(stack);
+  STACK_CHANGE_BARRIER(CDR(stack));
   stack = CDR(stack);
   return x;
 }
 
 void push2(obj car, obj tag) {
+#ifdef TREADMILL
+    if (initial_scan < heap_start + MAX_NB_OBJS) {
+        if (new_start == new_end) {
+            puts("empty before");
+        }
+        rib* start = initial_scan;
+        start->li_next = 0;
+        start->li_prev = 0;
+        start->fields[0] = 0x6161616161616161;
+        start->fields[1] = 0x6161616161616161;
+        start->fields[2] = 0x6161616161616161;
+        link(start,new_start,TR_UNTAG(new_start->li_next));
+        if (new_start == new_end) {
+            puts("empty");
+            new_end = TR_UNTAG(new_start->li_next);
+        }
+        initial_scan++;
+    } else if (new_start == new_end) { // list is empty
+        puts("out of real time");
+        for (int i=0; i < HEAP_SIZE_FIELDS && new_start == new_end && do_not_collect == 0;i++) {
+            rt_gc();
+        }
+        if (new_start == new_end) {
+            printf("do_not_collect = %d\n",do_not_collect);
+            puts("out of memory");
+            exit(-1);
+        }
+    } else puts("normal alloc");
+    rib* result = new_start;
+    if (result == (rib*)0x7fffe4ad8618) {
+        puts("allocated target");
+    }
+    result->li_next = TAG_WHITE(TR_UNTAG(result->li_next));
+    new_start = TR_UNTAG(new_start->li_next);
+    assert(new_start->li_prev != new_end);
+    result->fields[0] = car;
+    result->fields[1] = stack;
+    result->fields[2] = tag;
+    STACK_CHANGE_BARRIER(TAG_RIB(result));
+    stack = TAG_RIB(result);
+    if (free_alloc > 0 || initial_scan < heap_start + MAX_NB_OBJS) {
+        free_alloc--;
+    } else {
+        rt_gc();
+    }
+#else
 #ifdef MARK_SWEEP
   obj tmp = *alloc; // next available slot in freelist
 #endif  
@@ -594,6 +871,7 @@ void push2(obj car, obj tag) {
   if (alloc == alloc_limit) {
     gc();
   }
+#endif
 #endif
 }
 
@@ -616,9 +894,12 @@ rib *alloc_rib(obj car, obj cdr, obj tag) {
   obj old_stack = CDR(stack);
   obj allocated = stack;
 
+  WRITE_BARRIER(allocated,CDR(allocated),TAG(allocated));
   CDR(allocated) = TAG(allocated);
+  WRITE_BARRIER(allocated,TAG(allocated),tag);
   TAG(allocated) = tag;
 
+  STACK_CHANGE_BARRIER(old_stack);
   stack = old_stack;
 
   return RIB(allocated);
@@ -629,8 +910,10 @@ rib *alloc_rib2(obj car, obj cdr, obj tag) {
   obj old_stack = CDR(stack);
   obj allocated = stack;
 
+  WRITE_BARRIER(allocated,CDR(allocated),cdr);
   CDR(allocated) = cdr;
 
+  STACK_CHANGE_BARRIER(old_stack);
   stack = old_stack;
 
   return RIB(allocated);
@@ -771,8 +1054,11 @@ obj prim(int no) {
   {
     obj new_rib = TAG_RIB(alloc_rib(NUM_0, NUM_0, NUM_0));
     PRIM3();
+    WRITE_BARRIER(new_rib,CAR(new_rib),x);
     CAR(new_rib) = x;
+    WRITE_BARRIER(new_rib,CDR(new_rib),y);
     CDR(new_rib) = y;
+    WRITE_BARRIER(new_rib,TAG(new_rib),z);
     TAG(new_rib) = z;
     push2(new_rib, PAIR_TAG);
     break;
@@ -800,7 +1086,9 @@ obj prim(int no) {
   {
     obj x = CAR(TOS);
     obj y = CDR(stack);
-    TOS = TAG_RIB(alloc_rib(x, y, CLOSURE_TAG));
+    obj z = TAG_RIB(alloc_rib(x, y, CLOSURE_TAG));
+    WRITE_BARRIER(stack,CAR(stack),z);
+    TOS = z;
     break;
   } //)@@
   case 5: // @@(primitive (%%rib? rib) (use bool2scm)
@@ -830,18 +1118,21 @@ obj prim(int no) {
   case 9: // @@(primitive (%%field0-set! rib x)
   { 
     PRIM2();
+    WRITE_BARRIER(x,CAR(x),y);
     push2(CAR(x) = y, PAIR_TAG);
     break;
   } //)@@
   case 10:  // @@(primitive (%%field1-set! rib x)
   {
     PRIM2();
+    WRITE_BARRIER(x,CDR(x),y);
     push2(CDR(x) = y, PAIR_TAG);
     break;
   } //)@@
   case 11:  // @@(primitive (%%field2-set! rib x)
   {
     PRIM2();
+    WRITE_BARRIER(x,TAG(x),y);
     push2(TAG(x) = y, PAIR_TAG);
     break;
   } // )@@
@@ -1002,6 +1293,7 @@ void show_stack(){
 void run() {
 #define ADVANCE_PC()                                                           \
   do {                                                                         \
+    PC_CHANGE_BARRIER(TAG(pc)) \
     pc = TAG(pc);                                                              \
   } while (0)
   while (1) {
@@ -1033,15 +1325,21 @@ void run() {
 
             if (jump) {
               // jump
-              pc = get_cont();
+              obj cont = get_cont();
+              PC_CHANGE_BARRIER(cont);
+              pc = cont;
+              WRITE_BARRIER(stack,CDR(stack),CAR(pc));
               CDR(stack) = CAR(pc);
             }
+            PC_CHANGE_BARRIER(TAG(pc));
             pc = TAG(pc);
           } else {
             num nargs = NUM(pop()); // @@(feature arity-check)@@
             obj s2 = TAG_RIB(alloc_rib(NUM_0, proc, PAIR_TAG));
             proc = CDR(s2);
+            WRITE_BARRIER(s2,CDR(s2),CDR(proc));
             CDR(s2) = CDR(proc); // @@(feature flat-closure)@@
+            WRITE_BARRIER(pc,CAR(pc),CAR(proc));
             CAR(pc) = CAR(proc); // save the proc from the mighty gcrvm.c
 
 
@@ -1066,6 +1364,7 @@ void run() {
             if (vari){
                 obj rest = NIL;
                 for(int i = 0; i < nargs; ++i){
+                    WRITE_BARRIER(TRUE,TEMP1,s2);
                     TEMP1 = s2;
                     rest = TAG_RIB(alloc_rib(pop(), rest, PAIR_TAG));
                     s2=TEMP1;
@@ -1084,17 +1383,23 @@ void run() {
 
             if (jump) {
               obj k = get_cont();
+              WRITE_BARRIER(c2,CAR(c2),CAR(k));
               CAR(c2) = CAR(k);
+              WRITE_BARRIER(c2,TAG(c2),TAG(k));
               TAG(c2) = TAG(k);
             } else {
+              WRITE_BARRIER(c2,CAR(c2),stack);
               CAR(c2) = stack;
+              WRITE_BARRIER(c2,TAG(c2),TAG(pc));
               TAG(c2) = TAG(pc);
             }
 
+            STACK_CHANGE_BARRIER(s2);
             stack = s2;
 
             obj new_pc = CAR(pc);
             CAR(pc) = TAG_NUM(instr);
+            PC_CHANGE_BARRIER(TAG(new_pc));
             pc = TAG(new_pc);
           }
           break;
@@ -1110,8 +1415,10 @@ void run() {
       PRINTLN();
 #endif
       obj x = CAR(stack);
-      ((IS_NUM(CDR(pc))) ? list_tail(RIB(stack), NUM(CDR(pc))) : RIB(CDR(pc)))
-          ->fields[0] = x;
+      rib* src = ((IS_NUM(CDR(pc))) ? list_tail(RIB(stack), NUM(CDR(pc))) : RIB(CDR(pc)));
+      WRITE_BARRIER(src,src->fields[0],x);
+      src->fields[0] = x;
+      STACK_CHANGE_BARRIER(CDR(stack));
       stack = CDR(stack);
       ADVANCE_PC();
       break;
@@ -1147,8 +1454,10 @@ void run() {
 
       obj p = pop();
       if (p != FALSE) {
+        PC_CHANGE_BARRIER(CDR(pc));
         pc = CDR(pc);
       } else {
+        PC_CHANGE_BARRIER(TAG(pc));
         pc = TAG(pc);
       }
       break;
@@ -1190,7 +1499,6 @@ void build_sym_table() {
 
   while (1) {
     byte c = get_byte();
-
     if (c == 44) {
       symbol_table = TAG_RIB(create_sym(accum));
       accum = NIL;
@@ -1207,6 +1515,7 @@ void build_sym_table() {
 }
 
 void set_global(obj c) {
+  WRITE_BARRIER(CAR(symbol_table),CAR(CAR(symbol_table)),c);
   CAR(CAR(symbol_table)) = c;
   symbol_table = CDR(symbol_table);
 }
@@ -1257,10 +1566,13 @@ void decode() {
     //fflush(stdout); // @@(feature debug)@@
 
     rib *c = alloc_rib(TAG_NUM(i), n, NUM_0);
+    WRITE_BARRIER(c,c->fields[2],TOS);
     c->fields[2] = TOS;
+    WRITE_BARRIER(stack,TOS,TAG_RIB(c));
     TOS = TAG_RIB(c);
   }
 
+  PC_CHANGE_BARRIER(TAG(CAR(n)));
   pc = TAG(CAR(n));
 }
 // )@@
@@ -1312,10 +1624,13 @@ void decode() {
     }
 
     rib *c = alloc_rib(TAG_NUM(op), n, 0);
+    WRITE_BARRIER(c,c->fields[2],TOS);
     c->fields[2] = TOS;
+    WRITE_BARRIER(stack,TOS,TAG_RIB(c));
     TOS = TAG_RIB(c);
   }
 
+  PC_CHANGE_BARRIER(TAG(CAR(n)));
   pc = TAG(CAR(n));
 }
 // )@@
@@ -1326,10 +1641,14 @@ void setup_stack() {
 
   obj first = CDR(stack);
   CDR(stack) = NUM_0;
+  WRITE_BARRIER(stack,TAG(stack),first);
   TAG(stack) = first;
 
+  WRITE_BARRIER(first,CAR(first),TAG_NUM(INSTR_HALT));
   CAR(first) = TAG_NUM(INSTR_HALT);
+  WRITE_BARRIER(first,CDR(first),NUM_0);
   CDR(first) = NUM_0;
+  WRITE_BARRIER(first,TAG(first),PAIR_TAG);
   TAG(first) = PAIR_TAG;
 }
 
@@ -1341,13 +1660,20 @@ void init() {
 #endif
   decompress(); // @@(feature compression/lzss/2b)@@
   init_heap();
-
-  FALSE = TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),
+#ifdef TREADMILL
+  do_not_collect = 1;
+#endif
+  obj new_false = TAG_RIB(alloc_rib(TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),
                             TAG_RIB(alloc_rib(NUM_0, NUM_0, SINGLETON_TAG)),
                             SINGLETON_TAG));
+  FALSE_CHANGE_BARRIER(new_false);
+  FALSE = new_false;
 
   build_sym_table();
   decode();
+#ifdef TREADMILL
+  do_not_collect = 0;
+#endif
 
   set_global(
       TAG_RIB(alloc_rib(NUM_0, symbol_table, CLOSURE_TAG))); /* primitive 0 */
@@ -1356,7 +1682,6 @@ void init() {
   set_global(NIL);
 
   setup_stack();
-
   run();
 }
 
@@ -1371,6 +1696,7 @@ int main(int _argc, char* _argv[]) {
 #else
 
 int main() { init(); }
+
 
 #endif
 
