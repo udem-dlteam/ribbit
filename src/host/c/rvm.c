@@ -238,6 +238,7 @@ rib* grey_start = NULL;
 #endif
 #ifdef TREADMILL
 #define WRITE_BARRIER(src,old,new) write_barrier((rib*)src,(rib*)new);
+// TODO: change barriers so write happens in barrier
 #define STACK_CHANGE_BARRIER(new_stack) \
     WRITE_BARRIER(root,CAR(root),new_stack); \
     CAR(root) = new_stack; 
@@ -246,6 +247,7 @@ rib* grey_start = NULL;
     WRITE_BARRIER(root,CDR(root),new_pc); \
     CDR(root) = new_pc; 
 #define FALSE_CHANGE_BARRIER(new_false) \
+    assert(IS_RIB(new_false)); \
     WRITE_BARRIER(root,TAG(root),new_false); \
     TAG(root) = new_false;
 #else
@@ -432,9 +434,9 @@ void init_heap() {
   }
   white_start = white_end = new_start;
   grey_end = grey_start;
-  root->fields[0] = (obj)stack;
-  root->fields[1] = (obj)FALSE;
-  root->fields[2] = (obj)pc;
+  CAR(root) = (obj)stack;
+  CDR(root) = (obj)pc;
+  TAG(root) = (obj)FALSE;
 #endif
 
 #ifdef MARK_SWEEP
@@ -839,6 +841,7 @@ void push2(obj car, obj tag) {
     }
     result->li_next = TAG_WHITE(TR_UNTAG(result->li_next));
     new_start = TR_UNTAG(new_start->li_next);
+    assert(new_start->li_prev != new_end);
     result->fields[0] = car;
     result->fields[1] = stack;
     result->fields[2] = tag;
