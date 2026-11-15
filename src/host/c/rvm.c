@@ -15,6 +15,9 @@
 // @@(feature debug-gc
 #define DEBUG_GC
 // )@@
+// @@(feature debug-nort
+#define DEBUG_NORT
+// )@@
 // @@(feature c/gc/treadmill
 #define TREADMILL
 // )@@
@@ -31,12 +34,7 @@
 // )@@
 
 #ifdef DEBUG_GC
-//#include <assert.h>
-#define assert(code) \
-    if (!(code)) { \
-        printf("assertion failed: %s\n",#code); \
-        __asm__("int3;"); \
-    } 
+#include <assert.h>
 #else
 #define assert(code) ;
 #endif
@@ -249,6 +247,23 @@ rib* grey_start = NULL;
 //
 #endif
 #ifdef TREADMILL
+#define CHECK_COLORS \
+        assert(IS_WHITE(white_start->li_next) || white_start == white_end); \
+        assert(IS_WHITE(white_end->li_prev->li_next) || white_start == white_end); \
+        assert(IS_GREY(grey_start->li_next) || grey_start == grey_end); \
+        assert(IS_GREY(grey_end->li_prev->li_next) || grey_start == grey_end); \
+        assert(IS_BLACK(black_start->li_next) || black_start == black_end); \
+        assert(IS_BLACK(black_end->li_prev->li_next) || black_start == black_end); \
+        assert(!IS_GREY(new_start->li_next) || new_start == new_end); \
+        assert(!IS_GREY(new_end->li_prev->li_next) || new_start == new_end);
+
+#define CHECK_NOT_BORDER(obj) \
+    assert(obj != white_start); \
+    assert(obj != white_end); \
+    assert(obj != grey_start); \
+    assert(obj != black_start); 
+
+
 #define WRITE_BARRIER(src,old,new) write_barrier((rib*)src,(rib*)new);
 // TODO: change barriers so write happens in barrier
 #define STACK_CHANGE_BARRIER(new_stack) \
@@ -694,9 +709,7 @@ void gc() {
 #define GC_STARTED 1
 #define IS_LIST_END(object) (((obj)object == (obj)&new || (obj)object == (obj)&black || (obj)object == (obj)&grey || (obj)object == (obj)&white))
 #define TR_UNTAG(arg) ( (rib*) ((obj)arg & ~7))
-#define PTR_1(obj) ((rib*)obj->fields[0])
-#define PTR_2(obj) ((rib*)obj->fields[1])
-#define PTR_3(obj) ((rib*)obj->fields[2])
+#define PTR(obj,i) ((rib*)obj->fields[i])
 #define TG_WHITE(x) (rib*)tagp((obj) x,1,flipped)
 #define TG_BLACK(x) (rib*)tagp((obj)x,1,1 - flipped)
 #define TAG_GREY(x) (rib*)tagp((obj)x,0,1)
@@ -740,19 +753,37 @@ static inline void write_barrier(rib* object,rib* new_ptr) {
   if (!IS_BLACK(object->li_next)) return; // source is not black
   if (!IS_WHITE(new_ptr->li_next)) return; //dst is black
   rib* next = new_ptr;
+  if (next == white_start) {
+    white_start = TR_UNTAG(white_start->li_next);
+  }
   unlink(next);
   next->li_next = TAG_GREY(grey_start->li_next);
   link(next,grey_start,TR_UNTAG(grey_start->li_next));
+  assert(IS_GREY(new_ptr->li_next));
 }
 
 static inline void unlink(rib* object) {
+    assert(object != white_start);
+    assert(object != white_end);
+    assert(object != grey_start);
+    assert(object != black_start);
     assert(((obj) object & 7) == 0);
+    rib* prev = object->li_prev;
+    rib* next = TR_UNTAG(object->li_next);
     TR_UNTAG(object->li_next)->li_prev = object->li_prev;
     obj tag = (obj)object->li_prev->li_next & 7;
     object->li_prev->li_next = (rib*)((obj)TR_UNTAG(object->li_next) | tag);
+
+    assert(TR_UNTAG(prev->li_next) == next);
+    assert(next->li_prev == prev);
 }
 
 static inline void link(rib* object,rib* prev,rib* next) {
+    assert(object != white_start);
+    assert(object != white_end);
+    assert(object != grey_start);
+    assert(object != black_start);
+
     assert(((obj) object & 7) == 0);
     assert(((obj) prev & 7) == 0);
     assert(((obj) next & 7) == 0);
@@ -765,12 +796,19 @@ static inline void link(rib* object,rib* prev,rib* next) {
     assert(next->fields[0] != 0);
     assert(next->fields[1] != 0);
     assert(next->fields[2] != 0);
+
     obj tag = (obj)object->li_next & 7;
     obj tag2 = (obj)prev->li_next & 7;
     object->li_next = (rib*)((obj)TR_UNTAG(next) | tag); 
     object->li_prev = prev;
-    prev->li_next = (rib*)((obj)object | tag2);
+    prev->li_next = (rib*)((obj)TR_UNTAG(object) | tag2);
     next->li_prev = object;
+
+
+    assert(TR_UNTAG(prev->li_next) == object);
+    assert(TR_UNTAG(object->li_next) == next);
+    assert(next->li_prev == object);
+    assert(object->li_prev == prev);
 }
 static inline void check_color(rib* object) {
     rib* scan = NULL;
@@ -823,13 +861,16 @@ static inline void rt_gc() {
     root->li_next = TAG_GREY(TR_UNTAG(root->li_next));
     assert(IS_GREY(root->li_next));
     grey_start = root;
+    black_end = black_start = TR_UNTAG(root->li_next);
     flags |= GC_STARTED;
+    CHECK_COLORS
   }
 
   if (grey_start == grey_end) {
     assert(!IS_GREY(grey_start->li_next));
 #ifdef DEBUG_GC
-    //puts("collect");
+    puts("collect");
+#ifdef DEBUG_NORT
     rib* scan = white_start;
     while (scan != white_end) {
         assert(IS_WHITE(scan->li_next));
@@ -841,12 +882,14 @@ static inline void rt_gc() {
         scan = TR_UNTAG(scan->li_next);
     }
 #endif
+#endif
     new_start = white_start;
     flipped = 1 - flipped;
     white_start = black_start;
     flags &= ~GC_STARTED;
     rib* object = new_start;
 #ifdef DEBUG_GC
+#ifdef DEBUG_NORT
     while (object != new_end) {
         assert(object != root);
         object->fields[0] = 0x6161616161616162;
@@ -855,93 +898,100 @@ static inline void rt_gc() {
         object = TR_UNTAG(object->li_next);
     }
 #endif
+#endif
+  assert(black_start == black_end);
+  CHECK_COLORS
   } else {
     assert(IS_GREY(grey_start->li_next));
     rib* object = grey_end->li_prev;
     assert(object != white_end->li_prev);
-    assert(object != white_start);
+    assert(object != white_start || (white_start == white_end && new_start == new_end));
     assert(IS_GREY(object->li_next));
 
-    if (!IS_NUM((obj)PTR_1(object)) && IS_WHITE(PTR_1(object)->li_next)) {
-        rib* next = PTR_1(object);
-        if (white_start == white_end && white_end == next) {
-            white_start = white_start->li_prev;
-            white_end = white_end->li_prev;
+    for (int i=0;i < 3;i++) {
+        if (!IS_NUM((obj)PTR(object,i)) && IS_WHITE(PTR(object,i)->li_next)) {
+            rib* next = PTR(object,i);
+            assert(next != white_end);
+#ifdef DEBUG_GC
+#ifdef DEBUG_NORT
+            rib* s = white_start;
+            int found = 0;
+            while (s != white_end) {
+                found |= (next == s);
+                s = TR_UNTAG(s->li_next);
+            }
+            assert(found != 0);
+#endif
+#endif
+            int redo = 0;
+
+            if (white_start == white_end && white_start == next) {
+                white_start = white_start->li_prev;
+                white_end = white_end->li_prev;
+                redo = 1;
+            }
+
+            else if (white_start == next) {
+                white_start = TR_UNTAG(white_start->li_next);
+                // puts("white list problems avoided");
+            }
+
+            assert(white_end != next);
+            assert(grey_start != next);
+            
+            
+            assert(IS_WHITE(next->li_next));
+
+            unlink(next);
+            if (grey_start == object) { // grey list only has one element
+                // we link before the start to prevent object <---> next <--> grey_end
+                // which would lead to the wrong object being placed in the black list
+                link(next,grey_start->li_prev,grey_start); 
+                // then, to prevent problems if white_end == grey_start , we
+                // check for it and step white_end back if necessary
+                rib* p1 = white_end, *p2 = grey_start;
+                if (white_end == grey_start) {
+                    white_end = white_end->li_prev;      
+                }
+                grey_start = grey_start->li_prev;
+                assert(white_end == grey_start || p1 != p2);
+            } else {
+                assert(new_start != next);
+                link(next,grey_start,TR_UNTAG(grey_start->li_next));
+            }
+
+            next->li_next = TAG_GREY(TR_UNTAG(next->li_next));
+
+            if (redo) {
+                white_start = TR_UNTAG(white_start->li_next);
+                white_end = TR_UNTAG(white_end->li_next);
+            }
+
+            assert(grey_end->li_prev == object);
+            assert(IS_GREY(PTR(object,i)->li_next));
+            assert(white_end->li_prev != next);
         }
-        else if (white_start == next && white_start != white_end) {
-            white_start = TR_UNTAG(white_start)->li_next;
-            // puts("white list problems avoided");
-        }
-        else if (white_end == next && white_start != white_end) {
-           white_end = white_end->li_prev;
-           // puts("white list problems avoided");
-        }
-        assert(IS_WHITE(next));
-        unlink(next);
-        grey_start = grey_start->li_prev;
-        assert(!IS_GREY(grey_start->li_next));
-        link(next,grey_start,TR_UNTAG(grey_start->li_next));
-        assert(!IS_GREY(grey_start->li_next));
-        grey_start = TR_UNTAG(grey_start->li_next);
-        next->li_next = TAG_GREY(TR_UNTAG(next->li_next));
-        assert(grey_end->li_prev == object);
-        assert(IS_GREY(PTR_1(object)->li_next));
     }
 
-    if (!IS_NUM((obj)PTR_2(object)) && IS_WHITE(PTR_2(object)->li_next)) {
-        rib* next = PTR_2(object);
-        assert(IS_WHITE(next));
 
-        if (white_start == white_end && white_end == next) {
-            white_start = white_start->li_prev;
-            white_end = white_end->li_prev;
+    CHECK_COLORS
+#ifdef DEBUG_GC
+#ifdef DEBUG_NORT
+        puts("gc");
+        rib* scanp = grey_end->li_prev;
+        while (scanp != grey_start->li_prev) {
+            assert(IS_GREY(scanp->li_next));
+            assert(scanp != new_start || new_start == new_end);
+            scanp = scanp->li_prev;
         }
-        else if (white_start == next && white_start != white_end) {
-            white_start = TR_UNTAG(white_start)->li_next;
-            // puts("white list problems avoided");
+        scanp = new_end->li_prev;
+        while (scanp != new_start->li_prev) {
+            assert(!IS_GREY(scanp->li_next));
+            scanp = scanp->li_prev;
         }
-        else if (white_end == next && white_start != white_end) {
-           white_end = white_end->li_prev;
-           // puts("white list problems avoided");
-        }
-        unlink(next);
-        grey_start = grey_start->li_prev;
-        assert(!IS_GREY(grey_start->li_next));
-        link(next,grey_start,TR_UNTAG(grey_start->li_next));
-        assert(!IS_GREY(grey_start->li_next));
-        next->li_next = TAG_GREY(TR_UNTAG(next->li_next));
-        grey_start = TR_UNTAG(grey_start->li_next);
-        assert(grey_end->li_prev == object);
-        assert(IS_GREY(PTR_2(object)->li_next));
-    }
-
-    if (!IS_NUM((obj)PTR_3(object)) && IS_WHITE(PTR_3(object)->li_next)) {
-        rib* next = PTR_3(object);
-        if (white_start == white_end && white_end == next) {
-            white_start = white_start->li_prev;
-            white_end = white_end->li_prev;
-        }
-        else if (white_start == next && white_start != white_end) {
-            white_start = TR_UNTAG(white_start)->li_next;
-            white_start = white_start->li_prev;
-            // puts("white list problems avoided");
-        }
-        else if (white_end == next && white_start != white_end) {
-           white_end = white_end->li_prev;
-           // puts("white list problems avoided");
-        }
-        assert(IS_WHITE(next));
-        unlink(next);
-        grey_start = grey_start->li_prev;
-        assert(!IS_GREY(grey_start->li_next));
-        link(next,grey_start,TR_UNTAG(grey_start->li_next));
-        assert(!IS_GREY(grey_start->li_next));
-        next->li_next = TAG_GREY(TR_UNTAG(next->li_next));
-        grey_start = TR_UNTAG(grey_start->li_next);
-        assert(grey_end->li_prev == object);
-        assert(IS_GREY(PTR_3(object)->li_next));
-    }
-
+        assert(!IS_GREY(new_start->li_next) || new_start == new_end);
+#endif
+#endif
     object->li_next = TAG_BLACK(TR_UNTAG(object->li_next)); 
     grey_end = grey_end->li_prev;
     assert(black_start == object);
@@ -950,6 +1000,7 @@ static inline void rt_gc() {
     assert(!IS_GREY(white_start));
     assert(!IS_GREY(white_end));
   }
+
 }
 
 
@@ -960,6 +1011,34 @@ obj pop() {
   STACK_CHANGE_BARRIER(CDR(stack));
   stack = CDR(stack);
   return x;
+}
+void check_pointer_positioning() {
+    rib* scan = new_start;
+    while (scan != new_end) // = grey_start
+    {
+        assert(!IS_GREY(scan->li_next));
+        assert(scan != grey_end);
+        assert(scan != black_end || white_end == black_end);
+        scan = TR_UNTAG(scan->li_next);
+    }
+
+    scan = grey_start;
+    while (scan != grey_end) // = black_start
+    {
+        assert(scan != black_end || black_start == black_end);
+        assert(scan != white_end || white_start == white_end);
+        assert(IS_GREY(scan));
+        scan = TR_UNTAG(scan->li_next);
+    }
+
+    scan = black_start;
+    while (scan != black_end) // =  white_start
+    {
+        assert(scan != white_end || white_start == white_end);
+        assert(scan != grey_end || grey_start == grey_end);
+        assert(IS_BLACK(scan));
+        scan = TR_UNTAG(scan->li_next);
+    }
 }
 
 void push2(obj car, obj tag) {
@@ -975,6 +1054,7 @@ void push2(obj car, obj tag) {
         start->fields[1] = 0x6161616161616161;
         start->fields[2] = 0x6161616161616161;
         link(start,new_start,TR_UNTAG(new_start->li_next));
+        start->li_next = TAG_WHITE(start->li_next);
         if (new_start == new_end) {
       //      puts("empty");
             new_end = TR_UNTAG(new_start->li_next);
@@ -991,11 +1071,13 @@ void push2(obj car, obj tag) {
             exit(-1);
         }
     }// else puts("normal alloc");
+    assert(new_start != new_end);
     rib* result = new_start;
-    assert(result != root);
     assert(!IS_GREY(result->li_next));
+    assert(result != root);
     assert(IS_GREY(grey_start->li_next) || grey_start == grey_end);
     result->li_next = TAG_WHITE(TR_UNTAG(result->li_next));
+    assert(new_start != new_end);
     new_start = TR_UNTAG(new_start->li_next);
     assert(new_start->li_prev != new_end);
     result->fields[0] = car;
