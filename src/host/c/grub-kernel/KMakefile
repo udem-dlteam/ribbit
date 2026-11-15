@@ -1,0 +1,14 @@
+CFLAGS = -m32 -nostdlib -fno-builtin -fno-stack-protector -nostartfiles -nodefaultlibs -c -Oz
+OBJECTS = repl.o kernel.o boot.o file.o stdio.o
+ASFLAGS = -f elf32
+CC=clang
+AS=nasm
+LD=ld
+LDFLAGS= -T link.ld -melf_i386 -e loader
+
+boot.o : boot.s
+	$(AS) $(ASFLAGS) boot.s
+%.o: %.c
+	$(CC) $(CFLAGS) $< -o $@
+kernel.elf: $(OBJECTS)
+	$(LD) $(LDFLAGS) $(OBJECTS) -o kernel.elf
