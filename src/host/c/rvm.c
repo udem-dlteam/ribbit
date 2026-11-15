@@ -1012,34 +1012,6 @@ obj pop() {
   stack = CDR(stack);
   return x;
 }
-void check_pointer_positioning() {
-    rib* scan = new_start;
-    while (scan != new_end) // = grey_start
-    {
-        assert(!IS_GREY(scan->li_next));
-        assert(scan != grey_end);
-        assert(scan != black_end || white_end == black_end);
-        scan = TR_UNTAG(scan->li_next);
-    }
-
-    scan = grey_start;
-    while (scan != grey_end) // = black_start
-    {
-        assert(scan != black_end || black_start == black_end);
-        assert(scan != white_end || white_start == white_end);
-        assert(IS_GREY(scan));
-        scan = TR_UNTAG(scan->li_next);
-    }
-
-    scan = black_start;
-    while (scan != black_end) // =  white_start
-    {
-        assert(scan != white_end || white_start == white_end);
-        assert(scan != grey_end || grey_start == grey_end);
-        assert(IS_BLACK(scan));
-        scan = TR_UNTAG(scan->li_next);
-    }
-}
 
 void push2(obj car, obj tag) {
 #ifdef TREADMILL
